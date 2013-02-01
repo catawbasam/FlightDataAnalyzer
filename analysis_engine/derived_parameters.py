@@ -4835,34 +4835,23 @@ class WheelSpeed(DerivedParameterNode):
     def derive(self, ws_in=P('Wheel Speed Inboard'), ws_out=P('Wheel Speed Outboard')):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(ws_in, ws_out)
-        
-
-
-class HeadingTrack(DerivedParameterNode):
-    '''
-    Magnetic Heading of the Aircraft Track by removing Drift from the Heading.
-    
-    Range 0 to 360
-    '''
-    units = 'deg'
-
-    def derive(self, heading=P('Heading Continuous'), drift=P('Drift')):
-        self.array = (heading.array - drift.array) % 360
 
 
 class HeadingTrueTrack(DerivedParameterNode):
     '''
-    True Heading of the Aircraft Track by removing Drift from the Heading.
+    True Track Heading of the Aircraft by adding Drift from track to the
+    aircraft Heading.
     
     Range 0 to 360
     '''
     units = 'deg'
 
     def derive(self, heading=P('Heading True Continuous'), drift=P('Drift')):
-        self.array = (heading.array - drift.array) % 360
+        #Note: drift is to the right of heading, so: Track = Heading + Drift
+        self.array = (heading.array + drift.array) % 360
 
 
-class HeadingDeviationFromRunway(DerivedParameterNode):
+class TrackDeviationFromRunway(DerivedParameterNode):
 
     # forse offset for approach slice start consistency
     align_frequency = 1
