@@ -4905,10 +4905,9 @@ class StableApproach(MultistateDerivedParameterNode):
     ============
     * Check for 300ft limit if turning onto runway late and ignore stability criteria before this? Alternatively only assess criteria when heading is within 50.
     * Q: Fill masked values of parameters with False (unstable: stop here) or True (stable, carry on)
-    * Declare that if there is no GS est < 1000ft non-precision (500ft)
-    * CREATE KPVs for height first stable and height last unstable
-    * 3 second gliding windows for GS / LOC etc.
+    * Add hysteresis (3 second gliding windows for GS / LOC etc.)
     * Engine cycling check
+    * Check Boeing's Vref as one may add an increment to this (20kts) which is not recorded!
     '''
     
     values_mapping = {
@@ -4966,13 +4965,13 @@ class StableApproach(MultistateDerivedParameterNode):
             glideslope = repair_mask(gdev.array[approach.slice])
             localizer = repair_mask(ldev.array[approach.slice])
             vertical_speed = repair_mask(vspd.array[approach.slice])
-            engine = repair_mask(eng.array[approach.slice])  # add hysteresis here?
+            engine = repair_mask(eng.array[approach.slice])  # TODO: add hysteresis here?
             altitude = repair_mask(alt.array[approach.slice])
             
             # Determine whether Glideslope was used at 1000ft, if not ignore ILS
             _1000 = index_at_value(altitude, 1000)
             if _1000:
-                glide_est_at_1000ft = abs(glideslope[_1000]) < 1.0  # dots
+                glide_est_at_1000ft = abs(glideslope[_1000]) < 1.5  # dots
             else:
                 # didn't reach 1000 feet
                 glide_est_at_1000ft = False
