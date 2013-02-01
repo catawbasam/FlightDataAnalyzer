@@ -12,7 +12,8 @@ from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
-from analysis_engine.library import align, ccf_737, np_ma_masked_zeros_like
+from analysis_engine.library import (align, ccf_737, max_value, 
+                                     np_ma_masked_zeros_like)
 from analysis_engine.node import (Attribute, A, KPV, KeyTimeInstance, KTI, load,
                                   M, Parameter, P, Section, S)
 from analysis_engine.process_flight import process_flight
@@ -669,7 +670,36 @@ class TestAltitudeAAL(unittest.TestCase):
         with hdf_file(hdf_copy) as hdf:
             alt_aal = hdf['Altitude AAL']
             self.assertTrue(False, msg='Test not implemented.')
-        
+
+    def test_alt_aal_training_flight(self):
+        alt_std = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-training-alt_std.nod'))
+        alt_rad = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-training-alt_rad.nod'))
+        fasts = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-training-fast.nod'))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(alt_std, alt_rad, fasts)
+        peak_detect = np.ma.masked_where(alt_aal.array < 500, alt_aal.array)
+        peaks = np.ma.clump_unmasked(peak_detect)
+        # Check to test that all 6 altitude sections are inculded in alt aal
+        self.assertEqual(len(peaks), 6)
+
+    def test_alt_aal_goaround_flight(self):
+        alt_std = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-goaround-alt_std.nod'))
+        alt_rad = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-goaround-alt_rad.nod'))
+        fasts = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-goaround-fast.nod'))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(alt_std, alt_rad, fasts)
+        difs = np.diff(alt_aal.array)
+        index, value = max_value(np.abs(difs))
+        # Check to test that the step occurs during cruse and not the go-around
+        self.assertTrue(index in range(1290, 1850))
+
+
 class TestAimingPointRange(unittest.TestCase):
     def test_basic_scaling(self):
         approaches = A(name = 'FDR Approaches',
