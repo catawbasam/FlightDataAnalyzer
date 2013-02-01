@@ -584,7 +584,7 @@ class TestAltitudeAAL(unittest.TestCase):
         self.assertTrue(('Altitude STD Smoothed', 'Altitude Radio', 'Fast') in opts)
         
     def test_alt_aal_basic(self):
-        data = np.ma.array([-3, 0, 30, 80, 150, 260, 120, 70, 20, -5])
+        data = np.ma.array([-3, 0, 30, 80, 250, 560, 220, 70, 20, -5])
         alt_std = P(array=data + 300)
         alt_rad = P(array=data)
         fast_data = np.ma.array([100] * 10)
@@ -592,11 +592,11 @@ class TestAltitudeAAL(unittest.TestCase):
         phase_fast.derive(Parameter('Airspeed', fast_data))
         alt_aal = AltitudeAAL()
         alt_aal.derive(alt_std, alt_rad, phase_fast)
-        expected = np.ma.array([0, 0, 30, 80, 150, 260, 120, 70, 20, 0])
+        expected = np.ma.array([0, 0, 30, 80, 250, 560, 220, 70, 20, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
 
     def test_alt_aal_bounce_rejection(self):
-        data = np.ma.array([-3, 0, 30, 80, 150, 260, 120, 70, 20, -5, 2, 5, 2,
+        data = np.ma.array([-3, 0, 30, 80, 250, 560, 220, 70, 20, -5, 2, 5, 2,
                             -3, -3])
         alt_std = P(array=data + 300)
         alt_rad = P(array=data)
@@ -605,19 +605,19 @@ class TestAltitudeAAL(unittest.TestCase):
         phase_fast.derive(Parameter('Airspeed', fast_data))
         alt_aal = AltitudeAAL()
         alt_aal.derive(alt_std, alt_rad, phase_fast)
-        expected = np.ma.array([0, 0, 30, 80, 150, 260, 120, 70, 20, 0, 0, 0, 0,
+        expected = np.ma.array([0, 0, 30, 80, 250, 560, 220, 70, 20, 0, 0, 0, 0,
                                 0, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
     def test_alt_aal_no_ralt(self):
-        data = np.ma.array([-3, 0, 30, 80, 150, 280, 120, 70, 20, -5])
+        data = np.ma.array([-3, 0, 30, 80, 250, 580, 220, 70, 20, -5])
         alt_std = P(array=data + 300)
         slow_and_fast_data = np.ma.array([70] + [85] * 8 + [70])
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
         alt_aal = AltitudeAAL()
         alt_aal.derive(alt_std, None,  phase_fast)
-        expected = np.ma.array([0, 0, 30, 80, 150, 210, 50, 0, 0, 0])
+        expected = np.ma.array([0, 0, 30, 80, 250, 510, 150, 0, 0, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
     def test_alt_aal_complex(self):
@@ -636,12 +636,12 @@ class TestAltitudeAAL(unittest.TestCase):
         # plot_parameter (alt_aal.array)
 
         np.testing.assert_equal(alt_aal.array[0], 0.0)
-        np.testing.assert_almost_equal(alt_aal.array[34], 7008.5, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[60], 3303.7, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[124], 8982.4, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[191], 8982.4, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[254], 3305.6, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[313], 0.0, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[34], 7013, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[60], 3308, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[124], 217, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[191], 8965, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[313], 0, decimal=0)
 
     @unittest.skip('Test Not Implemented')
     def test_alt_aal_faulty_alt_rad(self):
