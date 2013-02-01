@@ -32,6 +32,8 @@ from analysis_engine.library import (ambiguous_runway,
                                      find_edges_on_state_change,
                                      hysteresis,
                                      index_at_value,
+                                     index_of_first_start,
+                                     index_of_last_stop,
                                      integrate,
                                      is_index_within_slice,
                                      mask_inside_slices,
@@ -1895,6 +1897,53 @@ class AltitudeAutothrottleDisengaged(KeyPointValueNode):
                at_dis=KTI('AT Disengaged Selection')):
         self.create_kpvs_at_ktis(alt_aal.array, at_dis)
         
+        
+class AltitudeFirstStableDuringApproach(KeyPointValueNode):
+    '''
+    Establish first point stable during approach.
+    Todo: merge with unstable version below as a single nameformat
+    '''
+    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
+        # no need for approaches as we can assume each approach has no masked
+        # values and inbetween there will be some
+        apps = np.ma.clump_unmasked(stable.array)
+        for app in apps:
+            # iterate through approaches as only one KPV is to be created per
+            # approach
+            index = index_of_first_start(stable.array == 'Stable', app, min_dur=2)
+            if index:
+                self.create_kpv(index, value_at_index(alt.array, index))
+            else:
+                continue
+
+
+class AltitudeLastUnStableDuringApproach(KeyPointValueNode):
+    '''
+    Establish last Unstable position.
+    '''
+    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
+        apps = np.ma.clump_unmasked(stable.array)
+        for app in apps:
+            # iterate through approaches as only one KPV is to be created per
+            # approach
+            index = index_of_last_stop(stable.array != 'Stable', app, min_dur=2)
+            if index:
+                self.create_kpv(index, value_at_index(alt.array, index))
+            else:
+                continue
+
+
+class PercentApproachUnstableBelow1000Ft(KeyPointValueNode):
+    '''
+    '''
+    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
+        stable.array[alt.array > 1000] = np.ma.masked
+        apps_under_1000 = np.ma.clump_unmasked(stable.array)
+        for app in apps_under_1000:
+            is_stable = stable.array[app] == 'Stable'
+            percent = sum(is_stable) / float(app.stop - app.start)
+            self.create_kpv(app.start, percent)
+
 
 class AutopilotOffInCruiseDuration(KeyPointValueNode):
     '''
