@@ -200,6 +200,8 @@ class Node(object):
         # TypeError:'ABCMeta' object is not iterable?
         # this probably means dependencies for this class isn't a list!
         params = get_param_kwarg_names(cls.derive)
+        # Here due to an AttributeError? Derive kwarg is a string not a Node:
+        # e.g. derive(a='String') instead of derive(a=P('String'))
         return [d.name or d.get_name() for d in params]
     
     @classmethod

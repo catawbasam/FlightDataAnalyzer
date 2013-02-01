@@ -990,6 +990,7 @@ def filter_vor_ils_frequencies(array, navaid):
     else:
         raise ValueError('Navaid of unrecognised type %s' % navaid)
 
+
 def find_app_rwy(app_info, this_loc, this_loc_freq):
     """
     This function scans through the recorded approaches to find which matches
@@ -1013,7 +1014,50 @@ def find_app_rwy(app_info, this_loc, this_loc_freq):
         logger.warning("Approach runway information not available.")
         return approach, None
                 
-    return approach, runway     
+    return approach, runway
+
+
+def index_of_first_start(bool_array, _slice=slice(0,None), min_dur=1):
+    '''
+    Find the first starting index of a state change.
+    
+    Using bool_array allows one to select the filter before hand,
+    e.g. index_of_first_start(state.array == 'state', this_slice)
+    
+    Similar to "find_edges_on_state_change" but allows a minumum
+    duration (in samples)
+    
+    Note: applies -0.5 offset to interpolate state transition, so use
+    value_at_index() for the returned index to ensure correct values
+    are returned from arrays.
+    '''
+    starts, e, d = runs_of_ones_array(bool_array[_slice], min_dur)
+    if any(starts):
+        return starts[0] + _slice.start - 0.5  # interpolate offset
+    else:
+        return None
+
+
+def index_of_first_stop(bool_array, _slice=slice(0,None), min_dur=1):
+    '''
+    Find the first stopping index of a state change.
+    
+    Using bool_array allows one to select the filter before hand,
+    e.g. index_of_first_stop(state.array != 'state', this_slice)
+    
+    Similar to "find_edges_on_state_change" but allows a minumum
+    duration (in samples)
+    
+    Note: applies +0.5 offset to interpolate state transition, so use
+    value_at_index() for the returned index to ensure correct values
+    are returned from arrays.
+    '''
+    s, ends, d = runs_of_ones_array(bool_array[_slice], min_dur)
+    if any(ends):
+        return ends[0] + _slice.start - 0.5  # interpolate offset
+    else:
+        return None
+
 
 def find_edges(array, _slice, direction='rising_edges'):
     '''
@@ -1072,7 +1116,8 @@ def find_edges_on_state_change(state, array, change='entering', phase=None):
     
     :returns: list of indexes
     
-    :error condition: raises ValueError if either change or state not recognised
+    :raises: ValueError if change not recognised
+    :raises: KeyError if state not recognised
     '''
     def state_changes(state, array, change, _slice=slice(0, -1)):
 
@@ -1101,12 +1146,6 @@ def find_edges_on_state_change(state, array, change='entering', phase=None):
         
         return edge_list
 
-    ### High level function scans phase blocks or complete array and
-    ### presents appropriate arguments for analysis. We test for phase.name
-    ### as phase returns False.
-    ##if not state in {v:k for k, v in array.values_mapping.items()}:
-        ##raise ValueError("State '%s' not recognised in find_edges_on_state_change" %state)
-    
     if phase is None:
         return state_changes(state, array, change)
     

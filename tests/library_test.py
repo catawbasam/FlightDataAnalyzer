@@ -1761,6 +1761,24 @@ class TestIndexClosestValue(unittest.TestCase):
         self.assertEqual(index_closest_value(array, -9, slice(5,1,-1)), 2)
 
 
+class TestIndexOfFirstStart(unittest.TestCase):
+    def test_index_start(self):
+        b = np.array([0,0,1,1,1,0,0,1,1,1,1,0,0])
+        pos = index_of_first_start(b, slice(2, -2))
+        self.assertEqual(pos, 1.5)
+        pos = index_of_first_start(b, min_dur=4)
+        self.assertEqual(pos, 6.5)
+
+        
+class TestIndexOfFirstStop(unittest.TestCase):
+    def test_index_stop(self):
+        b = np.array([0,0,1,1,1,0,0,1,1,1,1,0,0])
+        pos = index_of_first_stop(b, slice(2, -2))
+        self.assertEqual(pos, 4.5)
+        pos = index_of_first_stop(b, min_dur=4)
+        self.assertEqual(pos, 10.5)
+
+
 class TestInterpolate(unittest.TestCase):
     def test_interpolate_basic(self):
         array = np.ma.array(data=[0,0,2,0,0,3.5,0],
