@@ -124,10 +124,11 @@ class FlapOrConfigurationMaxOrMin(object):
 ################################################################################
 # Acceleration
 
+
 class AccelerationLateralAtTouchdown(KeyPointValueNode):
     '''
-    Programmed at Goodyear office as a demonstration.
     '''
+
     def derive(self, acc=P('Acceleration Lateral Offset Removed'),
                tdwns=KTI('Touchdown')):
         for tdwn in tdwns:
@@ -367,21 +368,6 @@ class AirspeedMax(KeyPointValueNode):
         '''
         self.create_kpvs_within_slices(
             airspeed.array,
-            airborne,
-            max_value,
-        )
-
-
-# FIXME: Rename class to 'AirspeedFor3SecMax' to keep with naming convention!
-class AirspeedMax3Sec(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, airspeed=P('Airspeed'), airborne=S('Airborne')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            clip(airspeed.array, 3.0, airspeed.hz),
             airborne,
             max_value,
         )
@@ -755,6 +741,40 @@ class AirspeedMinusV235To1000FtMin(KeyPointValueNode):
         )
 
 
+class AirspeedMinusV2For3Sec35To1000FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Airspeed Minus V2 For 3 Sec 35 To 1000 Ft Max'
+
+    def derive(self, spd_v2=P('Airspeed Minus V2 For 3 Sec'),
+            alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_v2.array,
+            alt_aal.slices_from_to(35, 1000),
+            max_value,
+        )
+
+
+class AirspeedMinusV2For3Sec35To1000FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Airspeed Minus V2 For 3 Sec 35 To 1000 Ft Min'
+
+    def derive(self, spd_v2=P('Airspeed Minus V2 For 3 Sec'),
+            alt_aal=P('Altitude AAL For Flight Phases')):
+        '''
+        '''
+        self.create_kpvs_within_slices(
+            spd_v2.array,
+            alt_aal.slices_from_to(35, 1000),
+            min_value,
+        )
+
+
 ########################################
 # Airspeed: Relative
 
@@ -946,96 +966,6 @@ class AirspeedRelativeFor3Sec500To20FtMin(KeyPointValueNode):
         self.create_kpvs_within_slices(
             spd_rel.array,
             alt_aal.slices_from_to(500, 20),
-            min_value,
-        )
-
-
-class AirspeedRelativeFor5Sec1000To500FtMax(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            spd_rel.array,
-            alt_aal.slices_from_to(1000, 500),
-            max_value,
-        )
-
-
-class AirspeedRelativeFor5Sec1000To500FtMin(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            spd_rel.array,
-            alt_aal.slices_from_to(1000, 500),
-            min_value,
-        )
-
-
-class AirspeedRelativeFor5Sec500To20FtMax(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            spd_rel.array,
-            alt_aal.slices_from_to(500, 20),
-            max_value,
-        )
-
-
-class AirspeedRelativeFor5Sec500To20FtMin(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            spd_rel.array,
-            alt_aal.slices_from_to(500, 20),
-            min_value,
-        )
-
-
-class AirspeedRelativeFor5Sec20FtToTouchdownMax(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            spd_rel.array,
-            alt_aal.slices_from_to(20, 0),
-            max_value,
-        )
-
-
-class AirspeedRelativeFor5Sec20FtToTouchdownMin(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, spd_rel=P('Airspeed Relative For 5 Sec'),
-            alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            spd_rel.array,
-            alt_aal.slices_from_to(20, 0),
             min_value,
         )
 
@@ -2997,18 +2927,6 @@ class MachMax(KeyPointValueNode):
         self.create_kpvs_within_slices(mach.array, airs, max_value)
 
 
-# FIXME: Rename class to 'MachFor3SecMax' to keep with naming convention!
-class MachMax3Sec(KeyPointValueNode):
-    '''
-    '''
-
-    def derive(self, mach=P('Mach'), airs=S('Airborne')):
-        '''
-        '''
-        self.create_kpvs_within_slices(clip(mach.array, 3.0, mach.hz),
-                                       airs, max_value)
-
-
 ################################################################################
 # Magnetic Variation
 
@@ -3064,7 +2982,6 @@ class EngBleedValvesAtLiftoff(KeyPointValueNode):
 # Engine EPR
 
 
-# TODO: Write some unit tests!
 class EngEPRToFL100Max(KeyPointValueNode):
     '''
     '''
@@ -3082,7 +2999,6 @@ class EngEPRToFL100Max(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class EngEPRAboveFL100Max(KeyPointValueNode):
     '''
     '''
@@ -3630,7 +3546,6 @@ class ThrustReductionOnLanding(KeyPointValueNode):
 
 
 
-# TODO: Write some unit tests!
 class EngOilPressMax(KeyPointValueNode):
     '''
     '''
@@ -3641,7 +3556,6 @@ class EngOilPressMax(KeyPointValueNode):
         self.create_kpv(*max_value(oil_press.array))
 
 
-# TODO: Write some unit tests!
 class EngOilPressMin(KeyPointValueNode):
     '''
     '''
@@ -3757,7 +3671,6 @@ class EngTorqueMaximumContinuousPowerMax(KeyPointValueNode):
         self.create_kpv_outside_slices(eng_trq_max.array, ratings, max_value)
 
 
-# TODO: Write some unit tests!
 class EngTorqueToFL100Max(KeyPointValueNode):
     '''
     '''
@@ -3775,7 +3688,6 @@ class EngTorqueToFL100Max(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class EngTorqueAboveFL100Max(KeyPointValueNode):
     '''
     '''
@@ -4117,7 +4029,6 @@ class FlapAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(flap.array, liftoffs)
   
 
-# TODO: Write some unit tests!
 class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
     '''
     '''
@@ -4605,7 +4516,6 @@ class PitchRate20FtToTouchdownMin(KeyPointValueNode):
         )
 
 
-# TODO: Write some unit tests!
 class PitchRate2DegPitchTo35FtMax(KeyPointValueNode):
     '''
     '''
@@ -4616,7 +4526,6 @@ class PitchRate2DegPitchTo35FtMax(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch_rate.array, lifts, max_value)
 
 
-# TODO: Write some unit tests!
 class PitchRate2DegPitchTo35FtMin(KeyPointValueNode):
     '''
     '''
@@ -4627,7 +4536,6 @@ class PitchRate2DegPitchTo35FtMin(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch_rate.array, lifts, min_value)
 
 
-# TODO: Write some unit tests!
 # TODO: Remove this KPV?  Not a dependency, not used in event definitions.
 class PitchRate2DegPitchTo35FtAverage(KeyPointValueNode):
     '''
@@ -4643,7 +4551,6 @@ class PitchRate2DegPitchTo35FtAverage(KeyPointValueNode):
             self.create_kpv(mid_index, pitch_rate_avg)
 
 
-# TODO: Write some unit tests!
 # TODO: Remove this KPV?  Not a dependency, not used in event definitions.
 # NOTE: Python class name restriction: '2 Deg Pitch To 35 Ft Duration'
 class TwoDegPitchTo35FtDuration(KeyPointValueNode):
@@ -4680,7 +4587,6 @@ def vert_spd_phase_max_or_min(obj, vert_spd, phases, function):
 # Rate of Climb
 
 
-# TODO: Write some unit tests!
 class RateOfClimbMax(KeyPointValueNode):
     '''
     '''
@@ -4732,7 +4638,6 @@ class RateOfClimbBelow10000FtMax(KeyPointValueNode):
 # FIXME: Should rate of descent KPVs should occur for 3+ seconds?
 
 
-# TODO: Write some unit tests!
 class RateOfDescentMax(KeyPointValueNode):
     '''
     '''
@@ -4849,7 +4754,7 @@ class RateOfDescent1000To500FtMax(KeyPointValueNode):
         )
 
 
-class RateOfDescent500To20FtMax(KeyPointValueNode):
+class RateOfDescent500To50FtMax(KeyPointValueNode):
     '''
     '''
 
@@ -4859,12 +4764,12 @@ class RateOfDescent500To20FtMax(KeyPointValueNode):
         '''
         self.create_kpvs_within_slices(
             vert_spd.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             min_value,
         )
 
 
-class RateOfDescent500FtToTouchdownMax(KeyPointValueNode):
+class RateOfDescent50FtToTouchdownMax(KeyPointValueNode):
     '''
     '''
 
@@ -4875,24 +4780,7 @@ class RateOfDescent500FtToTouchdownMax(KeyPointValueNode):
         '''
         self.create_kpvs_within_slices(
             vert_spd.array,
-            alt_aal.slices_to_kti(500, tdwns),
-            min_value,
-        )
-
-
-class RateOfDescent20ToTouchdownMax(KeyPointValueNode):
-    '''
-    We use the inertial vertical speed to avoid ground effects this low to the
-    runway.
-    '''
-
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               vert_spd=P('Vertical Speed Inertial'), tdwns=KTI('Touchdown')):
-        '''
-        '''
-        self.create_kpvs_within_slices(
-            vert_spd.array,
-            alt_aal.slices_to_kti(20, tdwns),
+            alt_aal.slices_to_kti(50, tdwns),
             min_value,
         )
 
@@ -5121,7 +5009,6 @@ class RudderReversalAbove50Ft(KeyPointValueNode):
 # Speedbrake
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployed1000To20FtDuration(KeyPointValueNode):
     '''
     '''
@@ -5140,7 +5027,6 @@ class SpeedbrakesDeployed1000To20FtDuration(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
     '''
     Each time the aircraft is flown with high power and the speedbrakes open,
@@ -5174,7 +5060,6 @@ class SpeedbrakesDeployedWithPowerOnDuration(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployedWithFlapDuration(KeyPointValueNode):
     '''
     '''
@@ -5198,7 +5083,6 @@ class SpeedbrakesDeployedWithFlapDuration(KeyPointValueNode):
                     self.create_kpv(index, value)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployedWithConfDuration(KeyPointValueNode):
     '''
     Conf used here, but not tried or tested. Presuming conf 2 / conf 3 should
@@ -5221,7 +5105,6 @@ class SpeedbrakesDeployedWithConfDuration(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployedWithPowerOnInHeightBandsDuration(KeyPointValueNode):
     '''
     Specific to certain operators.
@@ -6270,7 +6153,6 @@ class AltitudeAtGoAroundGearUpSelection(KeyPointValueNode):
                 self.create_kpv(gear_up.index, gear_up_ht)
 
 
-# TODO: Write some unit tests!
 class SpeedbrakesDeployedInGoAroundDuration(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.

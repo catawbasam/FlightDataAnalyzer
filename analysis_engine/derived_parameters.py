@@ -290,22 +290,6 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
         self.array = clip(spd_v2.array, 3.0, spd_v2.frequency)
         
 
-# TODO: Write some unit tests!
-class AirspeedMinusV2For5Sec(DerivedParameterNode):
-    '''
-    Airspeed on takeoff relative to V2 over a 5 second window.
-
-    See the derived parameter 'Airspeed Minus V2'.
-    '''
-
-    units = 'kts'
-
-    def derive(self, spd_v2=P('Airspeed Minus V2')):
-        '''
-        '''
-        self.array = clip(spd_v2.array, 5.0, spd_v2.frequency)
-        
-
 ################################################################################
 # Airspeed Relative (Airspeed relative to Vapp, Vref or a fixed value.)
 
@@ -441,27 +425,6 @@ class AirspeedRelativeFor3Sec(DerivedParameterNode):
             self.array = np_ma_zeros_like(spd_vref.array, mask=True)
 
         
-# TODO: Write some unit tests!
-class AirspeedRelativeFor5Sec(DerivedParameterNode):
-    '''
-    Airspeed on approach relative to Vapp/Vref over a 5 second window.
-
-    See the derived parameter 'Airspeed Relative'.
-    '''
-
-    units = 'kts'
-
-    def derive(self, spd_vref=P('Airspeed Relative')):
-        '''
-        '''
-        try:
-            self.array = clip(spd_vref.array, 5.0, spd_vref.frequency)
-        except ValueError:
-            self.warning("'%s' is completely masked within '%s'. Output array "
-                         "will also be masked.", spd_vref.name, self.name)
-            self.array = np_ma_zeros_like(spd_vref.array, mask=True)
-
-
 ################################################################################
 
         
