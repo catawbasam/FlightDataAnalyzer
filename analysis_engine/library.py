@@ -1031,14 +1031,16 @@ def index_of_first_start(bool_array, _slice=slice(0,None), min_dur=1):
     value_at_index() for the returned index to ensure correct values
     are returned from arrays.
     '''
+    if _slice.step and _slice.step < 0:
+        raise ValueError("Reverse step not supported")
     starts, e, d = runs_of_ones_array(bool_array[_slice], min_dur)
     if any(starts):
-        return starts[0] + _slice.start - 0.5  # interpolate offset
+        return starts[0] + (_slice.start or 0) - 0.5  # interpolate offset
     else:
         return None
 
 
-def index_of_first_stop(bool_array, _slice=slice(0,None), min_dur=1):
+def index_of_last_stop(bool_array, _slice=slice(0,None), min_dur=1):
     '''
     Find the first stopping index of a state change.
     
@@ -1052,9 +1054,11 @@ def index_of_first_stop(bool_array, _slice=slice(0,None), min_dur=1):
     value_at_index() for the returned index to ensure correct values
     are returned from arrays.
     '''
+    if _slice.step and _slice.step < 0:
+        raise ValueError("Reverse step not supported")
     s, ends, d = runs_of_ones_array(bool_array[_slice], min_dur)
     if any(ends):
-        return ends[0] + _slice.start - 0.5  # interpolate offset
+        return ends[-1] + (_slice.start or 0) - 0.5
     else:
         return None
 

@@ -1763,21 +1763,32 @@ class TestIndexClosestValue(unittest.TestCase):
 
 class TestIndexOfFirstStart(unittest.TestCase):
     def test_index_start(self):
-        b = np.array([0,0,1,1,1,0,0,1,1,1,1,0,0])
+        b = np.array([0,0,1,1,1,0,0,1,1,1,1,0,0,0])
         pos = index_of_first_start(b, slice(2, -2))
         self.assertEqual(pos, 1.5)
         pos = index_of_first_start(b, min_dur=4)
         self.assertEqual(pos, 6.5)
-
+        
+    def test_index_of_last_start_backwards(self):
+        # try scanning backwards
+        b = np.array([0,0,1,1,1,0,0,1,1,1,1,0,0,0])
+        self.assertRaises(ValueError, index_of_first_start,
+                          b, slice(None, None, -1))
+        
         
 class TestIndexOfFirstStop(unittest.TestCase):
     def test_index_stop(self):
-        b = np.array([0,0,1,1,1,0,0,1,1,1,1,0,0])
-        pos = index_of_first_stop(b, slice(2, -2))
-        self.assertEqual(pos, 4.5)
-        pos = index_of_first_stop(b, min_dur=4)
-        self.assertEqual(pos, 10.5)
-
+        b = np.array([0,0,1,1,1,1,0,0,0,0,0,1,1,0])
+        pos = index_of_last_stop(b, slice(2, -1))
+        self.assertEqual(pos, 12.5)
+        pos = index_of_last_stop(b, slice(None, None), min_dur=4)
+        self.assertEqual(pos, 5.5)
+        
+    def test_index_of_last_stop_backwards(self):
+        # try scanning backwards
+        self.assertRaises(ValueError, index_of_last_stop, 
+                          np.array([0,1,0]), slice(None, None, -1))
+        
 
 class TestInterpolate(unittest.TestCase):
     def test_interpolate_basic(self):
