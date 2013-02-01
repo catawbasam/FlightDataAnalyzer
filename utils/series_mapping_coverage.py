@@ -1,12 +1,13 @@
 import argparse
 import csv
 import httplib2
+import os
 import simplejson
 import urllib2
 
 from analysis_engine.model_information import (
     get_aileron_map,
-    get_config_map,
+    get_conf_map,
     get_flap_map,
     get_slat_map,
 
@@ -15,7 +16,7 @@ from analysis_engine.velocity_speed import get_vspeed_map
 
 
 # Switch to production when it is updated to include series api.
-BASE_URL = 'https://polaris-test.flightdataservices.com' # 'https://polaris.flightdataservices.com'
+BASE_URL = 'https://polaris.flightdataservices.com' # 'https://polaris.flightdataservices.com'
 
 def get_series():
     '''
@@ -30,7 +31,7 @@ def get_series():
         raise
     else:
         series_list = simplejson.loads(content)['series']
-    lookups = (get_aileron_map, get_config_map, get_flap_map, get_slat_map, get_vspeed_map)
+    lookups = (get_aileron_map, get_conf_map, get_flap_map, get_slat_map, get_vspeed_map)
     for series_info in series_list:
         series = series_info['Series']
         family = series_info['Family']
@@ -45,7 +46,7 @@ def get_series():
 def save_series_coverage(dest_path):
     series_info = get_series()
     with open(dest_path, 'wb') as _file:
-        fieldnames = ['Series', 'Family', 'aileron', 'flap',  'slat', 'config', 'vspeed']
+        fieldnames = ['Series', 'Family', 'aileron', 'flap',  'slat', 'conf', 'vspeed']
         dw = csv.DictWriter(_file, delimiter='\t', fieldnames=fieldnames)
         dw.writerow(dict((n,n.title()) for n in fieldnames))
         for row in series_info:
