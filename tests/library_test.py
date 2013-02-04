@@ -887,16 +887,6 @@ class TestCoReg(unittest.TestCase):
         self.assertAlmostEqual(correlate, 0.818447591071135)
         self.assertAlmostEqual(slope, -0.669856459330144)
         self.assertAlmostEqual(offset, -2.54545454545455)
-
-
-class TestCcf_737(unittest.TestCase):
-    def test_basic(self):
-        force = np.ma.array([2047, 2046, 1023, 0, -1536, -2048])
-        expected = np.ma.array([106.2450592, 106.17548, 45.65372125, 
-                                0, -61.74557798, -85.34314189])
-        # Decimal values over the +/- 2k range are scaled to sensor force
-        # units within the LFL. Hence the scaling applied here.
-        np.testing.assert_array_almost_equal(ccf_737(force*0.1015625), expected)
     
     
 class TestClip(unittest.TestCase):

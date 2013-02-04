@@ -12,7 +12,7 @@ from analysis_engine.library import (coreg,
                                      slices_not,
                                      touchdown_inertial)
 
-from analysis_engine.node import (M, P, S, KTI, KeyTimeInstanceNode)
+from analysis_engine.node import (A, M, P, S, KTI, KeyTimeInstanceNode)
 
 from settings import (CLIMB_THRESHOLD,
                       NAME_VALUES_CLIMB,
@@ -439,6 +439,16 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
                 self.create_kti(index)
 
 
+class TakeoffRotation(KeyTimeInstanceNode):
+    '''
+    '''
+    def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
+        for takeoff in takeoffs:
+            index = index_at_value(pitch.array, 2.0, _slice=takeoff.slice)
+            if index:
+                self.create_kti(index)
+
+
 class Liftoff(KeyTimeInstanceNode):
     '''
     This checks for the moment when the inertial rate of climb increases
@@ -533,7 +543,8 @@ class Touchdown(KeyTimeInstanceNode):
                                             'Landing',))
 
     def derive(self, wow=M('Gear On Ground'), roc=P('Vertical Speed Inertial'),
-               alt=P('Altitude AAL'), airs=S('Airborne'), lands=S('Landing')):
+               alt=P('Altitude AAL'), airs=S('Airborne'), lands=S('Landing'),
+               frame=A('Frame')):
         # The preamble here checks that the landing we are looking at is
         # genuine, it's not just because the data stopped in mid-flight. We
         # reduce the scope of the search for touchdown to avoid triggering in
@@ -544,6 +555,10 @@ class Touchdown(KeyTimeInstanceNode):
             t0 = air.slice.stop
             for land in (lands or []):
                 if t0 and is_index_within_slice(t0, land.slice):
+                    if frame and frame.value == 'Q-200':
+                        self.create_kti(index_at_value(alt.array, 0.0,
+                                                       land.slice))
+                        continue
                     # If we have a wheel sensor, use this. It is often a derived
                     # parameter created by ORing the left and right main gear
                     # signals.

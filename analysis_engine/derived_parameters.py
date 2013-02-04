@@ -18,7 +18,6 @@ from analysis_engine.library import (air_track,
                                      blend_two_parameters,
                                      cas2dp,
                                      cas_alt2mach,
-                                     ccf_737,
                                      clip,
                                      coreg,
                                      cycle_finder,
@@ -1320,54 +1319,6 @@ class ControlColumn(DerivedParameterNode):
             blend_two_parameters(posn_capt, posn_fo)
 
 
-class ControlColumnForceCapt(DerivedParameterNode):
-    '''
-    The force applied by the captain to the control column.  This is dependent
-    on who has master control of the aircraft and this derived parameter
-    selects the appropriate slices of data from the foreign and local sensor forces.
-    
-    Beware; the sensor forces are NOT the same as the control column forces.
-    '''
-    name = 'Control Column Force (Capt)'
-    units = 'deg'
-
-    def derive(self,
-               force_local=P('Control Column Force (Local)'),
-               force_foreign=P('Control Column Force (Foreign)'),
-               fcc_master=M('FCC Local Limited Master')):
-        
-        # FCC (R) == 1 and this form is used as the numpy array comparison
-        # tilts at using the MappedArray object.
-        
-        self.array = ccf_737(np.ma.where(fcc_master.array.data != 1,
-                                         force_local.array,
-                                         force_foreign.array))
-
-
-class ControlColumnForceFO(DerivedParameterNode):
-    '''
-    The force applied by the first officer to the control column.  This is
-    dependent on who has master control of the aircraft and this derived
-    parameter selects the appropriate slices of data from the foreign and local
-    forces.
-    '''
-    
-    name = 'Control Column Force (FO)'
-    units = 'lbf'
-
-    def derive(self,
-               force_local=P('Control Column Force (Local)'),
-               force_foreign=P('Control Column Force (Foreign)'),
-               fcc_master=M('FCC Local Limited Master')):
-
-        # FCC (R) == 1 and this form is used as the numpy array comparison
-        # tilts at using the MappedArray object.
-
-        self.array = ccf_737(np.ma.where(fcc_master.array.data == 1,
-                                         force_local.array,
-                                         force_foreign.array))
-
-
 class ControlColumnForce(DerivedParameterNode):
     '''
     The combined force from the captain and the first officer.
@@ -1376,12 +1327,11 @@ class ControlColumnForce(DerivedParameterNode):
     units = 'lbf'
 
     def derive(self,
-               force_local=P('Control Column Force (Local)'),
-               force_foreign=P('Control Column Force (Foreign)')):
-        self.array = ccf_737((force_local.array + force_foreign.array)/2.0)
+               force_capt=P('Control Column Force (Capt)'),
+               force_fo=P('Control Column Force (FO)')):
+        self.array = force_capt.array + force_fo.array
         # TODO: Check this summation is correct in amplitude and phase.
         # Compare with Boeing charts for the 737NG.
-
 
 
 class ControlWheel(DerivedParameterNode):
@@ -1445,7 +1395,7 @@ class Drift(DerivedParameterNode):
 
 
 ################################################################################
-# Pack Valves
+# Brakes
 
 class BrakePressure(DerivedParameterNode):
     """

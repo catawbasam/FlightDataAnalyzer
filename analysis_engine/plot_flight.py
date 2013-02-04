@@ -130,6 +130,11 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
     one_hz = Parameter()
     kml = simplekml.Kml()
     with hdf_file(hdf_path) as hdf:
+        if 'Latitude' not in hdf:
+            return        
+        if plot_altitude not in hdf:
+            logger.warning("Disabling altitude on KML plot as it is unavailable.")
+            plot_altitude = False
         if plot_altitude:
             alt = derived_param_from_hdf(hdf[plot_altitude]).get_aligned(one_hz)
             alt.array = repair_mask(alt.array, frequency=alt.frequency, repair_duration=None) / METRES_TO_FEET
@@ -144,8 +149,6 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
             altitude_mode = simplekml.constants.AltitudeMode.clamptoground
         
         # TODO: align everything to 0 offset
-        
-        
         smooth_lat = derived_param_from_hdf(hdf['Latitude Smoothed']).get_aligned(one_hz)
         smooth_lon = derived_param_from_hdf(hdf['Longitude Smoothed']).get_aligned(one_hz)
         add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
