@@ -642,14 +642,12 @@ class AltitudeAAL(DerivedParameterNode):
                 self.array = alt_aal
                 break
 
-            # We set the minimum height for detecting flights to the smaller
-            # of 5,000 ft or 90% of the height range covered. This ensures
-            # that low altitude "hops" are still treated as complete flights
-            # while more complex flights are processed as climbs and descents
-            # of 5000 ft or more.
-            dh = min(np.ma.ptp(alt_std.array[quick])*0.9, 5000.0)
+            # We set the minimum height for detecting flights to 500 ft. This
+            # ensures that low altitude "hops" are still treated as complete
+            # flights while more complex flights are processed as climbs and
+            # descents of 500 ft or more.
             alt_idxs, alt_vals = cycle_finder(alt_std.array[quick],
-                                              min_step=dh)
+                                              min_step=500)
 
             # Reference to start of arrays for simplicity hereafter.
             alt_idxs += quick.start or 0
