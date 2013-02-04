@@ -12,8 +12,7 @@ from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
-from analysis_engine.library import (align, ccf_737, max_value, 
-                                     np_ma_masked_zeros_like)
+from analysis_engine.library import (align, max_value, np_ma_masked_zeros_like)
 from analysis_engine.node import (Attribute, A, KPV, KeyTimeInstance, KTI, load,
                                   M, Parameter, P, Section, S)
 from analysis_engine.process_flight import process_flight
@@ -47,8 +46,6 @@ from analysis_engine.derived_parameters import (
     Configuration,
     ControlColumn,
     ControlColumnForce,
-    ControlColumnForceCapt,
-    ControlColumnForceFO,
     ControlWheel,
     CoordinatesSmoothed,
     Daylight,
@@ -1153,77 +1150,18 @@ class TestControlColumn(unittest.TestCase):
 
 class TestControlColumnForce(unittest.TestCase):
 
-    def setUp(self):
-        ccff = np.ma.arange(1, 4)
-        self.ccff = P('Control Column Force (Local)', ccff)
-        ccfl = np.ma.arange(1, 4)
-        ccfl[-1:] = np.ma.masked
-        self.ccfl = P('Control Column Force (Foreign)', ccfl)
-
     def test_can_operate(self):
-        expected = [('Control Column Force (Local)',
-                     'Control Column Force (Foreign)')]
+        expected = [('Control Column Force (Capt)',
+                     'Control Column Force (FO)')]
         opts = ControlColumnForce.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_control_column_force(self):
         ccf = ControlColumnForce()
-        ccf.derive(self.ccff, self.ccfl)
-        result = ccf.array
-        answer = np.ma.array(data=[1, 2, 3], mask=[False, False, True])
-        np.testing.assert_array_almost_equal(result, ccf_737(answer))
-
-
-class TestControlColumnForceCapt(unittest.TestCase):
-
-    def setUp(self):
-        ccfl = np.ma.arange(0, 16)
-        self.ccfl = P('Control Column Force (Local)', ccfl)
-        ccff = ccfl[-1::-1]
-        self.ccff = P('Control Column Force (Foreign)', ccff)
-        fcc = np.repeat(np.ma.arange(0, 4), 4)
-        self.fcc = P('FCC Local Limited Master', fcc)
-
-    def test_can_operate(self):
-        expected = [('Control Column Force (Local)',
-                     'Control Column Force (Foreign)',
-                     'FCC Local Limited Master')]
-        opts = ControlColumnForceCapt.get_operational_combinations()
-        self.assertEqual(opts, expected)
-
-    def test_control_column_force_capt(self):
-        ccfc = ControlColumnForceCapt()
-        ccfc.derive(self.ccfl, self.ccff, self.fcc)
-        result = ccfc.array
-        answer = self.ccfl.array
-        answer[4:8] = self.ccff.array[4:8]
-        np.testing.assert_array_almost_equal(result, ccf_737(answer))
-
-
-class TestControlColumnForceFO(unittest.TestCase):
-
-    def setUp(self):
-        ccfl = np.ma.arange(0, 16)
-        self.ccfl = P('Control Column Force (Local)', ccfl)
-        ccff = ccfl[-1::-1]
-        self.ccff = P('Control Column Force (Foreign)', ccff)
-        fcc = np.repeat(np.ma.arange(0, 4), 4)
-        self.fcc = P('FCC Local Limited Master', fcc)
-
-    def test_can_operate(self):
-        expected = [('Control Column Force (Local)',
-                     'Control Column Force (Foreign)',
-                     'FCC Local Limited Master')]
-        opts = ControlColumnForceFO.get_operational_combinations()
-        self.assertEqual(opts, expected)
-
-    def test_control_column_force_fo(self):
-        ccff = ControlColumnForceFO()
-        ccff.derive(self.ccfl, self.ccff, self.fcc)
-        result = ccff.array
-        answer = self.ccff.array
-        answer[4:8] = self.ccfl.array[4:8]
-        np.testing.assert_array_almost_equal(result, ccf_737(answer))
+        ccf.derive(
+            ControlColumnForce('Control Column Force (Capt)', np.ma.arange(8)),
+            ControlColumnForce('Control Column Force (FO)', np.ma.arange(8)))
+        np.testing.assert_array_almost_equal(ccf.array, np.ma.arange(0, 16, 2))
 
 
 class TestControlWheel(unittest.TestCase):

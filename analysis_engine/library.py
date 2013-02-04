@@ -795,6 +795,7 @@ def datetime_of_index(start_datetime, index, frequency=1):
     offset = timedelta(seconds=index_in_seconds)
     return start_datetime + offset
 
+
 def delay(array, period, hz=1.0):
     '''
     This function introduces a time delay. Used in validation testing where
@@ -821,12 +822,6 @@ def delay(array, period, hz=1.0):
         else:
             return result
 
-def ccf_737(array):
-    '''
-    Boeing 737 NG control column force equation. See D226A101-2 Rev G Note 14C.
-    '''
-    x = array/0.1015625
-    return ((1.5E-09*x+2.5E-06)*x+0.0405)*x
 
 # Previously known as Duration
 def clip(array, period, hz=1.0, remove='peaks'):
@@ -894,6 +889,7 @@ def clip(array, period, hz=1.0, remove='peaks'):
     else:
         return np_ma_masked_zeros_like(source)
 
+
 """
     # Compute an array of differences across period, such that each maximum or
     # minimum results in a negative result.
@@ -919,6 +915,7 @@ def clip(array, period, hz=1.0, remove='peaks'):
             break # No need to process the rest of the array.
     return a
     """
+
 
 def clump_multistate(array, state, _slices, condition=True):
     '''
