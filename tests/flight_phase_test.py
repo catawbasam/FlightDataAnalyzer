@@ -339,6 +339,24 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         expected = buildsection('ILS Localizer Established', 1, 9)
         self.assertEqual(establish, expected)
 
+    def test_ils_localizer_skips_too_many_masked_values(self):
+        app = buildsection('Approach',1, 9)
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
+        ils = P('ILS Localizer',np.ma.array(data=[0.0]*20,
+                                            mask=[0,1]*10))
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils, alt_aal, app)
+        self.assertEqual(establish, [])
+
+    def test_ils_localizer_skips_too_few_values(self):
+        app = buildsection('Approach',1, 9)
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
+        ils = P('ILS Localizer',np.ma.array(data=[0.0]*5,
+                                            mask=[0]*5))
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils, alt_aal, app)
+        self.assertEqual(establish, [])
+
 """
 class TestInitialApproach(unittest.TestCase):
     def test_can_operate(self):
@@ -542,7 +560,7 @@ class TestCruise(unittest.TestCase):
         # With this test waveform, the peak at 31:32 is just flat enough
         # for the climb and descent to be a second apart, whereas the peak
         # at 94 genuinely has no interval with a level cruise.
-        expected = buildsections('Cruise',[31, 32],[94, 94])
+        expected = buildsections('Cruise',[31, 32],[94, 95])
         self.assertEqual(list(test_phase), list(expected))
 
     def test_cruise_truncated_start(self):
@@ -578,7 +596,8 @@ class TestCruise(unittest.TestCase):
         test_phase = Cruise()
         test_phase.derive(ccd, toc, tod)
         #===========================================================
-        expected = buildsection('Cruise', 6, None)
+        expected = Cruise()
+        expected.create_section(slice(6, 7), 'Cruise')
         self.assertEqual(test_phase, expected)
         self.assertEqual(len(toc), 1)
         self.assertEqual(len(tod), 0)
@@ -834,12 +853,13 @@ class TestGearRetracting(unittest.TestCase):
         
     
 class TestGoAroundAndClimbout(unittest.TestCase):
+    
     def test_can_operate(self):
         self.assertEqual(GoAroundAndClimbout.get_operational_combinations(),
-                         [('Descend For Flight Phases', 'Climb For Flight Phases',
-                           'Go Around')])
+                         [('Altitude AAL','Go Around')])
 
     def test_go_around_and_climbout_phase_basic(self):
+        '''
         down = np.ma.array(range(4000,1000,-490)+[1000]*7) - 4000
         up = np.ma.array([1000]*7+range(1000,4500,490)) - 1500
         ga_kti = KTI('Go Around', items=[KeyTimeInstance(index=7, name='Go Around')])
@@ -852,6 +872,20 @@ class TestGoAroundAndClimbout(unittest.TestCase):
         self.assertEqual(len(ga_phase), 1)
         self.assertEqual(ga_phase.get_first().start_edge, expected[0].start_edge)
         self.assertEqual(ga_phase.get_first().stop_edge, expected[0].stop_edge)
+        '''
+        
+        alt_aal = load(os.path.join(test_data_path, 'alt_aal_goaround.nod'))
+        gas = load(os.path.join(test_data_path, 'go_around_kti_goaround.nod'))
+        ga_phase = GoAroundAndClimbout()
+        ga_phase.derive(alt_aal, gas)
+        expected = buildsections('Go Around And Climbout',
+                                 [3586.0, 3724],
+                                 [4895,5141], 
+                                 [7124,7265])
+        for n in [0,1,2]:
+            self.assertAlmostEqual(ga_phase[n].start_edge,expected[n].start_edge,places=0)
+            self.assertAlmostEqual(ga_phase[n].stop_edge,expected[n].stop_edge,places=0)
+
 
 class TestHolding(unittest.TestCase):
     def test_can_operate(self):

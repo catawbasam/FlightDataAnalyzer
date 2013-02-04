@@ -795,6 +795,38 @@ def datetime_of_index(start_datetime, index, frequency=1):
     offset = timedelta(seconds=index_in_seconds)
     return start_datetime + offset
 
+def delay(array, period, hz=1.0):
+    '''
+    This function introduces a time delay. Used in validation testing where
+    correlation is improved by allowing for the delayed response of one
+    parameter when compared to another.
+    
+    :param array: Masked array of floats
+    :type array: Numpy masked array
+    :param period: Time delay(sec)
+    :type period: int/float
+    :param hz: Frequency of the data_array
+    :type hz: float
+
+    :returns: array with data shifted back in time, and initial values masked.
+    '''
+    n = int(period * hz)
+    result = np_ma_masked_zeros_like(array)
+    if len(result[n:])==len(array[:-n]):
+        result[n:] = array[:-n]
+        return result
+    else:
+        if n==0:
+            return array
+        else:
+            return result
+
+def ccf_737(array):
+    '''
+    Boeing 737 NG control column force equation. See D226A101-2 Rev G Note 14C.
+    '''
+    x = array/0.1015625
+    return ((1.5E-09*x+2.5E-06)*x+0.0405)*x
 
 # Previously known as Duration
 def clip(array, period, hz=1.0, remove='peaks'):
@@ -1078,7 +1110,9 @@ def find_edges_on_state_change(state, array, change='entering',
     def state_changes(state, array, edge_list, change, _slice=slice(0, -1)):
 
         length = len(array[_slice])
-        # The offset allows for phase slices and puts the 
+        # The offset allows for phase slices and puts the transition midway
+        # between the two conditions as this is the most probable time that
+        # the change took place.
         offset = _slice.start - 0.5
         state_periods = np.ma.clump_unmasked(
             np.ma.masked_not_equal(array[_slice], array.state[state]))
@@ -1538,7 +1572,10 @@ def runway_heading(runway):
                                            runway['start'])
         return float(brg.data)
     except:
-        raise ValueError("runway_heading unable to resolve heading for runway id='%s'" %runway['id'])
+        if runway:
+            raise ValueError("runway_heading unable to resolve heading for runway id='%s'" %runway['id'])
+        else:
+            raise ValueError("runway_heading unable to resolve heading; no runway")
     
 
 def runway_snap_dict(runway, lat, lon):

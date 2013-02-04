@@ -439,6 +439,16 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
                 self.create_kti(index)
 
 
+class TakeoffRotation(KeyTimeInstanceNode):
+    '''
+    '''
+    def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
+        for takeoff in takeoffs:
+            index = index_at_value(pitch.array, 2.0, _slice=takeoff.slice)
+            if index:
+                self.create_kti(index)
+
+
 class Liftoff(KeyTimeInstanceNode):
     '''
     This checks for the moment when the inertial rate of climb increases

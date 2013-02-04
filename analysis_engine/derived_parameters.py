@@ -18,6 +18,7 @@ from analysis_engine.library import (air_track,
                                      blend_two_parameters,
                                      cas2dp,
                                      cas_alt2mach,
+                                     ccf_737,
                                      clip,
                                      coreg,
                                      cycle_finder,
@@ -68,6 +69,7 @@ from analysis_engine.library import (air_track,
                                      step_values,
                                      straighten_headings,
                                      track_linking,
+                                     value_at_index,
                                      vstack_params)
 from analysis_engine.velocity_speed import get_vspeed_map
 
@@ -288,22 +290,6 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
         self.array = clip(spd_v2.array, 3.0, spd_v2.frequency)
         
 
-# TODO: Write some unit tests!
-class AirspeedMinusV2For5Sec(DerivedParameterNode):
-    '''
-    Airspeed on takeoff relative to V2 over a 5 second window.
-
-    See the derived parameter 'Airspeed Minus V2'.
-    '''
-
-    units = 'kts'
-
-    def derive(self, spd_v2=P('Airspeed Minus V2')):
-        '''
-        '''
-        self.array = clip(spd_v2.array, 5.0, spd_v2.frequency)
-        
-
 ################################################################################
 # Airspeed Relative (Airspeed relative to Vapp, Vref or a fixed value.)
 
@@ -439,27 +425,6 @@ class AirspeedRelativeFor3Sec(DerivedParameterNode):
             self.array = np_ma_zeros_like(spd_vref.array, mask=True)
 
         
-# TODO: Write some unit tests!
-class AirspeedRelativeFor5Sec(DerivedParameterNode):
-    '''
-    Airspeed on approach relative to Vapp/Vref over a 5 second window.
-
-    See the derived parameter 'Airspeed Relative'.
-    '''
-
-    units = 'kts'
-
-    def derive(self, spd_vref=P('Airspeed Relative')):
-        '''
-        '''
-        try:
-            self.array = clip(spd_vref.array, 5.0, spd_vref.frequency)
-        except ValueError:
-            self.warning("'%s' is completely masked within '%s'. Output array "
-                         "will also be masked.", spd_vref.name, self.name)
-            self.array = np_ma_zeros_like(spd_vref.array, mask=True)
-
-
 ################################################################################
 
         
@@ -677,14 +642,12 @@ class AltitudeAAL(DerivedParameterNode):
                 self.array = alt_aal
                 break
 
-            # We set the minimum height for detecting flights to the smaller
-            # of 5,000 ft or 90% of the height range covered. This ensures
-            # that low altitude "hops" are still treated as complete flights
-            # while more complex flights are processed as climbs and descents
-            # of 5000 ft or more.
-            dh = min(np.ma.ptp(alt_std.array[quick])*0.9, 5000.0)
+            # We set the minimum height for detecting flights to 500 ft. This
+            # ensures that low altitude "hops" are still treated as complete
+            # flights while more complex flights are processed as climbs and
+            # descents of 500 ft or more.
             alt_idxs, alt_vals = cycle_finder(alt_std.array[quick],
-                                              min_step=dh)
+                                              min_step=500)
 
             # Reference to start of arrays for simplicity hereafter.
             alt_idxs += quick.start or 0
@@ -1361,7 +1324,9 @@ class ControlColumnForceCapt(DerivedParameterNode):
     '''
     The force applied by the captain to the control column.  This is dependent
     on who has master control of the aircraft and this derived parameter
-    selects the appropriate slices of data from the foreign and local forces.
+    selects the appropriate slices of data from the foreign and local sensor forces.
+    
+    Beware; the sensor forces are NOT the same as the control column forces.
     '''
     name = 'Control Column Force (Capt)'
     units = 'deg'
@@ -1374,9 +1339,9 @@ class ControlColumnForceCapt(DerivedParameterNode):
         # FCC (R) == 1 and this form is used as the numpy array comparison
         # tilts at using the MappedArray object.
         
-        self.array = np.ma.where(fcc_master.array.data != 1,
-                                 force_local.array,
-                                 force_foreign.array)
+        self.array = ccf_737(np.ma.where(fcc_master.array.data != 1,
+                                         force_local.array,
+                                         force_foreign.array))
 
 
 class ControlColumnForceFO(DerivedParameterNode):
@@ -1398,9 +1363,9 @@ class ControlColumnForceFO(DerivedParameterNode):
         # FCC (R) == 1 and this form is used as the numpy array comparison
         # tilts at using the MappedArray object.
 
-        self.array = np.ma.where(fcc_master.array.data == 1,
-                                 force_local.array,
-                                 force_foreign.array)
+        self.array = ccf_737(np.ma.where(fcc_master.array.data == 1,
+                                         force_local.array,
+                                         force_foreign.array))
 
 
 class ControlColumnForce(DerivedParameterNode):
@@ -1411,9 +1376,9 @@ class ControlColumnForce(DerivedParameterNode):
     units = 'lbf'
 
     def derive(self,
-               force_capt=P('Control Column Force (Capt)'),
-               force_fo=P('Control Column Force (FO)')):
-        self.array = force_capt.array + force_fo.array
+               force_local=P('Control Column Force (Local)'),
+               force_foreign=P('Control Column Force (Foreign)')):
+        self.array = ccf_737((force_local.array + force_foreign.array)/2.0)
         # TODO: Check this summation is correct in amplitude and phase.
         # Compare with Boeing charts for the 737NG.
 
@@ -3544,19 +3509,26 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     spacing, even if the recorded latitude and longitude have only 0.25Hz
     sample rate.
     """
-        
+
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        return 'Latitude Prepared' in available and \
-               'Longitude Prepared' in available and \
-               'Approach Range' in available and \
-               'Heading Continuous' in available and \
-               'Airspeed True' in available and \
-               'FDR Approaches' in available
-    
+        return all_of((
+            'Latitude Prepared',
+            'Longitude Prepared',
+            'Heading Continuous',
+            'Approach Range',
+            'Heading True Continuous',
+            'Airspeed True',
+            'Precise Positioning',
+            'Takeoff',
+            'FDR Takeoff Runway',
+            'Touchdown',
+            'FDR Approaches',
+            'Mobile'), available)
+
     units = 'deg'
-    
+
     def derive(self, lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
                head_mag=P('Heading Continuous'),
@@ -3591,16 +3563,23 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
     units = 'deg'
     ##align_frequency = 1.0
     ##align_offset = 0.0
-    
+
     @classmethod
     def can_operate(cls, available):
-        return 'Latitude Prepared' in available and \
-               'Longitude Prepared' in available and \
-               'Approach Range' in available and \
-               'Heading Continuous' in available and \
-               'Airspeed True' in available and \
-               'FDR Approaches' in available
-    
+        return all_of((
+            'Latitude Prepared',
+            'Longitude Prepared',
+            'Heading Continuous',
+            'Approach Range',
+            'Heading True Continuous',
+            'Airspeed True',
+            'Precise Positioning',
+            'Takeoff',
+            'FDR Takeoff Runway',
+            'Touchdown',
+            'FDR Approaches',
+            'Mobile'), available)
+
     def derive(self, lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
                head_mag=P('Heading Continuous'),
@@ -4069,7 +4048,9 @@ class ThrustAsymmetry(DerivedParameterNode):
     For propellor aircraft the product of prop speed and torgue should be
     used to provide a similar single asymmetry value.
     '''
-    
+
+    units = '%'
+
     def derive(self, max_n1=P('Eng (*) N1 Max'), min_n1=P('Eng (*) N1 Min')):
         self.array = max_n1.array - min_n1.array
 
@@ -4720,18 +4701,18 @@ class ApproachRange(DerivedParameterNode):
                     self.warning('Low convergence in computing visual '
                                  'approach path offset.')
             
-            ### This plot code allows the actual flightpath and regression line 
-            ### to be viewed in case of concern about the performance of the 
-            ### algorithm.
-            ##import matplotlib.pyplot as plt
-            ##x1=app_range[reg_slice]
-            ##y1=alt_aal.array[reg_slice]
-            ##x2=app_range[reg_slice]
-            ##y2=alt_aal.array[reg_slice] * (1-0.13*glide.array[reg_slice])            
-            ##xnew = np.linspace(np.min(x1),np.max(x1),num=2)
-            ##ynew = (xnew - offset)/slope 
-            ##plt.plot(x1,y1,'-',x2,y2,'-',xnew,ynew,'-')
-            ##plt.show()
+            ## This plot code allows the actual flightpath and regression line 
+            ## to be viewed in case of concern about the performance of the 
+            ## algorithm.
+            #import matplotlib.pyplot as plt
+            #x1=app_range[reg_slice.start:this_app_slice.stop]
+            #y1=alt_aal.array[reg_slice.start:this_app_slice.stop]
+            #x2=app_range[reg_slice]
+            #y2=alt_aal.array[reg_slice] * (1-0.13*glide.array[reg_slice])            
+            #xnew = np.linspace(np.min(x2),np.max(x2),num=2)
+            #ynew = (xnew - offset)/slope 
+            #plt.plot(x1,y1,'-',x2,y2,'-',xnew,ynew,'-')
+            #plt.show()
     
             # Touchdown point nominally 1000ft from start of runway but
             # use glideslope antenna position if we know it.
@@ -4893,7 +4874,7 @@ class HeadingDeviationFromRunway(DerivedParameterNode):
 
         if to_rwy:
             try:
-                self.array[takeoff[0].slice] = runway_deviation(heading_track[takeoff[0].slice], to_rwy.value)
+                self.array[takeoff[0].slice] = runway_deviation(heading_track.array[takeoff[0].slice], to_rwy.value)
             except (KeyError, ValueError):
                 # no runway identified during Takeoff
                 pass
@@ -4978,19 +4959,19 @@ class StableApproach(MultistateDerivedParameterNode):
         
         for approach in apps:
             # prepare data for this appproach:
-            gear_down = repair_mask(gear.array[approach.slice])
-            flap_lever = repair_mask(flap.array[approach.slice])
-            heading = repair_mask(head.array[approach.slice])
-            airspeed = repair_mask(aspd.array[approach.slice])
-            glideslope = repair_mask(glide.array[approach.slice])
-            localizer = repair_mask(loc.array[approach.slice])
-            vertical_speed = repair_mask(vert_spd.array[approach.slice])
-            engine = repair_mask(eng.array[approach.slice])
-            altitude = repair_mask(alt.array[approach.slice])
+            gear_down = repair_mask(gear.array[approach.slice], zero_if_masked=True)
+            flap_lever = repair_mask(flap.array[approach.slice], zero_if_masked=True)
+            heading = repair_mask(head.array[approach.slice], zero_if_masked=True)
+            airspeed = repair_mask(aspd.array[approach.slice], zero_if_masked=True)
+            glideslope = repair_mask(glide.array[approach.slice], zero_if_masked=True)
+            localizer = repair_mask(loc.array[approach.slice], zero_if_masked=True)
+            vertical_speed = repair_mask(vert_spd.array[approach.slice], zero_if_masked=True)
+            engine = repair_mask(eng.array[approach.slice], zero_if_masked=True)
+            altitude = repair_mask(alt.array[approach.slice], zero_if_masked=True)
             
             # Determine whether Glideslope was used at 1000ft, if not ignore ILS
             _1000 = index_at_value(altitude, 1000)
-            glide_est_at_1000ft = abs(glideslope[_1000]) < 1.0  # dots
+            glide_est_at_1000ft = _1000!=None and abs(glideslope[_1000]) < 1.0  # dots
 
             #== 1. Gear Down ==
             # Assume unstable due to Gear Down at first

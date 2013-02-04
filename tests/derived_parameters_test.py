@@ -12,7 +12,8 @@ from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
-from analysis_engine.library import align, np_ma_masked_zeros_like
+from analysis_engine.library import (align, ccf_737, max_value, 
+                                     np_ma_masked_zeros_like)
 from analysis_engine.node import (Attribute, A, KPV, KeyTimeInstance, KTI, load,
                                   M, Parameter, P, Section, S)
 from analysis_engine.process_flight import process_flight
@@ -583,7 +584,7 @@ class TestAltitudeAAL(unittest.TestCase):
         self.assertTrue(('Altitude STD Smoothed', 'Altitude Radio', 'Fast') in opts)
         
     def test_alt_aal_basic(self):
-        data = np.ma.array([-3, 0, 30, 80, 150, 260, 120, 70, 20, -5])
+        data = np.ma.array([-3, 0, 30, 80, 250, 560, 220, 70, 20, -5])
         alt_std = P(array=data + 300)
         alt_rad = P(array=data)
         fast_data = np.ma.array([100] * 10)
@@ -591,11 +592,11 @@ class TestAltitudeAAL(unittest.TestCase):
         phase_fast.derive(Parameter('Airspeed', fast_data))
         alt_aal = AltitudeAAL()
         alt_aal.derive(alt_std, alt_rad, phase_fast)
-        expected = np.ma.array([0, 0, 30, 80, 150, 260, 120, 70, 20, 0])
+        expected = np.ma.array([0, 0, 30, 80, 250, 560, 220, 70, 20, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
 
     def test_alt_aal_bounce_rejection(self):
-        data = np.ma.array([-3, 0, 30, 80, 150, 260, 120, 70, 20, -5, 2, 5, 2,
+        data = np.ma.array([-3, 0, 30, 80, 250, 560, 220, 70, 20, -5, 2, 5, 2,
                             -3, -3])
         alt_std = P(array=data + 300)
         alt_rad = P(array=data)
@@ -604,19 +605,19 @@ class TestAltitudeAAL(unittest.TestCase):
         phase_fast.derive(Parameter('Airspeed', fast_data))
         alt_aal = AltitudeAAL()
         alt_aal.derive(alt_std, alt_rad, phase_fast)
-        expected = np.ma.array([0, 0, 30, 80, 150, 260, 120, 70, 20, 0, 0, 0, 0,
+        expected = np.ma.array([0, 0, 30, 80, 250, 560, 220, 70, 20, 0, 0, 0, 0,
                                 0, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
     def test_alt_aal_no_ralt(self):
-        data = np.ma.array([-3, 0, 30, 80, 150, 280, 120, 70, 20, -5])
+        data = np.ma.array([-3, 0, 30, 80, 250, 580, 220, 70, 20, -5])
         alt_std = P(array=data + 300)
         slow_and_fast_data = np.ma.array([70] + [85] * 8 + [70])
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
         alt_aal = AltitudeAAL()
         alt_aal.derive(alt_std, None,  phase_fast)
-        expected = np.ma.array([0, 0, 30, 80, 150, 210, 50, 0, 0, 0])
+        expected = np.ma.array([0, 0, 30, 80, 250, 510, 150, 0, 0, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
     def test_alt_aal_complex(self):
@@ -633,15 +634,15 @@ class TestAltitudeAAL(unittest.TestCase):
                        P('Altitude Radio', rad_data),
                        phase_fast)
         # plot_parameter (alt_aal.array)
-        
+
         np.testing.assert_equal(alt_aal.array[0], 0.0)
         np.testing.assert_almost_equal(alt_aal.array[34], 7013, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[60], 3308, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[124], 217, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[191], 8965, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[313], 17, decimal=0)
-    
+        np.testing.assert_almost_equal(alt_aal.array[313], 0, decimal=0)
+
     @unittest.skip('Test Not Implemented')
     def test_alt_aal_faulty_alt_rad(self):
         '''
@@ -669,7 +670,36 @@ class TestAltitudeAAL(unittest.TestCase):
         with hdf_file(hdf_copy) as hdf:
             alt_aal = hdf['Altitude AAL']
             self.assertTrue(False, msg='Test not implemented.')
-        
+
+    def test_alt_aal_training_flight(self):
+        alt_std = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-training-alt_std.nod'))
+        alt_rad = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-training-alt_rad.nod'))
+        fasts = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-training-fast.nod'))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(alt_std, alt_rad, fasts)
+        peak_detect = np.ma.masked_where(alt_aal.array < 500, alt_aal.array)
+        peaks = np.ma.clump_unmasked(peak_detect)
+        # Check to test that all 6 altitude sections are inculded in alt aal
+        self.assertEqual(len(peaks), 6)
+
+    def test_alt_aal_goaround_flight(self):
+        alt_std = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-goaround-alt_std.nod'))
+        alt_rad = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-goaround-alt_rad.nod'))
+        fasts = load(os.path.join(test_data_path,
+                                    'TestAltitudeAAL-goaround-fast.nod'))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(alt_std, alt_rad, fasts)
+        difs = np.diff(alt_aal.array)
+        index, value = max_value(np.abs(difs))
+        # Check to test that the step occurs during cruse and not the go-around
+        self.assertTrue(index in range(1290, 1850))
+
+
 class TestAimingPointRange(unittest.TestCase):
     def test_basic_scaling(self):
         approaches = A(name = 'FDR Approaches',
@@ -1039,13 +1069,13 @@ class TestAltitudeTail(unittest.TestCase):
 
     def test_altitude_tail_after_lift(self):
         talt = AltitudeTail()
-        talt.derive(Parameter('Altitude Radio', np.ma.array([5])),
-                    Parameter('Pitch', np.ma.array([18])),
+        talt.derive(Parameter('Altitude Radio', np.ma.array([0, 5])),
+                    Parameter('Pitch', np.ma.array([0, 18])),
                     Attribute('Ground To Lowest Point Of Tail', 10.0/METRES_TO_FEET),
                     Attribute('Main Gear To Lowest Point Of Tail', 35.0/METRES_TO_FEET))
         result = talt.array
         # Lift 5ft
-        answer = np.ma.array(data=[5.0-0.815594803123],
+        answer = np.ma.array(data=[10, 5 - 0.815594803123],
                              dtype=np.float, mask=False)
         np.testing.assert_array_almost_equal(result.data, answer.data)
 
@@ -1125,14 +1155,14 @@ class TestControlColumnForce(unittest.TestCase):
 
     def setUp(self):
         ccff = np.ma.arange(1, 4)
-        self.ccff = P('Control Column Force (Capt)', ccff)
+        self.ccff = P('Control Column Force (Local)', ccff)
         ccfl = np.ma.arange(1, 4)
         ccfl[-1:] = np.ma.masked
-        self.ccfl = P('Control Column Force (FO)', ccfl)
+        self.ccfl = P('Control Column Force (Foreign)', ccfl)
 
     def test_can_operate(self):
-        expected = [('Control Column Force (Capt)',
-                     'Control Column Force (FO)')]
+        expected = [('Control Column Force (Local)',
+                     'Control Column Force (Foreign)')]
         opts = ControlColumnForce.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -1140,8 +1170,8 @@ class TestControlColumnForce(unittest.TestCase):
         ccf = ControlColumnForce()
         ccf.derive(self.ccff, self.ccfl)
         result = ccf.array
-        answer = np.ma.array(data=[2, 4, 6], mask=[False, False, True])
-        np.testing.assert_array_almost_equal(result, answer)
+        answer = np.ma.array(data=[1, 2, 3], mask=[False, False, True])
+        np.testing.assert_array_almost_equal(result, ccf_737(answer))
 
 
 class TestControlColumnForceCapt(unittest.TestCase):
@@ -1167,7 +1197,7 @@ class TestControlColumnForceCapt(unittest.TestCase):
         result = ccfc.array
         answer = self.ccfl.array
         answer[4:8] = self.ccff.array[4:8]
-        np.testing.assert_array_almost_equal(result, answer)
+        np.testing.assert_array_almost_equal(result, ccf_737(answer))
 
 
 class TestControlColumnForceFO(unittest.TestCase):
@@ -1193,7 +1223,7 @@ class TestControlColumnForceFO(unittest.TestCase):
         result = ccff.array
         answer = self.ccff.array
         answer[4:8] = self.ccfl.array[4:8]
-        np.testing.assert_array_almost_equal(result, answer)
+        np.testing.assert_array_almost_equal(result, ccf_737(answer))
 
 
 class TestControlWheel(unittest.TestCase):
@@ -1916,9 +1946,9 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
         smoother.get_derived([lat,lon])
         # An output warning of smooth cost function closing with cost > 1 is
         # normal and arises because the data sample is short.
-        self.assertGreater(smoother.array[3],0.01)
-        self.assertLess(smoother.array[3],0.013)
-        
+        expected = [0.0, 0.0, 0.00088, 0.00088, 0.00088, 0.0, 0.0]
+        np.testing.assert_almost_equal(smoother.array, expected, decimal=5)
+
     def test_latitude_smoothing_masks_static_data(self):
         lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))
         lon = P('Longitude', np.ma.zeros(7,dtype=float))
@@ -1939,8 +1969,8 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
         smoother.get_derived([lat,lon])
         # An output warning of smooth cost function closing with cost > 1 is
         # normal and arises because the data sample is short.
-        self.assertGreater(smoother.array[3],0.011)
-        self.assertLess(smoother.array[3],0.012)
+        expected = [0.0, 0.0, -0.00176, -0.00176, -0.00176, 0.0, 0.0]
+        np.testing.assert_almost_equal(smoother.array, expected, decimal=5)
 
 
 class TestHeadingTrack(unittest.TestCase):
@@ -2372,27 +2402,7 @@ class TestAirspeedMinusV2For3Sec(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeedMinusV2For5Sec(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestAirspeedRelativeFor3Sec(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedRelativeFor5Sec(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -2865,8 +2875,8 @@ class TestLatitudePrepared(unittest.TestCase):
 class TestLatitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
         combinations = LatitudeSmoothed.get_operational_combinations()
-        self.assertTrue(all('Latitude Prepared') in c for c in combinations)
-    
+        self.assertTrue(all('Latitude Prepared' in c for c in combinations))
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -2885,7 +2895,7 @@ class TestLongitudePrepared(unittest.TestCase):
 class TestLongitudeSmoothed(unittest.TestCase):
     def test_can_operate(self):
         combinations = LongitudeSmoothed.get_operational_combinations()
-        self.assertTrue(all('Longitude Prepared') in c for c in combinations)
+        self.assertTrue(all('Longitude Prepared' in c for c in combinations))
         
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -3213,6 +3223,8 @@ class TestCoordinatesSmoothed(unittest.TestCase):
              
         return
 
+    # Skipped by DJ's advice: too many changes withoud updating the test
+    @unittest.skip('Test Out Of Date')
     def test__adjust_track_precise(self):
         hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
@@ -3241,6 +3253,8 @@ class TestCoordinatesSmoothed(unittest.TestCase):
                                  slice(3200, 3445, None), 
                                  slice(12930, 13424, None)])
         
+    # Skipped by DJ's advice: too many changes withoud updating the test
+    @unittest.skip('Test Out Of Date')
     def test__adjust_track_imprecise(self):
         hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')
@@ -3274,6 +3288,8 @@ class TestCoordinatesSmoothed(unittest.TestCase):
         #plt.plot(lon.array, lat.array)
         #plt.show()
 
+    # Skipped by DJ's advice: too many changes withoud updating the test
+    @unittest.skip('Test Out Of Date')
     def test__adjust_track_visual(self):
         hdf_test_file = os.path.join(test_data_path,
                                      'flight_with_go_around_and_landing.hdf5')

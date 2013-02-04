@@ -103,18 +103,29 @@ class GoAroundAndClimbout(FlightPhaseNode):
     Altitude AAL) which can be tailored to accommodate small reversals in
     altitude.
     '''
-    def derive(self, descend=P('Descend For Flight Phases'),
-               climb = P('Climb For Flight Phases'),
+    
+    def derive(self, alt_aal=P('Altitude AAL'),
                gas=KTI('Go Around')):
+        
         # Prepare a home for multiple go-arounds. (Not a good day, eh?)
         ga_slice = []
+        
+        # Find the ups and downs in the height trace.
+        alt_idxs, alt_vals = cycle_finder(alt_aal.array, min_step=500.0)        
+
         for ga in gas:
-            back_up = descend.array - descend.array[ga.index - 1]
-            ga_start = index_closest_value(back_up, 500,
-                                           slice(ga.index,None, -1))
-            ga_stop = index_closest_value(climb.array, 2000,
-                                          slice(ga.index, None))
-            ga_slice.append(slice(ga_start, ga_stop))
+            ga_idx = ga.index
+            for n_alt, alt_idx in enumerate(alt_idxs):
+                if abs(ga_idx-alt_idx) < 5:
+                    # We have matched the cycle to the (possibly radio height
+                    # based) go-around KTI.
+                    ga_start = index_closest_value(alt_aal.array, 
+                                                   alt_aal.array[ga_idx]+500,
+                                                   slice(ga_idx,alt_idxs[n_alt-1], -1))
+                    ga_stop = index_closest_value(alt_aal.array,
+                                                  alt_aal.array[ga_idx]+2000,
+                                                  slice(ga_idx, alt_idxs[n_alt+1]))
+                    ga_slice.append(slice(ga_start, ga_stop))
         self.create_phases(ga_slice)
 
 
@@ -209,12 +220,19 @@ class ApproachAndLanding(FlightPhaseNode):
                                             slice(land.slice.start, 0, -1))
             app_slices.append(slice(app_start,land.slice.stop,None))
 
+        last_ga = 0
         for ga in go_arounds:
-            # Stretch the start point back to 3000ft (rather than 500ft)
+            # The go-around KTI is based on only a 500ft 'pit' but to include
+            # the approach phase we stretch the start point back towards
+            # 3000ft. To avoid merging multiple go-arounds, the endpoint is
+            # carried across from one to the next, which is a safe thing to
+            # do because the KTI algorithm works on the cycle finder results
+            # which are inherently ordered.
             gapp_start = index_closest_value(alt_aal.array,
                                              INITIAL_APPROACH_THRESHOLD,
-                                             slice(ga.slice.start, 0, -1))
+                                             slice(ga.slice.start, last_ga, -1))
             ga_slices.append(slice(gapp_start, ga.slice.stop,None))
+            last_ga = ga.slice.stop
 
         all_apps = slices_or(app_slices, ga_slices)
 
@@ -582,9 +600,11 @@ def scan_ils(beam, ils_dots, height, scan_slice):
     if beam not in ['localizer', 'glideslope']:
         raise ValueError('Unrecognised beam type in scan_ils')
 
-    # Let's check to see if we have anything to work with...
-    if np.ma.count(ils_dots[scan_slice]) < 5:
+    # Let's check to see if we have something sensible to work with...
+    if np.ma.count(ils_dots[scan_slice]) < 5 or \
+       np.ma.count(ils_dots)/float(len(ils_dots)) < 0.8:
         return None
+    
     # Find where we first see the ILS indication. We will start from 200ft to
     # avoid getting spurious glideslope readings (hence this code is the same
     # for glide and localizer).
@@ -1002,13 +1022,15 @@ class TakeoffRoll(FlightPhaseNode):
 
 class TakeoffRotation(FlightPhaseNode):
     '''
+    This is used by correlation tests to check control movements during the
+    rotation and lift phases.
     '''
     def derive(self, lifts=S('Liftoff')):
         if not lifts:
             return
         lift_index = lifts.get_first().index
-        start = lift_index - 4
-        end = lift_index + 4
+        start = lift_index - 10
+        end = lift_index + 15
         self.create_phase(slice(start, end))
         
     
