@@ -1445,7 +1445,7 @@ class Drift(DerivedParameterNode):
 
 
 ################################################################################
-# Pack Valves
+# Brakes
 
 class BrakePressure(DerivedParameterNode):
     """
