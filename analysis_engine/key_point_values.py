@@ -3288,6 +3288,9 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                tdwn=KTI('Touchdown')):
         '''
         '''
+        if not tdwn:
+            return
+        
         for eng_num, eng in enumerate((eng1, eng2, eng3, eng4), start=1):
             if eng is None:
                 continue  # Engine is not available on this aircraft.
@@ -4789,6 +4792,8 @@ class RateOfDescentAtTouchdown(KeyPointValueNode):
     '''
     We use the inertial vertical speed to avoid ground effects and give an
     accurate value at the point of touchdown.
+    
+    Q: Should this use touchdown?
     '''
 
     def derive(self, vert_spd=P('Vertical Speed Inertial'),
