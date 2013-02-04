@@ -422,8 +422,8 @@ class DescentLowClimb(FlightPhaseNode):
                 if pk_vals==None or len(pk_vals)<3:
                     continue
                 for n in range(1,len(pk_vals)-1):
-                    if (pk_vals[n-1]-pk_vals[n]) >  DESCENT_LOW_CLIMB_THRESHOLD and \
-                       (pk_vals[n+1]-pk_vals[n]) >  DESCENT_LOW_CLIMB_THRESHOLD :
+                    if (pk_vals[n-1]-pk_vals[n]) > DESCENT_LOW_CLIMB_THRESHOLD and \
+                       (pk_vals[n+1]-pk_vals[n]) > DESCENT_LOW_CLIMB_THRESHOLD:
                         self.create_phase(shift_slice(slice(pk_idxs[n-1], pk_idxs[n+1]), 
                                                       air.slice.start+this_dlc.start))
 
