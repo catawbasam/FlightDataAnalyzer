@@ -3920,10 +3920,10 @@ def step_values(array, steps):
 
 def touchdown_inertial(land, roc, alt):
     """
-    For aircraft without weight on wheels swiches, or if there is a problem
+    For aircraft without weight on wheels switches, or if there is a problem
     with the switch for this landing, we do a local integration of the
     inertial rate of climb to estimate the actual point of landing. This is
-    referenced to the available altitude signal, altitude AAL, which will
+    referenced to the available altitude signal, Altitude AAL, which will
     have been derived from the best available source. This technique leads on
     to the rate of descent at landing KPV which can then make the best
     calculation of the landing ROD as we know more accurately the time where
