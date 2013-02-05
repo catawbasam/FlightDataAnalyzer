@@ -2267,22 +2267,28 @@ class TestPercentApproachStableBelow1000(unittest.TestCase):
         ops = PercentApproachStableBelow1000Ft.get_operational_combinations()
         self.assertEqual(ops, [('Stable Approach', 'Altitude AAL')])
         
-    def test_derive_two_approaches(self):
-        # two approaches
+    def test_derive_three_approaches(self):
+        # three approaches
         percent_stable = PercentApproachStableBelow1000Ft()
-        stable = StableApproach(array=np.ma.array([1,4,9,9,9, 3, 2,9,2,9,9,1,1],
-                                             mask=[0,0,0,0,0, 1, 0,0,0,0,0,0,0]))
+        stable = StableApproach(array=np.ma.array(
+              [1,4,9,9,9, 3, 2,9,2,9,9,1,1, 3, 1,1,1,1,1],
+         mask=[0,0,0,0,0, 1, 0,0,0,0,0,0,0, 1, 0,0,0,0,0]))
         alt2app = P(array=np.ma.array([1100,1000,900,800,700,  # approach 1
                                        1000,
-                                       600,300,200,100,50,20  # approach 2
+                                       600,300,200,100,50,20,10,  # approach 2
+                                       1000,
+                                       300,200,100,30,0  # approach 3
                                        ]))
         percent_stable.derive(stable, alt2app)
-        self.assertEqual(len(percent_stable), 2)
+        self.assertEqual(len(percent_stable), 3)
         self.assertEqual(percent_stable[0].index, 1)
         self.assertEqual(percent_stable[0].value, 75)
         self.assertEqual(percent_stable[1].index, 6)
         self.assertEqual(percent_stable[1].value, (3/7.0)*100)
-
+        # test that there was an approach but non was stable
+        self.assertEqual(percent_stable[2].index, 14)
+        self.assertEqual(percent_stable[2].value, 0)
+        
 
 class TestPercentApproachStableBelow500(unittest.TestCase):
     def test_can_operate(self):
