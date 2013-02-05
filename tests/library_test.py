@@ -887,8 +887,8 @@ class TestCoReg(unittest.TestCase):
         self.assertAlmostEqual(correlate, 0.818447591071135)
         self.assertAlmostEqual(slope, -0.669856459330144)
         self.assertAlmostEqual(offset, -2.54545454545455)
-
-
+    
+    
 class TestClip(unittest.TestCase):
     # Previously known as Duration
     def setUp(self):
@@ -3928,6 +3928,26 @@ class TestCas2Dp(unittest.TestCase):
         Truth = 23.5351
         self.assertAlmostEqual(Value, Truth, delta = 1e-2)
 
+class TestDelay(unittest.TestCase):
+    
+    def test_basic(self):
+        array=np.ma.arange(5)
+        result = delay(array,2.0)
+        expected = np.ma.array(data=[0,0,0,1,2],
+                               mask=[1,1,0,0,0])
+        np.testing.assert_array_equal(result, expected)
+
+    def test_no_delay(self):
+        array=np.ma.arange(5)
+        result = delay(array,0.0)
+        ma_test.assert_masked_array_approx_equal(result, array)
+
+    def test_excessive(self):
+        array=np.ma.arange(5)
+        result = delay(array,20)
+        expected = np.ma.array(data=[0,0,0,0,0],
+                               mask=[1,1,1,1,1])
+        ma_test.assert_masked_array_approx_equal(result, expected)
 
 class TestDp2Cas(unittest.TestCase):
 

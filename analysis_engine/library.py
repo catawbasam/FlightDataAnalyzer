@@ -796,6 +796,33 @@ def datetime_of_index(start_datetime, index, frequency=1):
     return start_datetime + offset
 
 
+def delay(array, period, hz=1.0):
+    '''
+    This function introduces a time delay. Used in validation testing where
+    correlation is improved by allowing for the delayed response of one
+    parameter when compared to another.
+    
+    :param array: Masked array of floats
+    :type array: Numpy masked array
+    :param period: Time delay(sec)
+    :type period: int/float
+    :param hz: Frequency of the data_array
+    :type hz: float
+
+    :returns: array with data shifted back in time, and initial values masked.
+    '''
+    n = int(period * hz)
+    result = np_ma_masked_zeros_like(array)
+    if len(result[n:])==len(array[:-n]):
+        result[n:] = array[:-n]
+        return result
+    else:
+        if n==0:
+            return array
+        else:
+            return result
+
+
 # Previously known as Duration
 def clip(array, period, hz=1.0, remove='peaks'):
     '''
@@ -862,6 +889,7 @@ def clip(array, period, hz=1.0, remove='peaks'):
     else:
         return np_ma_masked_zeros_like(source)
 
+
 """
     # Compute an array of differences across period, such that each maximum or
     # minimum results in a negative result.
@@ -887,6 +915,7 @@ def clip(array, period, hz=1.0, remove='peaks'):
             break # No need to process the rest of the array.
     return a
     """
+
 
 def clump_multistate(array, state, _slices, condition=True):
     '''
@@ -1126,7 +1155,9 @@ def find_edges_on_state_change(state, array, change='entering', phase=None):
     def state_changes(state, array, change, _slice=slice(0, -1)):
 
         length = len(array[_slice])
-        # The offset allows for phase slices and puts the 
+        # The offset allows for phase slices and puts the transition midway
+        # between the two conditions as this is the most probable time that
+        # the change took place.
         offset = _slice.start - 0.5
         state_periods = np.ma.clump_unmasked(
             np.ma.masked_not_equal(array[_slice], array.state[state]))
@@ -1585,7 +1616,10 @@ def runway_heading(runway):
                                            runway['start'])
         return float(brg.data)
     except:
-        raise ValueError("runway_heading unable to resolve heading for runway id='%s'" %runway['id'])
+        if runway:
+            raise ValueError("runway_heading unable to resolve heading for runway id='%s'" %runway['id'])
+        else:
+            raise ValueError("runway_heading unable to resolve heading; no runway")
     
 
 def runway_snap_dict(runway, lat, lon):
@@ -3946,10 +3980,10 @@ def step_values(array, steps):
 
 def touchdown_inertial(land, roc, alt):
     """
-    For aircraft without weight on wheels swiches, or if there is a problem
+    For aircraft without weight on wheels switches, or if there is a problem
     with the switch for this landing, we do a local integration of the
     inertial rate of climb to estimate the actual point of landing. This is
-    referenced to the available altitude signal, altitude AAL, which will
+    referenced to the available altitude signal, Altitude AAL, which will
     have been derived from the best available source. This technique leads on
     to the rate of descent at landing KPV which can then make the best
     calculation of the landing ROD as we know more accurately the time where

@@ -23,8 +23,9 @@ NODE_MODULES = ['analysis_engine.derived_parameters',
                 'analysis_engine.flight_phase',
                 ]
 
-# API Handler
+# API Handler Configuration:
 API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
+BASE_URL = ''  # Must be configured to use HTTP API handler.
 
 # Location of the CA certificates to be used by the HTTP API handler:
 # Note: This is the system-wide default location on Ubuntu.
