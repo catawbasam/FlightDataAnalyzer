@@ -1843,8 +1843,9 @@ class AltitudeAutothrottleDisengaged(KeyPointValueNode):
         
 class AltitudeFirstStableDuringApproach(KeyPointValueNode):
     '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    
     Establish first point stable during approach.
-    Todo: merge with unstable version below as a single nameformat
     '''
     def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
         # no need for approaches as we can assume each approach has no masked
@@ -1862,7 +1863,9 @@ class AltitudeFirstStableDuringApproach(KeyPointValueNode):
 
 class AltitudeLastUnStableDuringApproach(KeyPointValueNode):
     '''
-    Establish last Unstable position.
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    
+    Establish last Unstable position during approach.
     '''
     def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
         apps = np.ma.clump_unmasked(stable.array)
@@ -1876,15 +1879,19 @@ class AltitudeLastUnStableDuringApproach(KeyPointValueNode):
                 continue
 
 
-class PercentApproachUnstableBelow1000Ft(KeyPointValueNode):
+class PercentApproachStableBelow1000Ft(KeyPointValueNode):
     '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    
+    Creates a KPV around 1000 ft during the approach with the percent 
+    (0% to 100%) of the approach that was stable.
     '''
     def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
         stable.array[alt.array > 1000] = np.ma.masked
         apps_under_1000 = np.ma.clump_unmasked(stable.array)
         for app in apps_under_1000:
             is_stable = stable.array[app] == 'Stable'
-            percent = sum(is_stable) / float(app.stop - app.start)
+            percent = sum(is_stable) / float(app.stop - app.start) * 100
             self.create_kpv(app.start, percent)
 
 
