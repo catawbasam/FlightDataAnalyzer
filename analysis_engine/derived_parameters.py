@@ -4885,19 +4885,20 @@ class StableApproach(MultistateDerivedParameterNode):
         # create an empty fuly masked array
         self.array = np_ma_masked_zeros_like(gear.array)
         self.array.mask = True
+        # shortcut for repairing masks
+        repair = lambda ar, ap: repair_mask(ar[ap.slice], zero_if_masked=True)
         
         for approach in apps:
             # prepare data for this appproach:
-            repair = lambda a: repair_mask(a, zero_if_masked=True)
-            gear_down = repair(gear.array[approach.slice])
-            flap_lever = repair(flap.array[approach.slice])
-            heading = repair(head.array[approach.slice])
-            airspeed = repair(aspd.array[approach.slice])
-            glideslope = repair(gdev.array[approach.slice])
-            localizer = repair(ldev.array[approach.slice])
-            vertical_speed = repair(vspd.array[approach.slice])
-            engine = repair(eng.array[approach.slice])  # TODO: add hysteresis here?
-            altitude = repair(alt.array[approach.slice])
+            gear_down = repair(gear.array, approach)
+            flap_lever = repair(flap.array, approach)
+            heading = repair(head.array, approach)
+            airspeed = repair(aspd.array, approach)
+            glideslope = repair(gdev.array, approach)
+            localizer = repair(ldev.array, approach)
+            vertical_speed = repair(vspd.array, approach)
+            engine = repair(eng.array, approach)  # TODO: add hysteresis here?
+            altitude = repair(alt.array, approach)
             
             # Determine whether Glideslope was used at 1000ft, if not ignore ILS
             _1000 = index_at_value(altitude, 1000)
