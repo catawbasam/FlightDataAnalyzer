@@ -1886,13 +1886,28 @@ class PercentApproachStableBelow1000Ft(KeyPointValueNode):
     Creates a KPV around 1000 ft during the approach with the percent 
     (0% to 100%) of the approach that was stable.
     '''
-    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
-        stable.array[alt.array > 1000] = np.ma.masked
-        apps_under_1000 = np.ma.clump_unmasked(stable.array)
-        for app in apps_under_1000:
-            is_stable = stable.array[app] == 'Stable'
+    def percent_stable(self, stable, altitude, level=1000):
+        stable[altitude > level] = np.ma.masked
+        apps_under_level = np.ma.clump_unmasked(stable)
+        for app in apps_under_level:
+            is_stable = stable[app] == 'Stable'
             percent = sum(is_stable) / float(app.stop - app.start) * 100
             self.create_kpv(app.start, percent)
+    
+    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
+        self.percent_stable(stable.array, alt.array, 1000)
+            
+class PercentApproachStableBelow500Ft(PercentApproachStableBelow1000Ft):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    
+    Creates a KPV around 1000 ft during the approach with the percent 
+    (0% to 100%) of the approach that was stable.
+    '''
+    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
+        self.percent_stable(stable.array, alt.array, 500)
+
+
 
 
 class AutopilotOffInCruiseDuration(KeyPointValueNode):
