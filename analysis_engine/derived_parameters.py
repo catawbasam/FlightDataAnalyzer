@@ -649,6 +649,9 @@ class AltitudeAAL(DerivedParameterNode):
                                               min_step=500)
 
             # Reference to start of arrays for simplicity hereafter.
+            if alt_idxs == None:
+                continue
+            
             alt_idxs += quick.start or 0
             
             n = 0
