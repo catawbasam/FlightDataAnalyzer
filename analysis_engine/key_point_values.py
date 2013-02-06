@@ -1368,9 +1368,9 @@ class TrackDeviationFromRunwayBelow1000Ft(KeyPointValueNode):
     '''
     def derive(self, track_dev=P('Track Deviation From Runway'), 
                alt=P('Altitude AAL')):
-        alt_bands = alt_aal.slices_from_to(1000, 0)
+        alt_bands = alt.slices_from_to(1000, 0)
         self.create_kpvs_within_slices(
-            trac_dev.array,
+            track_dev.array,
             alt_bands,
             max_abs_value,
         )
