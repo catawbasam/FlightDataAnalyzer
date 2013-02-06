@@ -6,6 +6,7 @@ import math
 import numpy as np
 import cPickle
 import re
+import pprint
 
 from abc import ABCMeta
 from collections import namedtuple, Iterable
@@ -170,8 +171,9 @@ class Node(object):
         '''
         :rtype: str
         '''
-        #TODO: Add __class__.__name__?
-        return "%s %sHz %.2fsecs" % (self.get_name(), self.frequency, self.offset)
+        return "%s%s" % (
+            self.__class__.__name__,
+            pprint.pformat((self.get_name(), self.frequency, self.offset)))
     
     @property
     def node_type(self):
@@ -1034,7 +1036,7 @@ class FormattedNameNode(Node, list):
         self.restrict_names = kwargs.get('restrict_names', True)
         
     def __repr__(self):
-        return '%s' % list(self)
+        return '%s' % pprint.pformat(list(self))
     
     @classmethod
     def names(cls):
@@ -1900,7 +1902,7 @@ class NodeManager(object):
 # implementing derive.
 class Attribute(object):
     def __repr__(self):
-        return "Attribute '%s' : %s" % (self.name, self.value)
+        return "Attribute(%s, %s)" % (self.name, pprint.pformat(self.value))
     
     def __init__(self, name, value=None):
         '''
