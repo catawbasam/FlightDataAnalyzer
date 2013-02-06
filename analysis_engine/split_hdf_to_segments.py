@@ -503,7 +503,7 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
         segment = append_segment_info(dest_path, segment_type, segment_slice,
                                       part, fallback_dt=fallback_dt)
         if fallback_dt:
-            fallback_dt += segment.start_dt - segment.stop_dt
+            fallback_dt += segment.stop_dt - segment.start_dt
         segments.append(segment)
         if draw:
             plot_essential(dest_path)
