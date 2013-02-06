@@ -887,16 +887,6 @@ class TestCoReg(unittest.TestCase):
         self.assertAlmostEqual(correlate, 0.818447591071135)
         self.assertAlmostEqual(slope, -0.669856459330144)
         self.assertAlmostEqual(offset, -2.54545454545455)
-
-
-class TestCcf_737(unittest.TestCase):
-    def test_basic(self):
-        force = np.ma.array([2047, 2046, 1023, 0, -1536, -2048])
-        expected = np.ma.array([106.2450592, 106.17548, 45.65372125, 
-                                0, -61.74557798, -85.34314189])
-        # Decimal values over the +/- 2k range are scaled to sensor force
-        # units within the LFL. Hence the scaling applied here.
-        np.testing.assert_array_almost_equal(ccf_737(force*0.1015625), expected)
     
     
 class TestClip(unittest.TestCase):
@@ -1269,7 +1259,7 @@ class TestFindEdgesOnStateChange(unittest.TestCase):
 
     def test_misunderstood_state(self):
         multi = self.Switch(array=np.ma.array([0,1]))
-        self.assertRaises(ValueError, find_edges_on_state_change, 'ha!', multi.array)
+        self.assertRaises(KeyError, find_edges_on_state_change, 'ha!', multi.array)
 
 class TestFirstOrderLag(unittest.TestCase):
 
@@ -1770,6 +1760,35 @@ class TestIndexClosestValue(unittest.TestCase):
         array = np.ma.array([3,2,1,4,5,6,7])
         self.assertEqual(index_closest_value(array, -9, slice(5,1,-1)), 2)
 
+
+class TestIndexOfFirstStart(unittest.TestCase):
+    def test_index_start(self):
+        b = np.array([0,0,1,1,1,0,0,1,1,1,1,0,0,0])
+        pos = index_of_first_start(b, slice(2, -2))
+        self.assertEqual(pos, 1.5)
+        pos = index_of_first_start(b, min_dur=4)
+        self.assertEqual(pos, 6.5)
+        
+    def test_index_of_last_start_backwards(self):
+        # try scanning backwards
+        b = np.array([0,0,1,1,1,0,0,1,1,1,1,0,0,0])
+        self.assertRaises(ValueError, index_of_first_start,
+                          b, slice(None, None, -1))
+        
+        
+class TestIndexOfFirstStop(unittest.TestCase):
+    def test_index_stop(self):
+        b = np.array([0,0,1,1,1,1,0,0,0,0,0,1,1,0])
+        pos = index_of_last_stop(b, slice(2, -1))
+        self.assertEqual(pos, 12.5)
+        pos = index_of_last_stop(b, slice(None, None), min_dur=4)
+        self.assertEqual(pos, 5.5)
+        
+    def test_index_of_last_stop_backwards(self):
+        # try scanning backwards
+        self.assertRaises(ValueError, index_of_last_stop, 
+                          np.array([0,1,0]), slice(None, None, -1))
+        
 
 class TestInterpolate(unittest.TestCase):
     def test_interpolate_basic(self):
@@ -3120,6 +3139,15 @@ class TestSectionContainsKti(unittest.TestCase):
         kti = KTI(items=[KeyTimeInstance(name='More Test', index=5)])
         self.assertFalse(section_contains_kti(section, kti))
 """             
+        
+class TestRunsOfOnes(unittest.TestCase):
+    def test_runs_of_ones(self):
+        st, end, dur = runs_of_ones_array([0,0,1,0,1,1,1,1,1,0,0,1,1,1], 2)
+        
+        self.assertEqual(list(st), [4, 11]) # starts at 4
+        self.assertEqual(list(end), [9, 14]) # ends at 8+1 = 9 for slicing
+        self.assertEqual(list(dur), [5, 3]) # dur of 5        
+        
         
 class TestShiftSlice(unittest.TestCase):
     def test_shift_slice(self):

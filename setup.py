@@ -14,7 +14,7 @@ except ImportError:
 import analysis_engine as pkg
 from requirements import RequirementsParser
 requirements = RequirementsParser()
-requirements.early_install()
+#requirements.early_install()
 
 setup(
     name=pkg.__packagename__,

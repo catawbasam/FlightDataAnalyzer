@@ -118,7 +118,7 @@ def draw_centreline(kml, rwy):
 
 
 def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
-                 plot_altitude=False, dest_path=None):
+                 plot_altitude='Altitude QNH', dest_path=None):
     '''
     Plot results of process_flight onto a KML track.
     
@@ -130,6 +130,11 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
     one_hz = Parameter()
     kml = simplekml.Kml()
     with hdf_file(hdf_path) as hdf:
+        if 'Latitude' not in hdf:
+            return        
+        if plot_altitude not in hdf:
+            logger.warning("Disabling altitude on KML plot as it is unavailable.")
+            plot_altitude = False
         if plot_altitude:
             alt = derived_param_from_hdf(hdf[plot_altitude]).get_aligned(one_hz)
             alt.array = repair_mask(alt.array, frequency=alt.frequency, repair_duration=None) / METRES_TO_FEET
@@ -144,22 +149,20 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
             altitude_mode = simplekml.constants.AltitudeMode.clamptoground
         
         # TODO: align everything to 0 offset
-        
-        
         smooth_lat = derived_param_from_hdf(hdf['Latitude Smoothed']).get_aligned(one_hz)
         smooth_lon = derived_param_from_hdf(hdf['Longitude Smoothed']).get_aligned(one_hz)
         add_track(kml, 'Smoothed', smooth_lat, smooth_lon, 'ff7fff7f', 
                   alt_param=alt, alt_mode=altitude_mode)
         add_track(kml, 'Smoothed On Ground', smooth_lat, smooth_lon, 'ff7fff7f')        
     
-        lat = derived_param_from_hdf(hdf['Latitude Prepared']).get_aligned(one_hz)
-        lon = derived_param_from_hdf(hdf['Longitude Prepared']).get_aligned(one_hz)
-        add_track(kml, 'Prepared', lat, lon, 'A11EB3')
+        ##lat = derived_param_from_hdf(hdf['Latitude Prepared']).get_aligned(one_hz)
+        ##lon = derived_param_from_hdf(hdf['Longitude Prepared']).get_aligned(one_hz)
+        ##add_track(kml, 'Prepared', lat, lon, 'A11EB3')
         
         # Should this be a aligned to parameter at the same raw data frequency?
-        lat_r = derived_param_from_hdf(hdf['Latitude']).get_aligned(one_hz)
-        lon_r = derived_param_from_hdf(hdf['Longitude']).get_aligned(one_hz)
-        add_track(kml, 'Recorded Track', lat_r, lon_r, 'ff0000ff')
+        ##lat_r = derived_param_from_hdf(hdf['Latitude']).get_aligned(one_hz)
+        ##lon_r = derived_param_from_hdf(hdf['Longitude']).get_aligned(one_hz)
+        ##add_track(kml, 'Recorded Track', lat_r, lon_r, 'ff0000ff')
 
     for kti in kti_list:
         kti_point_values = {'name': kti.name}
@@ -174,7 +177,6 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
             kti_point_values['coords'] = ((kti.longitude, kti.latitude),)
         kml.newpoint(**kti_point_values)
         
-    """
     for kpv in kpv_list:
 
         # Trap kpvs with invalid latitude or longitude data (normally happens
@@ -201,7 +203,6 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
         
         pnt = kml.newpoint(**kpv_point_values)
         pnt.style = style
-    """
     
     for attribute in flight_attrs:
         if attribute.name in ['FDR Approaches']:

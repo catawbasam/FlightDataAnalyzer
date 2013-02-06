@@ -92,6 +92,19 @@ def get_flap_map(series=None, family=None):
     else:
         raise KeyError("No flap mapping for Series '%s' Family '%s'" % (
             series, family))
+    
+    
+def get_flap_detents():
+    '''
+    Get all flap combinations from all supported aircraft types
+    '''
+    all_detents = set()
+    for detents in series_flap_map.itervalues():
+        all_detents.update(detents)
+    for detents in family_flap_map.itervalues():
+        all_detents.update(detents)
+    return sorted(all_detents)
+        
 
 #############################################################################
 

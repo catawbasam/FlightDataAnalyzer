@@ -314,14 +314,15 @@ NAME_VALUES_ENGINE = {
     'number': [1, 2, 3, 4],
 }
 
-
+from analysis_engine.model_information import get_flap_detents
 NAME_VALUES_FLAP = {
-    'flap': range(0, 46) + [50, 100],  # NOTE: 1-45° and 50%/100% for C-130
+    'flap': get_flap_detents()
 }
 
 
 NAME_VALUES_CONF = {
-    'conf': range(1, 6),  # FIXME: Proper conf values needed.
+    # FIXME: Proper conf values needed from model_information as flap above
+    'conf': range(1, 6),
 }
 
 

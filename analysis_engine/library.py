@@ -795,6 +795,7 @@ def datetime_of_index(start_datetime, index, frequency=1):
     offset = timedelta(seconds=index_in_seconds)
     return start_datetime + offset
 
+
 def delay(array, period, hz=1.0):
     '''
     This function introduces a time delay. Used in validation testing where
@@ -821,12 +822,6 @@ def delay(array, period, hz=1.0):
         else:
             return result
 
-def ccf_737(array):
-    '''
-    Boeing 737 NG control column force equation. See D226A101-2 Rev G Note 14C.
-    '''
-    x = array/0.1015625
-    return ((1.5E-09*x+2.5E-06)*x+0.0405)*x
 
 # Previously known as Duration
 def clip(array, period, hz=1.0, remove='peaks'):
@@ -894,6 +889,7 @@ def clip(array, period, hz=1.0, remove='peaks'):
     else:
         return np_ma_masked_zeros_like(source)
 
+
 """
     # Compute an array of differences across period, such that each maximum or
     # minimum results in a negative result.
@@ -919,6 +915,7 @@ def clip(array, period, hz=1.0, remove='peaks'):
             break # No need to process the rest of the array.
     return a
     """
+
 
 def clump_multistate(array, state, _slices, condition=True):
     '''
@@ -1022,6 +1019,7 @@ def filter_vor_ils_frequencies(array, navaid):
     else:
         raise ValueError('Navaid of unrecognised type %s' % navaid)
 
+
 def find_app_rwy(app_info, this_loc, this_loc_freq):
     """
     This function scans through the recorded approaches to find which matches
@@ -1045,7 +1043,54 @@ def find_app_rwy(app_info, this_loc, this_loc_freq):
         logger.warning("Approach runway information not available.")
         return approach, None
                 
-    return approach, runway     
+    return approach, runway
+
+
+def index_of_first_start(bool_array, _slice=slice(0,None), min_dur=1):
+    '''
+    Find the first starting index of a state change.
+    
+    Using bool_array allows one to select the filter before hand,
+    e.g. index_of_first_start(state.array == 'state', this_slice)
+    
+    Similar to "find_edges_on_state_change" but allows a minumum
+    duration (in samples)
+    
+    Note: applies -0.5 offset to interpolate state transition, so use
+    value_at_index() for the returned index to ensure correct values
+    are returned from arrays.
+    '''
+    if _slice.step and _slice.step < 0:
+        raise ValueError("Reverse step not supported")
+    starts, e, d = runs_of_ones_array(bool_array[_slice], min_dur)
+    if any(starts):
+        return starts[0] + (_slice.start or 0) - 0.5  # interpolate offset
+    else:
+        return None
+
+
+def index_of_last_stop(bool_array, _slice=slice(0,None), min_dur=1):
+    '''
+    Find the first stopping index of a state change.
+    
+    Using bool_array allows one to select the filter before hand,
+    e.g. index_of_first_stop(state.array != 'state', this_slice)
+    
+    Similar to "find_edges_on_state_change" but allows a minumum
+    duration (in samples)
+    
+    Note: applies +0.5 offset to interpolate state transition, so use
+    value_at_index() for the returned index to ensure correct values
+    are returned from arrays.
+    '''
+    if _slice.step and _slice.step < 0:
+        raise ValueError("Reverse step not supported")
+    s, ends, d = runs_of_ones_array(bool_array[_slice], min_dur)
+    if any(ends):
+        return ends[-1] + (_slice.start or 0) - 0.5
+    else:
+        return None
+
 
 def find_edges(array, _slice, direction='rising_edges'):
     '''
@@ -1054,7 +1099,7 @@ def find_edges(array, _slice, direction='rising_edges'):
     directly.
     
     :param array: array of values to scan for edges
-    :type array: Numpy masked array (what else?!)
+    :type array: Numpy masked array
     :param _slice: slice to be examined
     :type _slice: slice
     :param direction: Optional edge direction for sensing. Default 'rising_edges'
@@ -1088,8 +1133,7 @@ def find_edges(array, _slice, direction='rising_edges'):
     return list(edge_list)
 
 
-def find_edges_on_state_change(state, array, change='entering', 
-                                phase=None):
+def find_edges_on_state_change(state, array, change='entering', phase=None):
     '''
     Version of find_edges tailored to suit multi-state parameters.
     
@@ -1100,14 +1144,15 @@ def find_edges_on_state_change(state, array, change='entering',
     
     :param change: condition for detecting edge. Default 'entering', 'leaving' and 'entering_and_leaving' alternatives
     :type change: text
-    :param phase: flight phase within which edges will be detected.
+    :param phase: flight phase or list of slices within which edges will be detected.
     :type phase: list of slices, default=None
     
     :returns: list of indexes
     
-    :error condition: raises ValueError if either change or state not recognised
+    :raises: ValueError if change not recognised
+    :raises: KeyError if state not recognised
     '''
-    def state_changes(state, array, edge_list, change, _slice=slice(0, -1)):
+    def state_changes(state, array, change, _slice=slice(0, -1)):
 
         length = len(array[_slice])
         # The offset allows for phase slices and puts the transition midway
@@ -1116,7 +1161,7 @@ def find_edges_on_state_change(state, array, change='entering',
         offset = _slice.start - 0.5
         state_periods = np.ma.clump_unmasked(
             np.ma.masked_not_equal(array[_slice], array.state[state]))
-        
+        edge_list = []
         for period in state_periods:
             if change == 'entering':
                 if period.start > 0:
@@ -1136,18 +1181,17 @@ def find_edges_on_state_change(state, array, change='entering',
         
         return edge_list
 
-    # High level function scans phase blocks or complete array and
-    # presents appropriate arguments for analysis. We test for phase.name
-    # as phase returns False.
-    if not state in {v:k for k, v in array.values_mapping.items()}:
-        raise ValueError("State '%s' not recognised in find_edges_on_state_change" %state)
+    if phase is None:
+        return state_changes(state, array, change)
     
     edge_list = []
-    if phase is None:
-        state_changes(state, array, edge_list, change)
-    else:
-        for each_period in phase:
-            state_changes(state, array, edge_list, change, each_period.slice)
+    for period in phase:
+        if hasattr(period, 'slice'):
+            _slice = period.slice
+        else:
+            _slice = period
+        edges = state_changes(state, array, change, _slice)
+        edge_list.extend(edges)
     return edge_list
 
 
@@ -3632,6 +3676,19 @@ def rms_noise(array, ignore_pc=None):
     return sqrt(np.ma.mean(np.ma.power(to_rms,2))) # RMS in one line !
 
 
+def runs_of_ones_array(bits, min_len):
+    # make sure all runs of ones are well-bounded
+    bounded = np.hstack(([0], bits, [0]))
+    # get 1 at run starts and -1 at run ends
+    difs = np.diff(bounded)
+    run_starts, = np.where(difs > 0)
+    run_ends, = np.where(difs < 0)
+    run_dur = run_ends - run_starts
+    those_above = run_dur>=min_len
+    # return duration and starting locations
+    return run_starts[those_above], run_ends[those_above], run_dur[those_above]
+
+
 def shift_slice(this_slice, offset):
     """
     This function shifts a slice by an offset. The need for this arises when
@@ -3923,10 +3980,10 @@ def step_values(array, steps):
 
 def touchdown_inertial(land, roc, alt):
     """
-    For aircraft without weight on wheels swiches, or if there is a problem
+    For aircraft without weight on wheels switches, or if there is a problem
     with the switch for this landing, we do a local integration of the
     inertial rate of climb to estimate the actual point of landing. This is
-    referenced to the available altitude signal, altitude AAL, which will
+    referenced to the available altitude signal, Altitude AAL, which will
     have been derived from the best available source. This technique leads on
     to the rate of descent at landing KPV which can then make the best
     calculation of the landing ROD as we know more accurately the time where
@@ -4333,7 +4390,7 @@ def value_at_index(array, index):
     :returns: interpolated value from the array
     '''
     
-    if index < 0.0:
+    if index < 0.0:  # True if index is None
         return array[0]
     elif index > len(array)-1:
         return array[-1]

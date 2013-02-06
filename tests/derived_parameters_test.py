@@ -14,8 +14,7 @@ from utilities import masked_array_testutils as ma_test
 from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
-from analysis_engine.library import (align, ccf_737, max_value, 
-                                     np_ma_masked_zeros_like)
+from analysis_engine.library import (align, max_value, np_ma_masked_zeros_like)
 from analysis_engine.node import (Attribute, A, KPV, KeyTimeInstance, KTI, load,
                                   M, Parameter, P, Section, S)
 from analysis_engine.process_flight import process_flight
@@ -49,8 +48,6 @@ from analysis_engine.derived_parameters import (
     Configuration,
     ControlColumn,
     ControlColumnForce,
-    ControlColumnForceCapt,
-    ControlColumnForceFO,
     ControlWheel,
     CoordinatesSmoothed,
     Daylight,
@@ -75,11 +72,8 @@ from analysis_engine.derived_parameters import (
     GrossWeightSmoothed,
     #GroundspeedAlongTrack,
     HeadingContinuous,
-    HeadingDeviationFromRunway,
     HeadingIncreasing,
-    HeadingTrack,
     HeadingTrue,
-    HeadingTrueTrack,
     Headwind,
     ILSFrequency,
     #ILSLocalizerRange,
@@ -94,6 +88,8 @@ from analysis_engine.derived_parameters import (
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
     RateOfTurn,
+    TrackDeviationFromRunway,
+    TrackTrue,
     TurbulenceRMSG,
     V2,
     WindAcrossLandingRunway,
@@ -103,6 +99,22 @@ debug = sys.gettrace() is not None
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
+
+def assert_array_within_tolerance(actual, desired, tolerance=1, similarity=100):
+    '''
+    Check that the actual array within tolerance of the desired array is
+    at least similarity percent.
+    
+    :param tolerance: relative difference between the two array values
+    :param similarity: percentage that must pass the tolerance test
+    '''
+    within_tolerance = abs(actual -  desired) <= tolerance
+    percent_similar = sum(within_tolerance) / float(len(within_tolerance)) * 100
+    if percent_similar <= similarity:
+        raise AssertionError(
+            'actual array tolerance only is %.2f%% similar to desired array.'
+            'tolerance %.2f minimum similarity required %.2f%%' % (
+                percent_similar, tolerance, similarity))
 
 
 class TemporaryFileTest(object):
@@ -1179,77 +1191,18 @@ class TestControlColumn(unittest.TestCase):
 
 class TestControlColumnForce(unittest.TestCase):
 
-    def setUp(self):
-        ccff = np.ma.arange(1, 4)
-        self.ccff = P('Control Column Force (Local)', ccff)
-        ccfl = np.ma.arange(1, 4)
-        ccfl[-1:] = np.ma.masked
-        self.ccfl = P('Control Column Force (Foreign)', ccfl)
-
     def test_can_operate(self):
-        expected = [('Control Column Force (Local)',
-                     'Control Column Force (Foreign)')]
+        expected = [('Control Column Force (Capt)',
+                     'Control Column Force (FO)')]
         opts = ControlColumnForce.get_operational_combinations()
         self.assertEqual(opts, expected)
 
     def test_control_column_force(self):
         ccf = ControlColumnForce()
-        ccf.derive(self.ccff, self.ccfl)
-        result = ccf.array
-        answer = np.ma.array(data=[1, 2, 3], mask=[False, False, True])
-        np.testing.assert_array_almost_equal(result, ccf_737(answer))
-
-
-class TestControlColumnForceCapt(unittest.TestCase):
-
-    def setUp(self):
-        ccfl = np.ma.arange(0, 16)
-        self.ccfl = P('Control Column Force (Local)', ccfl)
-        ccff = ccfl[-1::-1]
-        self.ccff = P('Control Column Force (Foreign)', ccff)
-        fcc = np.repeat(np.ma.arange(0, 4), 4)
-        self.fcc = P('FCC Local Limited Master', fcc)
-
-    def test_can_operate(self):
-        expected = [('Control Column Force (Local)',
-                     'Control Column Force (Foreign)',
-                     'FCC Local Limited Master')]
-        opts = ControlColumnForceCapt.get_operational_combinations()
-        self.assertEqual(opts, expected)
-
-    def test_control_column_force_capt(self):
-        ccfc = ControlColumnForceCapt()
-        ccfc.derive(self.ccfl, self.ccff, self.fcc)
-        result = ccfc.array
-        answer = self.ccfl.array
-        answer[4:8] = self.ccff.array[4:8]
-        np.testing.assert_array_almost_equal(result, ccf_737(answer))
-
-
-class TestControlColumnForceFO(unittest.TestCase):
-
-    def setUp(self):
-        ccfl = np.ma.arange(0, 16)
-        self.ccfl = P('Control Column Force (Local)', ccfl)
-        ccff = ccfl[-1::-1]
-        self.ccff = P('Control Column Force (Foreign)', ccff)
-        fcc = np.repeat(np.ma.arange(0, 4), 4)
-        self.fcc = P('FCC Local Limited Master', fcc)
-
-    def test_can_operate(self):
-        expected = [('Control Column Force (Local)',
-                     'Control Column Force (Foreign)',
-                     'FCC Local Limited Master')]
-        opts = ControlColumnForceFO.get_operational_combinations()
-        self.assertEqual(opts, expected)
-
-    def test_control_column_force_fo(self):
-        ccff = ControlColumnForceFO()
-        ccff.derive(self.ccfl, self.ccff, self.fcc)
-        result = ccff.array
-        answer = self.ccff.array
-        answer[4:8] = self.ccfl.array[4:8]
-        np.testing.assert_array_almost_equal(result, ccf_737(answer))
+        ccf.derive(
+            ControlColumnForce('Control Column Force (Capt)', np.ma.arange(8)),
+            ControlColumnForce('Control Column Force (FO)', np.ma.arange(8)))
+        np.testing.assert_array_almost_equal(ccf.array, np.ma.arange(0, 16, 2))
 
 
 class TestControlWheel(unittest.TestCase):
@@ -1904,12 +1857,12 @@ class TestHeadingContinuous(unittest.TestCase):
         np.testing.assert_array_equal(head.array.data, answer.data)
 
 
-class TestHeadingDeviationFromRunway(unittest.TestCase):
+class TestTrackDeviationFromRunway(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(HeadingDeviationFromRunway.get_operational_combinations(),
-                    [('Heading True Track', 'FDR Approaches'),
-                     ('Heading True Track', 'Takeoff', 'FDR Takeoff Runway'),
-                     ('Heading True Track', 'Takeoff', 'FDR Takeoff Runway', 'FDR Approaches')])
+        self.assertEqual(TrackDeviationFromRunway.get_operational_combinations(),
+                    [('Track True', 'FDR Approaches'),
+                     ('Track True', 'Takeoff', 'FDR Takeoff Runway'),
+                     ('Track True', 'Takeoff', 'FDR Takeoff Runway', 'FDR Approaches')])
 
     def test_deviation(self):
         apps = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_apps.nod'))
@@ -1917,12 +1870,12 @@ class TestHeadingDeviationFromRunway(unittest.TestCase):
         to_runway = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_runway.nod'))
         takeoff = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_takeoff.nod'))
 
-        heading_deviation = HeadingDeviationFromRunway()
-        heading_deviation.get_derived((heading_track, takeoff, to_runway, apps))
+        deviation = TrackDeviationFromRunway()
+        deviation.get_derived((heading_track, takeoff, to_runway, apps))
         # check average stays close to 0
-        self.assertAlmostEqual(np.ma.average(heading_deviation.array[8775:8975]), 1.5, places = 1)
-        self.assertAlmostEqual(np.ma.min(heading_deviation.array[8775:8975]), -10.5, places = 1)
-        self.assertAlmostEqual(np.ma.max(heading_deviation.array[8775:8975]), 12.3, places = 1)
+        self.assertAlmostEqual(np.ma.average(deviation.array[8775:8975]), 1.5, places = 1)
+        self.assertAlmostEqual(np.ma.min(deviation.array[8775:8975]), -10.5, places = 1)
+        self.assertAlmostEqual(np.ma.max(deviation.array[8775:8975]), 12.3, places = 1)
 
 
 class TestHeadingIncreasing(unittest.TestCase):
@@ -1999,25 +1952,23 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
         np.testing.assert_almost_equal(smoother.array, expected, decimal=5)
 
 
-class TestHeadingTrack(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(HeadingTrack.get_operational_combinations(),
-            [('Heading Continuous', 'Drift')])
-
-    @unittest.skip('Test Not Implemented')
-    def test_basic(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
 
 class TestHeadingTrueTrack(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(HeadingTrueTrack.get_operational_combinations(),
+        self.assertEqual(
+            TrackTrue.get_operational_combinations(),
             [('Heading True Continuous', 'Drift')])
 
-    @unittest.skip('Test Not Implemented')
-    def test_basic(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
+    def test_heading_track(self):
+        hdg = load(os.path.join(test_data_path, 'HeadingTrack_Heading_True.nod'))
+        dft = load(os.path.join(test_data_path, 'HeadingTrack_Drift.nod'))
+        head_track = TrackTrue()
+        head_track.derive(heading=hdg, drift=dft)
+        
+        # compare IRU Track Angle True (recorded) against the derived
+        track_rec = load(os.path.join(test_data_path, 'HeadingTrack_IRU_Track_Angle_Recorded.nod'))
+        assert_array_within_tolerance(head_track.array, track_rec.array, 10, 98)
+        
 
 class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):

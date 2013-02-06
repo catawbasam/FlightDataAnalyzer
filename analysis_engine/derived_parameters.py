@@ -18,7 +18,6 @@ from analysis_engine.library import (air_track,
                                      blend_two_parameters,
                                      cas2dp,
                                      cas_alt2mach,
-                                     ccf_737,
                                      clip,
                                      coreg,
                                      cycle_finder,
@@ -389,8 +388,6 @@ class AirspeedReference(DerivedParameterNode):
                 pass
 
 
-# TODO: Write some unit tests!
-# TODO: Ensure that this derived parameter supports Vapp and fixed values.
 class AirspeedRelative(DerivedParameterNode):
     '''
     See AirspeedReference for details.
@@ -404,7 +401,6 @@ class AirspeedRelative(DerivedParameterNode):
         self.array = airspeed.array - vref.array
 
 
-# TODO: Write some unit tests!
 class AirspeedRelativeFor3Sec(DerivedParameterNode):
     '''
     Airspeed on approach relative to Vapp/Vref over a 3 second window.
@@ -650,6 +646,9 @@ class AltitudeAAL(DerivedParameterNode):
                                               min_step=500)
 
             # Reference to start of arrays for simplicity hereafter.
+            if alt_idxs == None:
+                continue
+            
             alt_idxs += quick.start or 0
             
             n = 0
@@ -1320,54 +1319,6 @@ class ControlColumn(DerivedParameterNode):
             blend_two_parameters(posn_capt, posn_fo)
 
 
-class ControlColumnForceCapt(DerivedParameterNode):
-    '''
-    The force applied by the captain to the control column.  This is dependent
-    on who has master control of the aircraft and this derived parameter
-    selects the appropriate slices of data from the foreign and local sensor forces.
-    
-    Beware; the sensor forces are NOT the same as the control column forces.
-    '''
-    name = 'Control Column Force (Capt)'
-    units = 'deg'
-
-    def derive(self,
-               force_local=P('Control Column Force (Local)'),
-               force_foreign=P('Control Column Force (Foreign)'),
-               fcc_master=M('FCC Local Limited Master')):
-        
-        # FCC (R) == 1 and this form is used as the numpy array comparison
-        # tilts at using the MappedArray object.
-        
-        self.array = ccf_737(np.ma.where(fcc_master.array.data != 1,
-                                         force_local.array,
-                                         force_foreign.array))
-
-
-class ControlColumnForceFO(DerivedParameterNode):
-    '''
-    The force applied by the first officer to the control column.  This is
-    dependent on who has master control of the aircraft and this derived
-    parameter selects the appropriate slices of data from the foreign and local
-    forces.
-    '''
-    
-    name = 'Control Column Force (FO)'
-    units = 'lbf'
-
-    def derive(self,
-               force_local=P('Control Column Force (Local)'),
-               force_foreign=P('Control Column Force (Foreign)'),
-               fcc_master=M('FCC Local Limited Master')):
-
-        # FCC (R) == 1 and this form is used as the numpy array comparison
-        # tilts at using the MappedArray object.
-
-        self.array = ccf_737(np.ma.where(fcc_master.array.data == 1,
-                                         force_local.array,
-                                         force_foreign.array))
-
-
 class ControlColumnForce(DerivedParameterNode):
     '''
     The combined force from the captain and the first officer.
@@ -1376,12 +1327,11 @@ class ControlColumnForce(DerivedParameterNode):
     units = 'lbf'
 
     def derive(self,
-               force_local=P('Control Column Force (Local)'),
-               force_foreign=P('Control Column Force (Foreign)')):
-        self.array = ccf_737((force_local.array + force_foreign.array)/2.0)
+               force_capt=P('Control Column Force (Capt)'),
+               force_fo=P('Control Column Force (FO)')):
+        self.array = force_capt.array + force_fo.array
         # TODO: Check this summation is correct in amplitude and phase.
         # Compare with Boeing charts for the 737NG.
-
 
 
 class ControlWheel(DerivedParameterNode):
@@ -1445,7 +1395,7 @@ class Drift(DerivedParameterNode):
 
 
 ################################################################################
-# Pack Valves
+# Brakes
 
 class BrakePressure(DerivedParameterNode):
     """
@@ -4819,45 +4769,57 @@ class WheelSpeed(DerivedParameterNode):
     def derive(self, ws_in=P('Wheel Speed Inboard'), ws_out=P('Wheel Speed Outboard')):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(ws_in, ws_out)
-        
 
 
-class HeadingTrack(DerivedParameterNode):
+
+class Track(DerivedParameterNode):
     '''
-    Magnetic Heading of the Aircraft Track by removing Drift from the Heading.
+    Magnetic Track Heading of the Aircraft by adding Drift from track to the
+    aircraft Heading.
     
     Range 0 to 360
     '''
     units = 'deg'
 
     def derive(self, heading=P('Heading Continuous'), drift=P('Drift')):
-        self.array = (heading.array - drift.array) % 360
+        #Note: drift is to the right of heading, so: Track = Heading + Drift
+        self.array = (heading.array + drift.array) % 360
+        
 
-
-class HeadingTrueTrack(DerivedParameterNode):
+class TrackTrue(DerivedParameterNode):
     '''
-    True Heading of the Aircraft Track by removing Drift from the Heading.
+    True Track Heading of the Aircraft by adding Drift from track to the
+    aircraft Heading.
     
     Range 0 to 360
     '''
     units = 'deg'
 
     def derive(self, heading=P('Heading True Continuous'), drift=P('Drift')):
-        self.array = (heading.array - drift.array) % 360
+        #Note: drift is to the right of heading, so: Track = Heading + Drift
+        self.array = (heading.array + drift.array) % 360
 
 
-class HeadingDeviationFromRunway(DerivedParameterNode):
-
+class TrackDeviationFromRunway(DerivedParameterNode):
+    '''
+    Difference from the aircraft's Track angle and that of the Runway
+    centreline. Measured during Takeoff and Approach phases.
+    
+    Based on Track True angle in order to avoid complications with magnetic
+    deviation values recorded at airports. The deviation from runway centre
+    line would be the same whether the calculation is based on Magnetic or
+    True measurements.
+    '''
     # forse offset for approach slice start consistency
     align_frequency = 1
     align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
-        return (('Heading True Track', 'FDR Approaches') == available) or \
-                all_of(('Heading True Track', 'Takeoff', 'FDR Takeoff Runway'), available)
+        return (('Track True', 'FDR Approaches') == available) or \
+                all_of(('Track True', 'Takeoff', 'FDR Takeoff Runway'), available)
 
-    def derive(self, heading_track=P('Heading True Track'),
+    def derive(self, heading_track=P('Track True'),
                takeoff=S('Takeoff'),
                to_rwy=A('FDR Takeoff Runway'),
                apps=A('FDR Approaches')):
@@ -4887,52 +4849,48 @@ class StableApproach(MultistateDerivedParameterNode):
     1. Gear is down
     2. Landing Flap is set
     3. Heading aligned to Runway within 10 degrees 
-    4. Approach Airspeed minus Reference speed within 10 knots
+    4. Approach Airspeed minus Reference speed within 20 knots
     5. Glideslope deviation within 1 dot
     6. Localizer deviation within 1 dot
-    7. Engine Power greater than 75% and not Cycling within last 5 seconds
+    7. Vertical speed between -1000 and -200 fpm
+    8. Engine Power greater than 60% # TODO: and not Cycling within last 5 seconds
     
     if all the above steps are met, the result is the declaration of:
-    8. "Stable"
+    9. "Stable"
     
-    TODO:
-    =====
+    TODO/REVIEW:
+    ============
     * Check for 300ft limit if turning onto runway late and ignore stability criteria before this? Alternatively only assess criteria when heading is within 50.
     * Q: Fill masked values of parameters with False (unstable: stop here) or True (stable, carry on)
-    * Declare that if there is no GS est < 1000ft non-precision (500ft)
-    * CREATE Track Heading parameter (using recorded if available, else worked out from drift from Heading Mag). New Param Runway Deviation is Track Heading - RUNWAY HEADING for both takeoff phase and Approach and Landing phase of flight.
-    * CREATE KPVs for height first stable and height last unstable
-    * 3 second gliding windows for GS / LOC etc.
+    * Add hysteresis (3 second gliding windows for GS / LOC etc.)
+    * Engine cycling check
+    * Check Boeing's Vref as one may add an increment to this (20kts) which is not recorded!
     '''
     
     values_mapping = {
         0: '-',  # All values should be masked anyway, this helps align values
         1: 'Gear Not Down',
         2: 'Not Landing Flap',
-        3: 'Not Aligned to Runway',   # Rename with heading?
-        4: 'Airspeed Not Stable',  # Q: Split into two Airspeed High/Low?
-        5: 'Glideslope Not Stable',
-        6: 'Localizer Not Stable',
-        7: 'Vertical Speed Not Stable',
-        8: 'Engine Power Not Stable',
+        3: 'Hdg Not Aligned',   # Rename with heading?
+        4: 'Aspd Not Stable',  # Q: Split into two Airspeed High/Low?
+        5: 'GS Not Stable',
+        6: 'Loc Not Stable',
+        7: 'IVV Not Stable',
+        8: 'Eng N1 Not Stable',
         9: 'Stable',
     }
     
     align_frequency = 1  # force to 1Hz
 
-    ##@classmethod
-    ##def can_operate(cls, available):
-        ##return True
-
     def derive(self, 
                apps=S('Approach'),
                gear=M('Gear Down'),
                flap=M('Flap'),
-               head=P('Heading Deviation From Runway'),
+               head=P('Track Deviation From Runway'),
                aspd=P('Airspeed Relative'),
-               vert_spd=P('Vertical Speed'),
-               glide=P('ILS Glideslope'),
-               loc=P('ILS Localizer'),
+               vspd=P('Vertical Speed'),
+               gdev=P('ILS Glideslope'),
+               ldev=P('ILS Localizer'),
                eng=P('Eng (*) N1 Min'),
                alt=P('Altitude AAL'),
                ):
@@ -4945,33 +4903,33 @@ class StableApproach(MultistateDerivedParameterNode):
         
         #Ht AAL due to
         # the altitude above airfield level corresponding to each cause
-        # options are FLAP, GEAR GS HI/LO, LOC, SPD HI/LO and VSI HI/LO
-
-        # An alternative to this discrete would be to create a multistate
-        # with each point being the reason it's unstable
-        
-        
-        
+        # options are FLAP, GEAR GS HI/LO, LOC, SPD HI/LO and VSI HI/LO        
 
         # create an empty fuly masked array
         self.array = np_ma_masked_zeros_like(gear.array)
         self.array.mask = True
+        # shortcut for repairing masks
+        repair = lambda ar, ap: repair_mask(ar[ap.slice], zero_if_masked=True)
         
         for approach in apps:
             # prepare data for this appproach:
-            gear_down = repair_mask(gear.array[approach.slice], zero_if_masked=True)
-            flap_lever = repair_mask(flap.array[approach.slice], zero_if_masked=True)
-            heading = repair_mask(head.array[approach.slice], zero_if_masked=True)
-            airspeed = repair_mask(aspd.array[approach.slice], zero_if_masked=True)
-            glideslope = repair_mask(glide.array[approach.slice], zero_if_masked=True)
-            localizer = repair_mask(loc.array[approach.slice], zero_if_masked=True)
-            vertical_speed = repair_mask(vert_spd.array[approach.slice], zero_if_masked=True)
-            engine = repair_mask(eng.array[approach.slice], zero_if_masked=True)
-            altitude = repair_mask(alt.array[approach.slice], zero_if_masked=True)
+            gear_down = repair(gear.array, approach)
+            flap_lever = repair(flap.array, approach)
+            heading = repair(head.array, approach)
+            airspeed = repair(aspd.array, approach)
+            glideslope = repair(gdev.array, approach)
+            localizer = repair(ldev.array, approach)
+            vertical_speed = repair(vspd.array, approach)
+            engine = repair(eng.array, approach)  # TODO: add hysteresis here?
+            altitude = repair(alt.array, approach)
             
             # Determine whether Glideslope was used at 1000ft, if not ignore ILS
             _1000 = index_at_value(altitude, 1000)
-            glide_est_at_1000ft = _1000!=None and abs(glideslope[_1000]) < 1.0  # dots
+            if _1000:
+                glide_est_at_1000ft = abs(glideslope[_1000]) < 1.5  # dots
+            else:
+                # didn't reach 1000 feet
+                glide_est_at_1000ft = False
 
             #== 1. Gear Down ==
             # Assume unstable due to Gear Down at first
@@ -4995,8 +4953,7 @@ class StableApproach(MultistateDerivedParameterNode):
             self.array[approach.slice][stable] = 4
             STABLE_AIRSPEED_ABOVE_REF = 20
             stable_airspeed = (airspeed < STABLE_AIRSPEED_ABOVE_REF) | (altitude < 100)
-            stable &= stable_airspeed.filled(False)  # if no V Ref speed, values are masked so consider unstable
-            
+            stable &= stable_airspeed.filled(True)  # if no V Ref speed, values are masked so consider stable as one is not flying to the vref speed??
             
             if glide_est_at_1000ft:
                 #== 5. Glideslope Deviation ==
@@ -5017,21 +4974,18 @@ class StableApproach(MultistateDerivedParameterNode):
             STABLE_VERTICAL_SPEED_MAX = -200
             stable_vert = (vertical_speed > STABLE_VERTICAL_SPEED_MIN) & (vertical_speed < STABLE_VERTICAL_SPEED_MAX) 
             stable_vert |= altitude < 50
-            stable &= stable_vert.filled(False)  #Q: make True?
+            stable &= stable_vert.filled(True)  #Q: True best?
             
             #== 8. Engine Power (N1) ==
             self.array[approach.slice][stable] = 8
-            STABLE_N1_MIN = 75  # %
+            STABLE_N1_MIN = 55  # %
             stable_engine = (engine > STABLE_N1_MIN)
             stable_engine |= (altitude > 1000) | (altitude < 50)  # Only use in altitude band 1000-50 feet
-            stable &= stable_engine.filled(True)  #Q: make True?
+            stable &= stable_engine.filled(True)  #Q: True best?
             
             #== 9. Stable ==
             # Congratulations; whatever remains in this approach is stable!
-            self.array[approach.slice][stable] = 9  # Woop, you're stable!
+            self.array[approach.slice][stable] = 9
             
         #endfor
-        
-        pass
-        
-        
+        return

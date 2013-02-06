@@ -33,6 +33,8 @@ from analysis_engine.library import (ambiguous_runway,
                                      find_edges_on_state_change,
                                      hysteresis,
                                      index_at_value,
+                                     index_of_first_start,
+                                     index_of_last_stop,
                                      integrate,
                                      is_index_within_slice,
                                      mask_inside_slices,
@@ -1350,8 +1352,6 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
     '''
     def derive(self, brake=M('Speedbrake Selected'),
                lands = S('Landing'), tdwns=KTI('Touchdown')):
-        '''
-        '''
         deploys = find_edges_on_state_change('Deployed/Cmd Up', brake.array, phase=lands)
         for land in lands:
             for deploy in deploys:
@@ -1363,6 +1363,19 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
                     self.create_kpv(deploy, (deploy-tdwn.index)/brake.hz)
 
 
+class TrackDeviationFromRunwayBelow1000Ft(KeyPointValueNode):
+    '''
+    '''
+    def derive(self, track_dev=P('Track Deviation From Runway'), 
+               alt=P('Altitude AAL')):
+        alt_bands = alt.slices_from_to(1000, 0)
+        self.create_kpvs_within_slices(
+            track_dev.array,
+            alt_bands,
+            max_abs_value,
+        )
+        
+        
 ################################################################################
 # Takeoff and Use of TOGA
 
@@ -1838,6 +1851,79 @@ class AltitudeAutothrottleDisengaged(KeyPointValueNode):
                at_dis=KTI('AT Disengaged Selection')):
         self.create_kpvs_at_ktis(alt_aal.array, at_dis)
         
+        
+class AltitudeFirstStableDuringApproach(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    
+    Establish first point stable during approach.
+    '''
+    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
+        # no need for approaches as we can assume each approach has no masked
+        # values and inbetween there will be some
+        apps = np.ma.clump_unmasked(stable.array)
+        for app in apps:
+            # iterate through approaches as only one KPV is to be created per
+            # approach
+            index = index_of_first_start(stable.array == 'Stable', app, min_dur=2)
+            if index:
+                self.create_kpv(index, value_at_index(alt.array, index))
+            else:
+                continue
+
+
+class AltitudeLastUnStableDuringApproach(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    
+    Establish last Unstable position during approach.
+    '''
+    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
+        apps = np.ma.clump_unmasked(stable.array)
+        for app in apps:
+            # iterate through approaches as only one KPV is to be created per
+            # approach
+            index = index_of_last_stop(stable.array != 'Stable', app, min_dur=2)
+            if index:
+                self.create_kpv(index, value_at_index(alt.array, index))
+            else:
+                continue
+
+
+class PercentApproachStableBelow(object):
+    '''
+    Abstract Class
+    '''
+    def percent_stable(self, stable, altitude, level=1000):
+        stable[altitude > level] = np.ma.masked
+        apps_under_level = np.ma.clump_unmasked(stable)
+        for app in apps_under_level:
+            is_stable = stable[app] == 'Stable'
+            percent = sum(is_stable) / float(app.stop - app.start) * 100
+            self.create_kpv(app.start, percent)
+            
+    
+class PercentApproachStableBelow1000Ft(KeyPointValueNode, PercentApproachStableBelow):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    
+    Creates a KPV around 1000 ft during the approach with the percent 
+    (0% to 100%) of the approach that was stable.
+    '''
+    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
+        self.percent_stable(stable.array, alt.array, 1000)
+
+
+class PercentApproachStableBelow500Ft(KeyPointValueNode, PercentApproachStableBelow):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    
+    Creates a KPV around 1000 ft during the approach with the percent 
+    (0% to 100%) of the approach that was stable.
+    '''
+    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
+        self.percent_stable(stable.array, alt.array, 500)
+
 
 class AutopilotOffInCruiseDuration(KeyPointValueNode):
     '''
@@ -3288,6 +3374,9 @@ class Eng_N1MaxDurationUnder60PercentAfterTouchdown(KeyPointValueNode):
                tdwn=KTI('Touchdown')):
         '''
         '''
+        if not tdwn:
+            return
+        
         for eng_num, eng in enumerate((eng1, eng2, eng3, eng4), start=1):
             if eng is None:
                 continue  # Engine is not available on this aircraft.
@@ -4789,6 +4878,8 @@ class RateOfDescentAtTouchdown(KeyPointValueNode):
     '''
     We use the inertial vertical speed to avoid ground effects and give an
     accurate value at the point of touchdown.
+    
+    Q: Should this use touchdown?
     '''
 
     def derive(self, vert_spd=P('Vertical Speed Inertial'),
