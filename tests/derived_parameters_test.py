@@ -71,7 +71,6 @@ from analysis_engine.derived_parameters import (
     #GroundspeedAlongTrack,
     HeadingContinuous,
     HeadingIncreasing,
-    HeadingTrueTrack,
     HeadingTrue,
     Headwind,
     ILSFrequency,
@@ -88,6 +87,7 @@ from analysis_engine.derived_parameters import (
     VerticalSpeedForFlightPhases,
     RateOfTurn,
     TrackDeviationFromRunway,
+    TrackTrue,
     TurbulenceRMSG,
     V2,
     WindAcrossLandingRunway,
@@ -1834,9 +1834,9 @@ class TestHeadingContinuous(unittest.TestCase):
 class TestTrackDeviationFromRunway(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(TrackDeviationFromRunway.get_operational_combinations(),
-                    [('Heading True Track', 'FDR Approaches'),
-                     ('Heading True Track', 'Takeoff', 'FDR Takeoff Runway'),
-                     ('Heading True Track', 'Takeoff', 'FDR Takeoff Runway', 'FDR Approaches')])
+                    [('Track True', 'FDR Approaches'),
+                     ('Track True', 'Takeoff', 'FDR Takeoff Runway'),
+                     ('Track True', 'Takeoff', 'FDR Takeoff Runway', 'FDR Approaches')])
 
     def test_deviation(self):
         apps = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_apps.nod'))
@@ -1930,13 +1930,13 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
 class TestHeadingTrueTrack(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
-            HeadingTrueTrack.get_operational_combinations(),
+            TrackTrue.get_operational_combinations(),
             [('Heading True Continuous', 'Drift')])
 
     def test_heading_track(self):
         hdg = load(os.path.join(test_data_path, 'HeadingTrack_Heading_True.nod'))
         dft = load(os.path.join(test_data_path, 'HeadingTrack_Drift.nod'))
-        head_track = HeadingTrueTrack()
+        head_track = TrackTrue()
         head_track.derive(heading=hdg, drift=dft)
         
         # compare IRU Track Angle True (recorded) against the derived

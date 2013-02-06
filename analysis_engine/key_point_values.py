@@ -1352,8 +1352,6 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
     '''
     def derive(self, brake=M('Speedbrake Selected'),
                lands = S('Landing'), tdwns=KTI('Touchdown')):
-        '''
-        '''
         deploys = find_edges_on_state_change('Deployed/Cmd Up', brake.array, phase=lands)
         for land in lands:
             for deploy in deploys:
@@ -1365,6 +1363,19 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
                     self.create_kpv(deploy, (deploy-tdwn.index)/brake.hz)
 
 
+class TrackDeviationFromRunwayBelow1000Ft(KeyPointValueNode):
+    '''
+    '''
+    def derive(self, track_dev=P('Track Deviation From Runway'), 
+               alt=P('Altitude AAL')):
+        alt_bands = alt_aal.slices_from_to(1000, 0)
+        self.create_kpvs_within_slices(
+            trac_dev.array,
+            alt_bands,
+            max_abs_value,
+        )
+        
+        
 ################################################################################
 # Takeoff and Use of TOGA
 
@@ -1879,12 +1890,9 @@ class AltitudeLastUnStableDuringApproach(KeyPointValueNode):
                 continue
 
 
-class PercentApproachStableBelow1000Ft(KeyPointValueNode):
+class PercentApproachStableBelow(object):
     '''
-    FDS developed this KPV to support the UK CAA Significant Seven programme.
-    
-    Creates a KPV around 1000 ft during the approach with the percent 
-    (0% to 100%) of the approach that was stable.
+    Abstract Class
     '''
     def percent_stable(self, stable, altitude, level=1000):
         stable[altitude > level] = np.ma.masked
@@ -1893,11 +1901,20 @@ class PercentApproachStableBelow1000Ft(KeyPointValueNode):
             is_stable = stable[app] == 'Stable'
             percent = sum(is_stable) / float(app.stop - app.start) * 100
             self.create_kpv(app.start, percent)
+            
     
+class PercentApproachStableBelow1000Ft(KeyPointValueNode, PercentApproachStableBelow):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    
+    Creates a KPV around 1000 ft during the approach with the percent 
+    (0% to 100%) of the approach that was stable.
+    '''
     def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
         self.percent_stable(stable.array, alt.array, 1000)
-            
-class PercentApproachStableBelow500Ft(PercentApproachStableBelow1000Ft):
+
+
+class PercentApproachStableBelow500Ft(KeyPointValueNode, PercentApproachStableBelow):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     
@@ -1906,8 +1923,6 @@ class PercentApproachStableBelow500Ft(PercentApproachStableBelow1000Ft):
     '''
     def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
         self.percent_stable(stable.array, alt.array, 500)
-
-
 
 
 class AutopilotOffInCruiseDuration(KeyPointValueNode):
