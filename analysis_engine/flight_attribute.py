@@ -190,7 +190,6 @@ class Approaches(FlightAttributeNode):
                     section.slice.start, frequency),
                 'slice_start': section.slice.start / frequency,
                 'slice_stop': section.slice.stop / frequency,
-
             }
             approach.update(self._lookup_airport_and_runway(**kwargs))
             approaches.append(approach)
