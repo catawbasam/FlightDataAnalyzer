@@ -2,8 +2,10 @@ import numpy as np
 
 import os
 import sys
+import shutil
 import unittest
 import datetime
+import tempfile
 
 from mock import Mock, call, patch
 
@@ -113,6 +115,30 @@ def assert_array_within_tolerance(actual, desired, tolerance=1, similarity=100):
             'actual array tolerance only is %.2f%% similar to desired array.'
             'tolerance %.2f minimum similarity required %.2f%%' % (
                 percent_similar, tolerance, similarity))
+
+
+class TemporaryFileTest(object):
+    '''
+    Test using a temporary copy of a predefined file.
+    '''
+    def setUp(self):
+        if getattr(self, 'source_file_path', None):
+            self.make_test_copy()
+
+    def tearDown(self):
+        if self.test_file_path:
+            os.unlink(self.test_file_path)
+            self.test_file_path = None
+
+    def make_test_copy(self):
+        '''
+        Copy the test file to temporary location, used by setUp().
+        '''
+        # Create the temporary file in the most secure way
+        f = tempfile.NamedTemporaryFile(delete=False)
+        self.test_file_path = f.name
+        f.close()
+        shutil.copy2(self.source_file_path, self.test_file_path)
 
 
 class NodeTest(object):
@@ -3084,7 +3110,7 @@ class TestWindDirectionContinuous(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestCoordinatesSmoothed(unittest.TestCase):
+class TestCoordinatesSmoothed(TemporaryFileTest, unittest.TestCase):
     def setUp(self):
         self.approaches = A(name = 'FDR Approaches',
                             value=[{'ILS frequency': 108.55,
@@ -3171,15 +3197,15 @@ class TestCoordinatesSmoothed(unittest.TestCase):
                                              'length': 9852, 
                                              'surface': 'CON', 
                                              'width': 179}})
-             
-        return
+
+        self.source_file_path = os.path.join(
+            test_data_path, 'flight_with_go_around_and_landing.hdf5')
+        super(TestCoordinatesSmoothed, self).setUp()
 
     # Skipped by DJ's advice: too many changes withoud updating the test
     @unittest.skip('Test Out Of Date')
     def test__adjust_track_precise(self):
-        hdf_test_file = os.path.join(test_data_path,
-                                     'flight_with_go_around_and_landing.hdf5')
-        with hdf_file(hdf_test_file) as hdf:
+        with hdf_file(self.test_file_path) as hdf:
             lon = hdf['Longitude']
             lat = hdf['Latitude']
             ils_loc =hdf['ILS Localizer']
@@ -3207,9 +3233,7 @@ class TestCoordinatesSmoothed(unittest.TestCase):
     # Skipped by DJ's advice: too many changes withoud updating the test
     @unittest.skip('Test Out Of Date')
     def test__adjust_track_imprecise(self):
-        hdf_test_file = os.path.join(test_data_path,
-                                     'flight_with_go_around_and_landing.hdf5')
-        with hdf_file(hdf_test_file) as hdf:
+        with hdf_file(self.test_file_path) as hdf:
             lon = hdf['Longitude']
             lat = hdf['Latitude']
             ils_loc =hdf['ILS Localizer']
@@ -3242,9 +3266,7 @@ class TestCoordinatesSmoothed(unittest.TestCase):
     # Skipped by DJ's advice: too many changes withoud updating the test
     @unittest.skip('Test Out Of Date')
     def test__adjust_track_visual(self):
-        hdf_test_file = os.path.join(test_data_path,
-                                     'flight_with_go_around_and_landing.hdf5')
-        with hdf_file(hdf_test_file) as hdf:
+        with hdf_file(self.test_file_path) as hdf:
             lon = hdf['Longitude']
             lat = hdf['Latitude']
             ils_loc =hdf['ILS Localizer']
@@ -3271,7 +3293,7 @@ class TestCoordinatesSmoothed(unittest.TestCase):
         self.assertEqual(chunks,[slice(44,414),slice(12930,13424)])
 
 
-class TestApproachRange(unittest.TestCase):
+class TestApproachRange(TemporaryFileTest, unittest.TestCase):
     def setUp(self):
         self.approaches = A(name = 'FDR Approaches',
                             value=[{'ILS frequency': 108.55,
@@ -3358,13 +3380,13 @@ class TestApproachRange(unittest.TestCase):
                                              'length': 9852, 
                                              'surface': 'CON', 
                                              'width': 179}})
-             
-        return
+
+        self.source_file_path = os.path.join(
+            test_data_path, 'flight_with_go_around_and_landing.hdf5')
+        super(TestApproachRange, self).setUp()
 
     def test_range_basic(self):
-        hdf_test_file = os.path.join(test_data_path,
-                                     'flight_with_go_around_and_landing.hdf5')
-        with hdf_file(hdf_test_file) as hdf:
+        with hdf_file(self.test_file_path) as hdf:
             hdg = hdf['Heading True Continuous']
             tas = hdf['Airspeed True']
             alt = hdf['Altitude AAL']
@@ -3379,9 +3401,7 @@ class TestApproachRange(unittest.TestCase):
                                  slice(12928, 13423, None)])
         
     def test_range_full_param_set(self):
-        hdf_test_file = os.path.join(test_data_path,
-                                     'flight_with_go_around_and_landing.hdf5')
-        with hdf_file(hdf_test_file) as hdf:
+        with hdf_file(self.test_file_path) as hdf:
             hdg = hdf['Heading True Continuous']
             tas = hdf['Airspeed True']
             alt = hdf['Altitude AAL']
