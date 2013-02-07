@@ -30,6 +30,7 @@ class TestAllOf(unittest.TestCase):
         self.assertTrue(all_of(['Groundspeed'], available))
         self.assertFalse(all_of(['NOT PRESENT', 'ALSO NOT THERE'], available))
 
+
 class TestAnyOf(unittest.TestCase):
     def test_any_of(self):
         available = ['Altitude AAL', 'Airspeed', 'Groundspeed']
@@ -59,6 +60,7 @@ class TestIsPower2(unittest.TestCase):
                          [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024])
         self.assertFalse(is_power2(-2))
         self.assertFalse(is_power2(2.2))
+
 
 class TestAlign(unittest.TestCase):
     def test_align_returns_same_array_if_aligned(self):
@@ -639,6 +641,7 @@ class TestLatitudesAndLongitudes(unittest.TestCase):
         self.assertAlmostEqual(lon,[-1.06358672])
         # TODO - Test with array and masks (for Brg/Dist also?)
 
+
 class TestLocalizerScale(unittest.TestCase):
     def test_basic_operation(self):
         rwy = A(name='test',
@@ -672,6 +675,7 @@ class TestLocalizerScale(unittest.TestCase):
         result = localizer_scale(rwy.value[0])
         self.assertGreater(result, 1.2)
         self.assertLess(result, 1.3)
+
         
 class TestBlendEquispacedSensors(unittest.TestCase):
     def test_blend_alternate_sensors_basic(self):
@@ -963,6 +967,7 @@ class TestClip(unittest.TestCase):
         expected = np.array([9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9])
         np.testing.assert_array_almost_equal(result, expected)
 
+
 class TestClumpMultistate(unittest.TestCase):
     # Reminder: clump_multistate(array, state, _slices, condition=True)
     def test_basic(self):
@@ -1130,6 +1135,7 @@ class TestCycleFinder(unittest.TestCase):
         np.testing.assert_array_equal(idxs, [0,5,7,14])
         np.testing.assert_array_equal(vals, [0,3,1,6])
 
+
 class TestDatetimeOfIndex(unittest.TestCase):
     def test_index_of_datetime(self):
         start_datetime = datetime.now()
@@ -1137,6 +1143,7 @@ class TestDatetimeOfIndex(unittest.TestCase):
         frequency = 4
         dt = datetime_of_index(start_datetime, index, frequency=frequency)
         self.assertEqual(dt, start_datetime + timedelta(seconds=40))
+
 
 class TestFilterVorIlsFrequencies(unittest.TestCase):
     def test_low_end_ils(self):
@@ -1221,6 +1228,7 @@ class TestFindEdges(unittest.TestCase):
         array=np.ma.array([1])
         self.assertRaises(ValueError, find_edges, array, slice(0,1),
                           direction='anything')
+
                     
 class TestFindEdgesOnStateChange(unittest.TestCase):
     # Reminder...
@@ -1260,6 +1268,7 @@ class TestFindEdgesOnStateChange(unittest.TestCase):
     def test_misunderstood_state(self):
         multi = self.Switch(array=np.ma.array([0,1]))
         self.assertRaises(KeyError, find_edges_on_state_change, 'ha!', multi.array)
+
 
 class TestFirstOrderLag(unittest.TestCase):
 
@@ -1486,6 +1495,7 @@ class TestGtpWeightingVector(unittest.TestCase):
         speed_weighting = gtp_weighting_vector(speed, turn_ends, weights)
         expected = np.ma.array([1.0,0.9,0.8,1.0,1.2,1.4,1.2,1.0])
         np.testing.assert_array_almost_equal(speed_weighting , expected)
+
         
 class TestGtpComputeError(unittest.TestCase):
     # Precise positioning ground track error computation.
@@ -1519,6 +1529,7 @@ class TestGtpComputeError(unittest.TestCase):
         args = (straights, turn_ends, lat, lon, speed, hdg, frequency, mode, 'iterate')
         error = gtp_compute_error(weights, *args)
         self.assertAlmostEqual(error,0.0)
+
 
 class TestGroundTrackPrecise(unittest.TestCase):
     # Precise Positioning version of Ground Track
@@ -1735,6 +1746,7 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.array([0,1,2,3,2,1,2,1])
         self.assertEquals (index_at_value(array, 3.1, slice(7, 0, -1), endpoint='nearest'), 3.0)
 
+
 class TestIndexClosestValue(unittest.TestCase):
     def test_index_closest_value(self):
         array = np.ma.array([1,2,3,4,5,4,3])
@@ -1904,6 +1916,7 @@ class TestInterpolateParams(unittest.TestCase):
         self.assertEqual(off, 3 * param1.offset)
 """
 
+
 class TestIsIndexWithinSlice(unittest.TestCase):
     def test_is_index_within_slice(self):
         self.assertTrue(is_index_within_slice(1, slice(0,2)))
@@ -2033,7 +2046,6 @@ class TestIsSliceWithinSlice(unittest.TestCase):
                                               slice(None, None)))
         self.assertTrue(is_slice_within_slice(slice(None, 15),
                                               slice(None, None)))
-        
         
 
 class TestMaskInsideSlices(unittest.TestCase):
@@ -3001,6 +3013,7 @@ class TestRunwayDistances(unittest.TestCase):
         self.assertAlmostEqual(result[3],60.3, places=1)
         self.assertAlmostEqual(result[4],5.22, places=2)
 
+
 class TestRunwayDeviation(unittest.TestCase):
     # Reminder: def runway_deviation(array, runway):
     def test_runway_deviation(self):
@@ -3045,6 +3058,7 @@ class TestRunwayHeading(unittest.TestCase):
         result = runway_heading(rwy.value[0]['runway'])
         self.assertGreater(result, 298)
         self.assertLess(result, 302)
+
     
 class TestRunwayLength(unittest.TestCase):
     @mock.patch('analysis_engine.library._dist')
@@ -3100,8 +3114,6 @@ class TestRunwaySnap(unittest.TestCase):
         self.assertEqual(lon,None)
 
 
-
-
 class TestRunwaySnapDict(unittest.TestCase):
     @mock.patch('analysis_engine.library.runway_snap')
     def test_runway_snap_dict(self, runway_snap):
@@ -3139,6 +3151,7 @@ class TestSectionContainsKti(unittest.TestCase):
         kti = KTI(items=[KeyTimeInstance(name='More Test', index=5)])
         self.assertFalse(section_contains_kti(section, kti))
 """             
+
         
 class TestRunsOfOnes(unittest.TestCase):
     def test_runs_of_ones(self):
@@ -3327,6 +3340,7 @@ class TestSlicesFromTo(unittest.TestCase):
         self.assertEqual(slices, [])
         _, slices = slices_from_to(array, 6, 4)
         self.assertEqual(slices, [])
+
         
 class TestSliceMultiply(unittest.TestCase):
     def test_slice_multiply(self):
@@ -3338,12 +3352,14 @@ class TestSliceMultiply(unittest.TestCase):
                          slice(0,1,None))
         self.assertEqual(slice_multiply(slice(1,2,0.5),-2),
                          slice(-2,-4,-1))
+
         
 class TestSlicesMultiply(unittest.TestCase):
     def test_slices_multiply(self):
         slices = [slice(1,2,3),slice(None,None,None),slice(1,2,None)]
         result = [slice(3,6,9),slice(None,None,None),slice(3,6,None)]
         self.assertEqual(slices_multiply(slices,3),result)
+
         
 class TestSlicesOverlap(unittest.TestCase):
     def test_slices_overlap(self):
@@ -3724,6 +3740,7 @@ class TestTrackLinking(unittest.TestCase):
 For the Truck and Trailer algorithm, see TestPeakCurvature above.
 """
 
+
 class TestValueAtTime(unittest.TestCase):
     # Reminder: value_at_time (array, hz, offset, time_index)
 
@@ -3928,6 +3945,7 @@ class TestCas2Dp(unittest.TestCase):
         Truth = 23.5351
         self.assertAlmostEqual(Value, Truth, delta = 1e-2)
 
+
 class TestDelay(unittest.TestCase):
     
     def test_basic(self):
@@ -4031,6 +4049,7 @@ class TestDpOverP2mach(unittest.TestCase):
         Truth = np.ma.array(data=[0.8, 0.999, 1.0], mask=[False, False, True])
         ma_test.assert_almost_equal(Value,Truth, decimal=3)
 
+
 class TestIsDay(unittest.TestCase):
     import datetime
     
@@ -4095,9 +4114,7 @@ class TestIsDay(unittest.TestCase):
         self.assertEqual(is_day(datetime(2012,6,4,1,10), lat, lon), False)
         self.assertEqual(is_day(datetime(2012,6,4,1,12), lat, lon), True)
 
-
      
-
 if __name__ == '__main__':
     suite = unittest.TestSuite()
     suite.addTest(TestIndexAtValue('test_index_at_value_slice_beyond_top_end_of_data'))
