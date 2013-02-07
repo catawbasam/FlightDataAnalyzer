@@ -1488,7 +1488,7 @@ def runway_deviation(array, runway={}, heading=0.0):
     
     NOTE: Uses heading supplied in preference to coordinates.
     
-    :param array: array of TRUE heading values
+    :param array: array or Value of TRUE heading values
     :type array: Numpy masked array (usually already sliced to relate to the landing in question).
     :param runway: runway details.
     :type runway: dict (runway.value if this is taken from an attribute).
@@ -2752,7 +2752,7 @@ def max_abs_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
         if edge_value and edge_value > value:
             index = stop_edge
             value = edge_value
-    return Value(index, value_at_index(array, index)) # Recover sign of the value.
+    return Value(index, array[index]) # Recover sign of the value.
 
 
 def max_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
@@ -4318,7 +4318,8 @@ def _value(array, _slice, operator):
     if _slice.step and _slice.step < 0:
         raise ValueError("Negative step not supported")
     if np.ma.count(array[_slice]):
-        index = operator(array[_slice]) + (_slice.start or 0) * (_slice.step or 1)
+        # floor the start position as it will have been floored during the slice
+        index = operator(array[_slice]) + floor(_slice.start or 0) * (_slice.step or 1)
         value = array[index]
         return Value(index, value)
     else:

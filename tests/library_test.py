@@ -2165,8 +2165,21 @@ class TestMaxAbsValue(unittest.TestCase):
         self.assertEqual(max_abs_value(array), (100, -40))
         array = array*-1.0
         self.assertEqual(max_abs_value(array), (100, 40))
-
-
+        
+    def test_max_abs_slice_decimal(self):
+        "where slice start is not a whole number, ensure maxima is returned"
+        d = np.ma.array(data = [
+            -0.000, -0.000, -0.352, -0.000, -0.000,  0.351,  0.351, 
+            -0.000, -0.000, -0.352, -0.352, -0.352, -0.000, -0.000,
+            -0.352, -0.352, -0.352, -0.001, -0.001, -0.001, -0.001,
+             0.351,  0.351,  0.351, -0.001, -0.001, -0.352, -0.352,
+            -0.001, -0.352, -0.704, -1.056, -1.055, -0.704, -0.704])
+        s = slice(3.482, 1241.611)
+        res = max_abs_value(d, s)
+        self.assertEqual(res.value, -1.056)
+        self.assertEqual(res.index, 31)
+        
+        
 class TestMergeSources(unittest.TestCase):
     def test_merge_sources_basic(self):
         p1 = np.ma.array([0]*4)
