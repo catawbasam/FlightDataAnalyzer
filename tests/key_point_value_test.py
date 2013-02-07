@@ -150,6 +150,9 @@ from analysis_engine.key_point_values import (
     HeadingExcursionOnLandingAbove100Kts,
     HeadingExcursionTouchdownPlus4SecTo60Kts,
     HeadingVacatingRunway,
+    HeightLossLiftoffTo35Ft,
+    HeightLoss35To1000Ft,
+    HeightLoss1000To2000Ft,
     ILSFrequencyOnApproach,
     ILSGlideslopeDeviation1500To1000FtMax,
     ILSGlideslopeDeviation1000To500FtMax,
@@ -2752,32 +2755,44 @@ class TestGroundspeedThrustReversersDeployedMin(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeightLost1000To2000Ft(unittest.TestCase):
+class TestHeightLoss1000To2000Ft(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = HeightLoss1000To2000Ft
+        self.operational_combinations = [(
+            'Descend For Flight Phases',
+            'Altitude AAL For Flight Phases',
+        )]
+
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeightLost35To1000Ft(unittest.TestCase):
+class TestHeightLoss35To1000Ft(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = HeightLoss35To1000Ft
+        self.operational_combinations = [(
+            'Descend For Flight Phases',
+            'Altitude AAL For Flight Phases',
+        )]
+
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeightLostTakeoffTo35Ft(unittest.TestCase):
+class TestHeightLossLiftoffTo35Ft(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = HeightLossLiftoffTo35Ft
+        self.operational_combinations = [(
+            'Descend For Flight Phases',
+            'Altitude AAL For Flight Phases',
+        )]
+
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 

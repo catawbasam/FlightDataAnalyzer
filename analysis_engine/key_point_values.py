@@ -2377,56 +2377,52 @@ class HeadingAtLowestPointOnApproach(KeyPointValueNode):
 
 
 ################################################################################
-# Height Lost
+# Height Loss
 
 
-# FIXME: Ensure that this uses .slices_from_takeoff_to(35)?
-class HeightLostTakeoffTo35Ft(KeyPointValueNode):
+class HeightLossLiftoffTo35Ft(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
+    def derive(self,
+               ht_loss=P('Descend For Flight Phases'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
         for climb in alt_aal.slices_from_to(0, 35):
-            deltas = np.ma.ediff1d(alt_aal.array[climb], to_begin=0.0)
-            downs = np.ma.masked_greater(deltas,0.0)
-            index = np.ma.argmin(downs)
-            drop = np.ma.sum(downs)
-            if index:
-                self.create_kpv(climb.start + index, drop)
+            index, value = min_value(ht_loss.array, climb)
+            # Only report a positive value where height is lost:
+            if index and value < 0:
+                self.create_kpv(index, abs(value))
 
 
-class HeightLost35To1000Ft(KeyPointValueNode):
+class HeightLoss35To1000Ft(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, ht_loss=P('Descend For Flight Phases'),
+    def derive(self,
+               ht_loss=P('Descend For Flight Phases'),
                alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
+
         for climb in alt_aal.slices_from_to(35, 1000):
-            index = np.ma.argmin(ht_loss.array[climb])
-            index += climb.start
-            value = ht_loss.array[index]
-            if value:
-                self.create_kpv(index, value)
+            index, value = min_value(ht_loss.array, climb)
+            # Only report a positive value where height is lost:
+            if index and value < 0:
+                self.create_kpv(index, abs(value))
 
 
-class HeightLost1000To2000Ft(KeyPointValueNode):
+class HeightLoss1000To2000Ft(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, ht_loss=P('Descend For Flight Phases'),
+    def derive(self,
+               ht_loss=P('Descend For Flight Phases'),
                alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        '''
+
         for climb in alt_aal.slices_from_to(1000, 2000):
-            index = np.ma.argmin(ht_loss.array[climb])
-            index += climb.start
-            value = ht_loss.array[index]
-            if value:
-                self.create_kpv(index, value)
+            index, value = min_value(ht_loss.array, climb)
+            # Only report a positive value where height is lost:
+            if index and value < 0:
+                self.create_kpv(index, abs(value))
 
 
 ################################################################################
