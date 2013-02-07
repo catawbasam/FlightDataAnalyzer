@@ -1363,16 +1363,56 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
                     self.create_kpv(deploy, (deploy-tdwn.index)/brake.hz)
 
 
-class TrackDeviationFromRunway1000FtToTouchdown(KeyPointValueNode):
+class TrackDeviationFromRunway1000FtTo500Ft(KeyPointValueNode):
     '''
-    Track deviation from the runway centreline from final approach to touchdown
+    Track deviation from the runway centreline from 1000 to 500 feet.
+    
+    Helps establishing the stable criteria for IFR below 1000ft.
     
     Includes large deviations recoreded when aircraft turns onto runway at 
-    altitudes below 1000ft
+    altitudes below 1000ft.
     '''
     def derive(self, track_dev=P('Track Deviation From Runway'), 
                alt=P('Altitude AAL')):
-        alt_bands = alt.slices_from_to(1000, 0)
+        alt_bands = alt.slices_from_to(1000, 500)
+        self.create_kpvs_within_slices(
+            track_dev.array,
+            alt_bands,
+            max_abs_value,
+        )
+        
+class TrackDeviationFromRunway500FtTo300Ft(KeyPointValueNode):
+    '''
+    Track deviation from the runway centreline from 500 to 300 feet.
+    
+    Helps establishing the stable criteria for VFR below 500ft.
+    
+    Includes large deviations recorded when aircraft turns onto runway at 
+    altitudes below 500ft, but should be stable by 300ft.
+    '''
+    def derive(self, track_dev=P('Track Deviation From Runway'), 
+               alt=P('Altitude AAL')):
+        alt_bands = alt.slices_from_to(500, 300)
+        self.create_kpvs_within_slices(
+            track_dev.array,
+            alt_bands,
+            max_abs_value,
+        )
+        
+        
+class TrackDeviationFromRunway300FtToTouchdown(KeyPointValueNode):
+    '''
+    Track deviation from the runway centreline from 300 to 0 feet.
+    
+    Helps establishing the FAA stable criteria for a late roll onto runway 
+    heading.
+    
+    There is almost no excuse for being unaligned with the runway at this
+    altitude, so the distribution should have small variance.
+    '''
+    def derive(self, track_dev=P('Track Deviation From Runway'), 
+               alt=P('Altitude AAL')):
+        alt_bands = alt.slices_from_to(300, 0)
         self.create_kpvs_within_slices(
             track_dev.array,
             alt_bands,
