@@ -65,7 +65,7 @@ class TestGetNames(unittest.TestCase):
         self.assertIn('TAWS General', params)
         self.assertIn('Key Satcom (1)', params)
         # ensure KPV and KTIs are excluded
-        self.assertNotIn('AOA With Flap 16 Max', params)  # KPV
+        self.assertNotIn('AOA With Flap 15 Max', params)  # KPV
         self.assertNotIn('Landing Turn Off Runway', params)  # KTI
         self.assertNotIn('FDR Takeoff Runway', params)  # Attribute
         
@@ -79,7 +79,7 @@ class TestGetNames(unittest.TestCase):
         kpvs = list_kpvs()
         self.assertIn('Airspeed Max', kpvs)
         # check the formatted name is there
-        self.assertIn('AOA With Flap 16 Max', kpvs)
+        self.assertIn('AOA With Flap 15 Max', kpvs)
         # and that the actual node name is not
         self.assertNotIn('AOA With Flap Max', kpvs)
         # check dependencies are not included
@@ -90,7 +90,7 @@ class TestGetNames(unittest.TestCase):
         ktis = list_ktis()
         self.assertIn('Landing Turn Off Runway', ktis)
         self.assertNotIn('Airspeed', ktis)
-        self.assertNotIn('AOA With Flap 16 Max', ktis)
+        self.assertNotIn('AOA With Flap 15 Max', ktis)
         self.assertNotIn('FDR Takeoff Runway', ktis)
         
     def test_list_lfl_parameters(self):
@@ -104,7 +104,7 @@ class TestGetNames(unittest.TestCase):
         self.assertIn('Altitude AAL', params)  # Derived Node
         self.assertIn('TAWS General', params)
         self.assertIn('Key Satcom (1)', params)
-        self.assertIn('AOA With Flap 16 Max', params)  # KPV
+        self.assertIn('AOA With Flap 15 Max', params)  # KPV
         self.assertIn('Landing Turn Off Runway', params)  # KTI
         self.assertIn('FDR Takeoff Runway', params)  # Attribute
 
