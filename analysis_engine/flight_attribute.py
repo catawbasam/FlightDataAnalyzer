@@ -423,7 +423,7 @@ class FlightNumber(FlightAttributeNode):
         value, count = max_value(np.bincount(num.array.astype(np.integer)))
         if count > len(num.array) * 0.45:
             # this value accounts for at least 45% of the values in the array
-            self.set_flight_attr(str(value))
+            self.set_flight_attr(str(int(value)))
         else:
             self.warning("Only %d out of %d flight numbers were the same."\
                          " Flight Number attribute will be set as None.",
