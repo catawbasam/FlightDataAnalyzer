@@ -63,6 +63,26 @@ class TestIsPower2(unittest.TestCase):
         self.assertFalse(is_power2(2.2))
 
 
+class TestAlignSlices(unittest.TestCase):
+    def test_align_slices_unchanged(self):
+        slave = P('slave')
+        master = P('master')
+        slices = [slice(None, 20), slice(20, 40), slice(40, None),
+                  slice(5, 10, 3), None, slice(None, None)]
+        result = align_slices(slave, master, slices)
+        self.assertEqual(result, slices)
+    
+    def test_align_slices(self):
+        slave = P('slave', frequency=2, offset=0.75)
+        master = P('master', frequency=1, offset=0.25)
+        slices = [slice(None, 20), slice(20, 40), slice(40, None),
+                  slice(5, 10, 3), None, slice(None, None)]
+        result = align_slices(slave, master, slices)
+        self.assertEqual(result, [slice(None, 39, None), slice(39, 79, None),
+                                  slice(79, None, None), slice(9, 19, 3), None,
+                                  slice(None, None, None)])
+
+
 class TestAlign(unittest.TestCase):
     def test_align_returns_same_array_if_aligned(self):
         slave = P('slave', np.ma.array(range(10)))
