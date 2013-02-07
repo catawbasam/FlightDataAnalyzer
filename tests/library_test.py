@@ -39,6 +39,7 @@ class TestAnyOf(unittest.TestCase):
         self.assertTrue(any_of(['Groundspeed'], available))
         self.assertFalse(any_of(['NOT PRESENT', 'ALSO NOT THERE'], available))
 
+
 class TestAirTrack(unittest.TestCase):
     def test_air_track_basic(self):
         spd = np.ma.array([260,260,260,260,260,260,260], dtype=float)
