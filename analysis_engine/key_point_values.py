@@ -1363,8 +1363,12 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
                     self.create_kpv(deploy, (deploy-tdwn.index)/brake.hz)
 
 
-class TrackDeviationFromRunwayBelow1000Ft(KeyPointValueNode):
+class TrackDeviationFromRunway1000FtToTouchdown(KeyPointValueNode):
     '''
+    Track deviation from the runway centreline from final approach to touchdown
+    
+    Includes large deviations recoreded when aircraft turns onto runway at 
+    altitudes below 1000ft
     '''
     def derive(self, track_dev=P('Track Deviation From Runway'), 
                alt=P('Altitude AAL')):
