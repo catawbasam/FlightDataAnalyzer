@@ -1,6 +1,7 @@
 To Do
 =====
 
+* Review whether we should keep KeyPointValue slices which indicate which section of data a KPV was created within.
 * Support offset ILS beams for approach tracks
 * Q: add __len__ to nodes - this is easy for sections which are a list, but for derived parameters this could be the length of valid (not masked) data. Although risky?
 * rename modules to consistent singular or plural (flight_phase vs. key_point_values)
