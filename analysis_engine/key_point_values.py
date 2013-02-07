@@ -1352,8 +1352,6 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
     '''
     def derive(self, brake=M('Speedbrake Selected'),
                lands = S('Landing'), tdwns=KTI('Touchdown')):
-        '''
-        '''
         deploys = find_edges_on_state_change('Deployed/Cmd Up', brake.array, phase=lands)
         for land in lands:
             for deploy in deploys:
@@ -1365,6 +1363,63 @@ class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
                     self.create_kpv(deploy, (deploy-tdwn.index)/brake.hz)
 
 
+class TrackDeviationFromRunway1000FtTo500Ft(KeyPointValueNode):
+    '''
+    Track deviation from the runway centreline from 1000 to 500 feet.
+    
+    Helps establishing the stable criteria for IFR below 1000ft.
+    
+    Includes large deviations recoreded when aircraft turns onto runway at 
+    altitudes below 1000ft.
+    '''
+    def derive(self, track_dev=P('Track Deviation From Runway'), 
+               alt=P('Altitude AAL')):
+        alt_bands = alt.slices_from_to(1000, 500)
+        self.create_kpvs_within_slices(
+            track_dev.array,
+            alt_bands,
+            max_abs_value,
+        )
+        
+class TrackDeviationFromRunway500FtTo300Ft(KeyPointValueNode):
+    '''
+    Track deviation from the runway centreline from 500 to 300 feet.
+    
+    Helps establishing the stable criteria for VFR below 500ft.
+    
+    Includes large deviations recorded when aircraft turns onto runway at 
+    altitudes below 500ft, but should be stable by 300ft.
+    '''
+    def derive(self, track_dev=P('Track Deviation From Runway'), 
+               alt=P('Altitude AAL')):
+        alt_bands = alt.slices_from_to(500, 300)
+        self.create_kpvs_within_slices(
+            track_dev.array,
+            alt_bands,
+            max_abs_value,
+        )
+        
+        
+class TrackDeviationFromRunway300FtToTouchdown(KeyPointValueNode):
+    '''
+    Track deviation from the runway centreline from 300 to 0 feet.
+    
+    Helps establishing the FAA stable criteria for a late roll onto runway 
+    heading.
+    
+    There is almost no excuse for being unaligned with the runway at this
+    altitude, so the distribution should have small variance.
+    '''
+    def derive(self, track_dev=P('Track Deviation From Runway'), 
+               alt=P('Altitude AAL')):
+        alt_bands = alt.slices_from_to(300, 0)
+        self.create_kpvs_within_slices(
+            track_dev.array,
+            alt_bands,
+            max_abs_value,
+        )
+        
+        
 ################################################################################
 # Takeoff and Use of TOGA
 
@@ -1879,12 +1934,9 @@ class AltitudeLastUnStableDuringApproach(KeyPointValueNode):
                 continue
 
 
-class PercentApproachStableBelow1000Ft(KeyPointValueNode):
+class PercentApproachStableBelow(object):
     '''
-    FDS developed this KPV to support the UK CAA Significant Seven programme.
-    
-    Creates a KPV around 1000 ft during the approach with the percent 
-    (0% to 100%) of the approach that was stable.
+    Abstract Class
     '''
     def percent_stable(self, stable, altitude, level=1000):
         stable[altitude > level] = np.ma.masked
@@ -1893,11 +1945,20 @@ class PercentApproachStableBelow1000Ft(KeyPointValueNode):
             is_stable = stable[app] == 'Stable'
             percent = sum(is_stable) / float(app.stop - app.start) * 100
             self.create_kpv(app.start, percent)
+            
     
+class PercentApproachStableBelow1000Ft(KeyPointValueNode, PercentApproachStableBelow):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    
+    Creates a KPV around 1000 ft during the approach with the percent 
+    (0% to 100%) of the approach that was stable.
+    '''
     def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
         self.percent_stable(stable.array, alt.array, 1000)
-            
-class PercentApproachStableBelow500Ft(PercentApproachStableBelow1000Ft):
+
+
+class PercentApproachStableBelow500Ft(KeyPointValueNode, PercentApproachStableBelow):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     
@@ -1906,8 +1967,6 @@ class PercentApproachStableBelow500Ft(PercentApproachStableBelow1000Ft):
     '''
     def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
         self.percent_stable(stable.array, alt.array, 500)
-
-
 
 
 class AutopilotOffInCruiseDuration(KeyPointValueNode):

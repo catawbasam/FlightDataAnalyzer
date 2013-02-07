@@ -4771,7 +4771,22 @@ class WheelSpeed(DerivedParameterNode):
             blend_two_parameters(ws_in, ws_out)
 
 
-class HeadingTrueTrack(DerivedParameterNode):
+
+class Track(DerivedParameterNode):
+    '''
+    Magnetic Track Heading of the Aircraft by adding Drift from track to the
+    aircraft Heading.
+    
+    Range 0 to 360
+    '''
+    units = 'deg'
+
+    def derive(self, heading=P('Heading Continuous'), drift=P('Drift')):
+        #Note: drift is to the right of heading, so: Track = Heading + Drift
+        self.array = (heading.array + drift.array) % 360
+        
+
+class TrackTrue(DerivedParameterNode):
     '''
     True Track Heading of the Aircraft by adding Drift from track to the
     aircraft Heading.
@@ -4786,17 +4801,25 @@ class HeadingTrueTrack(DerivedParameterNode):
 
 
 class TrackDeviationFromRunway(DerivedParameterNode):
-
+    '''
+    Difference from the aircraft's Track angle and that of the Runway
+    centreline. Measured during Takeoff and Approach phases.
+    
+    Based on Track True angle in order to avoid complications with magnetic
+    deviation values recorded at airports. The deviation from runway centre
+    line would be the same whether the calculation is based on Magnetic or
+    True measurements.
+    '''
     # forse offset for approach slice start consistency
     align_frequency = 1
     align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
-        return (('Heading True Track', 'FDR Approaches') == available) or \
-                all_of(('Heading True Track', 'Takeoff', 'FDR Takeoff Runway'), available)
+        return (('Track True', 'FDR Approaches') == available) or \
+                all_of(('Track True', 'Takeoff', 'FDR Takeoff Runway'), available)
 
-    def derive(self, heading_track=P('Heading True Track'),
+    def derive(self, heading_track=P('Track True'),
                takeoff=S('Takeoff'),
                to_rwy=A('FDR Takeoff Runway'),
                apps=A('FDR Approaches')):
