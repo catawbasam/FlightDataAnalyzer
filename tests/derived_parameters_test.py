@@ -3446,16 +3446,16 @@ class TestStableApproach(unittest.TestCase):
         #6. localizer deviation is out for index 7-10, last 4 values ignored due to alt cutoff
         l = [ 0,  0,  0,  0,  0,  0,  0,  2,  2,  2, -3,  0,  0,  0,  0,  0,  0, -2, -2, -2, -2]
         loc = P(array=np.ma.array(l))
-        #7. Vertical Speed too big/small at index 6 and at 17 (59ft)
+        #7. Vertical Speed too great at index 8, but change is smoothed out and at 17 (59ft)
         v = [-500] * 20
         v[6] = -2000
-        v[17] = -2000
-        vert_spd = P(array=np.ma.array(v))        
+        v[18:19] = [-2000]*1
+        vert_spd = P(array=np.ma.array(v))
         
         #TODO: engine cycling at index 12?
         
         #8. Engine power too low at index 5-12
-        e = [80, 80, 80, 80, 80, 30, 20, 30, 20, 30, 20, 30, 50, 50, 80, 80, 80, 50, 50, 50, 50]
+        e = [80, 80, 80, 80, 80, 30, 20, 30, 20, 30, 20, 30, 44, 40, 80, 80, 80, 50, 50, 50, 50]
         eng = P(array=np.ma.array(e))
         
         # Altitude for cutoff heights, last 4 values are velow 100ft last 2 below 50ft
@@ -3467,17 +3467,28 @@ class TestStableApproach(unittest.TestCase):
         
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
-               [0, 1, 1, 4, 9, 2, 7, 6, 6, 5, 5, 3, 3, 8, 9, 9, 9, 7, 9, 9, 0])
+               [0, 1, 1, 4, 9, 2, 8, 6, 6, 5, 5, 3, 3, 8, 9, 9, 9, 9, 9, 9, 0])
         self.assertEqual(list(stable.array.mask),
                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
         
+        #========== NO GLIDESLOPE ==========
         # Test without the use of Glideslope (not on it at 1000ft) therefore
         # instability for index 7-10 is now due to low Engine Power
         glide2 = P(array=np.ma.array([3.5]*20))
         stable.derive(apps, gear, flap, head, aspd, vert_spd, glide2, loc, eng, alt)
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
-               [0, 1, 1, 4, 9, 2, 7, 8, 8, 8, 8, 3, 3, 8, 9, 9, 9, 7, 9, 9, 0])
+               [0, 1, 1, 4, 9, 2, 8, 8, 8, 8, 8, 3, 3, 8, 9, 9, 9, 9, 9, 9, 0])
+        
+        #========== VERTICAL SPEED ==========
+        # Test with a lot of vertical speed (rather than just gusts above)
+        v = [-1200] * 20
+        vert_spd = P(array=np.ma.array(v))
+        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide2, loc, eng, alt)
+        self.assertEqual(list(stable.array.data),
+        #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
+               [0, 1, 1, 4, 9, 2, 7, 7, 7, 7, 7, 3, 3, 7, 7, 7, 7, 9, 9, 9, 0])
+
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()

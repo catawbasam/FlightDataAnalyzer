@@ -4853,7 +4853,7 @@ class StableApproach(MultistateDerivedParameterNode):
     5. Glideslope deviation within 1 dot
     6. Localizer deviation within 1 dot
     7. Vertical speed between -1000 and -200 fpm
-    8. Engine Power greater than 60% # TODO: and not Cycling within last 5 seconds
+    8. Engine Power greater than 45% # TODO: and not Cycling within last 5 seconds
     
     if all the above steps are met, the result is the declaration of:
     9. "Stable"
@@ -4919,8 +4919,9 @@ class StableApproach(MultistateDerivedParameterNode):
             airspeed = repair(aspd.array, approach)
             glideslope = repair(gdev.array, approach)
             localizer = repair(ldev.array, approach)
-            vertical_speed = repair(vspd.array, approach)
-            engine = repair(eng.array, approach)  # TODO: add hysteresis here?
+            # apply quite a large moving average to smooth over peaks and troughs
+            vertical_speed = moving_average(repair(vspd.array, approach), 8)
+            engine = repair(eng.array, approach)  # TODO: add moving_average here too?
             altitude = repair(alt.array, approach)
             
             # Determine whether Glideslope was used at 1000ft, if not ignore ILS
@@ -4978,7 +4979,7 @@ class StableApproach(MultistateDerivedParameterNode):
             
             #== 8. Engine Power (N1) ==
             self.array[approach.slice][stable] = 8
-            STABLE_N1_MIN = 55  # %
+            STABLE_N1_MIN = 45  # %
             stable_engine = (engine > STABLE_N1_MIN)
             stable_engine |= (altitude > 1000) | (altitude < 50)  # Only use in altitude band 1000-50 feet
             stable &= stable_engine.filled(True)  #Q: True best?
