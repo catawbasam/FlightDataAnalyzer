@@ -1969,15 +1969,20 @@ class PercentApproachStableBelow500Ft(KeyPointValueNode, PercentApproachStableBe
         self.percent_stable(stable.array, alt.array, 500)
 
 
-class AutopilotOffInCruiseDuration(KeyPointValueNode):
+class APDisengagedDuringCruiseDuration(KeyPointValueNode):
     '''
-    This monitors the duration for which all autopilot channels are
-    disengaged in the cruise.
+    This monitors the duration for which all autopilot channels are disengaged
+    in the cruise.
     '''
+
+    name = 'AP Disengaged During Cruise Duration'
+
     def derive(self, autopilot=M('AP Engaged'), cruise=S('Cruise')):
-        self.create_kpvs_where_state('-', autopilot.array, 
+
+        self.create_kpvs_where_state('-', autopilot.array,
                                      autopilot.hz, phase=cruise)
-               
+
+
 class ControlColumnStiffness(KeyPointValueNode):
     """
     The control force and displacement of the flying controls should follow a

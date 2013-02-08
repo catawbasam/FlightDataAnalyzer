@@ -114,6 +114,7 @@ from analysis_engine.key_point_values import (
     AltitudeWithFlapsMax,
     AOAInGoAroundMax,
     AOAWithFlapMax,
+    APDisengagedDuringCruiseDuration,
     BrakePressureInTakeoffRollMax,
     ControlColumnStiffness,
     DecelerationFromTouchdownToStopOnRunway,
@@ -1386,6 +1387,21 @@ class TestAOAWithFlapMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AOAWithFlapMax
         self.operational_combinations = [('Flap', 'AOA', 'Fast')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+################################################################################
+# Autopilot
+
+
+class TestAPDisengagedDuringCruiseDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = APDisengagedDuringCruiseDuration
+        self.operational_combinations = [('AP Engaged', 'Cruise')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
