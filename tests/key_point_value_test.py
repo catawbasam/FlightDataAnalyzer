@@ -1758,16 +1758,6 @@ class TestDelayedBrakingAfterTouchdown(unittest.TestCase, NodeTest):
 ################################################################################
 
 
-class TestGenericDescent(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestAltitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = AltitudeAtTouchdown
