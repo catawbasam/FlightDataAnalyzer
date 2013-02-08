@@ -20,8 +20,8 @@ from analysis_engine.key_point_values import (
     AccelerationLateralTakeoffMax,
     AccelerationLateralTaxiingStraightMax,
     AccelerationLateralTaxiingTurnsMax,
-    AccelerationLongitudinalPeakTakeoff,
-    AccelerationLongitudinalPeakLanding,
+    AccelerationLongitudinalDuringTakeoffMax,
+    AccelerationLongitudinalDuringLandingMax,
     AccelerationNormal20FtToFlareMax,
     AccelerationNormalAirborneFlapsDownMax,
     AccelerationNormalAirborneFlapsDownMin,
@@ -538,12 +538,11 @@ class TestAccelerationLateralTaxiingTurnsMax(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAccelerationLongitudinalPeakTakeoff(unittest.TestCase,
-                                              CreateKPVFromSlicesTest):
+class TestAccelerationLongitudinalDuringTakeoffMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
     def setUp(self):
-        self.node_class = AccelerationLongitudinalPeakTakeoff
-        self.operational_combinations = [('Acceleration Longitudinal',
-                                          'Takeoff',)]
+        self.node_class = AccelerationLongitudinalDuringTakeoffMax
+        self.operational_combinations = [('Acceleration Longitudinal', 'Takeoff')]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
@@ -551,12 +550,11 @@ class TestAccelerationLongitudinalPeakTakeoff(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAccelerationLongitudinalPeakLanding(unittest.TestCase,
-                                              CreateKPVFromSlicesTest):
+class TestAccelerationLongitudinalDuringLandingMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
     def setUp(self):
-        self.node_class = AccelerationLongitudinalPeakLanding
-        self.operational_combinations = [('Acceleration Longitudinal',
-                                          'Landing',)]
+        self.node_class = AccelerationLongitudinalDuringLandingMax
+        self.operational_combinations = [('Acceleration Longitudinal', 'Landing')]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
@@ -2352,16 +2350,6 @@ class TestDecelerateToStopOnRunwayDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')       
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestDecelerationLongitudinalPeakLanding(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
     
     @unittest.skip('Test Not Implemented')    
     def test_derive(self):

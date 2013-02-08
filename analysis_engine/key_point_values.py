@@ -232,26 +232,32 @@ class AccelerationLateralTaxiingTurnsMax(KeyPointValueNode):
         self.create_kpvs_within_slices(acc_lat.array, turns, max_abs_value)
 
 
-class AccelerationLongitudinalPeakTakeoff(KeyPointValueNode):
+class AccelerationLongitudinalDuringTakeoffMax(KeyPointValueNode):
     '''
     This may be of interest where takeoff performance is an issue, though not
     normally monitored as a safety event.
     '''
-    def derive(self, accel=P('Acceleration Longitudinal'),
+
+    def derive(self,
+               acc_lon=P('Acceleration Longitudinal'),
                takeoff=S('Takeoff')):
-        self.create_kpv_from_slices(accel.array, takeoff, max_value)
+
+        self.create_kpv_from_slices(acc_lon.array, takeoff, max_value)
 
 
-class AccelerationLongitudinalPeakLanding(KeyPointValueNode):
+class AccelerationLongitudinalDuringLandingMax(KeyPointValueNode):
     '''
     This is an indication of severe braking and/or use of reverse thrust or
     reverse pitch.
     '''
-    def derive(self, accel=P('Acceleration Longitudinal'),
-               landing=S('Landing')):
-        self.create_kpv_from_slices(accel.array, landing, max_value)
 
-        
+    def derive(self,
+               acc_lon=P('Acceleration Longitudinal'),
+               landing=S('Landing')):
+
+        self.create_kpv_from_slices(acc_lon.array, landing, max_value)
+
+
 class AccelerationNormal20FtToFlareMax(KeyPointValueNode):
     def derive(self, acc_normal=P('Acceleration Normal Offset Removed'),
                alt_aal=P('Altitude AAL For Flight Phases')):
