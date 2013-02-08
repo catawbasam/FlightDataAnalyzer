@@ -3967,23 +3967,32 @@ class HeightOfBouncedLanding(KeyPointValueNode):
     def derive(self, alt = P('Altitude AAL'),
                bounced_landing=S('Bounced Landing')):
         self.create_kpvs_within_slices(alt.array, bounced_landing, max_value)
-        
 
-class HeadingDeviationFromRunwayAbove80KtsDuringTakeoff(KeyPointValueNode):
+
+##############################################################################
+# Heading
+
+
+class HeadingDeviationFromRunwayAbove80KtsAirspeedDuringTakeoff(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take off (Lateral). Heading changes on runway before rotation
     commenced. During rotation on some types, the a/c may be allowed to
     weathercock into wind."
 
-    The heading deviation is measured as the largest deviation from the
-    runway centreline between 80kts airspeed and 5 deg nose pitch up, at
-    which time the weight is clearly coming off the mainwheels (we avoid
-    using weight on nosewheel as this is often not recorded).
+    The heading deviation is measured as the largest deviation from the runway
+    centreline between 80kts airspeed and 5 deg nose pitch up, at which time
+    the weight is clearly coming off the mainwheels (we avoid using weight on
+    nosewheel as this is often not recorded).
     '''
-    def derive(self, head=P('Heading True Continuous'), airspeed=P('Airspeed'),
-               pitch=P('Pitch'), toffs=S('Takeoff'), rwy=A('FDR Takeoff Runway')):
-        
+
+    def derive(self,
+               head=P('Heading True Continuous'),
+               airspeed=P('Airspeed'),
+               pitch=P('Pitch'),
+               toffs=S('Takeoff'),
+               rwy=A('FDR Takeoff Runway')):
+
         if ambiguous_runway(rwy):
             return
         # checks for multiple takeoffs from a single takeoff runway (rejected?)
@@ -4009,6 +4018,7 @@ class HeadingDeviationFromRunwayAtTOGADuringTakeoff(KeyPointValueNode):
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take off (Lateral). TOGA pressed before a/c aligned."
     '''
+
     name = 'Heading Deviation From From Runway At TOGA During Takeoff'
 
     def derive(self,
@@ -4026,77 +4036,100 @@ class HeadingDeviationFromRunwayAtTOGADuringTakeoff(KeyPointValueNode):
             self.create_kpv(index, dev)
 
 
-class HeadingVariation500To20Ft(KeyPointValueNode):
-    def derive(self, head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-        for band in alt_aal.slices_from_to(500, 20):
-            dev = np.ma.ptp(head.array[band])
-            self.create_kpv(band.stop, dev)
-            
-            
 class HeadingDeviationFromRunwayAt50FtDuringLanding(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take off (Lateral). Crosswind. Could look at the difference
     between a/c heading and R/W heading at 50ft."
-    '''    
-    def derive(self, head=P('Heading True Continuous'), landings=S('Landing'), 
+    '''
+
+    def derive(self,
+               head=P('Heading True Continuous'),
+               landings=S('Landing'),
                rwy=A('FDR Landing Runway')):
+
         if ambiguous_runway(rwy):
             return
         # Only have runway details for final landing.
         land = landings[-1]
-        brg = value_at_index(head.array, land.start_edge) # By definition, landing starts at 50ft.
+        # By definition, landing starts at 50ft.
+        brg = value_at_index(head.array, land.start_edge)
         dev = runway_deviation(brg, rwy.value)
         self.create_kpv(land.start_edge, dev)
-        
-
-class HeadingVariationAbove100KtsDuringLanding(KeyPointValueNode):
-    '''
-    For landing the Altitude AAL is used to detect start of landing to avoid
-    variation from the use of different aircraft recording configurations.
-    '''
-    def derive(self, head=P('Heading Continuous'), airspeed=P('Airspeed'),
-               alt=P('Altitude AAL For Flight Phases'), lands=S('Landing')):
-        for land in lands:
-            begin = index_at_value(alt.array, 1.0, _slice=land.slice)
-            end = index_at_value(airspeed.array, 100.0, _slice=land.slice)
-            if begin is None or begin > end:
-                break # Corrupt landing slices or landed below 100kts. Can happen!
-            else:
-                head_dev = np.ma.ptp(head.array[begin:end+1])
-                self.create_kpv((begin+end)/2, head_dev)
-            
-            
-class HeadingVariationTouchdownPlus4SecTo60Kts(KeyPointValueNode):
-    '''
-    Maximum difference in Magnetic Heading.
-    '''
-    def derive(self, head=P('Heading Continuous'), tdwns=KTI('Touchdown'),
-               airspeed=P('Airspeed')):
-        for tdwn in tdwns:
-            begin = tdwn.index + 4.0*head.frequency
-            end = index_at_value(airspeed.array, 60.0, slice(begin,None))
-            if end:
-                # We found a suitable endpoint, so create a KPV...
-                dev = np.ma.ptp(head.array[begin:end+1])
-                self.create_kpv(end, dev)
 
 
-class HeadingDeviationFromRunway2DegPitchTo60Kts(KeyPointValueNode):
+class HeadingDeviationFromRunwayDuringLandingRoll(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Landing (Lateral) Heading changes on runways."
     '''
-    def derive(self, head=P('Heading True Continuous'), 
+
+    def derive(self,
+               head=P('Heading True Continuous'),
                land_rolls=S('Landing Roll'),
                rwy=A('FDR Landing Runway')):
+
         if ambiguous_runway(rwy):
             return
 
-        final_landing=land_rolls[-1].slice
+        final_landing = land_rolls[-1].slice
         dev = runway_deviation(head.array, rwy.value)
         self.create_kpv_from_slices(dev, [final_landing], max_abs_value)
+
+
+class HeadingVariation500To50Ft(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self,
+               head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        for band in alt_aal.slices_from_to(500, 50):
+            dev = np.ma.ptp(head.array[band])
+            self.create_kpv(band.stop, dev)
+
+
+class HeadingVariationAbove100KtsAirspeedDuringLanding(KeyPointValueNode):
+    '''
+    For landing the Altitude AAL is used to detect start of landing to avoid
+    variation from the use of different aircraft recording configurations.
+    '''
+
+    def derive(self,
+               head=P('Heading Continuous'),
+               airspeed=P('Airspeed'),
+               alt=P('Altitude AAL For Flight Phases'),
+               lands=S('Landing')):
+
+        for land in lands:
+            begin = index_at_value(alt.array, 1.0, _slice=land.slice)
+            end = index_at_value(airspeed.array, 100.0, _slice=land.slice)
+            if begin is None or begin > end:
+                # Corrupt landing slices or landed below 100kts. Can happen!
+                break
+            else:
+                head_dev = np.ma.ptp(head.array[begin:end + 1])
+                self.create_kpv((begin + end) / 2, head_dev)
+
+
+class HeadingVariationTouchdownPlus4SecTo60KtsAirspeed(KeyPointValueNode):
+    '''
+    Maximum difference in Magnetic Heading.
+    '''
+
+    def derive(self,
+               head=P('Heading Continuous'),
+               airspeed=P('Airspeed'),
+               tdwns=KTI('Touchdown')):
+
+        for tdwn in tdwns:
+            begin = tdwn.index + 4.0 * head.frequency
+            end = index_at_value(airspeed.array, 60.0, slice(begin, None))
+            if end:
+                # We found a suitable endpoint, so create a KPV...
+                dev = np.ma.ptp(head.array[begin:end + 1])
+                self.create_kpv(end, dev)
 
 
 class HeadingVacatingRunway(KeyPointValueNode):
@@ -4105,17 +4138,23 @@ class HeadingVacatingRunway(KeyPointValueNode):
     runways in the absence of better information. See the
     flight_attribute Approaches and its _create_approach method.
     '''
-    def derive(self, head=P('Heading Continuous'), 
+
+    def derive(self,
+               head=P('Heading Continuous'),
                off_rwys=KTI('Landing Turn Off Runway')):
+
         # To save taking modulus of the entire array, we'll do this in stages.
         for off_rwy in off_rwys:
             # We try to extend the index by five seconds to make a clear
             # heading change. The KTI is at the point of turnoff at which
             # moment the heading change can be very small.
-            index = min(off_rwy.index+5, len(head.array) - 1)
-            value = head.array[index]%360.0
+            index = min(off_rwy.index + 5, len(head.array) - 1)
+            value = head.array[index] % 360.0
             self.create_kpv(index, value)
-            
+
+
+##############################################################################
+
 
 class AltitudeMinsToTouchdown(KeyPointValueNode):
     # Q: Review and improve this technique of building KPVs on KTIs.

@@ -148,8 +148,13 @@ from analysis_engine.key_point_values import (
     HeadingAtLanding,
     HeadingAtLowestPointOnApproach,
     HeadingAtTakeoff,
-    HeadingVariationAbove100KtsDuringLanding,
-    HeadingVariationTouchdownPlus4SecTo60Kts,
+    HeadingDeviationFromRunwayAbove80KtsAirspeedDuringTakeoff,
+    HeadingDeviationFromRunwayAtTOGADuringTakeoff,
+    HeadingDeviationFromRunwayAt50FtDuringLanding,
+    HeadingDeviationFromRunwayDuringLandingRoll,
+    HeadingVariation500To50Ft,
+    HeadingVariationAbove100KtsAirspeedDuringLanding,
+    HeadingVariationTouchdownPlus4SecTo60KtsAirspeed,
     HeadingVacatingRunway,
     HeightLossLiftoffTo35Ft,
     HeightLoss35To1000Ft,
@@ -3275,20 +3280,104 @@ class TestHeadingAtLowestPointOnApproach(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingVariationAbove100KtsDuringLanding(unittest.TestCase, NodeTest):
+class TestHeadingDeviationFromRunwayAbove80KtsAirspeedDuringTakeoff(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = HeadingVariationAbove100KtsDuringLanding
-        self.operational_combinations = [('Heading Continuous', 'Airspeed', 'Altitude AAL For Flight Phases', 'Landing')]
+        self.node_class = HeadingDeviationFromRunwayAbove80KtsAirspeedDuringTakeoff
+        self.operational_combinations = [(
+            'Heading True Continuous',
+            'Airspeed',
+            'Pitch',
+            'Takeoff',
+            'FDR Takeoff Runway',
+        )]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingVariationTouchdownPlus4SecTo60Kts(unittest.TestCase, NodeTest):
+class TestHeadingDeviationFromRunwayAtTOGADuringTakeoff(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = HeadingVariationTouchdownPlus4SecTo60Kts
-        self.operational_combinations = [('Heading Continuous', 'Touchdown', 'Airspeed')]
+        self.node_class = HeadingDeviationFromRunwayAtTOGADuringTakeoff
+        self.operational_combinations = [(
+            'Heading True Continuous',
+            'Takeoff And Go Around',
+            'Takeoff',
+            'FDR Takeoff Runway',
+        )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestHeadingDeviationFromRunwayAt50FtDuringLanding(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = HeadingDeviationFromRunwayAt50FtDuringLanding
+        self.operational_combinations = [(
+            'Heading True Continuous',
+            'Landing',
+            'FDR Landing Runway',
+        )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestHeadingDeviationFromRunwayDuringLandingRoll(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = HeadingDeviationFromRunwayDuringLandingRoll
+        self.operational_combinations = [(
+            'Heading True Continuous',
+            'Landing Roll',
+            'FDR Landing Runway',
+        )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestHeadingVariation500To50Ft(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = HeadingVariation500To50Ft
+        self.operational_combinations = [(
+            'Heading Continuous',
+            'Altitude AAL For Flight Phases',
+        )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestHeadingVariationAbove100KtsAirspeedDuringLanding(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = HeadingVariationAbove100KtsAirspeedDuringLanding
+        self.operational_combinations = [(
+            'Heading Continuous',
+            'Airspeed',
+            'Altitude AAL For Flight Phases',
+            'Landing',
+        )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestHeadingVariationTouchdownPlus4SecTo60KtsAirspeed(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = HeadingVariationTouchdownPlus4SecTo60KtsAirspeed
+        self.operational_combinations = [('Heading Continuous', 'Airspeed', 'Touchdown')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -3296,6 +3385,7 @@ class TestHeadingVariationTouchdownPlus4SecTo60Kts(unittest.TestCase, NodeTest):
 
 
 class TestHeadingVacatingRunway(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = HeadingVacatingRunway
         self.operational_combinations = [('Heading Continuous', 'Landing Turn Off Runway')]
