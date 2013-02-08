@@ -148,8 +148,8 @@ from analysis_engine.key_point_values import (
     HeadingAtLanding,
     HeadingAtLowestPointOnApproach,
     HeadingAtTakeoff,
-    HeadingExcursionOnLandingAbove100Kts,
-    HeadingExcursionTouchdownPlus4SecTo60Kts,
+    HeadingVariationAbove100KtsDuringLanding,
+    HeadingVariationTouchdownPlus4SecTo60Kts,
     HeadingVacatingRunway,
     HeightLossLiftoffTo35Ft,
     HeightLoss35To1000Ft,
@@ -3287,9 +3287,9 @@ class TestHeadingAtLowestPointOnApproach(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingExcursionOnLandingAbove100Kts(unittest.TestCase, NodeTest):
+class TestHeadingVariationAbove100KtsDuringLanding(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = HeadingExcursionOnLandingAbove100Kts
+        self.node_class = HeadingVariationAbove100KtsDuringLanding
         self.operational_combinations = [('Heading Continuous', 'Airspeed', 'Altitude AAL For Flight Phases', 'Landing')]
 
     @unittest.skip('Test Not Implemented')
@@ -3297,9 +3297,9 @@ class TestHeadingExcursionOnLandingAbove100Kts(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingExcursionTouchdownPlus4SecTo60Kts(unittest.TestCase, NodeTest):
+class TestHeadingVariationTouchdownPlus4SecTo60Kts(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = HeadingExcursionTouchdownPlus4SecTo60Kts
+        self.node_class = HeadingVariationTouchdownPlus4SecTo60Kts
         self.operational_combinations = [('Heading Continuous', 'Touchdown', 'Airspeed')]
 
     @unittest.skip('Test Not Implemented')
