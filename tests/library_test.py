@@ -2590,6 +2590,11 @@ class TestPeakCurvature(unittest.TestCase):
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
         
+    def test_peak_curvature_void(self):
+        array = np.ma.array([])
+        pc = peak_curvature(array)
+        self.assertEqual(pc,None)
+        
     def test_peak_curvature_convex(self):
         array = np.ma.array([0]*40+range(40))*(-1.0)
         pc = peak_curvature(array, curve_sense='Convex')

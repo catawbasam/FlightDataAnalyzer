@@ -5824,9 +5824,10 @@ class ThrustAsymmetryWithReverseThrustMax(KeyPointValueNode):
     ThrustAsymmetryWithReverseThrustDuration which will normally not record
     any value.
     '''
-    def derive(self, ta=P('Thrust Asymmetry'), rev_th=M('Thrust Reversers')):
-        revs = np.ma.clump_unmasked(np.ma.masked_where(rev_th == 'Deployed',
-                                                       ta.array))
+    def derive(self, ta=P('Thrust Asymmetry'), rev_th=M('Thrust Reversers'),
+               mobile=S('Mobile')):
+        revs = clump_multistate(rev_th.array, 'Deployed', 
+                                [s.slice for s in mobile], condition=True)
         for rev in revs:
             idx = np.ma.argmax(ta.array[rev]) + rev.start
             self.create_kpv(idx, ta.array[idx])

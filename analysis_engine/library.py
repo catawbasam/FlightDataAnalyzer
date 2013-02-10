@@ -1880,25 +1880,28 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
         
     rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency, width=8.0))
     straights = np.ma.clump_unmasked(np.ma.masked_greater(rot, 2.0)) # 2deg/sec
+    
     straight_ends = []
+    
     for straight in straights:
         straight_ends.append(straight.start)
         straight_ends.append(straight.stop)
-    # We aren't interested in the first and last
-    del straight_ends[0]
-    del straight_ends[-1]
 
-    # Initialize the weights for no change.
-    weight_length = len(straight_ends)
-    weights = np.ma.ones(weight_length)
-    
     # unable to optimize track if we have too few curves
-    if len(straight_ends) <= 2:
+    if len(straight_ends) <= 4:
         logger.warning('Ground_track_precise needs at least two curved sections to operate.')
         # Substitute a unity weight vector.
         weights_opt = [np.array([1.0]*len(speed))]
         
     else:
+        # We aren't interested in the first and last
+        del straight_ends[0]
+        del straight_ends[-1]
+    
+        # Initialize the weights for no change.
+        weight_length = len(straight_ends)
+        weights = np.ma.ones(weight_length)
+ 
         # Adjust the speed during each leg to reduce cross track errors.
         speed_bound = (0.5,1.5) # Restict the variation in speeds to 50%.
         boundaries = [speed_bound]*weight_length
@@ -3419,6 +3422,9 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
     overall = 2*ttp + gap
     
     input_data = array[_slice]
+    if np.ma.count(input_data)==0:
+        return None
+    
     valid_slices = np.ma.clump_unmasked(input_data)
     for valid_slice in valid_slices:
         # check the contiguous valid data is long enough.
