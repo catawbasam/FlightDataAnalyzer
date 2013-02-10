@@ -916,12 +916,12 @@ class TestKeyPointValueNode(unittest.TestCase):
         def side_effect(*args, **kwargs):
             return return_values.pop()
         function.side_effect = side_effect
-        slices = [slice(1,10), slice(15, 25)]
+        slices = [slice(1,10.7), slice(15, 25)]
         array = np.ma.arange(10)
         knode.create_kpvs_within_slices(array, slices, function)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=22, value=27, name='Kpv'),
-                          KeyPointValue(index=10, value=15, name='Kpv')])
+                          KeyPointValue(index=10.7, value=15, name='Kpv')])
 
     def test_create_kpv_from_slices(self):
         knode = self.knode

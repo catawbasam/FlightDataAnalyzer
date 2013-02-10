@@ -1549,7 +1549,9 @@ class KeyPointValueNode(FormattedNameNode):
         '''
         slices = self._get_slices(slices)
         for slice_ in slices:
-            index, value = function(array, slice_)
+            index, value = function(array, slice_, 
+                                    start_edge=slice_.start, 
+                                    stop_edge=slice_.stop)
             self.create_kpv(index, value, **kwargs)
 
     def create_kpv_from_slices(self, array, slices, function, **kwargs):
