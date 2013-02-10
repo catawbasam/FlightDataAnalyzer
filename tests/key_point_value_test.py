@@ -2787,13 +2787,21 @@ class TestHeightLossLiftoffTo35Ft(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = HeightLossLiftoffTo35Ft
         self.operational_combinations = [(
-            'Descend For Flight Phases',
+            'Vertical Speed Inertial',
             'Altitude AAL For Flight Phases',
         )]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_basic(self):
+        vs=P('Vertical Speed Inertial',
+             np.ma.array([0.0,0,1,2,1,0,-1,-2,0,4]), 
+             frequency=2.0, 
+             offset=0.0)
+        alt=P('Altitude AAL For Flight Phases',
+              np.ma.array([0.0,0,4,15,40]), 
+              frequency=1.0, offset=0.5)
+        ht_loss=HeightLossLiftoffTo35Ft()
+        ht_loss.derive(vs, alt)
+        self.assertTrue(ht_loss.value, -1.5)
 
 
 class TestHeightOfBouncedLanding(unittest.TestCase):

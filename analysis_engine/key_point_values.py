@@ -54,6 +54,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      slice_samples,
                                      slices_and_not,
                                      slices_from_to,
+                                     slice_multiply,
                                      slices_not,
                                      slices_overlap,
                                      slices_and,
@@ -2319,17 +2320,21 @@ class HeadingAtLowestPointOnApproach(KeyPointValueNode):
 
 class HeightLossLiftoffTo35Ft(KeyPointValueNode):
     '''
+    At these low altitudes, the aircraft is in ground effect, so we use an
+    inertial vertical speed to identify small height losses. This means that
+    the algorithm will still work with low sample rate (or even missing)
+    radio altimeters.
     '''
 
     def derive(self,
-               ht_loss=P('Descend For Flight Phases'),
+               vs=P('Vertical Speed Inertial'),
                alt_aal=P('Altitude AAL For Flight Phases')):
 
         for climb in alt_aal.slices_from_to(0, 35):
-            index, value = min_value(ht_loss.array, climb)
-            # Only report a positive value where height is lost:
-            if index and value < 0:
-                self.create_kpv(index, abs(value))
+            drops = np.ma.clump_unmasked(np.ma.masked_greater_equal(vs.array[climb],0.0))
+            for drop in drops:
+                ht_loss = integrate(vs.array[drop], vs.frequency)
+                self.create_kpv(drop.stop, value)
 
 
 class HeightLoss35To1000Ft(KeyPointValueNode):
@@ -4797,9 +4802,17 @@ class RateOfDescent500To50FtMax(KeyPointValueNode):
 
 class RateOfDescent50FtToTouchdownMax(KeyPointValueNode):
     '''
+    Rate of descent between 50ft and touchdown.
+    
+    At this altitude, Altitude AAL is sourced from Altitude Radio where one
+    is available, so this is effectively 50ft Radio to touchdown.
+    
+    The ground effect compressibility makes the normal pressure altitude
+    based vertical speed meaningless, so we use the more complex inertial
+    computation to give accurate measurements within ground effect.
     '''
 
-    def derive(self, vert_spd=P('Vertical Speed'),
+    def derive(self, vert_spd=P('Vertical Speed Inertial'),
                alt_aal=P('Altitude AAL For Flight Phases'),
                tdwns=KTI('Touchdown')):
         self.create_kpvs_within_slices(
