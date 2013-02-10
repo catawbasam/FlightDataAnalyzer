@@ -2342,6 +2342,19 @@ class TestBlendTwoParameters(unittest.TestCase):
         self.assertEqual(freq, 1)
         self.assertAlmostEqual(off, 0.4)
 
+    def test_blend_two_parameters_integer_values(self):
+        # Aircraft with integer conversion of radio altimeter data failed to
+        # correctly merge arrays due to Python integer division. This test
+        # should be superfluous as we now force floating point conversion,
+        # but is retained for completeness.
+        p1 = P(array=[2,3,4], frequency=1, offset=0.9)
+        p2 = P(array=[1,2,3], frequency=1, offset=0.4)
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[0], 1.5)
+        self.assertEqual(freq, 2.0)
+        self.assertAlmostEqual(off, 0.4)
+
+
 
 class TestMovingAverage(unittest.TestCase):
     def test_basic_average(self):

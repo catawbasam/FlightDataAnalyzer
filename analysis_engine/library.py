@@ -3035,18 +3035,18 @@ def blend_two_parameters(param_one, param_two):
     # A second problem is where both sensor may appear to be serviceable but
     # one is invariant. If the parameters were similar, a/(a+b)=0.5 so we are
     # looking for one being less than 20% of its normal level.
-    a = np.ma.ptp(param_one.array)
-    b = np.ma.ptp(param_two.array)
+    c = float(np.ma.ptp(param_one.array))
+    d = float(np.ma.ptp(param_two.array))
 
-    if a+b == 0.0:
+    if c+d == 0.0:
         logger.warning("No variation in %s or %s, returning %s.", param_one.name, param_two.name, param_one.name)
         return param_one.array, param_one.frequency, param_one.offset
 
-    if a/(a+b) < 0.1:
+    if c/(c+d) < 0.1:
         logger.warning("No variation in %s, using only %s.", param_one.name, param_two.name)
         return param_two.array, param_two.frequency, param_two.offset
 
-    elif b/(a+b) < 0.1:
+    elif d/(c+d) < 0.1:
         logger.warning("No variation in %s, using only %s.", param_two.name, param_one.name)
         return param_one.array, param_one.frequency, param_one.offset
 
