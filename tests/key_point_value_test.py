@@ -2792,16 +2792,21 @@ class TestHeightLossLiftoffTo35Ft(unittest.TestCase, NodeTest):
         )]
 
     def test_basic(self):
-        vs = P('Vertical Speed Inertial',
-               np.ma.array([0.0,0,1,2,1,0,-1,-2,0,4]), 
-               frequency=2.0, 
-               offset=0.0)
-        alt = P('Altitude AAL For Flight Phases',
-                np.ma.array([0.0,0,4,15,40]), 
-                frequency=1.0, offset=0.5)
+        vs = P(
+            name='Vertical Speed Inertial',
+            array=np.ma.array([0.0, 0, 1, 2, 1, 0, -1, -2, 0, 4]),
+            frequency=2.0,
+            offset=0.0,
+        )
+        alt = P(
+            name='Altitude AAL For Flight Phases',
+            array=np.ma.array([0.0, 0, 4, 15, 40]),
+            frequency=1.0,
+            offset=0.5,
+        )
         ht_loss = HeightLossLiftoffTo35Ft()
         ht_loss.get_derived((vs, alt))
-        self.assertTrue(ht_loss.value, -1.5)
+        self.assertEqual(ht_loss[0].value, 0.75)
 
 
 class TestHeightOfBouncedLanding(unittest.TestCase):

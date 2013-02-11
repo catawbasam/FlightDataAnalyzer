@@ -2331,10 +2331,13 @@ class HeightLossLiftoffTo35Ft(KeyPointValueNode):
                alt_aal=P('Altitude AAL For Flight Phases')):
 
         for climb in alt_aal.slices_from_to(0, 35):
-            drops = np.ma.clump_unmasked(np.ma.masked_greater_equal(vs.array[climb],0.0))
+            array = np.ma.masked_greater_equal(vs.array[climb], 0.0)
+            drops = np.ma.clump_unmasked(array)
             for drop in drops:
                 ht_loss = integrate(vs.array[drop], vs.frequency)
-                self.create_kpv(drop.stop, value)
+                # Only interested in peak value - by definition the last value:
+                if ht_loss[-1]:
+                    self.create_kpv(drop.stop, abs(ht_loss[-1]))
 
 
 class HeightLoss35To1000Ft(KeyPointValueNode):
