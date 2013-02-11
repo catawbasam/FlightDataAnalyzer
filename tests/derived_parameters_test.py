@@ -158,8 +158,8 @@ class NodeTest(object):
 class TestAccelerationVertical(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Acceleration Normal Offset Removed',
-                     'Acceleration Lateral', 'Acceleration Longitudinal',
-                     'Pitch', 'Roll')]
+                     'Acceleration Lateral Offset Removed',
+                     'Acceleration Longitudinal', 'Pitch', 'Roll')]
         opts = AccelerationVertical.get_operational_combinations()
         self.assertEqual(opts, expected)
         
@@ -169,7 +169,7 @@ class TestAccelerationVertical(unittest.TestCase):
                         
         acc_vert.get_derived([
             Parameter('Acceleration Normal Offset Removed', np.ma.ones(8), 8),
-            Parameter('Acceleration Lateral', np.ma.zeros(4), 4),
+            Parameter('Acceleration Lateral Offset Removed', np.ma.zeros(4), 4),
             Parameter('Acceleration Longitudinal', np.ma.zeros(4), 4),
             Parameter('Pitch', np.ma.zeros(2), 2),
             Parameter('Roll', np.ma.zeros(2), 2),
@@ -183,8 +183,8 @@ class TestAccelerationVertical(unittest.TestCase):
         acc_vert = AccelerationVertical(frequency=8)
 
         acc_vert.get_derived([
-            P('Acceleration Normal',np.ma.ones(8) * 0.8660254,8),
-            P('Acceleration Lateral',np.ma.zeros(4), 4),
+            P('Acceleration Normal Offset Removed',np.ma.ones(8) * 0.8660254,8),
+            P('Acceleration Lateral Offset Removed',np.ma.zeros(4), 4),
             P('Acceleration Longitudinal',np.ma.ones(4) * 0.5,4),
             P('Pitch',np.ma.ones(2) * 30.0,2),
             P('Roll',np.ma.zeros(2), 2)
@@ -198,8 +198,8 @@ class TestAccelerationVertical(unittest.TestCase):
         acc_vert = AccelerationVertical(frequency=8)
 
         acc_vert.get_derived([
-            P('Acceleration Normal', np.ma.ones(8) * 0.8, 8),
-            P('Acceleration Lateral', np.ma.ones(4) * (-0.2), 4),
+            P('Acceleration Normal Offset Removed', np.ma.ones(8) * 0.8, 8),
+            P('Acceleration Lateral Offset Removed', np.ma.ones(4) * (-0.2), 4),
             P('Acceleration Longitudinal', np.ma.ones(4) * 0.3, 4),
             P('Pitch',np.ma.ones(2) * 30.0, 2),
             P('Roll',np.ma.ones(2) * 20, 2)])
@@ -211,8 +211,8 @@ class TestAccelerationVertical(unittest.TestCase):
         acc_vert = AccelerationVertical(frequency=8)
 
         acc_vert.get_derived([
-            P('Acceleration Normal', np.ma.ones(8) * 0.7071068, 8),
-            P('Acceleration Lateral', np.ma.ones(4) * -0.7071068, 4),
+            P('Acceleration Normal Offset Removed', np.ma.ones(8) * 0.7071068, 8),
+            P('Acceleration Lateral Offset Removed', np.ma.ones(4) * -0.7071068, 4),
             P('Acceleration Longitudinal', np.ma.zeros(4), 4),
             P('Pitch', np.ma.zeros(2), 2),
             P('Roll', np.ma.ones(2) * 45, 2),
@@ -245,7 +245,7 @@ class TestAccelerationForwards(unittest.TestCase):
         acc_fwd = AccelerationForwards(frequency=4)
 
         acc_fwd.get_derived([
-            P('Acceleration Normal', np.ma.ones(8) * 0.8660254, 8),
+            P('Acceleration Normal Offset Removed', np.ma.ones(8) * 0.8660254, 8),
             P('Acceleration Longitudinal', np.ma.ones(4) * 0.5, 4),
             P('Pitch', np.ma.ones(2) * 30.0, 2)
         ])
@@ -256,7 +256,8 @@ class TestAccelerationForwards(unittest.TestCase):
 
 class TestAccelerationSideways(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Acceleration Normal Offset Removed', 'Acceleration Lateral', 
+        expected = [('Acceleration Normal Offset Removed',
+                    'Acceleration Lateral Offset Removed', 
                     'Acceleration Longitudinal', 'Pitch', 'Roll')]
         opts = AccelerationSideways.get_operational_combinations()
         self.assertEqual(opts, expected)
@@ -267,7 +268,7 @@ class TestAccelerationSideways(unittest.TestCase):
                         
         acc_lat.get_derived([
             Parameter('Acceleration Normal Offset Removed', np.ma.ones(8),8),
-            Parameter('Acceleration Lateral', np.ma.ones(4)*0.05,4),
+            Parameter('Acceleration Lateral Offset Removed', np.ma.ones(4)*0.05,4),
             Parameter('Acceleration Longitudinal', np.ma.zeros(4),4),
             Parameter('Pitch', np.ma.zeros(2),2),
             Parameter('Roll', np.ma.zeros(2),2)
@@ -280,8 +281,8 @@ class TestAccelerationSideways(unittest.TestCase):
         acc_lat = AccelerationSideways(frequency=8)
 
         acc_lat.get_derived([
-            P('Acceleration Normal',np.ma.ones(8)*0.8660254,8),
-            P('Acceleration Lateral',np.ma.zeros(4),4),
+            P('Acceleration Normal Offset Removed',np.ma.ones(8)*0.8660254,8),
+            P('Acceleration Lateral Offset Removed',np.ma.zeros(4),4),
             P('Acceleration Longitudinal',np.ma.ones(4)*0.5,4),
             P('Pitch',np.ma.ones(2)*30.0,2),
             P('Roll',np.ma.zeros(2),2)
@@ -294,8 +295,8 @@ class TestAccelerationSideways(unittest.TestCase):
         acc_lat = AccelerationSideways(frequency=8)
 
         acc_lat.get_derived([
-            P('Acceleration Normal',np.ma.ones(8)*0.7071068,8),
-            P('Acceleration Lateral',np.ma.ones(4)*(-0.7071068),4),
+            P('Acceleration Normal Offset Removed',np.ma.ones(8)*0.7071068,8),
+            P('Acceleration Lateral Offset Removed',np.ma.ones(4)*(-0.7071068),4),
             P('Acceleration Longitudinal',np.ma.zeros(4),4),
             P('Pitch',np.ma.zeros(2),2),
             P('Roll',np.ma.ones(2)*45,2)

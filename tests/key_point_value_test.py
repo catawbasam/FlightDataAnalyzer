@@ -4121,7 +4121,7 @@ class TestRateOfDescent50FtToTouchdownMax(unittest.TestCase,
         # XXX: This test does not explicitly test how the Touchdown dependency
         #      is used.
         self.node_class = RateOfDescent50FtToTouchdownMax
-        self.operational_combinations = [('Vertical Speed',
+        self.operational_combinations = [('Vertical Speed Inertial',
                                           'Altitude AAL For Flight Phases',
                                           'Touchdown',)]
         self.function = min_value
