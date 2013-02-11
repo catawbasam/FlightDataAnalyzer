@@ -16,7 +16,7 @@ import utilities.masked_array_testutils as ma_test
 from analysis_engine.library import *
 from analysis_engine.node import (A, P, S, M, KTI, KeyTimeInstance)
 from analysis_engine.settings import METRES_TO_FEET
-from flight_phase_test import buildsection, buildsections
+from flight_phase_test import buildsections
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
@@ -675,7 +675,6 @@ class TestLocalizerScale(unittest.TestCase):
                                              'longitude': 55.381519},
                                    }}])
         result = localizer_scale(rwy.value[0])
-        expected = 0.9
         self.assertAlmostEqual(result, 0.9)
         
     def test_no_beam_width(self):
@@ -4085,8 +4084,6 @@ class TestDpOverP2mach(unittest.TestCase):
 
 
 class TestIsDay(unittest.TestCase):
-    import datetime
-    
     # Solstice times for 2012 at Stonehenge.
     # Sunset on Wednesday 20th June 2012 is at 2126 hrs (9.26pm BST)
     # Sunrise on Thursday 21st June 2012 is at 0452 hrs (4.52am BST)
