@@ -47,8 +47,6 @@ class TestTrimmer(unittest.TestCase):
         dest = derived_trimmer(in_path, ['IVV', 'DME'], out_path)
         file_patched.assert_called_once_with(in_path)
         get_derived_nodes.assert_called_once_with(node_modules)
-        filtered_nodes = {'IVV': derived_nodes['IVV'],
-                          'DME': derived_nodes['DME']}
         strip_hdf.assert_called_once_with(in_path,
                                           ['IVV', 'DME'],
                                           out_path)
