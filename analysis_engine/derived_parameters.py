@@ -132,7 +132,7 @@ class AccelerationVertical(DerivedParameterNode):
     units = 'g'
 
     def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
-               acc_lat=P('Acceleration Lateral'), 
+               acc_lat=P('Acceleration Lateral Offset Removed'), 
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
         # FIXME: FloatingPointError: underflow encountered in multiply
@@ -207,7 +207,7 @@ class AccelerationSideways(DerivedParameterNode):
     units = 'g'
 
     def derive(self, acc_norm=P('Acceleration Normal Offset Removed'), 
-               acc_lat=P('Acceleration Lateral'),
+               acc_lat=P('Acceleration Lateral Offset Removed'),
                acc_long=P('Acceleration Longitudinal'), 
                pitch=P('Pitch'), roll=P('Roll')):
         pitch_rad = pitch.array * deg2rad

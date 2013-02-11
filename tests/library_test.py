@@ -11,7 +11,7 @@ from analysis_engine.flight_attribute import LandingRunway
 
 # A set of masked array test utilities from Pierre GF Gerard-Marchant
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
-import utilities.masked_array_testutils as ma_test
+import flightdatautilities.masked_array_testutils as ma_test
 
 from analysis_engine.library import *
 from analysis_engine.node import (A, P, S, M, KTI, KeyTimeInstance)
@@ -2386,6 +2386,19 @@ class TestBlendTwoParameters(unittest.TestCase):
         self.assertEqual(freq, 1)
         self.assertAlmostEqual(off, 0.4)
 
+    def test_blend_two_parameters_integer_values(self):
+        # Aircraft with integer conversion of radio altimeter data failed to
+        # correctly merge arrays due to Python integer division. This test
+        # should be superfluous as we now force floating point conversion,
+        # but is retained for completeness.
+        p1 = P(array=[2,3,4], frequency=1, offset=0.9)
+        p2 = P(array=[1,2,3], frequency=1, offset=0.4)
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[0], 1.5)
+        self.assertEqual(freq, 2.0)
+        self.assertAlmostEqual(off, 0.4)
+
+
 
 class TestMovingAverage(unittest.TestCase):
     def test_basic_average(self):
@@ -2633,6 +2646,11 @@ class TestPeakCurvature(unittest.TestCase):
         pc = peak_curvature(array)
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
+        
+    def test_peak_curvature_void(self):
+        array = np.ma.array([])
+        pc = peak_curvature(array)
+        self.assertEqual(pc,None)
         
     def test_peak_curvature_convex(self):
         array = np.ma.array([0]*40+range(40))*(-1.0)
