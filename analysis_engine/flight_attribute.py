@@ -526,8 +526,8 @@ class LandingRunway(FlightAttributeNode):
             land_lat=KPV('Latitude At Landing'),
             land_lon=KPV('Longitude At Landing'),
             precision=A('Precise Positioning'),
-            approaches=S('Approach And Landing'),
-            ilsfreq_on_app=KPV('ILS Frequency On Approach')):
+            approaches=App('Approaches'),
+            ils_freq_on_app=KPV('ILS Frequency On Approach')):
         '''
         '''
         fallback = False
@@ -561,10 +561,10 @@ class LandingRunway(FlightAttributeNode):
 
             # The last approach is assumed to be the landing.
             # XXX: Last approach may not be landing for partial data?!
-            if ilsfreq_on_app:
-                ilsfreq = ilsfreq_on_app.get_last(within_slice=landing.slice)
-                if ilsfreq:
-                    kwargs.update(ilsfreq=ilsfreq.value)
+            if ils_freq_on_app:
+                ils_freq = ils_freq_on_app.get_last(within_slice=landing.slice)
+                if ils_freq:
+                    kwargs.update(ils_freq=ils_freq.value)
 
             # We only provide coordinates when looking up a landing runway if
             # the recording of latitude and longitude on the aircraft is
@@ -591,7 +591,7 @@ class LandingRunway(FlightAttributeNode):
                 msg = 'No runway found for airport #%d @ %03.1f deg with %s.'
                 self.warning(msg, airport, heading, kwargs)
                 # No runway was found, so fall through and try AFR.
-                if 'ilsfreq' in kwargs:
+                if 'ils_freq' in kwargs:
                     # This is a trap for airports where the ILS data is not
                     # available, but the aircraft approached with the ILS
                     # tuned. A good prompt for an omission in the database.

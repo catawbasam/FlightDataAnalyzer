@@ -662,7 +662,7 @@ class TestLandingRunway(unittest.TestCase, NodeTest):
         approaches = S(name='Approach', items=[
             Section(name='Approach', slice=slice(14, 20), start_edge=14, stop_edge=20),
         ])
-        ilsfreq_on_app = KPV(name='ILS Frequency On Approach', items=[
+        ils_freq_on_app = KPV(name='ILS Frequency On Approach', items=[
             KeyPointValue(index=18, value=330150),
         ])
         rwy = self.node_class()
@@ -674,24 +674,25 @@ class TestLandingRunway(unittest.TestCase, NodeTest):
         get_nearest_runway.assert_called_once_with(25, 20.0, hint='landing')
         get_nearest_runway.reset_mock()
         # Test with ILS frequency:
-        rwy.derive(fdr_apt, afr_apt, hdg, None, None, None, approaches, ilsfreq_on_app)
+        rwy.derive(fdr_apt, afr_apt, hdg, None, None, None, approaches,
+                   ils_freq_on_app)
         rwy.set_flight_attr.assert_called_once_with(info)
         rwy.set_flight_attr.reset_mock()
-        get_nearest_runway.assert_called_once_with(25, 20.0, ilsfreq=330150, hint='landing')
+        get_nearest_runway.assert_called_once_with(25, 20.0, ils_freq=330150, hint='landing')
         get_nearest_runway.reset_mock()
         # Test for aircraft where positioning is not precise:
         precise.value = True
-        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise, approaches, ilsfreq_on_app)
+        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise, approaches, ils_freq_on_app)
         rwy.set_flight_attr.assert_called_with(info)
         rwy.set_flight_attr.reset_mock()
-        get_nearest_runway.assert_called_once_with(25, 20.0, latitude=6.0, longitude=9.0, ilsfreq=330150)
+        get_nearest_runway.assert_called_once_with(25, 20.0, latitude=6.0, longitude=9.0, ils_freq=330150)
         get_nearest_runway.reset_mock()
         # Test for aircraft where positioning is not precise:
         precise.value = False
-        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise, approaches, ilsfreq_on_app)
+        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise, approaches, ils_freq_on_app)
         rwy.set_flight_attr.assert_called_with(info)
         rwy.set_flight_attr.reset_mock()
-        get_nearest_runway.assert_called_once_with(25, 20.0, ilsfreq=330150, hint='landing')
+        get_nearest_runway.assert_called_once_with(25, 20.0, ils_freq=330150, hint='landing')
         get_nearest_runway.reset_mock()
 
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_runway')
