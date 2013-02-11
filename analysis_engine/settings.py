@@ -16,12 +16,12 @@
 # appended to this list in analyzer_custom_settings.py by creating a similar list of
 # modules with the variable name ending with "_MODULES"
 # e.g. MY_EXTRA_MODULES = ['my_package.extra_attributes', 'my_package.extra_params']
-NODE_MODULES = ['analysis_engine.derived_parameters',
+NODE_MODULES = ['analysis_engine.approaches',
+                'analysis_engine.derived_parameters',
                 'analysis_engine.key_point_values',
                 'analysis_engine.key_time_instances',
                 'analysis_engine.flight_attribute',
-                'analysis_engine.flight_phase',
-                ]
+                'analysis_engine.flight_phase',]
 
 # API Handler Configuration:
 API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'

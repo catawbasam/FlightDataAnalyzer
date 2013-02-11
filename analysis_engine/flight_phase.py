@@ -26,7 +26,7 @@ from analysis_engine.library import (
     slices_remove_small_gaps
 )
 
-from analysis_engine.node import FlightPhaseNode, A, P, S, KTI, M
+from analysis_engine.node import FlightPhaseNode, A, App, P, S, KTI, M
 
 from analysis_engine.settings import (
     AIRBORNE_THRESHOLD_TIME,
@@ -172,21 +172,22 @@ class Holding(FlightPhaseNode):
 
 class Approach(FlightPhaseNode):
     """
-    This separates out the approach phase exclusing the landing.
+    This separates out the approach phase excluding the landing.
     """
-    def derive (self, apps=S('Approach And Landing'), lands=S('Landing')):
+    def derive (self, apps=App('Approaches'), lands=S('Landing')):
         app_slices = []
-        begin=None
-        end=None
+        begin = None
+        end = None
         land_slices = []
         for app in apps:
-            app_slices.append(app.slice)
-            if begin==None:
-                begin=app.slice.start
-                end=app.slice.stop
+            _slice = app.slice
+            app_slices.append(_slice)
+            if begin is None:
+                begin = _slice.start
+                end = _slice.stop
             else:
-                begin=min(begin, app.slice.start)
-                end=max(end, app.slice.stop)
+                begin = min(begin, _slice.start)
+                end = max(end, _slice.stop)
         for land in lands:
             land_slices.append(land.slice)
         self.create_phases(slices_and(app_slices, 
@@ -195,54 +196,6 @@ class Approach(FlightPhaseNode):
                                                  end_at=end)))
         
         
-class ApproachAndLanding(FlightPhaseNode):
-    """
-    This phase is used to identify an approach which may or may not include
-    in a landing. It includes go-arounds, touch-and-go's and of course
-    successful landings.
-
-    We can then process all approaches to runways in the same way, which
-    makes life easier later on.
-    """
-
-    # Force offset so phases are nicely aligned to 0
-    align_offset = 0
-    
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               lands=S('Landing'), go_arounds=S('Go Around And Climbout')):
-        # Prepare to extract the slices
-        app_slices = []
-        ga_slices = []
-
-        for land in lands:
-            app_start = index_closest_value(alt_aal.array,
-                                            INITIAL_APPROACH_THRESHOLD,
-                                            slice(land.slice.start, 0, -1))
-            app_slices.append(slice(app_start,land.slice.stop,None))
-
-        last_ga = 0
-        for ga in go_arounds:
-            # The go-around KTI is based on only a 500ft 'pit' but to include
-            # the approach phase we stretch the start point back towards
-            # 3000ft. To avoid merging multiple go-arounds, the endpoint is
-            # carried across from one to the next, which is a safe thing to
-            # do because the KTI algorithm works on the cycle finder results
-            # which are inherently ordered.
-            gapp_start = index_closest_value(alt_aal.array,
-                                             INITIAL_APPROACH_THRESHOLD,
-                                             slice(ga.slice.start, last_ga, -1))
-            ga_slices.append(slice(gapp_start, ga.slice.stop,None))
-            last_ga = ga.slice.stop
-
-        all_apps = slices_or(app_slices, ga_slices)
-
-        if all_apps:
-            self.create_phases(all_apps)
-        else:
-            self.warning('Flight with no valid approach or go-around phase. '
-                         'Probably truncated data')
-
-
 class BouncedLanding(FlightPhaseNode):
     '''
     TODO: Review increasing the frequency for more accurate indexing into the
@@ -670,7 +623,8 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     """
     """
     def derive(self, ils_loc=P('ILS Localizer'), 
-               alt_aal=P('Altitude AAL For Flight Phases'), apps=S('Approach And Landing')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               apps=App('Approaches')):
         for app in apps:
             ils_app = scan_ils('localizer', ils_loc.array, alt_aal.array,
                                app.slice)

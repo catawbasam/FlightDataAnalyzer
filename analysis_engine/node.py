@@ -15,6 +15,7 @@ from operator import attrgetter
 
 from analysis_engine.library import (
     align,
+    align_slices,
     find_edges,
     is_index_within_slice,
     is_slice_within_slice,
@@ -36,6 +37,10 @@ from hdfaccess.parameter import MappedArray
 logger = logging.getLogger(name=__name__)
 
 # Define named tuples for KPV and KTI and FlightPhase
+Approach = recordtype(
+    'Approach',
+    'index type slice airport runway gs_est loc_est ils_freq turnoff', 
+    default=None)
 KeyPointValue = recordtype('KeyPointValue',
                            'index value name slice datetime latitude longitude', 
                            field_defaults={'slice':slice(None)}, default=None)
@@ -43,6 +48,7 @@ KeyTimeInstance = recordtype('KeyTimeInstance',
                              'index name datetime latitude longitude', 
                              default=None)
 Section = namedtuple('Section', 'name slice start_edge stop_edge') #Q: rename mask -> slice/section
+
 
 # Ref: django/db/models/options.py:20
 # Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
@@ -155,16 +161,17 @@ class Node(object):
         :param name: Name of parameter
         :type params: str
         :param frequency: Sample Rate / Frequency / Hz
-        :type frequency: Int
+        :type frequency: int or float
         :param offset: Offset in Frame.
-        :type offset: Float
+        :type offset: float
         """
         assert kwargs.get('hz', frequency) == frequency, "Differing freq to hz"
         if name:
-            self.name = name + '' # for ease of testing, checks name is string ;-)
+            self.name = name + '' # for ease of testing, checks name is string
         else:
             self.name = self.get_name() # usual option
-        self.frequency = self.sample_rate = self.hz = frequency # Hz
+        # cast frequency as a float to avoid integer division
+        self.frequency = self.sample_rate = self.hz = float(frequency) # Hz
         self.offset = offset # secs
         
     def __repr__(self):
@@ -262,7 +269,8 @@ def can_operate(cls, available):
         :returns: self after having aligned dependencies and called derive.
         :rtype: self
         """
-        dependencies_to_align = [d for d in args if d is not None and d.frequency]
+        dependencies_to_align = \
+            [d for d in args if d is not None and d.frequency]
         if dependencies_to_align and self.align:
             
             if self.align_frequency and self.align_offset is not None:
@@ -935,7 +943,7 @@ class SectionNode(Node, list):
         :rtype: Section or None      
         '''
         if frequency:
-            index = index * (self.frequency / float(frequency))
+            index = index * (self.frequency / frequency)
         ordered = self.get_ordered_by_index(**kwargs)
         for elem in ordered:
             if getattr(elem.slice, use) > index:
@@ -958,7 +966,7 @@ class SectionNode(Node, list):
         :rtype: item within self or None
         '''
         if frequency:
-            index = index * (self.frequency / float(frequency))
+            index = index * (self.frequency / frequency)
         ordered = self.get_ordered_by_index(**kwargs)
         for elem in reversed(ordered):
             if getattr(elem.slice, use) < index:
@@ -1004,7 +1012,30 @@ class FlightPhaseNode(SectionNode):
     create_phases = SectionNode.create_sections
 
 
-class FormattedNameNode(Node, list):
+class ListNode(Node, list):
+    def __init__(self, *args, **kwargs):
+        '''
+        If the there is not an 'items' kwarg and the first argument is a list 
+        or a tuple, the first argument's items will be extended to the node.
+        
+        :param items: Optional keyword argument of initial items to be contained within self.
+        :type items: list
+        '''
+        if 'items' in kwargs:
+            self.extend(kwargs['items'])
+            del kwargs['items']
+            super(ListNode, self).__init__(*args, **kwargs)
+        elif args and any(isinstance(args[0], t) for t in (list, tuple)):
+            self.extend(args[0])
+            super(ListNode, self).__init__(*args[1:], **kwargs)
+        else:
+            super(ListNode, self).__init__(*args, **kwargs)
+    
+    def __repr__(self):
+        return '%s' % pprint.pformat(list(self))
+
+
+class FormattedNameNode(ListNode):
     '''
     NAME_FORMAT example: 
     'Speed in %(phase)s at %(altitude)d ft'
@@ -1018,27 +1049,10 @@ class FormattedNameNode(Node, list):
     
     def __init__(self, *args, **kwargs):
         '''
-        If the there is not an 'items' kwarg and the first argument is a list 
-        or a tuple, the first argument's items will be extended to the node.
-        
-        :param items: Optional keyword argument of initial items to be contained within self.
-        :type items: list
+        TODO: describe restrict_names
         '''
-        if 'items' in kwargs:
-            self.extend(kwargs['items'])
-            del kwargs['items']
-            super(FormattedNameNode, self).__init__(*args, **kwargs)
-        elif len(args) and (isinstance(args[0], list) or isinstance(args[0],
-                                                                    tuple)):
-            self.extend(args[0])
-            super(FormattedNameNode, self).__init__(*args[1:], **kwargs)
-        else:
-            super(FormattedNameNode, self).__init__(*args, **kwargs)
-
+        super(FormattedNameNode, self).__init__(*args, **kwargs)
         self.restrict_names = kwargs.get('restrict_names', True)
-        
-    def __repr__(self):
-        return '%s' % pprint.pformat(list(self))
     
     @classmethod
     def names(cls):
@@ -1104,18 +1118,19 @@ class FormattedNameNode(Node, list):
         :returns: Either a condition function or None.
         :rtype: func or None
         '''
-        
+        within_slice_func = \
+            lambda e: is_index_within_slice(e.index, within_slice)
+        name_func = lambda e: e.name == name
         if within_slice and name:
-            return lambda e: is_index_within_slice(e.index, within_slice) and \
-                   e.name == name
+            return lambda e: within_slice_func(e) and name_func(e)
         elif within_slice:
-            return lambda e: is_index_within_slice(e.index, within_slice)
+            return within_slice_func
         elif name:
             if self.restrict_names and name not in self.names():
                 raise ValueError("Attempted to filter by invalid name '%s' "
                                  "within '%s'." % (name,
                                                    self.__class__.__name__))            
-            return lambda e: e.name == name
+            return name_func
         else:
             return None
     
@@ -1194,7 +1209,7 @@ class FormattedNameNode(Node, list):
         :rtype: item within self or None      
         '''
         if frequency:
-            index = index * (self.frequency / float(frequency))
+            index = index * (self.frequency / frequency)
         ordered = self.get_ordered_by_index(**kwargs)
         for elem in ordered:
             if elem.index > index:
@@ -1215,7 +1230,7 @@ class FormattedNameNode(Node, list):
         :rtype: item within self or None     
         '''
         if frequency:
-            index = index * (self.frequency / float(frequency))      
+            index = index * (self.frequency / frequency)
         ordered = self.get_ordered_by_index(**kwargs)
         for elem in reversed(ordered):
             if elem.index < index:
@@ -1467,6 +1482,8 @@ class KeyPointValueNode(FormattedNameNode):
         for kpv in self:
             aligned_kpv = copy.copy(kpv)
             aligned_kpv.index = (aligned_kpv.index * multiplier) + offset
+            ##if aligned_kpv.slice:
+                ##aligned_kpv.slice = align_slice(param, self, aligned_kpv.slice)
             aligned_node.append(aligned_kpv)
         return aligned_node
     
@@ -1787,6 +1804,131 @@ class FlightAttributeNode(Node):
         :rtype: FlightAttributeNode
         """
         return self
+
+
+class ApproachNode(ListNode):
+    '''
+    Stores Approach objects within a list.
+    '''
+    
+    @staticmethod
+    def _check_type(_type):
+        '''
+        :param _type: Type to check.
+        :type _type: str
+        :raises ValueError: If _type is invalid.
+        '''
+        if _type not in ('APPROACH', 'LANDING', 'GO_AROUND', 'TOUCH_AND_GO'):
+            raise ValueError("Unknown approach type: '%s'." % _type)
+    
+    def create_approach(self, index, _type, _slice, airport=None, runway=None,
+                        gs_est=None, loc_est=None, ils_freq=None, turnoff=None):
+        '''
+        :param index: Index at the lowest point of approach.
+        :type index: int or float
+        :param _type: Type of approach.
+        :type _type: str
+        :param _slice: Slice of approach section.
+        :type _slice: slice
+        :param airport: Approach airport dictionary.
+        :type airport: dict or None
+        :param runway: Approach runway dictionary.
+        :type runway: dict or None
+        :param gs_est: ILS Glideslope established slice.
+        :type gs_est: slice or None
+        :param loc_est: ILS Localiser established slice.
+        :type loc_est: slice or None
+        :param ils_freq: ILS Localiser frequency.
+        :type ils_freq: int or None
+        :param turnoff: Index where the aircraft turned off the runway.
+        :type turnoff: int or float or None
+        :returns: The created Approach object.
+        :rtype: Approach
+        '''
+        self._check_type(_type)
+        if not is_index_within_slice(index, _slice):
+            raise ValueError("Approach index '%s' not within slice '%s'." %
+                             (index, _slice))
+        approach = Approach(index, _type, _slice, airport, runway, gs_est,
+                            loc_est, ils_freq, turnoff)
+        self.append(approach)
+        # TODO: order approaches.
+        return approach
+        
+    def get(self, _type=None, within_slice=None):
+        '''
+        :param _type: Type of Approach.
+        :type _type: str or None
+        :param within_slice: Get Approaches whose index is within this slice.
+        :type within_slice: slice
+        :returns: Approaches matching the conditions.
+        :rtype: ApproachNode
+        '''
+        if _type:
+            self._check_type(_type)
+        type_func = lambda a: a.type == _type
+        within_slice_func = \
+            lambda a: is_index_within_slice(a.index, within_slice)
+        if _type and within_slice:
+            condition = lambda a: type_func(a) and within_slice_func(a)
+        elif _type:
+            condition = type_func
+        elif within_slice:
+            condition = within_slice_func
+        else:
+            return self
+        return ApproachNode(self.name, self.frequency, self.offset,
+                            items=[a for a in self if condition(a)])
+    
+    def get_first(self, **kwargs):
+        '''
+        :param kwargs: Keyword arguments passed into self.get().
+        :returns: First approach which matches kwargs conditions.
+        :rtype: Approach or None
+        '''        
+        approaches = sorted(self.get(**kwargs), key=attrgetter('index'))
+        return approaches[0] if approaches else None
+    
+    def get_last(self, **kwargs):
+        '''
+        :param kwargs: Keyword arguments passed into self.get().
+        :returns: Last approach which matches kwargs conditions.
+        :rtype: Approach or None
+        '''
+        approaches = sorted(self.get(**kwargs), key=attrgetter('index'))
+        return approaches[-1] if approaches else None
+    
+    def get_aligned(self, param):
+        '''
+        :param param: Node to align this ApproachNode to.
+        :type param: Node subclass
+        :returns: An copy of the ApproachNode with its contents aligned to the frequency and offset of param.
+        :rtype: ApproachNode
+        '''        
+        approaches = []
+        multiplier = param.frequency / self.frequency
+        offset = (self.offset - param.offset) * param.frequency
+        for approach in self:
+            _slice, gs_est, loc_est = align_slices(
+                param, self,
+                [approach.slice, approach.gs_est, approach.loc_est])
+            turnoff = approach.turnoff
+            approaches.append(Approach(
+                airport=approach.airport,
+                index=(approach.index * multiplier) + offset,
+                gs_est=gs_est,
+                ils_freq=approach.ils_freq,
+                loc_est=loc_est,
+                runway=approach.runway,
+                slice=_slice,
+                turnoff=(turnoff * multiplier) + offset if turnoff else None,
+                type=approach.type,
+            ))
+        return ApproachNode(param.name, param.frequency, param.offset,
+                            items=approaches)
+
+
+App = ApproachNode
 
 
 class NodeManager(object):

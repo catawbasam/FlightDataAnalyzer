@@ -2353,7 +2353,7 @@ def interpolate_params(*params):
     index_arrays = []
     
     for param in sorted(params, key=attrgetter('frequency')):
-        multiplier = out_frequency / float(param.frequency)
+        multiplier = out_frequency / param.frequency
         offset = (param.offset * multiplier)
         # Will not create interpolation points for masked indices.
         unmasked_indices = np.where(param.array.mask == False)[0]
@@ -2374,7 +2374,7 @@ def interpolate_params(*params):
     # Ensure first interpolated value is within range.
     out_offset = np.min(record.indices)
     out_indices = np.arange(out_offset, len(param.array) * multiplier,
-                            param.frequency / float(out_frequency))
+                            param.frequency / out_frequency)
     interpolated_array = interpolator(out_indices)
     masked_array = np.ma.masked_array(interpolated_array,
                                       mask=np.isnan(interpolated_array))

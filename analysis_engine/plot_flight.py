@@ -205,6 +205,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
         pnt.style = style
     
     for attribute in flight_attrs:
+        # TODO: Fix for new ApproachNode
         if attribute.name in ['FDR Approaches']:
             for app in attribute.value:
                 try:

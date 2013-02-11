@@ -3940,8 +3940,8 @@ class EventMarkerPressed(KeyPointValueNode):
         events_in_air = slices_and(pushed, airs.get_slices())
         for event_in_air in events_in_air:        
             if event_in_air:
-                duration = \
-                    (event_in_air.stop - event_in_air.start) / event.frequency
+                duration = (event_in_air.stop - event_in_air.start) / \
+                    event.frequency
                 index = (event_in_air.stop + event_in_air.start) / 2.0
                 self.create_kpv(index, duration)
 
@@ -4064,7 +4064,7 @@ class HeadingVariationTouchdownPlus4SecTo60Kts(KeyPointValueNode):
     def derive(self, head=P('Heading Continuous'), tdwns=KTI('Touchdown'),
                airspeed=P('Airspeed')):
         for tdwn in tdwns:
-            begin = tdwn.index + 4.0*head.frequency
+            begin = tdwn.index + (4.0 * head.frequency)
             end = index_at_value(airspeed.array, 60.0, slice(begin,None))
             if end:
                 # We found a suitable endpoint, so create a KPV...
@@ -4181,8 +4181,9 @@ class FlareDuration20FtToTouchdown(KeyPointValueNode):
                                         _slice=slice(tdown.index,
                                                      this_landing[0].start_edge,
                                                      -1))
-                self.create_kpv(tdown.index,
-                                (tdown.index - idx_20) / alt_aal.frequency)
+                self.create_kpv(
+                    tdown.index,
+                    (tdown.index - idx_20) / alt_aal.frequency)
 
 
 class FlareDistance20FtToTouchdown(KeyPointValueNode):

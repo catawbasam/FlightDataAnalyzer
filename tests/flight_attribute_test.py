@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 from datetime import datetime, timedelta
-from mock import Mock, call, patch
+from mock import Mock, patch
 
 from analysis_engine import __version__
 from analysis_engine.api_handler import NotFoundError
@@ -14,7 +14,6 @@ from analysis_engine.node import (
 )
 from analysis_engine.settings import CONTROLS_IN_USE_TOLERANCE
 from analysis_engine.flight_attribute import (
-    Approaches, 
     DeterminePilot,
     Duration, 
     FlightID, 
@@ -55,122 +54,6 @@ class NodeTest(object):
                 self.node_class.get_operational_combinations(),
                 self.operational_combinations,
             )
-
-
-class TestApproaches(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = Approaches
-        self.operational_combination_length = 8192
-        self.check_operational_combination_length_only = True
-
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_runway')
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal')
-    def test_derive(self, api, get_nearest_airport, get_nearest_runway):
-
-        api = api()
-
-        def _fake_approach(t, a, b):
-            return {
-                'airport': None,
-                'runway': None,
-                'type': t,
-                'datetime': datetime(1970, 1, 1, 0, 0, a),
-                'slice_start': a,
-                'slice_stop': b,
-            }
-
-        approaches = self.node_class()
-        approaches.set_flight_attr = Mock()
-        approaches._lookup_airport_and_runway = Mock()
-        approaches._lookup_airport_and_runway.return_value = []
-
-        alt_aal = P(name='Altitude AAL', array=np.ma.array([
-            10, 5, 0, 0, 5, 10, 20, 30, 40, 50,      # Touch & Go
-            50, 45, 30, 35, 30, 30, 35, 40, 40, 40,  # Go Around
-            30, 20, 10, 0, 0, 0, 0, 0, 0, 0,         # Landing
-        ]))
-
-        land_afr_apt = A(name='AFR Landing Airport', value={'id': 25})
-        land_afr_rwy = A(name='AFR Landing Runway', value={'ident': '09L'})
-
-        precise = A(name='Precise Positioning')
-        start_dt = A(name='Start Datetime', value=datetime(1970, 1, 1))
-
-        approach_sections = S(name='Approach', items=[
-            Section(name='Approach', slice=slice(0, 5), start_edge=0, stop_edge=5),
-            Section(name='Approach', slice=slice(10, 15), start_edge=10, stop_edge=15),
-            Section(name='Approach', slice=slice(20, 25), start_edge=20, stop_edge=25),
-        ])
-        fast = S(name='Fast', items=[
-            Section(name='Fast', slice=slice(0, 22), start_edge=0, stop_edge=22.5),
-        ])
-
-        land_hdg = KPV(name='Heading At Landing', items=[
-            KeyPointValue(index=15, value=60),
-        ])
-        land_lat = KPV(name='Latitude At Landing', items=[
-            KeyPointValue(index=5, value=10),
-        ])
-        land_lon = KPV(name='Longitude At Landing', items=[
-            KeyPointValue(index=5, value=-2),
-        ])
-        appr_hdg = KPV(name='Heading At Low Point On Approach', items=[
-            KeyPointValue(index=5, value=25),
-            KeyPointValue(index=12, value=35),
-        ])
-        appr_lat = KPV(name='Latitude At Lowest Point On Approach', items=[
-            KeyPointValue(index=5, value=8),
-        ])
-        appr_lon = KPV(name='Longitude At Lowest Point On Approach', items=[
-            KeyPointValue(index=5, value=4),
-        ])
-        appr_ils_freq = KPV(name='ILS Frequency on Approach', items=[
-            KeyPointValue(name=5, value=330150),
-        ])
-
-        # No approaches if no approach sections in the flight:
-        approaches.derive(S(name='Approach', items=[]), alt_aal, fast, start_dt)
-        approaches.set_flight_attr.assert_called_once_with([])
-        approaches.set_flight_attr.reset_mock()
-        # Test the different approach types:
-        land_afr_apt_none = A(name='AFR Landing Airport', value=None)
-        land_afr_rwy_none = A(name='AFR Landing Runway', value=None)
-        approaches.derive(approach_sections, alt_aal, fast, start_dt, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none)
-        approaches.set_flight_attr.assert_called_once_with([
-            _fake_approach('TOUCH_AND_GO', 0, 5),
-            _fake_approach('GO_AROUND', 10, 15),
-            _fake_approach('LANDING', 20, 25),
-        ])
-        approaches.set_flight_attr.reset_mock()
-        approaches._lookup_airport_and_runway.assert_has_calls([
-            call(approach=approach_sections[0], appr_hdg=[], appr_lat=[], appr_lon=[], appr_ilsfreq=[], precise=False, api=api),
-            call(approach=approach_sections[1], appr_hdg=[], appr_lat=[], appr_lon=[], appr_ilsfreq=[], precise=False, api=api),
-            call(approach=approach_sections[2], appr_hdg=[], appr_lat=[], appr_lon=[], appr_ilsfreq=[], precise=False, api=api, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none, hint='landing'),
-        ])
-        approaches._lookup_airport_and_runway.reset_mock()
-        # Test that landing lat/lon/hdg used for landing only, else use approach lat/lon/hdg:
-        approaches.derive(approach_sections, alt_aal, fast, start_dt, land_hdg, land_lat, land_lon, appr_hdg, appr_lat, appr_lon, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none)
-        approaches.set_flight_attr.assert_called_once_with([
-            _fake_approach('TOUCH_AND_GO', 0, 5),
-            _fake_approach('GO_AROUND', 10, 15),
-            _fake_approach('LANDING', 20, 25),
-        ])
-        approaches.set_flight_attr.reset_mock()
-        approaches._lookup_airport_and_runway.assert_has_calls([
-            call(approach=approach_sections[0], appr_hdg=appr_hdg, appr_lat=appr_lat, appr_lon=appr_lon, appr_ilsfreq=[], precise=False, api=api),
-            call(approach=approach_sections[1], appr_hdg=appr_hdg, appr_lat=appr_lat, appr_lon=appr_lon, appr_ilsfreq=[], precise=False, api=api),
-            call(approach=approach_sections[2], appr_hdg=land_hdg, appr_lat=land_lat, appr_lon=land_lon, appr_ilsfreq=[], precise=False, api=api, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none, hint='landing'),
-        ])
-        approaches._lookup_airport_and_runway.reset_mock()
-
-        # FIXME: Finish implementing these tests to check that using the API
-        #        works correctly and any fall back values are used as
-        #        appropriate.
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive_afr_fallback(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestDeterminePilot(unittest.TestCase):

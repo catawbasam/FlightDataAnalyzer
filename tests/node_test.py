@@ -8,6 +8,8 @@ from datetime import datetime
 
 from analysis_engine.library import min_value
 from analysis_engine.node import (
+    Approach,
+    ApproachNode,
     Attribute,
     DerivedParameterNode,
     KeyPointValueNode, KeyPointValue, 
@@ -367,6 +369,84 @@ class TestPowerset(unittest.TestCase):
                     ('bbb', 'ccc'),
                     ('aaa', 'bbb', 'ccc')]
         self.assertEqual(res, expected)
+
+
+class TestApproachNode(unittest.TestCase):
+    def test__check_type(self):
+        approach = ApproachNode()
+        approach._check_type('LANDING')
+        self.assertRaises(ValueError, approach._check_type, 'LIFTOFF')
+    
+    def test_create_approach(self):
+        approach = ApproachNode()
+        approach.create_approach(10, 'TOUCH_AND_GO', slice(5, 15))
+        self.assertEqual(approach, [Approach(index=10, type='TOUCH_AND_GO',
+                                             slice=slice(5,15))])
+        airport = {'id': 2475}
+        runway = {'id': 8429}
+        gs_est = slice(22,24)
+        loc_est = slice(23,24)
+        ils_freq = 124
+        turnoff = 29
+        approach.create_approach(
+            25, 'LANDING', slice(20, 30), airport=airport, runway=runway,
+            gs_est=gs_est, loc_est=loc_est, ils_freq=ils_freq, turnoff=turnoff)
+        self.assertEqual(len(approach), 2)
+        self.assertEqual(approach[1], Approach(
+            index=25, type='LANDING', slice=slice(20, 30), airport=airport,
+            runway=runway, gs_est=gs_est, loc_est=loc_est, ils_freq=ils_freq,
+            turnoff=turnoff))
+        # index is not within the approach slice
+        self.assertRaises(ValueError, approach.create_approach, 40, 'LANDING',
+                          slice(20, 30))
+    
+    def test_get_methods(self):
+        go_around = Approach(20, 'GO_AROUND', slice(15, 25))
+        touch_and_go = Approach(10, 'TOUCH_AND_GO', slice(5, 15))
+        landing = Approach(30, 'LANDING', slice(25, 35))
+        approach = ApproachNode(items=[go_around, touch_and_go, landing])
+        self.assertEqual(approach.get(), approach)
+        self.assertEqual(approach.get_first(), touch_and_go)
+        self.assertEqual(approach.get_last(), landing)
+        go_arounds = approach.get(_type='GO_AROUND')
+        self.assertEqual(go_arounds, ApproachNode(items=[go_around]))
+        within_slice = approach.get(within_slice=slice(9,21))
+        self.assertEqual(within_slice,
+                         ApproachNode(items=[go_around, touch_and_go]))
+        empty = approach.get(_type='LANDING', within_slice=slice(9,21))
+        self.assertEqual(empty, ApproachNode())
+        none = approach.get_first(_type='LANDING', within_slice=slice(9,21))
+        self.assertEqual(none, None)
+    
+    def test_get_aligned(self):
+        airport = {'id': 1}
+        runway = {'id': 2}
+        approach = ApproachNode('One', frequency=2, offset=0.75, items=[
+            Approach(10, 'GO_AROUND', slice(5, 15)),
+            Approach(20, 'TOUCH_AND_GO', slice(15, 25), airport=airport,
+                     runway=runway, ils_freq=110, gs_est=slice(17, 22),
+                     loc_est=slice(18,23)),
+            Approach(30, 'LANDING', slice(25, 35), turnoff=40),
+        ])
+        align_to = Node('Two', frequency=1, offset=0.25)
+        aligned = approach.get_aligned(align_to)
+        result = ApproachNode(
+            'One', frequency=align_to.frequency,
+            offset=align_to.offset, items=[
+                Approach(5.5, 'GO_AROUND', slice(3, 8)),
+                Approach(10.5, 'TOUCH_AND_GO', slice(8, 13), airport=airport,
+                         runway=runway, ils_freq=110, gs_est=slice(9, 12),
+                         loc_est=slice(10,12)),
+                Approach(15.5, 'LANDING', slice(13, 18), turnoff=20.5),
+            ])
+        self.assertEqual(aligned, result)
+    
+    def test_get_aligned_empty(self):
+        approach = ApproachNode(frequency=2, offset=0.75)
+        align_to = ApproachNode(frequency=1, offset=0.25)
+        aligned = approach.get_aligned(align_to)
+        self.assertEqual(align_to, aligned)
+
 
 class TestSectionNode(unittest.TestCase):
     def setUp(self):
