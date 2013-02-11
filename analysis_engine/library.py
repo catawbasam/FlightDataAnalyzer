@@ -2724,7 +2724,7 @@ def max_continuous_unmasked(array, _slice=slice(None)):
     return slice(_max.start + offset, _max.stop + offset)
 
 
-def max_abs_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
+def max_abs_value(array, _slice=slice(None)):
     """
     Get the value of the maximum absolute value in the array. 
     Return value is NOT the absolute value (i.e. may be negative)
@@ -2736,60 +2736,34 @@ def max_abs_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     :type array: np.ma.array
     :param _slice: Slice to apply to the array and return max absolute value relative to
     :type _slice: slice
-    :param start_edge: Index for precise start timing
-    :type start_edge: Float, between _slice.start-1 and slice_start
-    :param stop_edge: Index for precise end timing
-    :type stop_edge: Float, between _slice.stop and slice_stop+1
-    
+
     :returns: Value named tuple of index and value.
     """
-    index, value = max_value(np.ma.abs(array), _slice)
-    # If start or stop edges are given, check these extreme (interpolated) values.
-    if start_edge:
-        edge_value = abs(value_at_index(array, start_edge) or 0)
-        if edge_value and edge_value > value:
-            index = start_edge
-            value = edge_value
-    if stop_edge:
-        edge_value = abs(value_at_index(array, stop_edge) or 0)
-        if edge_value and edge_value > value:
-            index = stop_edge
-            value = edge_value
-    return Value(index, array[index]) # Recover sign of the value.
+    maxval = max_value(np.ma.abs(array), _slice)
+    if maxval.index % 1:
+        # we have a decimal offset, recover sign using value_at_index
+        return Value(maxval.index, value_at_index(array, maxval.index))
+    else:
+        return Value(maxval.index, array[maxval.index])
 
 
-def max_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
+def max_value(array, _slice=slice(None)):
     """
     Get the maximum value in the array and its index relative to the array and
-    not the _slice argument.
+    not the _slice argument. If _slice.start or _slice.stop are decimal, 
+    interpolation will be used.
     
     :param array: masked array
     :type array: np.ma.array
     :param _slice: Slice to apply to the array and return max value relative to
     :type _slice: slice
-    :param start_edge: Index for precise start timing
-    :type start_edge: Float, between _slice.start-1 and slice_start
-    :param stop_edge: Index for precise end timing
-    :type stop_edge: Float, between _slice.stop and slice_stop+1
     
     :returns: Value named tuple of index and value.
     """
-    index, value = _value(array, _slice, np.ma.argmax)
-    # If start or stop edges are given, check these extreme (interpolated) values.
-    if start_edge:
-        edge_value = value_at_index(array, start_edge)
-        if edge_value and edge_value > value:
-            index = start_edge
-            value = edge_value
-    if stop_edge:
-        edge_value = value_at_index(array, stop_edge)
-        if edge_value and edge_value > value:
-            index = stop_edge
-            value = edge_value
-    return Value(index, value)
+    return _value(array, _slice, np.ma.argmax)
 
 
-def min_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
+def min_value(array, _slice=slice(None)):
     """
     Get the minimum value in the array and its index.
     
@@ -2797,26 +2771,10 @@ def min_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     :type array: np.ma.array
     :param _slice: Slice to apply to the array and return min value relative to
     :type _slice: slice
-    :param start_edge: Index for precise start timing
-    :type start_edge: Float, between _slice.start-1 and slice_start
-    :param stop_edge: Index for precise end timing
-    :type stop_edge: Float, between _slice.stop and slice_stop+1
     
     :returns: Value named tuple of index and value.
     """
-    index, value = _value(array, _slice, np.ma.argmin)
-    # If start or stop edges are given, check these extreme (interpolated) values.
-    if start_edge:
-        edge_value = value_at_index(array, start_edge)
-        if edge_value and edge_value < value:
-            index = start_edge
-            value = edge_value
-    if stop_edge:
-        edge_value = value_at_index(array, stop_edge)
-        if edge_value and edge_value < value:
-            index = stop_edge
-            value = edge_value
-    return Value(index, value)
+    return _value(array, _slice, np.ma.argmin)
 
 
 def minimum_unmasked(array1, array2):
@@ -4323,13 +4281,32 @@ def _value(array, _slice, operator):
     """
     if _slice.step and _slice.step < 0:
         raise ValueError("Negative step not supported")
-    if np.ma.count(array[_slice]):
-        # floor the start position as it will have been floored during the slice
-        index = operator(array[_slice]) + floor(_slice.start or 0) * (_slice.step or 1)
-        value = array[index]
-        return Value(index, value)
-    else:
+    if not np.ma.count(array[_slice]):
         return Value(None, None)
+    # forcefully constrain the slice to the whole number range from the ceil of 
+    # the start to the floor of the end
+    start_pos = ceil(_slice.start or 0)
+    stop_pos = floor(_slice.stop or len(array))
+    index = operator(array[start_pos:stop_pos]) + start_pos * (_slice.step or 1)
+    value = array[index]
+    
+    # check whether decimal slice start exceeds value
+    start_value = value_at_index(array, _slice.start)
+    if start_value is not None and _slice.start and _slice.start % 1:
+        # we have a decimal start, check if it exceeds the current value
+        if operator((value, start_value)):
+            # operator says start_value is the one to use
+            index = _slice.start
+            value = start_value
+    # check whether the decimal slice end exceeds value
+    stop_value = value_at_index(array, _slice.stop)
+    if stop_value is not None and _slice.stop and _slice.stop % 1:
+        # we have a decimal stop, check if it exceeds the current value
+        if operator((value, stop_value)):
+            # operator says stop_value is the one to use
+            index = _slice.stop
+            value = stop_value
+    return Value(index, value)
 
 
 def value_at_time(array, hz, offset, time_index):

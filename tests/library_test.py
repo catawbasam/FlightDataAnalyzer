@@ -2117,40 +2117,41 @@ class TestMaxValue(unittest.TestCase):
         ##self.assertEqual(res, (69, 81)) # you can get this if you use slice.stop!
         
     def test_max_value_non_integer_slices_no_limits(self):
-        array = np.ma.arange(5)+10
+        array = np.ma.arange(5) + 10
         i, v, = max_value(array)
         self.assertEqual(i, 4)
         self.assertEqual(v, 14)
 
     def test_max_value_integer_slices(self):
-        array = np.ma.arange(10)+10
+        array = np.ma.arange(10) + 10
         i, v, = max_value(array, slice(2,4))
         self.assertEqual(i, 3)
         self.assertEqual(v, 13)
 
     def test_max_value_non_integer_upper_edge(self):
-        array = np.ma.arange(5)+10
-        i, v, = max_value(array, slice(2,3),None,3.7)
+        array = np.ma.arange(5) + 10
+        i, v, = max_value(array, slice(2,3.7))
         self.assertEqual(i, 3.7)
         self.assertEqual(v, 13.7)
 
     def test_max_value_non_integer_lower_edge(self):
-        array = 20-np.ma.arange(5)
-        i, v, = max_value(array, slice(2,3),1.3,None)
+        array = 20 - np.ma.arange(5)
+        i, v, = max_value(array, slice(1.3,3))
         self.assertEqual(i, 1.3)
         self.assertEqual(v, 18.7)
 
     def test_max_value_slice_mismatch(self):
-        array = np.ma.arange(5)+10
+        array = np.ma.arange(5) + 10
         i, v, = max_value(array, slice(100,101))
         self.assertEqual(i, None)
         self.assertEqual(v, None)
         
     def test_max_value_no_edge(self):
-        array = np.ma.array(data=[2,3,4,8,9],mask=[0,0,0,1,1])
-        i, v = max_value(array, slice(0,3),None,3.5)
+        # Important that end case is ignored due to mask on 8 and 9
+        array = np.ma.array(data=[2,3,4,8,9], mask=[0,0,0,1,1])
+        i, v = max_value(array, slice(0,3.5))
         self.assertEqual(i, 2)
-        self.assertEqual(v, 4) # Important that end case is ignored.
+        self.assertEqual(v, 4)
     
     def test_max_value_all_masked(self):
         array = np.ma.array(data=[0,1,2], mask=[1,1,1])
@@ -2178,6 +2179,12 @@ class TestMaxAbsValue(unittest.TestCase):
         res = max_abs_value(d, s)
         self.assertEqual(res.value, -1.056)
         self.assertEqual(res.index, 31)
+        
+    def test_max_abs_value_at_slice_start(self):
+        array = np.ma.array(data=[8,3,-4,-8,-9], mask=[0,0,0,0,0])
+        i, v = max_abs_value(array, slice(1,3.5))
+        self.assertEqual(i, 3.5)
+        self.assertEqual(v, -8.5)
         
         
 class TestMergeSources(unittest.TestCase):
@@ -2251,13 +2258,13 @@ class TestMinValue(unittest.TestCase):
 
     def test_min_value_non_integer_upper_edge(self):
         array = 10-np.ma.arange(5)
-        i, v, = min_value(array, slice(2,3),None,3.7)
+        i, v, = min_value(array, slice(2,3.7))
         self.assertEqual(i, 3.7)
         self.assertEqual(v, 6.3)
 
     def test_min_value_non_integer_lower_edge(self):
         array = np.ma.arange(5)+5
-        i, v, = min_value(array, slice(2,3),1.3,None)
+        i, v, = min_value(array, slice(1.3,3))
         self.assertEqual(i, 1.3)
         self.assertEqual(v, 6.3)
 
