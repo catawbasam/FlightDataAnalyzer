@@ -2821,7 +2821,7 @@ class TestRateOfChange(unittest.TestCase):
         
         
 class TestRepairMask(unittest.TestCase):
-    def test_repair_mask_basic(self):
+    def test_repair_mask_basic_1(self):
         array = np.ma.arange(10)
         array[3] = np.ma.masked
         self.assertTrue(np.ma.is_masked(array[3]))
@@ -2880,7 +2880,7 @@ class TestRepairMask(unittest.TestCase):
         ma_test.assert_array_equal(res.data, expected.data)
         ma_test.assert_array_equal(res.mask, expected.mask)
 
-    def test_repair_mask_basic(self):
+    def test_repair_mask_basic_2(self):
         array = np.ma.arange(10)
         array[5] = np.ma.masked
         array[7:9] = np.ma.masked
