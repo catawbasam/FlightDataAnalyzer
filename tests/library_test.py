@@ -11,7 +11,7 @@ from analysis_engine.flight_attribute import LandingRunway
 
 # A set of masked array test utilities from Pierre GF Gerard-Marchant
 # http://www.java2s.com/Open-Source/Python/Math/Numerical-Python/numpy/numpy/ma/testutils.py.htm
-import utilities.masked_array_testutils as ma_test
+import flightdatautilities.masked_array_testutils as ma_test
 
 from analysis_engine.library import *
 from analysis_engine.node import (A, P, S, M, KTI, KeyTimeInstance)

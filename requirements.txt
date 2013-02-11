@@ -9,4 +9,5 @@ simplekml
 simplejson
 argparse
 Utilities
+FlightDataUtilities
 HDFAccess
