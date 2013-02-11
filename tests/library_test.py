@@ -82,6 +82,18 @@ class TestAlignSlices(unittest.TestCase):
                                   slice(79, None, None), slice(9, 19, 3), None,
                                   slice(None, None, None)])
 
+class TestAlignSlice(unittest.TestCase):
+    
+    @mock.patch('analysis_engine.library.align_slices')
+    def test_align_slice(self, align_slices):
+        slave = mock.Mock()
+        master = mock.Mock()
+        _slice = mock.Mock()
+        align_slices.return_value = [mock.Mock()]
+        result = align_slice(slave, master, _slice)
+        align_slices.assert_called_once_with(slave, master, [_slice])
+        self.assertEqual(result, align_slices.return_value[0])
+
 
 class TestAlign(unittest.TestCase):
     def test_align_returns_same_array_if_aligned(self):

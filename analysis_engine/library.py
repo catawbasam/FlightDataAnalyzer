@@ -144,33 +144,6 @@ def is_power2(number):
     return num > 0 and ((num & (num - 1)) == 0)
 
 
-def align_slices(slave, master, slices):
-    '''
-    :param slave: The node to align the slice to.
-    :type slave: Node
-    :param master: The node which the slice is currently aligned to.
-    :type master: Node
-    :param slices: Slices may
-    :type slices: [slice or None]
-    :returns: Slices aligned to slave.
-    :rtype: [slice or None]
-    '''
-    if slave.frequency == master.frequency and slave.offset == master.offset:
-        return slices
-    multiplier = slave.frequency / master.frequency
-    offset = (master.offset - slave.offset) * slave.frequency
-    aligned_slices = []
-    for s in slices:
-        if s is None:
-           aligned_slices.append(s)
-           continue
-        aligned_slices.append(slice(
-            int(ceil((s.start * multiplier) + offset)) if s.start else None,
-            int(ceil((s.stop * multiplier) + offset)) if s.stop else None,
-            s.step))
-    return aligned_slices
-
-
 def align(slave, master, interpolate=True):
     """
     This function takes two parameters which will have been sampled at
@@ -320,6 +293,47 @@ def align(slave, master, interpolate=True):
             slave_aligned[i::wm] = a*slave_array[h::ws] + b*slave_array[h1::ws]
 
     return slave_aligned
+
+
+def align_slices(slave, master, slices):
+    '''
+    :param slave: The node to align the slices to.
+    :type slave: Node
+    :param master: The node which the slices are currently aligned to.
+    :type master: Node
+    :param slices: Slices to align or None values to skip.
+    :type slices: [slice or None]
+    :returns: Slices aligned to slave.
+    :rtype: [slice or None]
+    '''
+    if slave.frequency == master.frequency and slave.offset == master.offset:
+        return slices
+    multiplier = slave.frequency / master.frequency
+    offset = (master.offset - slave.offset) * slave.frequency
+    aligned_slices = []
+    for s in slices:
+        if s is None:
+            aligned_slices.append(s)
+            continue
+        aligned_slices.append(slice(
+            int(ceil((s.start * multiplier) + offset)) if s.start else None,
+            int(ceil((s.stop * multiplier) + offset)) if s.stop else None,
+            s.step))
+    return aligned_slices
+
+
+def align_slice(slave, master, _slice):
+    '''
+    :param slave: The node to align the slice to.
+    :type slave: Node
+    :param master: The node which the slice is currently aligned to.
+    :type master: Node
+    :param _slice: Slice to align.
+    :type _slice: slice or None
+    :returns: Slice aligned to slave.
+    :rtype: slice or None
+    '''
+    return align_slices(slave, master, [_slice])[0]
 
 
 def ambiguous_runway(rwy):
