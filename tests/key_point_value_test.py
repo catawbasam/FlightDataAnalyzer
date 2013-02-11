@@ -4760,7 +4760,7 @@ class TestThrustAsymmetryInFlight(unittest.TestCase,
 class TestThrustAsymmetryWithReverseThrustMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = ThrustAsymmetryWithReverseThrustMax
-        self.operational_combinations = [('Thrust Asymmetry', 'Thrust Reversers')]
+        self.operational_combinations = [('Thrust Asymmetry', 'Thrust Reversers', 'Mobile')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
