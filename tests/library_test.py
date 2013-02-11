@@ -3828,22 +3828,29 @@ class TestValueAtIndex(unittest.TestCase):
     
     def test_value_at_index_basic(self):
         array = np.ma.arange(4)
-        self.assertEquals (value_at_index(array, 1.5), 1.5)
+        self.assertEquals(value_at_index(array, 1.5), 1.5)
 
     def test_value_at_index_just_above_range(self):
         array = np.ma.arange(4)
-        self.assertEquals (value_at_index(array, 3.7), 3.0)
+        self.assertEquals(value_at_index(array, 3.7), 3.0)
         
     def test_value_at_index_just_below_range(self):
         array = np.ma.arange(4)
-        self.assertEquals (value_at_index(array, -0.5), 0.0)
+        self.assertEquals(value_at_index(array, -0.5), 0.0)
         
     def test_value_at_index_masked(self):
         array = np.ma.arange(4)
         array[2]=np.ma.masked
         expected=np.ma.array(1)
         expected 
-        self.assertEquals (value_at_index(array, 2), None)
+        self.assertEquals(value_at_index(array, 2), None)
+        
+    def test_value_at_null_index(self):
+        self.assertEqual(value_at_index([2,3], None), None)
+
+    def test_value_at_empty_array(self):
+        self.assertEqual(value_at_index([], 3), None)
+        self.assertEqual(value_at_index(np.ma.array([2,3], mask=True), 3), None)
 
 
 class TestVstackParams(unittest.TestCase):

@@ -4373,7 +4373,8 @@ def value_at_index(array, index):
     :type index: float
     :returns: interpolated value from the array
     '''
-    
+    if index is None or not np.ma.count(array):
+        return None
     if index < 0.0:  # True if index is None
         return array[0]
     elif index > len(array)-1:
