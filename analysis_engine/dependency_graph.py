@@ -3,6 +3,7 @@ import sys
 import logging 
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
+from pprint import pformat
 from utilities.dict_helpers import dict_filter
 
 from analysis_engine.node import (
@@ -60,6 +61,9 @@ TODO:
 
 
 def dependencies3(di_graph, root, node_mgr):
+    '''
+    :raises RuntimeError: If a loop exists within the dependency tree.
+    '''
     
     def traverse_tree(node):
         # check this first to improve performance
@@ -258,8 +262,13 @@ def dependency_order(node_mgr, draw=not_windows):
     :rtype: (list of strings, dict)
     """
     _graph = graph_nodes(node_mgr)
-    gr_all, gr_st, order = process_order(_graph, node_mgr)
-    
+    try:
+        gr_all, gr_st, order = process_order(_graph, node_mgr)
+    except RuntimeError:
+        msg = ('The following loops in the dependency tree caused infinite '
+               'recursion:\n%s' % pformat(nx.simple_cycles(_graph)))
+        print msg
+        raise RuntimeError(msg)
     if draw:
         from json import dumps
         logger.info("JSON Graph Representation:\n%s", dumps( graph_adjacencies(gr_st), indent=2))
