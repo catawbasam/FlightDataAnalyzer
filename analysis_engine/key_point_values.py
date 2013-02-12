@@ -2311,7 +2311,7 @@ class HeadingAtLowestPointOnApproach(KeyPointValueNode):
     """
     def derive(self, head=P('Heading Continuous'), 
                low_points=KTI('Lowest Point On Approach')):
-        self.create_kpvs_at_ktis(head.array%360.0, low_points)
+        self.create_kpvs_at_ktis(head.array % 360.0, low_points)
 
 
 ################################################################################
