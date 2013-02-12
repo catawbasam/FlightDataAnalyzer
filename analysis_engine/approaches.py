@@ -6,6 +6,40 @@ from analysis_engine.node import A, ApproachNode, KPV, KTI, P, S
 from analysis_engine import settings
 
 
+def approach_slices(self, alt_aal, lands, go_arounds):
+    # Prepare to extract the slices
+    app_slices = []
+    ga_slices = []
+
+    for land in lands:
+        app_start = index_closest_value(
+            alt_aal.array, settings.INITIAL_APPROACH_THRESHOLD,
+            slice(land.slice.start, 0, -1))
+        app_slices.append(slice(app_start, land.slice.stop))
+
+    last_ga = 0
+    for ga in go_arounds:
+        # The go-around KTI is based on only a 500ft 'pit' but to include
+        # the approach phase we stretch the start point back towards
+        # 3000ft. To avoid merging multiple go-arounds, the endpoint is
+        # carried across from one to the next, which is a safe thing to
+        # do because the KTI algorithm works on the cycle finder results
+        # which are inherently ordered.
+        gapp_start = index_closest_value(
+            alt_aal.array, settings.INITIAL_APPROACH_THRESHOLD,
+            slice(ga.slice.start, last_ga, -1))
+        ga_slices.append(slice(gapp_start, ga.slice.stop))
+        last_ga = ga.slice.stop
+
+    all_apps = slices_or(app_slices, ga_slices)
+    
+    if not all_apps:
+        self.warning('Flight with no valid approach or go-around phase. '
+                     'Probably truncated data')            
+
+    return all_apps
+
+
 class Approaches(ApproachNode):
     """
     # TODO: Update docstring for ApproachNode.
@@ -85,39 +119,6 @@ class Approaches(ApproachNode):
             'Fast',
         ])
     
-    def _approach_slices(self, alt_aal, lands, go_arounds):
-        # Prepare to extract the slices
-        app_slices = []
-        ga_slices = []
-
-        for land in lands:
-            app_start = index_closest_value(
-                alt_aal.array, settings.INITIAL_APPROACH_THRESHOLD,
-                slice(land.slice.start, 0, -1))
-            app_slices.append(slice(app_start, land.slice.stop))
-
-        last_ga = 0
-        for ga in go_arounds:
-            # The go-around KTI is based on only a 500ft 'pit' but to include
-            # the approach phase we stretch the start point back towards
-            # 3000ft. To avoid merging multiple go-arounds, the endpoint is
-            # carried across from one to the next, which is a safe thing to
-            # do because the KTI algorithm works on the cycle finder results
-            # which are inherently ordered.
-            gapp_start = index_closest_value(
-                alt_aal.array, settings.INITIAL_APPROACH_THRESHOLD,
-                slice(ga.slice.start, last_ga, -1))
-            ga_slices.append(slice(gapp_start, ga.slice.stop))
-            last_ga = ga.slice.stop
-
-        all_apps = slices_or(app_slices, ga_slices)
-        
-        if not all_apps:
-            self.warning('Flight with no valid approach or go-around phase. '
-                         'Probably truncated data')            
-
-        return all_apps
-    
     def _approaches(self, approach_slices, alt_aal, fast, land_hdg, land_lat,
                     land_lon, appr_hdg, appr_lat, appr_lon, loc_ests, gs_ests,
                     appr_ils_freq, land_afr_apt, land_afr_rwy, precision,
@@ -188,7 +189,7 @@ class Approaches(ApproachNode):
             
             airport, runway = self._lookup_airport_and_runway(**kwargs)
             self.create_approach(
-                _slice.start, approach_type, _slice, airport=airport,
+                approach_type, _slice, airport=airport,
                 runway=runway, gs_est=gs_est, loc_est=loc_est,
                 ils_freq=ils_freq, turnoff=turnoff)
     
@@ -296,10 +297,9 @@ class Approaches(ApproachNode):
                land_afr_rwy=A('AFR Landing Runway'),
                precision=A('Precise Positioning'),
                turnoffs=KTI('Landing Turn Off Runway')):
-        approach_slices = self._approach_slices(alt_aal_phases, lands,
-                                                go_arounds)
+        slices = approach_slices(alt_aal_phases, lands, go_arounds)
         self._approaches(
-            approach_slices, alt_aal, fast, land_hdg, land_lat, 
+            slices, alt_aal, fast, land_hdg, land_lat, 
             land_lon, appr_hdg, appr_lat, appr_lon, loc_ests, gs_ests, 
             appr_ils_freq, land_afr_apt, land_afr_rwy, precision, turnoffs)
         
