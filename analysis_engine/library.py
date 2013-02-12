@@ -1061,25 +1061,22 @@ def filter_vor_ils_frequencies(array, navaid):
         raise ValueError('Navaid of unrecognised type %s' % navaid)
 
 
-def find_app_rwy(app_info, this_loc, this_loc_freq):
+def find_app_rwy(app_info, this_loc):
     """
     This function scans through the recorded approaches to find which matches
     the current localizer established phase. This is required because we
     cater for multiple ILS approaches on a single flight.
     """
-    for approach in app_info.value:
+    for approach in app_info:
         # line up an approach slice
-        start = approach['slice_start'] * this_loc_freq
-        stop = approach['slice_stop'] * this_loc_freq
-        approach_slice = slice(start, stop)
-        if slices_overlap(this_loc.slice, approach_slice):
+        if slices_overlap(this_loc.slice, approach.slice):
             # we've found a matching approach where the localiser was established
             break
     else:
         logger.warning("No approach found within slice '%s'.",this_loc)
         return None, None
 
-    runway = approach['runway']
+    runway = approach.runway
     if not runway:
         logger.warning("Approach runway information not available.")
         return approach, None
