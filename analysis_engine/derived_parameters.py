@@ -4051,7 +4051,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
         if frame_name in ['737-4', '737-1',
                           '737-5', '737-5_NON-EIS', 
                           '737-6', '737-6_NON-EIS', 
-                          '737-i', '737-300_PTI']:
+                          '737-i', '737-2227000-335A']:
             all_tr = \
                 e1_lft_dep.array.raw + e1_lft_out.array.raw + \
                 e1_rgt_dep.array.raw + e1_rgt_out.array.raw + \
@@ -4520,7 +4520,7 @@ class StickShaker(MultistateDerivedParameterNode):
                 shake_act.array, shake_act.frequency, shake_act.offset
 
         elif frame_name in ['737-1', '737-3A', '737-3B', '737-3C', '737-4',
-                            '737-i', '737-300_PTI', '757-DHL']:
+                            '737-i', '737-2227000-335A', '757-DHL']:
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset
 
