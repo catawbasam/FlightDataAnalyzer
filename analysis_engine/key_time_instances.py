@@ -489,12 +489,12 @@ class LowestPointOnApproach(KeyTimeInstanceNode):
     approach attribute, and thereafter compute the smoothed track.
     '''
     def derive(self, alt_aal=P('Altitude AAL'), alt_rad=P('Altitude Radio'),
-               apps=S('Approach'), lands=S('Landing')):
+               apps=S('Approach And Landing')):
         height = minimum_unmasked(alt_aal.array, alt_rad.array)
         for app in apps:
             index = np.ma.argmin(height[app.slice])
-            self.create_kti(index+app.start_edge)
-            
+            self.create_kti(index + app.start_edge)
+
 
 class InitialClimbStart(KeyTimeInstanceNode):
     # The Takeoff flight phase is computed to run up to the start of the

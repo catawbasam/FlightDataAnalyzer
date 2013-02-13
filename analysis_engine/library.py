@@ -2426,7 +2426,7 @@ def find_slices_containing_index(index, slices):
     return [s for s in slices if is_index_within_slice(index, s)]
 
 
-def is_slice_within_slice(inner_slice, outer_slice):
+def is_slice_within_slice(inner_slice, outer_slice, within_use='slice'):
     '''
     inner_slice is considered to not be within outer slice if its start or 
     stop is None.
@@ -2436,20 +2436,31 @@ def is_slice_within_slice(inner_slice, outer_slice):
     :returns: Whether inner_slice is within the outer_slice.
     :rtype: bool
     '''
-    if outer_slice.start is None and outer_slice.stop is None:
-        return True
-    elif inner_slice.start is None and outer_slice.start is not None:
-        return False
-    elif inner_slice.stop is None and outer_slice.stop is not None:
-        return False
-    elif inner_slice.start is None and outer_slice.start is None:
-        return inner_slice.stop < outer_slice.stop
-    elif outer_slice.stop is None and outer_slice.stop is None:
-        return inner_slice.start >= outer_slice.start
-    else:
-        start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
-        stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
-        return start_within and stop_within
+    
+    def entire_slice_within_slice():
+        if outer_slice.start is None and outer_slice.stop is None:
+            return True
+        elif inner_slice.start is None and outer_slice.start is not None:
+            return False
+        elif inner_slice.stop is None and outer_slice.stop is not None:
+            return False
+        elif inner_slice.start is None and outer_slice.start is None:
+            return inner_slice.stop < outer_slice.stop
+        elif outer_slice.stop is None and outer_slice.stop is None:
+            return inner_slice.start >= outer_slice.start
+        else:
+            start_within = outer_slice.start <= inner_slice.start <= outer_slice.stop
+            stop_within = outer_slice.start <= inner_slice.stop <= outer_slice.stop
+            return start_within and stop_within
+    
+    if within_use == 'slice':
+        return entire_slice_within_slice()
+    elif within_use == 'start':
+        return is_index_within_slice(inner_slice.start, outer_slice)
+    elif within_use == 'stop':
+        return is_index_within_slice(inner_slice.stop, outer_slice)
+    elif within_use == 'any':
+        return slices_overlap(inner_slice, outer_slice)
 
 
 def slices_overlap(first_slice, second_slice):
@@ -2602,7 +2613,7 @@ def slices_or(*slice_lists, **kwargs):
         workspace = np.ma.zeros(b)
         for slice_list in slice_lists:
             for each_slice in slice_list:
-                workspace[each_slice]=1
+                workspace[each_slice] = 1
         workspace=np.ma.masked_equal(workspace, 1)
         return shift_slices(np.ma.clump_masked(workspace[startpoint:endpoint]), startpoint)
 

@@ -24,7 +24,6 @@ from analysis_engine.library import (
     slices_below,
     slices_between,
     slices_from_to,
-    slices_overlap,
     value_at_index,
     value_at_time,
 )
@@ -37,15 +36,15 @@ from hdfaccess.parameter import MappedArray
 logger = logging.getLogger(name=__name__)
 
 # Define named tuples for KPV and KTI and FlightPhase
-Approach = recordtype(
-    'Approach',
-    'index type slice airport runway gs_est loc_est ils_freq turnoff', 
+ApproachItem = recordtype(
+    'ApproachItem',
+    'type slice airport runway gs_est loc_est ils_freq turnoff lowest_lat lowest_lon lowest_hdg',
     default=None)
 KeyPointValue = recordtype('KeyPointValue',
-                           'index value name slice datetime latitude longitude', 
+                           'index value name slice datetime latitude longitude',
                            field_defaults={'slice':slice(None)}, default=None)
 KeyTimeInstance = recordtype('KeyTimeInstance',
-                             'index name datetime latitude longitude', 
+                             'index name datetime latitude longitude',
                              default=None)
 Section = namedtuple('Section', 'name slice start_edge stop_edge') #Q: rename mask -> slice/section
 
@@ -832,7 +831,7 @@ class SectionNode(Node, list):
         :type name: str
         :param containing_index: Get sections which contain index.
         :type containing_index: int or float
-        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', or the slice's 'start' or 'stop'.
+        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', the slice's 'start' or 'stop', or both combined - 'any'.
         :type within_use: str
         :param param: Param which index and within_slice are sourced from. Used when parameters are not aligned.
         :type param: Node
@@ -849,15 +848,8 @@ class SectionNode(Node, list):
                 containing_index = \
                     containing_index * (self.hz / param.hz) + (self.hz * param.offset)
         if within_slice:
-            within_funcs = \
-                {'slice': lambda s, within: is_slice_within_slice(s.slice,
-                                                                  within),
-                 'start': lambda s, within: is_index_within_slice(s.slice.start,
-                                                                  within),
-                 'stop': lambda s, within: is_index_within_slice(s.slice.stop,
-                                                                 within),
-                 'any': lambda s, within: slices_overlap(s.slice, within)}
-            within_func = within_funcs[within_use]
+            within_func = lambda s, within: is_slice_within_slice(
+                s.slice, within, within_use=within_use)
         else:
             within_func = lambda s, within: True
         
@@ -1823,11 +1815,10 @@ class ApproachNode(ListNode):
         if _type not in ('APPROACH', 'LANDING', 'GO_AROUND', 'TOUCH_AND_GO'):
             raise ValueError("Unknown approach type: '%s'." % _type)
     
-    def create_approach(self, index, _type, _slice, airport=None, runway=None,
-                        gs_est=None, loc_est=None, ils_freq=None, turnoff=None):
+    def create_approach(self, _type, _slice, airport=None, runway=None,
+                        gs_est=None, loc_est=None, ils_freq=None, turnoff=None,
+                        lowest_lat=None, lowest_lon=None, lowest_hdg=None):
         '''
-        :param index: Index at the lowest point of approach.
-        :type index: int or float
         :param _type: Type of approach.
         :type _type: str
         :param _slice: Slice of approach section.
@@ -1844,33 +1835,38 @@ class ApproachNode(ListNode):
         :type ils_freq: int or None
         :param turnoff: Index where the aircraft turned off the runway.
         :type turnoff: int or float or None
+        :param lowest_lat: Latitude at lowest point of approach.
+        :type lowest_lat: float
+        :param lowest_lon: Longitude at lowest point of approach.
+        :type lowest_lon: float
+        :param lowest_hdg: Heading at lowest point of approach.
+        :type lowest_hdg: float
         :returns: The created Approach object.
-        :rtype: Approach
+        :rtype: ApproachItem
         '''
         self._check_type(_type)
-        if not is_index_within_slice(index, _slice):
-            raise ValueError("Approach index '%s' not within slice '%s'." %
-                             (index, _slice))
-        approach = Approach(index, _type, _slice, airport, runway, gs_est,
-                            loc_est, ils_freq, turnoff)
+        approach = ApproachItem(
+            type=_type, slice=_slice, airport=airport, runway=runway,
+            gs_est=gs_est, loc_est=loc_est, ils_freq=ils_freq, turnoff=turnoff,
+            lowest_lat=lowest_lat, lowest_lon=lowest_lon, lowest_hdg=lowest_hdg)
         self.append(approach)
         # TODO: order approaches.
         return approach
         
-    def get(self, _type=None, within_slice=None):
+    def get(self, _type=None, within_slice=None, within_use='start'):
         '''
         :param _type: Type of Approach.
         :type _type: str or None
         :param within_slice: Get Approaches whose index is within this slice.
         :type within_slice: slice
-        :returns: Approaches matching the conditions.
+        :returns: ApproachItems matching the conditions.
         :rtype: ApproachNode
         '''
         if _type:
             self._check_type(_type)
         type_func = lambda a: a.type == _type
-        within_slice_func = \
-            lambda a: is_index_within_slice(a.index, within_slice)
+        within_slice_func = lambda a: is_slice_within_slice(
+            a.slice, within_slice, within_use=within_use)
         if _type and within_slice:
             condition = lambda a: type_func(a) and within_slice_func(a)
         elif _type:
@@ -1887,8 +1883,8 @@ class ApproachNode(ListNode):
         :param kwargs: Keyword arguments passed into self.get().
         :returns: First approach which matches kwargs conditions.
         :rtype: Approach or None
-        '''        
-        approaches = sorted(self.get(**kwargs), key=attrgetter('index'))
+        '''
+        approaches = sorted(self.get(**kwargs), key=attrgetter('slice.start'))
         return approaches[0] if approaches else None
     
     def get_last(self, **kwargs):
@@ -1897,7 +1893,7 @@ class ApproachNode(ListNode):
         :returns: Last approach which matches kwargs conditions.
         :rtype: Approach or None
         '''
-        approaches = sorted(self.get(**kwargs), key=attrgetter('index'))
+        approaches = sorted(self.get(**kwargs), key=attrgetter('slice.start'))
         return approaches[-1] if approaches else None
     
     def get_aligned(self, param):
@@ -1915,9 +1911,8 @@ class ApproachNode(ListNode):
                 param, self,
                 [approach.slice, approach.gs_est, approach.loc_est])
             turnoff = approach.turnoff
-            approaches.append(Approach(
+            approaches.append(ApproachItem(
                 airport=approach.airport,
-                index=(approach.index * multiplier) + offset,
                 gs_est=gs_est,
                 ils_freq=approach.ils_freq,
                 loc_est=loc_est,

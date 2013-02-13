@@ -9,7 +9,7 @@ from analysis_engine.api_handler import get_api_handler, NotFoundError
 from analysis_engine.library import (datetime_of_index,
                                      min_value, 
                                      max_value)
-from analysis_engine.node import A, App, KTI, KPV, FlightAttributeNode, P, S
+from analysis_engine.node import A, KTI, KPV, FlightAttributeNode, P, S
 
 
 class InvalidFlightType(Exception):
@@ -165,9 +165,9 @@ class LandingAirport(FlightAttributeNode):
         ))
 
     def derive(self,
-            land_lat=KPV('Latitude At Landing'),
-            land_lon=KPV('Longitude At Landing'),
-            land_afr_apt=A('AFR Landing Airport')):
+               land_lat=KPV('Latitude At Landing'),
+               land_lon=KPV('Longitude At Landing'),
+               land_afr_apt=A('AFR Landing Airport')):
         '''
         '''
         # 1. If we have latitude and longitude, look for the nearest airport:
@@ -237,7 +237,7 @@ class LandingRunway(FlightAttributeNode):
             land_lat=KPV('Latitude At Landing'),
             land_lon=KPV('Longitude At Landing'),
             precision=A('Precise Positioning'),
-            approaches=App('Approaches'),
+            approaches=S('Approach And Landing'),
             ils_freq_on_app=KPV('ILS Frequency On Approach')):
         '''
         '''

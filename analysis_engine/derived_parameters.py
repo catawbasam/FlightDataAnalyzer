@@ -313,7 +313,7 @@ class AirspeedReference(DerivedParameterNode):
         
         x = set(available)
         base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series',
-                           'Family', 'Approaches']
+                           'Family', 'Approach And Landing']
         airbus = set(base_for_lookup + ['Configuration']).issubset(x)
         boeing = set(base_for_lookup + ['Flap']).issubset(x)
         return existing_values or airbus or boeing
@@ -327,7 +327,7 @@ class AirspeedReference(DerivedParameterNode):
                vref=P('Vref'),
                afr_vapp=A('AFR Vapp'),
                afr_vref=A('AFR Vref'),
-               apps=App('Approaches'),
+               apps=S('Approach And Landing'),
                series=A('Series'),
                family=A('Family')):
         # docstring no longer accurate?
@@ -3117,7 +3117,7 @@ class AimingPointRange(DerivedParameterNode):
     unit = 'nm'
 
     def derive(self, app_rng=P('Approach Range'),
-               approaches=App('Approaches'),
+               approaches=App('ApproachInformation'),
                ):
         self.array = np_ma_masked_zeros_like(app_rng.array)
         
@@ -3467,7 +3467,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
             'Takeoff',
             'FDR Takeoff Runway',
             'Touchdown',
-            'Approaches',
+            'Approach Information',
             'Mobile'), available)
 
     units = 'deg'
@@ -3484,7 +3484,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                toff=S('Takeoff'),
                toff_rwy = A('FDR Takeoff Runway'),
                tdwns = S('Touchdown'),
-               approaches = App('Approaches'),
+               approaches = App('Approach Information'),
                mobile=S('Mobile'),
                ):
         precision = bool(getattr(precise, 'value', False))
@@ -3520,7 +3520,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
             'Takeoff',
             'FDR Takeoff Runway',
             'Touchdown',
-            'Approaches',
+            'Approach Information',
             'Mobile'), available)
 
     def derive(self, lat = P('Latitude Prepared'),
@@ -3535,7 +3535,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                toff = S('Takeoff'),
                toff_rwy = A('FDR Takeoff Runway'),
                tdwns = S('Touchdown'),
-               approaches = App('Approaches'),
+               approaches = App('Approach Information'),
                mobile=S('Mobile'),
                ):
         precision = bool(getattr(precise, 'value', False))
@@ -4551,7 +4551,7 @@ class ApproachRange(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         a = set(['Heading True Continuous','Airspeed True','Altitude AAL',
-                 'Approaches'])
+                 'Approach Information'])
         x = set(available)
         return not (a - x)
     
@@ -4561,7 +4561,7 @@ class ApproachRange(DerivedParameterNode):
                head=P('Heading True Continuous'),
                tas=P('Airspeed True'),
                alt_aal=P('Altitude AAL'),
-               approaches=App('Approaches'),
+               approaches=App('Approach Information'),
                ):
         
         app_range = np_ma_masked_zeros_like(head.array)
@@ -4806,14 +4806,14 @@ class TrackDeviationFromRunway(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return (('Track True', 'Approaches') == available) or \
+        return (('Track True', 'Approach Information') == available) or \
                 all_of(('Track True', 'Takeoff', 'FDR Takeoff Runway'),
                        available)
 
     def derive(self, heading_track=P('Track True'),
                takeoff=S('Takeoff'),
                to_rwy=A('FDR Takeoff Runway'),
-               apps=App('Approaches')):
+               apps=App('Approach Information')):
 
         self.array = np_ma_masked_zeros_like(heading_track.array)
 
@@ -4904,20 +4904,21 @@ class StableApproach(MultistateDerivedParameterNode):
         self.array = np_ma_masked_zeros_like(gear.array)
         self.array.mask = True
         # shortcut for repairing masks
-        repair = lambda ar, ap: repair_mask(ar[ap.slice], zero_if_masked=True)
+        repair = lambda ar, ap: repair_mask(ar[ap], zero_if_masked=True)
         
         for approach in apps:
+            _slice = approach.slice
             # prepare data for this appproach:
-            gear_down = repair(gear.array, approach)
-            flap_lever = repair(flap.array, approach)
-            heading = repair(head.array, approach)
-            airspeed = repair(aspd.array, approach)
-            glideslope = repair(gdev.array, approach)
-            localizer = repair(ldev.array, approach)
+            gear_down = repair(gear.array, _slice)
+            flap_lever = repair(flap.array, _slice)
+            heading = repair(head.array, _slice)
+            airspeed = repair(aspd.array, _slice)
+            glideslope = repair(gdev.array, _slice)
+            localizer = repair(ldev.array, _slice)
             # apply quite a large moving average to smooth over peaks and troughs
-            vertical_speed = moving_average(repair(vspd.array, approach), 8)
-            engine = repair(eng.array, approach)  # TODO: add moving_average here too?
-            altitude = repair(alt.array, approach)
+            vertical_speed = moving_average(repair(vspd.array, _slice), 8)
+            engine = repair(eng.array, _slice)  # TODO: add moving_average here too?
+            altitude = repair(alt.array, _slice)
             
             # Determine whether Glideslope was used at 1000ft, if not ignore ILS
             _1000 = index_at_value(altitude, 1000)
@@ -4929,43 +4930,43 @@ class StableApproach(MultistateDerivedParameterNode):
 
             #== 1. Gear Down ==
             # Assume unstable due to Gear Down at first
-            self.array[approach.slice] = 1
+            self.array[_slice] = 1
             landing_gear_set = (gear_down == 'Down')
             stable = landing_gear_set.filled(False) # replace masked with false
             
             #== 2. Landing Flap ==
             # not due to landing gear so try to prove it wasn't due to Landing Flap
-            self.array[approach.slice][stable] = 2
+            self.array[_slice][stable] = 2
             landing_flap_set = (flap_lever == flap_lever[-1])
             stable &= landing_flap_set.filled(False)
             
             #== 3. Heading ==
-            self.array[approach.slice][stable] = 3
+            self.array[_slice][stable] = 3
             STABLE_HEADING = 10  # degrees
             stable_heading = abs(heading) < STABLE_HEADING
             stable &= stable_heading.filled(False)  #Q: Should masked values assumed on track ???
             
             #== 4. Airspeed Relative ==
-            self.array[approach.slice][stable] = 4
+            self.array[_slice][stable] = 4
             STABLE_AIRSPEED_ABOVE_REF = 20
             stable_airspeed = (airspeed < STABLE_AIRSPEED_ABOVE_REF) | (altitude < 100)
             stable &= stable_airspeed.filled(True)  # if no V Ref speed, values are masked so consider stable as one is not flying to the vref speed??
             
             if glide_est_at_1000ft:
                 #== 5. Glideslope Deviation ==
-                self.array[approach.slice][stable] = 5
+                self.array[_slice][stable] = 5
                 STABLE_GLIDESLOPE = 1.0  # dots
                 stable_gs = (abs(glideslope) < STABLE_GLIDESLOPE) | (altitude < 100)
                 stable &= stable_gs.filled(False)  # masked values are usually because they are way outside of range and short spikes will have been repaired
                 
                 #== 6. Localizer Deviation ==
-                self.array[approach.slice][stable] = 6
+                self.array[_slice][stable] = 6
                 STABLE_LOCALIZER = 1.0  # dots
                 stable_loc = (abs(localizer) < STABLE_LOCALIZER) | (altitude < 100)
                 stable &= stable_loc.filled(False)  # masked values are usually because they are way outside of range and short spikes will have been repaired                
             
             #== 7. Vertical Speed ==
-            self.array[approach.slice][stable] = 7
+            self.array[_slice][stable] = 7
             STABLE_VERTICAL_SPEED_MIN = -1000
             STABLE_VERTICAL_SPEED_MAX = -200
             stable_vert = (vertical_speed > STABLE_VERTICAL_SPEED_MIN) & (vertical_speed < STABLE_VERTICAL_SPEED_MAX) 
@@ -4973,7 +4974,7 @@ class StableApproach(MultistateDerivedParameterNode):
             stable &= stable_vert.filled(True)  #Q: True best?
             
             #== 8. Engine Power (N1) ==
-            self.array[approach.slice][stable] = 8
+            self.array[_slice][stable] = 8
             STABLE_N1_MIN = 45  # %
             stable_engine = (engine > STABLE_N1_MIN)
             stable_engine |= (altitude > 1000) | (altitude < 50)  # Only use in altitude band 1000-50 feet
@@ -4981,7 +4982,7 @@ class StableApproach(MultistateDerivedParameterNode):
             
             #== 9. Stable ==
             # Congratulations; whatever remains in this approach is stable!
-            self.array[approach.slice][stable] = 9
+            self.array[_slice][stable] = 9
             
         #endfor
         return

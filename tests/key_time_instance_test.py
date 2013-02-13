@@ -862,7 +862,7 @@ class TestLocalizerEstablishedStart(unittest.TestCase):
 
 class TestLowestPointOnApproach(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL', 'Altitude Radio', 'Approach', 'Landing')]
+        expected = [('Altitude AAL', 'Altitude Radio', 'Approach And Landing')]
         self.assertEqual(
             expected,
             LowestPointOnApproach.get_operational_combinations())

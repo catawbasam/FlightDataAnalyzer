@@ -13,14 +13,12 @@ from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
                                       HYSTERESIS_FPALT,
                                       KTS_TO_MPS,
                                       LEVEL_FLIGHT_MIN_DURATION,
-                                      NAME_VALUES_DESCENT,
                                       NAME_VALUES_ENGINE,
                                       NAME_VALUES_FLAP)
 
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M
 
 from analysis_engine.library import (ambiguous_runway,
-                                     all_of,
                                      any_of,
                                      bearings_and_distances,
                                      bump,
@@ -54,7 +52,6 @@ from analysis_engine.library import (ambiguous_runway,
                                      slice_samples,
                                      slices_and_not,
                                      slices_from_to,
-                                     slice_multiply,
                                      slices_not,
                                      slices_overlap,
                                      slices_and,
@@ -4058,7 +4055,7 @@ class HeadingVariationTouchdownPlus4SecTo60KtsAirspeed(KeyPointValueNode):
                tdwns=KTI('Touchdown')):
 
         for tdwn in tdwns:
-            begin = tdwn.index + 4.0 * had.frequency
+            begin = tdwn.index + 4.0 * head.frequency
             end = index_at_value(airspeed.array, 60.0, slice(begin, None))
             if end:
                 # We found a suitable endpoint, so create a KPV...
@@ -4069,8 +4066,7 @@ class HeadingVariationTouchdownPlus4SecTo60KtsAirspeed(KeyPointValueNode):
 class HeadingVacatingRunway(KeyPointValueNode):
     '''
     Heading vacating runway is only used to try to identify handed
-    runways in the absence of better information. See the
-    flight_attribute Approaches and its _create_approach method.
+    runways in the absence of better information. See Approaches node.
     '''
 
     def derive(self,

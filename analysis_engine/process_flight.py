@@ -8,7 +8,8 @@ from inspect import isclass
 from analysis_engine import hooks, settings, __version__
 from analysis_engine.dependency_graph import dependency_order, graph_adjacencies
 from analysis_engine.library import np_ma_masked_zeros_like
-from analysis_engine.node import (Attribute, derived_param_from_hdf,
+from analysis_engine.node import (ApproachNode, Attribute,
+                                  derived_param_from_hdf,
                                   DerivedParameterNode,
                                   FlightAttributeNode,
                                   KeyPointValueNode,
@@ -67,6 +68,7 @@ def derive_parameters(hdf, node_mgr, process_order):
     :type process_order: list of strings
     '''
     params = {} # store all derived params that aren't masked arrays
+    approach_list = ApproachNode(restrict_names=False)
     kpv_list = KeyPointValueNode(restrict_names=False) # duplicate storage, but maintaining types
     kti_list = KeyTimeInstanceNode(restrict_names=False)
     section_list = SectionNode()  # 'Node Name' : node()  pass in node.get_accessor()
@@ -202,10 +204,29 @@ def derive_parameters(hdf, node_mgr, process_order):
             hdf.set_param(result)
             # Keep hdf_keys up to date.
             node_mgr.hdf_keys.append(param_name)
+        elif issubclass(node.node_type, ApproachNode):
+            aligned_approach = result.get_aligned(P(frequency=1, offset=0))
+            for approach in aligned_approach:
+                # Does not allow slice start or stops to be None.
+                valid_turnoff = 0 <= approach.turnoff <= duration
+                valid_slice = ((0 <= approach.slice.start <= duration) and
+                               (0 <= approach.slice.stop <= duration))
+                valid_gs_est = (not approach.gs_est or
+                                ((0 <= approach.gs_est.start <= duration) and
+                                 (0 <= approach.gs_est.stop <= duration)))
+                valid_loc_est = (not approach.loc_est or
+                                 ((0 <= approach.loc_est.start <= duration) and
+                                  (0 <= approach.loc_est.stop <= duration)))
+                if not all([valid_turnoff, valid_slice, valid_gs_est,
+                            valid_loc_est]):
+                    raise ValueError('ApproachItem contains index outside of '
+                                     'flight data: %s' % approach)
+                approach_list.append(approach)
+            params[param_name] = aligned_approach
         else:
             raise NotImplementedError("Unknown Type %s" % node.__class__)
         continue
-    return kti_list, kpv_list, section_list, flight_attrs
+    return kti_list, kpv_list, section_list, approach_list, flight_attrs
 
 
 def get_derived_nodes(module_names):
@@ -324,8 +345,8 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
                          hdf.cache_param_list)
         
         # derive parameters
-        kti_list, kpv_list, section_list, flight_attrs = derive_parameters(
-            hdf, node_mgr, process_order)
+        kti_list, kpv_list, section_list, approach_list, flight_attrs = \
+            derive_parameters(hdf, node_mgr, process_order)
              
         # geo locate KTIs
         kti_list = geo_locate(hdf, kti_list)
@@ -347,6 +368,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
     return {'flight' : flight_attrs, 
             'kti' : kti_list, 
             'kpv' : kpv_list,
+            'approach': approach_list,
             'phases' : section_list}
 
 
