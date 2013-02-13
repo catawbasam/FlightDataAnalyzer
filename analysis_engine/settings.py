@@ -132,7 +132,7 @@ CLIMB_OR_DESCENT_MIN_DURATION = 10  # sec
 # Used when trying determine which pilot is actively using the controls.
 CONTROLS_IN_USE_TOLERANCE = 1
 
-# Change in altitude to create a descent low climb phase, from which
+# Change in altitude to create a Descent Low Climb phase, from which
 # approaches, go-around and touch-and-go phases and instances derive.
 DESCENT_LOW_CLIMB_THRESHOLD = 500 #ft
 
