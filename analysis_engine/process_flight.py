@@ -208,7 +208,8 @@ def derive_parameters(hdf, node_mgr, process_order):
             aligned_approach = result.get_aligned(P(frequency=1, offset=0))
             for approach in aligned_approach:
                 # Does not allow slice start or stops to be None.
-                valid_turnoff = 0 <= approach.turnoff <= duration
+                valid_turnoff = (not approach.turnoff or
+                                 (0 <= approach.turnoff <= duration))
                 valid_slice = ((0 <= approach.slice.start <= duration) and
                                (0 <= approach.slice.stop <= duration))
                 valid_gs_est = (not approach.gs_est or
@@ -425,6 +426,6 @@ if __name__ == '__main__':
         track_to_kml(hdf_copy, res['kti'], res['kpv'], res['approach'], 
                      plot_altitude='Altitude QNH', dest_path=kml_dest)
         logger.info("Flight Track with attributes writen to kml: %s", kml_dest)
-        
+    
     # - END -
     
