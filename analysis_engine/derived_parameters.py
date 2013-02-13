@@ -4205,7 +4205,8 @@ class V2(DerivedParameterNode):
 
         if afr_v2:
             # v2 supplied, use this
-            self.array = afr_v2.value
+            afr_v2_array = np.ones_like(spd.array)
+            self.array = afr_v2_array * afr_v2.value
         elif weight_liftoff:
             vspeed_class = get_vspeed_map(series.value, family.value)
             setting_param = flap or conf
