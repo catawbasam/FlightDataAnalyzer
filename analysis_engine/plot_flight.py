@@ -117,7 +117,7 @@ def draw_centreline(kml, rwy):
     return
 
 
-def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
+def track_to_kml(hdf_path, kti_list, kpv_list, approach_list,
                  plot_altitude='Altitude QNH', dest_path=None):
     '''
     Plot results of process_flight onto a KML track.
@@ -204,14 +204,11 @@ def track_to_kml(hdf_path, kti_list, kpv_list, flight_attrs,
         pnt = kml.newpoint(**kpv_point_values)
         pnt.style = style
     
-    for attribute in flight_attrs:
-        # TODO: Fix for new ApproachNode
-        if attribute.name in ['FDR Approaches']:
-            for app in attribute.value:
-                try:
-                    draw_centreline(kml, app['runway'])
-                except:
-                    pass
+        for app in approach_list:
+            try:
+                draw_centreline(kml, app.runway)
+            except:
+                pass
 
     if not dest_path:
         dest_path = hdf_path + ".kml"
