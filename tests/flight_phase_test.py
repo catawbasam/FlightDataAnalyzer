@@ -604,9 +604,9 @@ class TestDescentLowClimb(unittest.TestCase):
         
     def test_descent_low_climb_basic(self):
         # Wave is 5000ft to 0 ft and back up, with climb of 5000ft.
-        testwave = np.cos(np.arange(0,6.3,0.1))*(2500)+2500
+        testwave = np.cos(np.arange(0, 6.3, 0.1)) * (2500) + 2500
         dsc = testwave - testwave[0]
-        dsc [ 32:] = 0.0
+        dsc[32:] = 0.0
         clb = testwave - min(testwave)
         clb[:31] = 0.0
         alt_aal = Parameter('Altitude AAL For Flight Phases',
@@ -615,7 +615,7 @@ class TestDescentLowClimb(unittest.TestCase):
         #climb = Parameter('Climb For Flight Phases', np.ma.array(clb))
         air = buildsection('Airborne', 0, 126)
         dlc = DescentLowClimb()
-        dlc.derive(alt_aal, air)
+        dlc.derive(alt_aal)
         expected = buildsection('Descent Low Climb', 14, 49)    
         self.assertEqual(list(dlc), list(expected))
 
