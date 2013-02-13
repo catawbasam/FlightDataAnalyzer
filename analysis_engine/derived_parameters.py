@@ -4183,7 +4183,7 @@ class V2(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         available = set(available)
-        afr = 'AFR V2' in available
+        afr = 'AFR V2' in available and 'Airspeed' in available
         base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series',
                            'Family']
         airbus = set(base_for_lookup + ['Configuration']).issubset(available)
