@@ -76,7 +76,8 @@ class ApproachInformation(ApproachNode):
     def can_operate(self, available):
         '''
         '''
-        return all(n in available for n in ['Altitude AAL', 'Fast'])
+        return all(n in available for n in ['Approach And Landing',
+                                            'Altitude AAL', 'Fast'])
     
     def _lookup_airport_and_runway(self, _slice, precise, lowest_lat,
                                    lowest_lon, lowest_hdg, appr_ils_freq,
@@ -207,15 +208,13 @@ class ApproachInformation(ApproachNode):
             # approach is a landing or not.
             #
             # If we are not landing, we go with the lowest point on approach.
+            lat = land_lat if landing else appr_lat
+            lon = land_lon if landing else appr_lon
+            hdg = land_hdg if landing else appr_hdg
             
-            if landing:
-                lowest_lat = land_lat.get_first(within_slice=_slice)
-                lowest_lon = land_lon.get_first(within_slice=_slice)
-                lowest_hdg = land_hdg.get_first(within_slice=_slice)
-            else:
-                lowest_lat = appr_lat.get_first(within_slice=_slice)
-                lowest_lon = appr_lon.get_first(within_slice=_slice)
-                lowest_hdg = appr_hdg.get_first(within_slice=_slice)                
+            lowest_lat = lat.get_first(within_slice=_slice) if lat else None
+            lowest_lon = lon.get_first(within_slice=_slice) if lon else None
+            lowest_hdg = hdg.get_first(within_slice=_slice) if hdg else None
             
             kwargs.update(
                 lowest_lat=lowest_lat,
@@ -236,8 +235,11 @@ class ApproachInformation(ApproachNode):
 
             # Prepare approach information and populate with airport and runway
             # via API calls:
-            gs_est = gs_ests.get_first(within_slice=_slice, within_use='any')
-            loc_est = loc_ests.get_first(within_slice=_slice, within_use='any')
+            
+            gs_est = gs_ests.get_first(
+                within_slice=_slice, within_use='any') if gs_ests else None
+            loc_est = loc_ests.get_first(
+                within_slice=_slice, within_use='any') if loc_ests else None
             
             # Add further details to save hunting when we need them later.
             ils_freq = None
