@@ -24,6 +24,8 @@ from analysis_engine.settings import METRES_TO_FEET
 from flight_phase_test import buildsection
 
 from analysis_engine.derived_parameters import (
+    APEngaged,
+    #ATEngaged,
     AccelerationVertical,
     AccelerationForwards,
     AccelerationSideways,
@@ -155,6 +157,51 @@ class NodeTest(object):
                 self.operational_combinations,
             )
 
+
+##############################################################################
+# Automated Systems
+
+
+class TestAPEngaged(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = APEngaged
+        self.operational_combinations = [
+            ('AP (1) Engaged',),
+            ('AP (2) Engaged',),
+            ('AP (3) Engaged',),
+            ('AP (1) Engaged', 'AP (2) Engaged'),
+            ('AP (1) Engaged', 'AP (3) Engaged'),
+            ('AP (2) Engaged', 'AP (3) Engaged'),
+            ('AP (1) Engaged', 'AP (2) Engaged', 'AP (3) Engaged'),
+        ]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##### FIXME: Re-enable when 'AT Engaged' has been implemented.
+####class TestATEngaged(unittest.TestCase, NodeTest):
+####
+####    def setUp(self):
+####        self.node_class = ATEngaged
+####        self.operational_combinations = [
+####            ('AT (1) Engaged',),
+####            ('AT (2) Engaged',),
+####            ('AT (3) Engaged',),
+####            ('AT (1) Engaged', 'AT (2) Engaged'),
+####            ('AT (1) Engaged', 'AT (3) Engaged'),
+####            ('AT (2) Engaged', 'AT (3) Engaged'),
+####            ('AT (1) Engaged', 'AT (2) Engaged', 'AT (3) Engaged'),
+####        ]
+####
+####    @unittest.skip('Test Not Implemented')
+####    def test_derive(self):
+####        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
 
 class TestAccelerationVertical(unittest.TestCase):
     def test_can_operate(self):

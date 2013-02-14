@@ -1177,26 +1177,32 @@ class AltitudeTail(DerivedParameterNode):
         self.array = (alt_rad.array + ground2tail - 
                       np.ma.sin(pitch_rad) * gear2tail - min_rad)
 
-class AutopilotEngaged(MultistateDerivedParameterNode):
+
+##############################################################################
+# Automated Systems
+
+
+class APEngaged(MultistateDerivedParameterNode):
     '''
-    This function assumes that either autopilot is capable of controlling the aircraft.
-    
+    This function assumes that either autopilot is capable of controlling the
+    aircraft.
+
     This function will be extended to be multi-state parameter with states
     Off/Single/Dual as a first step towards monitoring autoland function.
     '''
-    
-    align=False
-    
+
+    align = False
+    name = 'AP Engaged'
     values_mapping = {0: '-', 1: 'Engaged'}
 
     @classmethod
     def can_operate(cls, available):
         return any(d in available for d in cls.get_dependency_names())
 
-    def derive(self, ap1=M('Autopilot (1) Engaged'), 
-               ap2=M('Autopilot (2) Engaged'),
-               ap3=M('Autopilot (3) Engaged')):
-
+    def derive(self,
+               ap1=M('AP (1) Engaged'),
+               ap2=M('AP (2) Engaged'),
+               ap3=M('AP (3) Engaged')):
 
         if ap3 == None:
             # Only got a duplex autopilot.
@@ -1205,21 +1211,23 @@ class AutopilotEngaged(MultistateDerivedParameterNode):
         else:
             self.array = np.ma.max(ap1.array.raw, ap2.array.raw, ap3.array.raw)
             self.offset = offset_select('mean', [ap1, ap2, ap3])
-     
+
         self.frequency = ap1.frequency
 
 
-'''
-class Autothrottle(DerivedParameterNode):
-    name = 'AT Engaged'
-    """
-    Placeholder for combining multi-channel AP modes into a single consistent status.
+##### FIXME: Implement this derived parameter.
+####class ATEngaged(MultistateDerivedParameterNode):
+####    '''
+####    Placeholder for combining multi-channel AP modes into a single
+####    consistent status.
+####
+####    Not required for 737-5 frame as AT Engaged is recorded directly.
+####    '''
+####
+####    name = 'AT Engaged'
 
-    Not required for 737-5 frame as AT Engaged is recorded directly.
-    """
-'''
- 
-        
+
+##############################################################################
 
 
 class ClimbForFlightPhases(DerivedParameterNode):
