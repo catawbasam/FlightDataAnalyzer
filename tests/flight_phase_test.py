@@ -634,7 +634,6 @@ class TestDescentLowClimb(unittest.TestCase):
                             np.ma.array(testwave))
         #descend = Parameter('Descend For Flight Phases', np.ma.array(dsc))
         #climb = Parameter('Climb For Flight Phases', np.ma.array(clb))
-        air = buildsection('Airborne', 0, 126)
         dlc = DescentLowClimb()
         dlc.derive(alt_aal)
         expected = buildsection('Descent Low Climb', 14, 49)
@@ -646,7 +645,6 @@ class TestDescentLowClimb(unittest.TestCase):
         clb[:31] = 0.0
         alt_aal = Parameter('Altitude AAL For Flight Phases',
                             np.ma.array(testwave))
-        air = buildsection('Airborne', 0, 126)
         dlc = DescentLowClimb()
         dlc.derive(alt_aal)
         self.assertEqual(len(dlc), 0)
