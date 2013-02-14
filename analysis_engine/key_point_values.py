@@ -12,7 +12,6 @@ from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
                                       GRAVITY_METRIC,
                                       HYSTERESIS_FPALT,
                                       KTS_TO_MPS,
-                                      LEVEL_FLIGHT_MIN_DURATION,
                                       NAME_VALUES_ENGINE,
                                       NAME_VALUES_FLAP)
 
@@ -1087,20 +1086,12 @@ class AirspeedLevelFlightMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, airspeed=P('Airspeed'), level_flight=S('Level Flight')):
-        '''
-        '''
-        for sect in level_flight:
-            # TODO: Move LEVEL_FLIGHT_MIN_DURATION to LevelFlight
-            #       FlightPhaseNode so that only stable level flights are
-            #       reported.
-            duration = (sect.slice.stop - sect.slice.start) / self.frequency
-            if duration > LEVEL_FLIGHT_MIN_DURATION:
-                # We're in stable level flight...
-                index, value = max_value(airspeed.array, sect.slice)
-                self.create_kpv(index, value)
-            else:
-                self.debug('Uanble to create KPV: Level flight duration too short')
+    def derive(self,
+               air_spd=P('Airspeed'),
+               lvl_flt=S('Level Flight')):
+
+        for section in lvl_flt:
+            self.create_kpv(max_value(air_spd.array, section.slice))
 
 
 class AirspeedBelowAltitudeMax(KeyPointValueNode):

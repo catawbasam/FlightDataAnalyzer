@@ -3,6 +3,7 @@ import numpy as np
 # and clump_unmasked but used here to clump discrete arrays.
 from numpy.ma.extras import _ezclump
 
+from analysis_engine import settings
 from analysis_engine.exceptions import DataFrameError
 
 from analysis_engine.library import (
@@ -788,16 +789,31 @@ class InitialApproach(FlightPhaseNode):
                                                    app_land.slice.start))
                                                    """
 
+
 class LevelFlight(FlightPhaseNode):
-    def derive(self, airs=S('Airborne'),
-               vert_spd=P('Vertical Speed For Flight Phases')):
+    '''
+    '''
+
+    @staticmethod
+    def _duration_filter(slices, frequency):
+        filtered = []
+        for _slice in slices:
+            duration = (_slice.stop - _slice.start) / frequency
+            if duration < settings.LEVEL_FLIGHT_MIN_DURATION:
+                filtered.append(_slice)
+        return filtered
+
+    def derive(self,
+               airs=S('Airborne'),
+               vrt_spd=P('Vertical Speed For Flight Phases')):
+
         # Vertical speed limit set to identify both level flight and end of
         # takeoff / start of landing.
         for air in airs:
-            level_flight = np.ma.masked_outside(
-                vert_spd.array[air.slice], -VERTICAL_SPEED_FOR_LEVEL_FLIGHT,
-                VERTICAL_SPEED_FOR_LEVEL_FLIGHT)
+            limit = settings.VERTICAL_SPEED_FOR_LEVEL_FLIGHT
+            level_flight = np.ma.masked_outside(vrt_spd.array[air.slice], -limit, limit)
             level_slices = np.ma.clump_unmasked(level_flight)
+            level_slices = self._duration_filter(level_slices, airs.frequency)
             self.create_phases(shift_slices(level_slices, air.slice.start))
 
 
