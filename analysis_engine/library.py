@@ -958,10 +958,33 @@ def clip(array, period, hz=1.0, remove='peaks'):
     """
 
 
+def closest_unmasked_value(array, index, _slice=slice(None)):
+    '''
+    :param array: Array to find the closest unmasked value within.
+    :type array: np.ma.array
+    :param index: Find the closest unmasked value to this index.
+    :type index: int
+    :param _slice: Find closest unmasked value within this slice.
+    :type _slice: slice
+    :returns: The closest index and value of an unmasked value.
+    :rtype: Value
+    '''
+    array = array[_slice]
+    index -= _slice.start or 0
+    if not np.ma.count(array):
+        return None
+    indices = np.ma.arange(len(array))
+    indices.mask = array.mask
+    index = np.ma.abs(indices - index).argmin()
+    value = array[index]
+    index = index + (_slice.start or 0)
+    return Value(index=index, value=value)
+
+
 def clump_multistate(array, state, _slices, condition=True):
     '''
     This tests a multistate array and returns a classic POLARIS list of slices.
-    
+
     :param array: data to scan
     :type array: multistate numpy masked array
     :param state: state to be tested
