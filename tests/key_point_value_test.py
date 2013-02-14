@@ -242,7 +242,7 @@ from analysis_engine.key_point_values import (
     TCASRAWarningDuration,
     TCASRAReactionDelay,
     TCASRAInitialReactionStrength,
-    TCASRAToAPDisengageDuration,
+    TCASRAToAPDisengagedDuration,
     TerrainClearanceAbove3000FtMin,
     ThrottleCyclesInFinalApproach,
     ThrustAsymmetryInFlight,
@@ -4678,6 +4678,7 @@ class TestTAWSWindshearWarningBelow1500FtDuration(unittest.TestCase):
 
 
 class TestTCASRAWarningDuration(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = TCASRAWarningDuration
         self.operational_combinations = [('TCAS Combined Control', 'Airborne')]
@@ -4688,6 +4689,7 @@ class TestTCASRAWarningDuration(unittest.TestCase, NodeTest):
 
 
 class TestTCASRAReactionDelay(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = TCASRAReactionDelay
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'TCAS Combined Control', 'Airborne')]
@@ -4697,9 +4699,10 @@ class TestTCASRAReactionDelay(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTCASRAInitialReaction(unittest.TestCase, NodeTest):
+class TestTCASRAInitialReactionStrength(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = TCASRAInitialReaction
+        self.node_class = TCASRAInitialReactionStrength
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'TCAS Combined Control', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
@@ -4707,9 +4710,10 @@ class TestTCASRAInitialReaction(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTCASRAToAPDisengageDuration(unittest.TestCase, NodeTest):
+class TestTCASRAToAPDisengagedDuration(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = TCASRAToAPDisengageDuration
+        self.node_class = TCASRAToAPDisengagedDuration
         self.operational_combinations = [('AP Disengaged Selection', 'TCAS Combined Control', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')

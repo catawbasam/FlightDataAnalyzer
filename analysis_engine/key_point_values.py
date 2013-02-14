@@ -5742,7 +5742,7 @@ class TCASRAInitialReactionStrength(KeyPointValueNode):
                 self.create_kpv(ra.start, slope)
 
 
-class TCASRAToAPDisengageDuration(KeyPointValueNode):
+class TCASRAToAPDisengagedDuration(KeyPointValueNode):
     '''
     Here we calculate the time between the onset of the RA and disconnection of
     the autopilot. 
@@ -5753,8 +5753,11 @@ class TCASRAToAPDisengageDuration(KeyPointValueNode):
 
     name = 'TCAS RA To AP Disengaged Duration'
 
-    def derive(self, ap_offs=KTI('AP Disengaged Selection'),
-            tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+    def derive(self,
+               ap_offs=KTI('AP Disengaged Selection'),
+               tcas=M('TCAS Combined Control'),
+               airs=S('Airborne')):
+
         for air in airs:
             ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
             ras = shift_slices(ras_local, air.slice.start)
