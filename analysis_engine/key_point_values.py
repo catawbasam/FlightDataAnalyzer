@@ -5623,21 +5623,10 @@ class TCASRAWarningDuration(KeyPointValueNode):
             self.create_kpvs_from_slice_durations(ras_local)
 
 
-##### TODO: Implement!
-####class TCASTAWarningDuration(KeyPointValueNode):
-####    '''
-####    '''
-####
-####    name = 'TCAS TA Warning Duration'
-####
-####    def derive(self, tcas=M('TCAS Combined Control'), airs=S('Airborne')):
-####        '''
-####        '''
-####        pass
-
-
 class TCASRAReactionDelay(KeyPointValueNode):
     '''
+    This measures the time taken for the pilot to react, determined by the onset
+    of the first major change in normal acceleration after the RA started. 
     '''
 
     name = 'TCAS RA Reaction Delay'
@@ -5667,14 +5656,18 @@ class TCASRAReactionDelay(KeyPointValueNode):
                                 react_index / acc.frequency)
 
 
-class TCASRAInitialReaction(KeyPointValueNode):
+class TCASRAInitialReactionStrength(KeyPointValueNode):
     '''
-    Here we calculate the strength of initial reaction, in terms of the rate of
-    onset of g. When this is in the correct sense, it is positive while an
-    initial movement in the wrong sense will be negative.
+    This measures the strength of the first reaction to the RA, in g per second.
+    Most importantly, this is positive if the reaction is in the same sense as
+    the Resolution Advisory (up for up or down for down) but negative in sign if
+    the action is in the opposite direction to the RA.
+    
+    This is an ideal parameter for raising safety events when the pilot took
+    the wrong initial action.
     '''
 
-    name = 'TCAS RA Initial Reaction'
+    name = 'TCAS RA Initial Reaction Strength'
 
     def derive(self, acc=P('Acceleration Normal Offset Removed'),
             tcas=M('TCAS Combined Control'), airs=S('Airborne')):
@@ -5716,7 +5709,10 @@ class TCASRAInitialReaction(KeyPointValueNode):
 class TCASRAToAPDisengageDuration(KeyPointValueNode):
     '''
     Here we calculate the time between the onset of the RA and disconnection of
-    the autopilot.
+    the autopilot. 
+    
+    Since the pilot's initial action should be to disengage the autopilot,
+    this duration is another indication of pilot reaction time.
     '''
 
     name = 'TCAS RA To AP Disengaged Duration'

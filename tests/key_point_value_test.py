@@ -241,7 +241,7 @@ from analysis_engine.key_point_values import (
     Tailwind100FtToTouchdownMax,
     TCASRAWarningDuration,
     TCASRAReactionDelay,
-    TCASRAInitialReaction,
+    TCASRAInitialReactionStrength,
     TCASRAToAPDisengageDuration,
     TerrainClearanceAbove3000FtMin,
     ThrottleCyclesInFinalApproach,
