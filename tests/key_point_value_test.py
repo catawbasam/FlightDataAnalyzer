@@ -101,10 +101,10 @@ from analysis_engine.key_point_values import (
     AltitudeAtGearDownSelection,
     AltitudeAtGearUpSelection,
     AltitudeAtTouchdown,
-    AltitudeAutopilotDisengaged,
-    AltitudeAutopilotEngaged,
-    AltitudeAutothrottleDisengaged,
-    AltitudeAutothrottleEngaged,    
+    AltitudeAtAPDisengagedSelection,
+    AltitudeAtAPEngagedSelection,
+    AltitudeAtATDisengagedSelection,
+    AltitudeAtATEngagedSelection,
     AltitudeFirstStableDuringApproach,
     AltitudeFlapExtensionMax,
     AltitudeGoAroundFlapRetracted,    
@@ -2176,52 +2176,55 @@ class TestAltitudeAtLiftoff(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented') 
 
 
-class TestAltitudeAutopilotDisengaged(unittest.TestCase,
-                                      CreateKPVsAtKTIsTest):
+########################################
+# Automated Systems
+
+
+class TestAltitudeAtAPEngagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = AltitudeAutopilotDisengaged
-        self.operational_combinations = [('Altitude AAL',
-                                          'AP Disengaged Selection',)]
+        self.node_class = AltitudeAtAPEngagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AP Engaged Selection')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeAutopilotEngaged(unittest.TestCase,
-                                   CreateKPVsAtKTIsTest):
+class TestAltitudeAtAPDisengagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = AltitudeAutopilotEngaged
-        self.operational_combinations = [('Altitude AAL',
-                                          'AP Engaged Selection',)]
+        self.node_class = AltitudeAtAPDisengagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AP Disengaged Selection')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeAutothrottleDisengaged(unittest.TestCase,
-                                         CreateKPVsAtKTIsTest):
+class TestAltitudeAtATEngagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = AltitudeAutothrottleDisengaged
-        self.operational_combinations = [('Altitude AAL',
-                                          'AT Disengaged Selection',)]
+        self.node_class = AltitudeAtATEngagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AT Engaged Selection')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeAutothrottleEngaged(unittest.TestCase,
-                                      CreateKPVsAtKTIsTest):
+class TestAltitudeAtATDisengagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = AltitudeAutothrottleEngaged
-        self.operational_combinations = [('Altitude AAL',
-                                          'AT Engaged Selection',)]
+        self.node_class = AltitudeAtATDisengagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AT Disengaged Selection')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented') 
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+########################################
 
 
 class TestAltitudeFirstStableDuringApproach(unittest.TestCase):

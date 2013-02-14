@@ -1672,14 +1672,14 @@ class DelayedBrakingAfterTouchdown(KeyPointValueNode):
                 dt = (minus_60 - minus_10) / gs.frequency
                 self.create_kpv((minus_10 + minus_60) / 2.0, dt)
 
-    
-################################################################################
+
+##############################################################################
+# Altitude
 
 
 class AltitudeAtTouchdown(KeyPointValueNode):
     def derive(self, alt_std=P('Altitude STD Smoothed'), touchdowns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(alt_std.array, touchdowns)
-
 
 
 class AltitudeAtLiftoff(KeyPointValueNode):
@@ -1797,35 +1797,71 @@ class AltitudeMax(KeyPointValueNode):
         self.create_kpvs_within_slices(alt_std.array, airs, max_value)
 
 
-class AltitudeAutopilotEngaged(KeyPointValueNode):
-    name = 'Altitude AAL AP Engaged In Flight'
-    def derive(self, alt_aal=P('Altitude AAL'),
+########################################
+# Automated Systems
+
+
+class AltitudeAtAPEngagedSelection(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Altitude At AP Engaged Selection'
+    unit = 'ft'
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
                ap_eng=KTI('AP Engaged Selection')):
+
         self.create_kpvs_at_ktis(alt_aal.array, ap_eng)
-        
-        
-class AltitudeAutopilotDisengaged(KeyPointValueNode):
-    name = 'Altitude AAL AP Disengaged In Flight'
-    def derive(self, alt_aal=P('Altitude AAL'),
+
+
+class AltitudeAtAPDisengagedSelection(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Altitude At AP Disengaged Selection'
+    unit = 'ft'
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
                ap_dis=KTI('AP Disengaged Selection')):
+
         self.create_kpvs_at_ktis(alt_aal.array, ap_dis)
-        
-        
-class AltitudeAutothrottleEngaged(KeyPointValueNode):
-    name = 'Altitude AAL AT Engaged In Flight'
-    # Note: Autothrottle is normally engaged prior to takeoff, so will not trigger this event.
-    def derive(self, alt_aal=P('Altitude AAL'),
+
+
+class AltitudeAtATEngagedSelection(KeyPointValueNode):
+    '''
+    Note: Autothrottle is normally engaged prior to takeoff, so will not
+          trigger this event.
+    '''
+
+    name = 'Altitude At AT Engaged Selection'
+    unit = 'ft'
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
                at_eng=KTI('AT Engaged Selection')):
+
         self.create_kpvs_at_ktis(alt_aal.array, at_eng)
-        
-        
-class AltitudeAutothrottleDisengaged(KeyPointValueNode):
-    name = 'Altitude AAL AT Disengaged In Flight'
-    def derive(self, alt_aal=P('Altitude AAL'),
+
+
+class AltitudeAtATDisengagedSelection(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Altitude At AT Disengaged Selection'
+    unit = 'ft'
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
                at_dis=KTI('AT Disengaged Selection')):
+
         self.create_kpvs_at_ktis(alt_aal.array, at_dis)
-        
-        
+
+
+########################################
+
+
 class AltitudeFirstStableDuringApproach(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
