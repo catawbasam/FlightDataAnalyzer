@@ -238,7 +238,8 @@ class GoAround(KeyTimeInstanceNode):
         # List the minimum required parameters. If 'Altitude Radio For Flight
         # Phases' is available, that's a bonus and we will use it, but it is
         # not required.
-        return 'Descent Low Climb' in available and 'Altitude AAL For Flight Phases' in available
+        return ('Descent Low Climb' in available and
+                'Altitude AAL For Flight Phases' in available)
         
     # List the optimal parameter set here
     
@@ -254,17 +255,19 @@ class GoAround(KeyTimeInstanceNode):
                 pit = np.ma.argmin(alt_rad.array[dlc.slice])
             except:
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
-            self.create_kti(pit+dlc.start_edge)
+            self.create_kti(pit + dlc.start_edge)
 
 
 class GoAroundFlapRetracted(KeyTimeInstanceNode):
     def derive(self, flap=P('Flap'), gas=S('Go Around And Climbout')):
-        self.create_ktis_at_edges(flap.array, direction='falling_edges', phase=gas)
+        self.create_ktis_at_edges(flap.array, direction='falling_edges',
+                                  phase=gas)
         
 
 class GoAroundGearSelectedUp(KeyTimeInstanceNode):
     def derive(self, gear=M('Gear Down'), gas=S('Go Around And Climbout')):
-        self.create_ktis_on_state_change('Up', gear.array, change='entering', phase=gas)
+        self.create_ktis_on_state_change('Up', gear.array, change='entering',
+                                         phase=gas)
         
 
 class TopOfClimb(KeyTimeInstanceNode):
@@ -326,8 +329,10 @@ class FlapStateChanges(KeyTimeInstanceNode):
 
 
 class GearDownSelection(KeyTimeInstanceNode):
-    def derive(self, gear_sel_down=M('Gear Down Selected'), phase=S('Airborne')):
-        self.create_ktis_on_state_change('Down', gear_sel_down.array, change='entering', phase=phase)    
+    def derive(self, gear_sel_down=M('Gear Down Selected'),
+               phase=S('Airborne')):
+        self.create_ktis_on_state_change('Down', gear_sel_down.array,
+                                         change='entering', phase=phase)    
         
 
 class GearUpSelection(KeyTimeInstanceNode):
@@ -365,11 +370,11 @@ class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
             # backwards, but in case there is a problem with the phases,
             # use the midpoint. This avoids identifying the heading
             # change immediately after liftoff as a turn onto the runway.
-            start_search=fast.get_next(toff.slice.start).slice.start
+            start_search = fast.get_next(toff.slice.start).slice.start
             if (start_search is None) or (start_search > toff.slice.stop):
-                start_search = (toff.slice.start+toff.slice.stop)/2
+                start_search = (toff.slice.start + toff.slice.stop) / 2
             peak_bend = peak_curvature(head.array,slice(
-                start_search,toff.slice.start,-1),curve_sense='Bipolar')
+                start_search, toff.slice.start, -1), curve_sense='Bipolar')
             if peak_bend:
                 takeoff_turn = peak_bend 
             else:
@@ -401,7 +406,8 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
             if accel:
                 # Ideally compute this from the forwards acceleration.
                 # If they turn onto the runway already accelerating, take that as the start point.
-                if accel.array[takeoff.slice][0]>TAKEOFF_ACCELERATION_THRESHOLD:
+                first_accel = accel.array[takeoff.slice.start]
+                if first_accel > TAKEOFF_ACCELERATION_THRESHOLD:
                     start_accel = takeoff.slice.start
                 else:
                     start_accel=index_at_value(accel.array,
@@ -467,7 +473,9 @@ class Liftoff(KeyTimeInstanceNode):
             if vert_spd:
                 back_2 = (t0 - 2.0*vert_spd.frequency)
                 on_2 = (t0 + 2.0*vert_spd.frequency) + 1 # For indexing
-                index = index_at_value(vert_spd.array, VERTICAL_SPEED_FOR_LIFTOFF, slice(back_2,on_2))
+                index = index_at_value(vert_spd.array,
+                                       VERTICAL_SPEED_FOR_LIFTOFF,
+                                       slice(back_2,on_2))
                 if index:
                     self.create_kti(index)
                 else:
@@ -476,7 +484,6 @@ class Liftoff(KeyTimeInstanceNode):
             else:
                 # No vertical speed parameter available
                 self.create_kti(t0)
-                
 
 
 class LowestPointOnApproach(KeyTimeInstanceNode):
@@ -575,7 +582,8 @@ class Touchdown(KeyTimeInstanceNode):
                             if index:
                                 self.create_kti(index)
                         else:
-                            self.create_kti(index_at_value(alt.array, 0.0, land.slice))
+                            self.create_kti(index_at_value(alt.array, 0.0,
+                                                           land.slice))
                         
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
