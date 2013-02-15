@@ -413,36 +413,41 @@ class AirspeedGustsDuringFinalApproach(KeyPointValueNode):
     interpolated in order to be able to estimate airspeed as to close to the
     ends of the RALT range as possible.
     '''
+    @classmethod
+    def can_operate(cls, available):
+        # allow no Groundspeed
+        return all_of(('Airspeed', 'Altitude AAL', 'Airborne'), available)
+        
     def derive(self, aspd=P('Airspeed'), gspd=P('Groundspeed'),
-               alt_rad=P('Altitude Radio'), airs=S('Airborne')):
-        _, fin_apps = slices_from_to(alt_rad.array, 30, 10)
+               alt=P('Altitude AAL'), airs=S('Airborne')):
+        # We'd like to use groundspeed to compute the wind gust, but
+        # variations in airspeed are a suitable backstop.
+        if gspd:
+            speed = aspd.array - gspd.array
+        else:
+            speed = aspd.array
+        
+        _, fin_apps = slices_from_to(alt.array, 30, 10)
         descents = slices_and([s.slice for s in airs], fin_apps)
         for descent in descents:
-            # Ensure we encompass the range of interest.
-            scope = slice(descent.start-5, descent.stop+5)
-            # We'd like to use groundspeed to compute the wind gust, but
-            # variations in airspeed are a suitable backstop.
-            if gspd:
-                speed = aspd.array[scope]-gspd.array[scope]
-            else:
-                speed = aspd.array[scope]-aspd.array[scope][0]
+            # this won't account for the decimal remains at the slice.stop
+            #### find the biggest difference in windspeeds
+            ###speed_change = speed[descent].ptp()
+            #### mark the position of maximum windspeed
+            ###maxima = max_value(speed, descent)
+            ###self.create_kpv(maxima.index, speed_change)
+            
+            #TODO: Move technique below into a library ptp() function
             
             # Precise indexing is used as this is only a short segment. Note
-            # that the _idx values are floating point interpolations of the
-            # radio altimeter signal, and the speed array is also
-            # interpolated.
-            start_idx = index_at_value(alt_rad.array, 30.0, scope)
-            stop_idx = index_at_value(alt_rad.array, 10.0, scope)
-            new_app = shift_slice(descent, -scope.start)
-            peak = max_value(speed, new_app, 
-                             start_edge=start_idx-scope.start, 
-                             stop_edge=stop_idx-scope.start)
-            trough = min_value(speed, new_app,
-                               start_edge=start_idx-scope.start, 
-                               stop_edge=stop_idx-scope.start)
+            # that the peak and trough indexes include floating point
+            # interpolations of the speed array.
+            peak = max_value(speed, descent)
+            trough = min_value(speed, descent)
+            
             if peak.value and trough.value:
                 value = peak.value - trough.value
-                index = ((peak.index + trough.index) / 2.0) + scope.start
+                index = (peak.index + trough.index) / 2.0
                 self.create_kpv(index, value)
 
 

@@ -790,9 +790,12 @@ class TestAirspeedCruiseMin(unittest.TestCase, CreateKPVFromSlicesTest):
 
 
 class TestAirspeedGustsDuringFinalApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test Not Implemented')
+        opts = AirspeedGustsDuringFinalApproach.get_operational_combinations()
+        self.assertEqual(
+            opts,
+            (('Airspeed', 'Groundspeed', 'Altitude AAL', 'Airborne'),
+            ('Airspeed', 'Altitude AAL', 'Airborne')))
 
     # This function interpolates twice, hence the more complex test case.
     def test_derive_basic(self):
