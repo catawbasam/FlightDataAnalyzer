@@ -802,13 +802,14 @@ class TestAirspeedGustsDuringFinalApproach(unittest.TestCase):
         gspd = P('Groundspeed',
                  np.ma.array([180, 180, 180, 180, 170, 100, 100, 100, 100]),
                  frequency=1.0, offset=0.0)
-        alt = P('Altitude Radio',
+        alt = P('Altitude AAL',
                 np.ma.array([45, 45, 45, 45, 35, 25, 15, 5, 0]),
                 frequency=1.0, offset=0.0)
         airs = S(items=[Section('Airborne', slice(3, 9), 3, 9)])
         kpv = AirspeedGustsDuringFinalApproach()
         kpv.get_derived([aspd, gspd, alt, airs])
         self.assertEqual(kpv[0].value, 25)
+        # 4.5 is the trough, 5 is the peak = 4.75 average of the two
         self.assertEqual(kpv[0].index, 4.75)
 
 
