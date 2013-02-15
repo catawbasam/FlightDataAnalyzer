@@ -3279,8 +3279,15 @@ class TestSlicesBetween(unittest.TestCase):
         array = np.ma.arange(20)
         array.mask = [True] * 10 + [False] * 10
         repaired_array, slices = slices_between(array, 5, 15)
-        self.assertEqual(slices, [slice(10, 15)])
+        self.assertEqual(slices, [slice(10, 16)])
+        # reverse test - slice of original array should give us what we expect
+        self.assertEqual(list(array[slices[0]]), [10, 11, 12, 13, 14, 15])
 
+    def test_slices_between_decimal_ranges(self):
+        array = np.ma.arange(20, dtype=float)
+        repaired_array, slices = slices_between(array, 5.5, 13.5)
+        self.assertEqual(slices, [slice(5.5, 14.5)])
+        
 
 class TestSliceSamples(unittest.TestCase):
     def test_slice_samples(self):
@@ -3314,14 +3321,14 @@ class TestSlicesFromTo(unittest.TestCase):
         array.mask = [True] * 10 + [False] * 10
         # Ascending.
         repaired_array, slices = slices_from_to(array, 5, 15)
-        self.assertEqual(slices, [slice(10, 15)])
+        self.assertEqual(slices, [slice(10, 16)])
         # Descending.
         repaired_array, slices = slices_from_to(array, 18, 3)
         self.assertEqual(slices, [])
         array = np.ma.arange(20, 0, -1)
         array.mask = [True] * 10 + [False] * 10
         repaired_array, slices = slices_from_to(array, 18, 3)
-        self.assertEqual(slices, [slice(10, 17)])
+        self.assertEqual(slices, [slice(10, 18)])
         
     def test_slices_from_to_landing(self):
         '''
@@ -3330,7 +3337,7 @@ class TestSlicesFromTo(unittest.TestCase):
         '''
         array = np.ma.array([25, 20, 15, 10, 5, 0, 0, 0, 0])
         _, slices = slices_from_to(array, 17, 0)
-        self.assertEqual(slices, [slice(2, 5, None)])
+        self.assertEqual(slices, [slice(1.6, 6, None)])
         
     def test_slices_from_to_short_up(self):
         '''
@@ -3342,9 +3349,9 @@ class TestSlicesFromTo(unittest.TestCase):
         '''
         array = np.ma.array([1,3,5,7])
         _, slices = slices_from_to(array, 2, 6)
-        self.assertEqual(slices[0], slice(1,3,None))
+        self.assertEqual(slices[0], slice(0.5, 3.5, None))
         _, slices = slices_from_to(array, 2, 4)
-        self.assertEqual(slices[0], slice(1,2,None))
+        self.assertEqual(slices[0], slice(0.5, 2.5, None))
         array = np.ma.array([7,5,3,1])
         _, slices = slices_from_to(array, 2, 6)
         self.assertEqual(slices, [])
@@ -3357,14 +3364,22 @@ class TestSlicesFromTo(unittest.TestCase):
         '''
         array = np.ma.array([7,5,3,1])
         _, slices = slices_from_to(array, 6, 2)
-        self.assertEqual(slices[0], slice(1,3,None))
+        self.assertEqual(slices[0], slice(0.5, 3.5, None))
         _, slices = slices_from_to(array, 6, 4)
-        self.assertEqual(slices[0], slice(1,2,None))
+        self.assertEqual(slices[0], slice(0.5, 2.5, None))
         array = np.ma.array([1,3,5,7])
         _, slices = slices_from_to(array, 6, 2)
         self.assertEqual(slices, [])
         _, slices = slices_from_to(array, 6, 4)
         self.assertEqual(slices, [])
+        
+    def test_slices_from_to_with_decimals(self):
+        array = np.ma.arange(20)
+        arr, slices = slices_from_to(array, 3.3, 12.6)
+        self.assertEqual(len(slices), 1)
+        self.assertEqual(slices[0].start, 3.3)
+        self.assertEqual(slices[0].stop, 13.6)
+        
         
 class TestSliceMultiply(unittest.TestCase):
     def test_slice_multiply(self):

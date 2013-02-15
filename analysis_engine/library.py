@@ -3807,6 +3807,29 @@ def slices_below(array, value):
     return repaired_array, slices
 
 
+def find_interpolate_index(array, min_, max_, pos):
+    '''
+    Find interpolated index where the min or max changes around a position,
+    otherwise returning the original position (likely as one of the values is
+    masked)
+    '''
+    if pos <= 0:
+        # position is at start of data
+        return 0
+    elif pos >= len(array):
+        # position is beyond end of data, remove one sample as we're trying
+        # to find the index of change not the slice.stop here.
+        return len(array) - 1
+    else:
+        # position needs interpolating where possible
+        _slice = slice(pos-1, pos+1)
+        # note that you can't have both a start and end index
+        new_pos = index_at_value(array, min_, _slice=_slice) or \
+                  index_at_value(array, max_, _slice=_slice)
+        # if new_pos not set, likely due to masking so return original pos
+        return new_pos or pos
+
+
 def slices_between(array, min_, max_):
     '''
     Get slices where the array's values are between min_ and max_. Repairs 
@@ -3823,15 +3846,15 @@ def slices_between(array, min_, max_):
     '''
     if len(array) == 0:
         return array, []
-    repaired_array = repair_mask(array)
-    if repaired_array is None: # Array length is too short to be repaired.
+    repaired = repair_mask(array)
+    if repaired is None: # Array length is too short to be repaired.
         return array, []
     # Slice through the array at the top and bottom of the band of interest
-    band = np.ma.masked_outside(repaired_array, min_, max_)
+    band = np.ma.masked_outside(repaired, min_, max_)
     # Remove the equality cases as we don't want these. (The common issue
     # here is takeoff and landing cases where 0ft includes operation on the
     # runway. As the array samples here are not coincident with the parameter
-    # being tested in the KTP class, by doing this we retain the last test
+    # being tested in the KPV class, by doing this we retain the last test
     # parameter sample before array parameter saturated at the end condition,
     # and avoid testing the values when the array was unchanging.
     band = np.ma.masked_equal(band, min_)
@@ -3839,8 +3862,19 @@ def slices_between(array, min_, max_):
     # Group the result into slices - note that the array is repaired and
     # therefore already has small masked sections repaired, so no allowance
     # is needed here for minor data corruptions.
-    slices = np.ma.clump_unmasked(band)
-    return repaired_array, slices
+    
+    # find unmasked runs
+    starts, stops, durs = runs_of_ones_array(1 - band.mask, 1)
+    
+    slices = []
+    # for each start and stop find the interpolated index of min / max value
+    for start, stop in zip(starts, stops):
+        start_idx = find_interpolate_index(repaired, min_, max_, start)
+        stop_idx = find_interpolate_index(repaired, min_, max_, stop)
+        # slices end exactly one sample after the interpolated stop index
+        slices.append(slice(start_idx, stop_idx+1))
+
+    return repaired, slices
 
 
 def slices_from_to(array, from_, to):
