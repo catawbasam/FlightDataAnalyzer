@@ -1,15 +1,12 @@
 import numpy as np
 import unittest
 
-from datetime import datetime
 from mock import call, Mock, patch
-
-from flight_phase_test import buildsection
 
 from analysis_engine.approaches import ApproachInformation
 from analysis_engine.flight_phase import ApproachAndLanding
 from analysis_engine.node import (
-    A, ApproachItem, KPV, KeyPointValue, P, Parameter, S, Section)
+    A, ApproachItem, KPV, KeyPointValue, P, S, Section)
 
 
 class TestApproachInformation(unittest.TestCase):

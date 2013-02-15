@@ -107,7 +107,7 @@ class TestGetNames(unittest.TestCase):
         self.assertIn('FDR Takeoff Runway', params)  # Attribute
 
     def list_flight_attributes(self):
-        atts = list_attributes()
+        atts = list_flight_attributes()
         self.assertIn('Approaches', atts)
 
     def test_list_flight_phases(self):

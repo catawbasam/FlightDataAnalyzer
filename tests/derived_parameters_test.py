@@ -45,7 +45,6 @@ from analysis_engine.derived_parameters import (
     #AltitudeRadioForFlightPhases,
     #AltitudeSTD,
     AltitudeTail,
-    AimingPointRange,
     ApproachRange,
     ClimbForFlightPhases,
     Configuration,
@@ -73,7 +72,7 @@ from analysis_engine.derived_parameters import (
     GearOnGround,
     GearUpSelected,
     GrossWeightSmoothed,
-    #GroundspeedAlongTrack,
+    GroundspeedAlongTrack,
     HeadingContinuous,
     HeadingIncreasing,
     HeadingTrue,
@@ -738,7 +737,7 @@ class TestAltitudeAAL(unittest.TestCase):
         hdf_copy = copy_file(os.path.join(test_data_path,
                                           'alt_aal_faulty_alt_rad.hdf5'),
                              postfix='_test_copy')
-        result = process_flight(hdf_copy, {
+        process_flight(hdf_copy, {
             'engine': {'classification': 'JET',
                        'quantity': 2},
             'frame': {'doubled': False, 'name': '737-3C'},
@@ -753,7 +752,7 @@ class TestAltitudeAAL(unittest.TestCase):
             'recorder': {'name': 'SAGEM', 'serial': '123456'},
             'tail_number': 'G-DEMA'})
         with hdf_file(hdf_copy) as hdf:
-            alt_aal = hdf['Altitude AAL']
+            hdf['Altitude AAL']
             self.assertTrue(False, msg='Test not implemented.')
 
     def test_alt_aal_training_flight(self):
