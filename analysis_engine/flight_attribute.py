@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 
-from datetime import datetime
 import numpy as np
+
+from collections import Counter
+from datetime import datetime
+from operator import itemgetter
 
 from analysis_engine import __version__, settings
 from analysis_engine.api_handler import get_api_handler, NotFoundError
 from analysis_engine.library import (datetime_of_index,
-                                     min_value, 
+                                     min_value,
                                      max_value)
 from analysis_engine.node import A, KTI, KPV, FlightAttributeNode, P, S
 
@@ -38,14 +41,14 @@ class DeterminePilot(object):
             return 'Captain'
         elif not autopilot1.value and autopilot2.value:
             return 'First Officer'
-    
+
     def _pitch_roll_changed(self, slice_, pitch, roll):
         '''
         Check if either pitch or roll changed during slice_.
         '''
         return pitch[slice_].ptp() > settings.CONTROLS_IN_USE_TOLERANCE or \
                roll[slice_].ptp() > settings.CONTROLS_IN_USE_TOLERANCE
-    
+
     def _controls_in_use(self, pitch_captain, roll_captain, pitch_fo, roll_fo,
                          section):
         captain_flying = self._pitch_roll_changed(section.slice, pitch_captain,
@@ -66,7 +69,7 @@ class DeterminePilot(object):
                          "do not change during '%s' slice.",
                          section.name)
             return None
-    
+
     def _determine_pilot(self, pitch_captain, roll_captain, pitch_fo, roll_fo,
                          takeoff_or_landing, autopilot1, autopilot2):
         if not takeoff_or_landing and (not autopilot1 or not autopilot2):
@@ -83,7 +86,7 @@ class DeterminePilot(object):
                                                  takeoff_or_landing)
             if pilot_flying:
                 return pilot_flying
-        
+
         # 2) Find out which autopilot is engaged at liftoff.
         if autopilot1 and autopilot2:
             pilot_flying = self._autopilot_engaged(autopilot1, autopilot2)
@@ -113,7 +116,7 @@ class FlightID(FlightAttributeNode):
 class FlightNumber(FlightAttributeNode):
     """
     Returns String representation of the integer Flight Number value.
-    
+
     Raises ValueError if negative value in array or too great a variance in
     array values.
     """
@@ -121,13 +124,20 @@ class FlightNumber(FlightAttributeNode):
     name = 'FDR Flight Number'
     def derive(self, num=P('Flight Number')):
         # Q: Should we validate the flight number?
+        if num.array.dtype.type is np.string_:
+            # XXX: Slow, but Flight Number should be sampled infrequently.
+            value, count = next(reversed(sorted(Counter(num.array).items(),
+                                                key=itemgetter(1))))
+            if value is not np.ma.masked and count > len(num.array) * 0.45:
+                self.set_flight_attr(value)
+            return
         _, minvalue = min_value(num.array)
         if minvalue < 0:
             self.warning("'%s' only supports unsigned (positive) values",
                             self.name)
             self.set_flight_attr(None)
             return
-        
+
         # TODO: Fill num.array masked values (as there is no np.ma.bincount) - perhaps with 0.0 and then remove all 0 values?
         # note reverse of value, index from max_value due to bincount usage.
         value, count = max_value(np.bincount(num.array.astype(np.integer)))
@@ -439,7 +449,7 @@ class TakeoffFuel(FlightAttributeNode):
     def can_operate(self, available):
         return 'AFR Takeoff Fuel' in available or \
                'Fuel Qty At Liftoff' in available
-    
+
     def derive(self, afr_takeoff_fuel=A('AFR Takeoff Fuel'),
                liftoff_fuel_qty=KPV('Fuel Qty At Liftoff')):
         if afr_takeoff_fuel:
@@ -466,7 +476,7 @@ class TakeoffGrossWeight(FlightAttributeNode):
             self.warning("No '%s' KPVs, '%s' attribute will be None.",
                             liftoff_gross_weight.name, self.name)
             self.set_flight_attr(None)
-    
+
 
 """
 
@@ -487,7 +497,7 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
         autopilot_available = 'Autopilot Engaged 1 At Liftoff' in available and\
                               'Autopilot Engaged 2 At Liftoff' in available
         return controls_available or autopilot_available
-    
+
     def derive(self, pitch_captain=P('Pitch (Capt)'),
                roll_captain=P('Roll (Capt)'), pitch_fo=P('Pitch (FO)'),
                roll_fo=P('Roll (FO)'), takeoffs=S('Takeoff'),
@@ -607,7 +617,7 @@ class TakeoffRunway(FlightAttributeNode):
 class FlightType(FlightAttributeNode):
     "Type of flight flown"
     name = 'FDR Flight Type'
-    
+
     class Type(object):
         '''
         Type of flight.
@@ -623,11 +633,11 @@ class FlightType(FlightAttributeNode):
         FERRY = 'FERRY'
         POSITIONING = 'POSITIONING'
         LINE_TRAINING = 'LINE_TRAINING'
-    
+
     @classmethod
     def can_operate(self, available):
         return all(n in available for n in ['Fast', 'Liftoff', 'Touchdown'])
-    
+
     def derive(self, afr_type=A('AFR Type'), fast=S('Fast'),
                liftoffs=KTI('Liftoff'), touchdowns=KTI('Touchdown'),
                touch_and_gos=S('Touch And Go'), groundspeed=P('Groundspeed')):
@@ -635,7 +645,7 @@ class FlightType(FlightAttributeNode):
         TODO: Detect MID_FLIGHT.
         '''
         afr_type = afr_type.value if afr_type else None
-        
+
         if liftoffs and not touchdowns:
             # In the air without having touched down.
             self.warning("'Liftoff' KTI exists without 'Touchdown'.")
@@ -648,7 +658,7 @@ class FlightType(FlightAttributeNode):
             raise InvalidFlightType('TOUCHDOWN_ONLY')
             #self.set_flight_attr('TOUCHDOWN_ONLY')
             #return
-        
+
         if liftoffs and touchdowns:
             first_touchdown = touchdowns.get_first()
             first_liftoff = liftoffs.get_first()
@@ -668,7 +678,7 @@ class FlightType(FlightAttributeNode):
                     raise InvalidFlightType('LIFTOFF_ONLY')
                     #self.set_flight_attr('LIFTOFF_ONLY')
                     #return
-            
+
             if afr_type in [FlightType.Type.FERRY,
                             FlightType.Type.LINE_TRAINING,
                             FlightType.Type.POSITIONING,
@@ -707,10 +717,10 @@ class LandingDatetime(FlightAttributeNode):
             return
         landing_datetime = datetime_of_index(start_datetime.value,
                                              last_touchdown.index,
-                                             frequency=touchdown.frequency) 
+                                             frequency=touchdown.frequency)
         self.set_flight_attr(landing_datetime)
 
-         
+
 class LandingFuel(FlightAttributeNode):
     "Weight of Fuel in KG at point of Touchdown"
     name = 'FDR Landing Fuel'
@@ -718,7 +728,7 @@ class LandingFuel(FlightAttributeNode):
     def can_operate(self, available):
         return 'AFR Landing Fuel' in available or \
                'Fuel Qty At Touchdown' in available
-    
+
     def derive(self, afr_landing_fuel=A('AFR Landing Fuel'),
                touchdown_fuel_qty=KPV('Fuel Qty At Touchdown')):
         if afr_landing_fuel:
@@ -739,7 +749,7 @@ class LandingGrossWeight(FlightAttributeNode):
         else:
             # There is not a 'Gross Weight At Touchdown' KPV. Since it is sourced
             # from 'Gross Weight Smoothed', gross weight at touchdown should not
-            # be masked. Are there no Touchdown KTIs?  
+            # be masked. Are there no Touchdown KTIs?
             self.warning("No '%s' KPVs, '%s' attribute will be None.",
                             touchdown_gross_weight.name, self.name)
             self.set_flight_attr(None)
@@ -759,7 +769,7 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
         autopilot_available = 'Autopilot Engaged 1 At Touchdown' in available \
             and 'Autopilot Engaged 2 At Touchdown' in available
         return controls_available or autopilot_available
-    
+
     def derive(self, pitch_captain=P('Sidestick Pitch (Capt)'),
                roll_captain=P('Sidestick Roll (Capt)'),
                pitch_fo=P('Sidestick Pitch (FO)'),
