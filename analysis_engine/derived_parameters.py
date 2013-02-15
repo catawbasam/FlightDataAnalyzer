@@ -3114,25 +3114,46 @@ class ILSFrequency(DerivedParameterNode):
 
 class ILSLocalizer(DerivedParameterNode):
     
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        return ('ILS (1) Localizer' in available and 'ILS (2) Localizer' in available)\
+               or\
+               ('ILS Localizer (Capt)' in available and 'ILS Localizer (Azimuth)' in available)
+    
     name = "ILS Localizer"
     units = 'dots'
     align = False
 
-    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
-        self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer'),
+               loc_c=P('ILS Localizer (Capt)'),loc_az=P('ILS Localizer (Azimuth)')):
+        if loc_1:
+            self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+        else:
+            self.array, self.frequency, self.offset = blend_two_parameters(loc_c, loc_az)
                
        
 class ILSGlideslope(DerivedParameterNode):
+
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        return ('ILS (1) Glideslope' in available and 'ILS (2) Glideslope' in available)\
+               or\
+               ('ILS Glideslope (Capt)' in available and 'ILS Glideslope (Elevation)' in available)
 
     name = "ILS Glideslope"
     units = 'dots'
     align = False
 
-    def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope')):
-        self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
-        # Would like to do this, except the frequencies don't match
-        # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
-       
+    def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope'),
+               gs_c=P('ILS Glideslope (Capt)'), gs_e=P('ILS Glideslope (Elevation)')):
+        
+        if gs_1:
+            self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
+        else:
+            self.array, self.frequency, self.offset = blend_two_parameters(gs_c, gs_e)
+        
 
 class AimingPointRange(DerivedParameterNode):
     """
