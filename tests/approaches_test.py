@@ -1,15 +1,12 @@
 import numpy as np
 import unittest
 
-from datetime import datetime
 from mock import call, Mock, patch
-
-from flight_phase_test import buildsection
 
 from analysis_engine.approaches import ApproachInformation
 from analysis_engine.flight_phase import ApproachAndLanding
 from analysis_engine.node import (
-    A, ApproachItem, KPV, KeyPointValue, P, Parameter, S, Section)
+    A, ApproachItem, KPV, KeyPointValue, P, S, Section)
 
 
 class TestApproachInformation(unittest.TestCase):
@@ -17,14 +14,14 @@ class TestApproachInformation(unittest.TestCase):
         combinations = ApproachInformation.get_operational_combinations()
         self.assertTrue(('Approach And Landing', 'Altitude AAL', 'Fast')
                         in combinations)
-        
+
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_runway')
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
     def test_derive(self, get_nearest_airport, get_nearest_runway):
         approaches = ApproachInformation()
         approaches._lookup_airport_and_runway = Mock()
         approaches._lookup_airport_and_runway.return_value = [None, None]
-        
+
         app = ApproachAndLanding()
 
         alt_aal = P(name='Altitude AAL', array=np.ma.array([
@@ -86,8 +83,8 @@ class TestApproachInformation(unittest.TestCase):
                  lowest_lat=None, lowest_lon=None, lowest_hdg=None),
             call(_slice=slices[1], appr_ils_freq=[], precise=False,
                  lowest_lat=None, lowest_lon=None, lowest_hdg=None),
-            call(_slice=slices[2], appr_ils_freq=[], precise=False, lowest_lat=None,
-                 lowest_lon=None, lowest_hdg=None,
+            call(_slice=slices[2], appr_ils_freq=[], precise=False,
+                 lowest_lat=None, lowest_lon=None, lowest_hdg=None,
                  land_afr_apt=land_afr_apt_none,
                  land_afr_rwy=land_afr_rwy_none, hint='landing'),
         ])
@@ -102,27 +99,29 @@ class TestApproachInformation(unittest.TestCase):
         self.assertEqual(approaches,
                          [ApproachItem('TOUCH_AND_GO', slice(0, 5)),
                           ApproachItem('GO_AROUND', slice(10, 15),
-                                       lowest_hdg=appr_hdg[1]),
+                                       lowest_hdg=appr_hdg[1].value),
                           ApproachItem('LANDING', slice(20, 25),
-                                       lowest_lat=land_lat[0],
-                                       lowest_lon=land_lon[0],
-                                       lowest_hdg=land_hdg[0])])
+                                       lowest_lat=land_lat[0].value,
+                                       lowest_lon=land_lon[0].value,
+                                       lowest_hdg=land_hdg[0].value)])
         approaches._lookup_airport_and_runway.assert_has_calls([
             call(_slice=slices[0], lowest_hdg=None, lowest_lat=None,
                  lowest_lon=None, appr_ils_freq=[], precise=False),
-            call(_slice=slices[1], lowest_hdg=appr_hdg[1], lowest_lat=None,
-                 lowest_lon=None, appr_ils_freq=[], precise=False),
-            call(_slice=slices[2], lowest_hdg=land_hdg[0],
-                 lowest_lat=land_lat[0], lowest_lon=land_lon[0], appr_ils_freq=[],
-                 precise=False, land_afr_apt=land_afr_apt_none,
-                 land_afr_rwy=land_afr_rwy_none, hint='landing'),
+            call(_slice=slices[1], lowest_hdg=appr_hdg[1].value,
+                 lowest_lat=None, lowest_lon=None, appr_ils_freq=[],
+                 precise=False),
+            call(_slice=slices[2], lowest_hdg=land_hdg[0].value,
+                 lowest_lat=land_lat[0].value, lowest_lon=land_lon[0].value,
+                 appr_ils_freq=[], precise=False,
+                 land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none,
+                 hint='landing'),
         ])
         approaches._lookup_airport_and_runway.reset_mock()
 
         # FIXME: Finish implementing these tests to check that using the API
         #        works correctly and any fall back values are used as
         #        appropriate.
-    
+
     @unittest.skip('Test Not Implemented')
     def test_derive_afr_fallback(self):
-        self.assertTrue(False, msg='Test not implemented.')    
+        self.assertTrue(False, msg='Test not implemented.')
