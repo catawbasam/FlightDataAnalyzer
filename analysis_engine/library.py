@@ -2603,7 +2603,12 @@ def slices_or(*slice_lists, **kwargs):
     :param end_at: optional ending index value, slices before this will be ignored
     :type end_at: integer
 
-    :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
+    :returns: list of slices. If begin or end is specified, the range will
+    extend to these points. Otherwise the scope is within the end slices.
+    
+    :error: raises ValueError in the case where None has been passed in. This
+    can arise with TAWS Alert derived parameter if a new LFL carries the
+    wrong text string for a TAWS signal, so forms a "backstop" error trap.
     '''
     if len(slice_lists) == 0:
         return
@@ -2611,6 +2616,8 @@ def slices_or(*slice_lists, **kwargs):
     a = None
     b = None
     for slice_list in slice_lists:
+        if slice_list==None:
+            raise ValueError('slices_or called with slice list of None')
         for each_slice in slice_list:
             if not each_slice:
                 break
@@ -3096,11 +3103,11 @@ def blend_two_parameters(param_one, param_two):
         return np_ma_masked_zeros_like(param_one.array), param_one.frequency, param_one.offset
 
     if a < b*0.8:
-        logger.warning("Little valid data available for %s, using only %s data.", param_one.name, param_two.name)
+        logger.warning("Little valid data available for %s (%d), using only %s (%d)data.", param_one.name, float(a)/len(param_one.array)*100, param_two.name, float(b)/len(param_two.array)*100)
         return param_two.array, param_two.frequency, param_two.offset
 
     elif b < a*0.8:
-        logger.warning("Little valid data available for %s, using only %s data.", param_two.name, param_one.name)
+        logger.warning("Little valid data available for %s (%d), using only %s (%d) data.", param_two.name, float(b)/len(param_two.array)*100, param_one.name, float(a)/len(param_one.array)*100)
         return param_one.array, param_one.frequency, param_one.offset
 
     # A second problem is where both sensor may appear to be serviceable but

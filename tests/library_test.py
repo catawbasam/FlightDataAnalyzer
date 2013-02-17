@@ -3612,7 +3612,10 @@ class TestSlicesOr(unittest.TestCase):
     def test_slices_or_one_list(self):
         self.assertEqual(slices_or([slice(1,2)]), [slice(1,2)])
 
-
+    def test_slices_or_raises_with_none(self):
+        self.assertRaises(slices_or([None]))
+        
+              
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):
         # borrowed from TestSlat

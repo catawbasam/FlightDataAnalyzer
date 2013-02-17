@@ -12,6 +12,7 @@ from analysis_engine.node import (
 from analysis_engine.library import (air_track,
                                      align,
                                      all_of,
+                                     any_of,
                                      alt2press,
                                      alt2sat,
                                      bearing_and_distance,
@@ -20,6 +21,7 @@ from analysis_engine.library import (air_track,
                                      cas2dp,
                                      cas_alt2mach,
                                      clip,
+                                     clump_multistate,
                                      coreg,
                                      cycle_finder,
                                      datetime_of_index,
@@ -853,8 +855,11 @@ class AltitudeRadio(DerivedParameterNode):
         frame_qualifier = frame_qual.value if frame_qual else None
 
         # 737-1 & 737-i has Altitude Radio recorded.
+        if frame_name in ['737-3']:
+            # Select the source without abnormal latency.
+            self.array = source_B.array
         
-        if frame_name in ['737-3A', '737-3B', '737-3C', '757-DHL']:
+        elif frame_name in ['737-3A', '737-3B', '737-3C', '757-DHL']:
             # 737-3* comment:
             # Alternate samples (A) for this frame have latency of over 1
             # second, so do not contribute to the height measurements
@@ -4222,6 +4227,126 @@ class TAT(DerivedParameterNode):
             blend_two_parameters(source_1, source_2)
 
 
+
+class TAWSAlert(MultistateDerivedParameterNode):
+    '''
+    Merging all available TAWS alert signals into a single parameter for
+    subsequent monitoring.
+    '''
+    values_mapping = {
+        0: '-',
+        1: 'Alert'}
+    
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(['TAWS Caution Terrain',
+                       'TAWS Caution',
+                       'TAWS Dont Sink',
+                       'TAWS Glideslope'
+                       'TAWS Predictive Windshear',
+                       'TAWS Pull Up',
+                       'TAWS Sink Rate',
+                       'TAWS Terrain',
+                       'TAWS Terrain Warning Amber',
+                       'TAWS Terrain Pull Up',
+                       'TAWS Terrain Warning Red',
+                       'TAWS Too Low Flap',
+                       'TAWS Too Low Gear',
+                       'TAWS Too Low Terrain',
+                       'TAWS Windshear Warning',
+                       ],
+                      available)
+    
+    def derive(self, airs=S('Airborne'),
+               taws_caution_terrain=P('TAWS Caution Terrain'),
+               taws_caution=P('TAWS Caution'),
+               taws_dont_sink=P('TAWS Dont Sink'),
+               taws_glideslope=P('TAWS Glideslope'),
+               taws_predictive_windshear=P('TAWS Predictive Windshear'),
+               taws_pull_up=P('TAWS Pull Up'),
+               taws_sink_rate=P('TAWS Sink Rate'),
+               taws_terrain_pull_up=P('TAWS Terrain Pull Up'),
+               taws_terrain_warning_amber=P('TAWS Terrain Warning Amber'),
+               taws_terrain_warning_red=P('TAWS Terrain Warning Red'),
+               taws_terrain=P('TAWS Terrain'),
+               taws_too_low_flap=P('TAWS Too Low Flap'),
+               taws_too_low_gear=P('TAWS Too Low Gear'),
+               taws_too_low_terrain=P('TAWS Too Low Terrain'),
+               taws_windshear_warning=P('TAWS Windshear Warning')):
+              
+        slices_caution_terrain=clump_multistate(taws_caution_terrain.array,
+                                                'Caution',
+                                                [s.slice for s in airs]),
+        slices_caution=clump_multistate(taws_caution.array, 
+                                        'Caution',
+                                        [s.slice for s in airs]),
+        slices_dont_sink=clump_multistate(taws_dont_sink.array, 
+                                          'Warning',
+                                          [s.slice for s in airs]),
+        slices_glideslope=clump_multistate(taws_glideslope.array,
+                                           'Warning',
+                                           [s.slice for s in airs]),
+        slices_predictive_windshear_caution=clump_multistate(taws_predictive_windshear.array,
+                                                             'Caution',
+                                                             [s.slice for s in airs]),
+        slices_predictive_windshear_warning=clump_multistate(taws_predictive_windshear.array,
+                                                             'Warning',
+                                                             [s.slice for s in airs]),
+        slices_pull_up=clump_multistate(taws_pull_up.array, 
+                                        'Warning',
+                                        [s.slice for s in airs]),
+        slices_sink_rate=clump_multistate(taws_sink_rate.array, 
+                                          'Warning',
+                                          [s.slice for s in airs]),
+        slices_terrain_pull_up=clump_multistate(taws_terrain_pull_up.array, 
+                                                'Warning',
+                                                [s.slice for s in airs]),
+        slices_terrain_warning_amber=clump_multistate(taws_terrain_warning_amber.array, 
+                                                      'Warning',
+                                                      [s.slice for s in airs]),
+        slices_terrain_warning_red=clump_multistate(taws_terrain_warning_red.array, 
+                                                    'Warning',
+                                                    [s.slice for s in airs]),
+        slices_terrain=clump_multistate(taws_terrain.array, 
+                                        'Warning',
+                                        [s.slice for s in airs]),
+        slices_too_low_flap=clump_multistate(taws_too_low_flap.array, 
+                                             'Warning',
+                                             [s.slice for s in airs]),
+        slices_too_low_gear=clump_multistate(taws_too_low_gear.array, 
+                                             'Warning',
+                                             [s.slice for s in airs]),
+        slices_too_low_terrain=clump_multistate(taws_too_low_terrain.array, 
+                                                'Warning',
+                                                [s.slice for s in airs]),
+        slices_windshear_warning=clump_multistate(taws_windshear_warning.array, 
+                                                  'Warning',
+                                                  [s.slice for s in airs]),
+               
+        taws_alert_slices = slices_or(slices_caution_terrain[0],
+                                      slices_caution[0],
+                                      slices_dont_sink[0],
+                                      slices_glideslope[0],
+                                      slices_predictive_windshear_caution[0],
+                                      slices_predictive_windshear_warning[0],
+                                      slices_pull_up[0],
+                                      slices_sink_rate[0],
+                                      slices_terrain_pull_up[0],
+                                      slices_terrain_warning_amber[0],
+                                      slices_terrain_warning_red[0],
+                                      slices_terrain[0],
+                                      slices_too_low_flap[0],
+                                      slices_too_low_gear[0],
+                                      slices_too_low_terrain[0],
+                                      slices_windshear_warning[0])
+        
+        self.array = np_ma_zeros_like(taws_caution.array)
+        
+        if taws_alert_slices:
+            for alert_slice in taws_alert_slices:
+                self.array[alert_slice]='Alert'
+
+
 class V2(DerivedParameterNode):
     '''
     Based on weight and flap at time of Liftoff, first liftoff only.
@@ -4569,7 +4694,7 @@ class StickShaker(MultistateDerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
 
-        elif frame_name in ['737-1', '737-3A', '737-3B', '737-3C', '737-4',
+        elif frame_name in ['737-1', '737-3', '737-3A', '737-3B', '737-3C', '737-4',
                             '737-i', '737-2227000-335A', '757-DHL']:
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset

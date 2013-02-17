@@ -5393,6 +5393,25 @@ class TAWSAlertDuration(KeyPointValueNode):
         )
 
 
+class TAWSAlertDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Alert Duration'
+
+    def derive(self,
+               taws_alert=M('TAWS Alert'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_where_state(
+            'Alert',
+            taws_alert.array,
+            taws_alert.hz,
+            phase=airborne
+        )
+
+
+
 class TAWSSinkRateWarningDuration(KeyPointValueNode):
     '''
     '''
