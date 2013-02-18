@@ -1,6 +1,7 @@
 import numpy as np
 
-from analysis_engine.library import (coreg,
+from analysis_engine.library import (any_of,
+                                     coreg,
                                      find_edges_on_state_change,
                                      hysteresis,
                                      index_at_value,
