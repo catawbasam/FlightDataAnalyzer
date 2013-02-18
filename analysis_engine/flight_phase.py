@@ -173,6 +173,9 @@ class Holding(FlightPhaseNode):
 
 
 class ApproachAndLanding(FlightPhaseNode):
+    # Force to remove problem with desynchronising of approaches and landings
+    # (when offset > 0.5)
+    align_offset = 0
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                lands=S('Landing'), go_arounds=S('Go Around And Climbout')):
