@@ -241,7 +241,7 @@ class LandingRunway(FlightAttributeNode):
         minimum = all((
             'FDR Landing Airport' in available,
             'Heading At Landing' in available,
-            'ILS Frequency On Approach' in available
+            'ILS Frequency During Approach' in available
         ))
 
         fallback = 'AFR Landing Runway' in available
@@ -256,7 +256,7 @@ class LandingRunway(FlightAttributeNode):
             land_lon=KPV('Longitude At Landing'),
             precision=A('Precise Positioning'),
             approaches=S('Approach And Landing'),
-            ils_freq_on_app=KPV('ILS Frequency On Approach')):
+            ils_freq_on_app=KPV('ILS Frequency During Approach')):
         '''
         '''
         fallback = False
