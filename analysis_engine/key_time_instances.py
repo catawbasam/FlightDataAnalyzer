@@ -209,29 +209,32 @@ class ClimbStart(KeyTimeInstanceNode):
 
 
 class Eng_Stop(KeyTimeInstanceNode):
+    '''
+    '''
+
     NAME_FORMAT = 'Eng (%(number)d) Stop'
     NAME_VALUES = NAME_VALUES_ENGINE
-    
+    name = 'Eng (*) Stop'  # FIXME: Name conflict!?
+
     @classmethod
     def can_operate(cls, available):
-        return any(x in available for x in ('Eng (1) N2',
-                                            'Eng (2) N2',
-                                            'Eng (3) N2',
-                                            'Eng (4) N2',))
-    
-    name = 'Eng (*) Stop'
+        return any_of(('Eng (%d) N2' % n for n in range(1, 5)), available)
+
     def derive(self,
                eng_1_n2=P('Eng (1) N2'),
                eng_2_n2=P('Eng (2) N2'),
                eng_3_n2=P('Eng (3) N2'),
                eng_4_n2=P('Eng (4) N2')):
-        for number, eng_n2 in enumerate([eng_1_n2, eng_2_n2, eng_3_n2,
-                                         eng_4_n2,], start=1):
+
+        eng_n2_list = (eng_1_n2, eng_2_n2, eng_3_n2, eng_4_n2)
+        for number, eng_n2 in enumerate(eng_n2_list, start=1):
             if not eng_n2:
                 continue
-            power = np.ma.where(eng_n2.array > 30.0, 1, 0)
-            self.create_ktis_at_edges(power, direction='falling_edges',
-                                      replace_values={'number': number})
+            self.create_ktis_at_edges(
+                np.ma.where(eng_n2.array > 30.0, 1, 0),
+                direction='falling_edges',
+                replace_values={'number': number},
+            )
 
 
 class EnterHold(KeyTimeInstanceNode):
