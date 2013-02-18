@@ -66,6 +66,10 @@ from analysis_engine.derived_parameters import (
     Eng_N3Avg,
     Eng_N3Max,
     Eng_N3Min,
+    Eng_1_FuelBurn,
+    Eng_2_FuelBurn,
+    Eng_3_FuelBurn,
+    Eng_4_FuelBurn,
     Flap,
     FuelQty,
     GearDownSelected,
@@ -2538,6 +2542,50 @@ class TestEng_FuelFlow(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_1_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_1_FuelBurn
+        self.operational_combinations = [('Eng (1) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_2_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_2_FuelBurn
+        self.operational_combinations = [('Eng (2) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_3_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_3_FuelBurn
+        self.operational_combinations = [('Eng (3) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_4_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_4_FuelBurn
+        self.operational_combinations = [('Eng (4) Fuel Flow', )]
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
