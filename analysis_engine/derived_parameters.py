@@ -2484,7 +2484,35 @@ class FuelQty(DerivedParameterNode):
         self.offset = offset_select('mean', params)
 
 
-################################################################################
+###############################################################################
+# Fuel Burn
+
+
+class Eng_1_FuelBurn(DerivedParameterNode):
+    '''
+    Amount of fuel burnt since the start of the data.
+    '''
+    units = 'kgs'
+    name = "Eng (1) Fuel Burn"
+
+    def derive(self, ff=P('Eng (1) Fuel Flow')):
+        flow = repair_mask(ff.array)
+        self.array = np.ma.array(integrate(flow / 3600.0, ff.frequency))
+
+
+class Eng_2_FuelBurn(DerivedParameterNode):
+    '''
+    Amount of fuel burnt since the start of the data.
+    '''
+    units = 'kgs'
+    name = "Eng (2) Fuel Burn"
+
+    def derive(self, ff=P('Eng (2) Fuel Flow')):
+        flow = repair_mask(ff.array)
+        self.array = np.ma.array(integrate(flow / 3600.0, ff.frequency))
+
+
+###############################################################################
 # Landing Gear
 
 
@@ -3094,25 +3122,46 @@ class ILSFrequency(DerivedParameterNode):
 
 class ILSLocalizer(DerivedParameterNode):
     
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        return ('ILS (1) Localizer' in available and 'ILS (2) Localizer' in available)\
+               or\
+               ('ILS Localizer (Capt)' in available and 'ILS Localizer (Azimuth)' in available)
+    
     name = "ILS Localizer"
     units = 'dots'
     align = False
 
-    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
-        self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer'),
+               loc_c=P('ILS Localizer (Capt)'),loc_az=P('ILS Localizer (Azimuth)')):
+        if loc_1:
+            self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+        else:
+            self.array, self.frequency, self.offset = blend_two_parameters(loc_c, loc_az)
                
        
 class ILSGlideslope(DerivedParameterNode):
+
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        return ('ILS (1) Glideslope' in available and 'ILS (2) Glideslope' in available)\
+               or\
+               ('ILS Glideslope (Capt)' in available and 'ILS Glideslope (Elevation)' in available)
 
     name = "ILS Glideslope"
     units = 'dots'
     align = False
 
-    def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope')):
-        self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
-        # Would like to do this, except the frequencies don't match
-        # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
-       
+    def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope'),
+               gs_c=P('ILS Glideslope (Capt)'), gs_e=P('ILS Glideslope (Elevation)')):
+        
+        if gs_1:
+            self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
+        else:
+            self.array, self.frequency, self.offset = blend_two_parameters(gs_c, gs_e)
+        
 
 class AimingPointRange(DerivedParameterNode):
     """
@@ -4373,11 +4422,11 @@ class Speedbrake(DerivedParameterNode):
         '''
         frame_name = frame.value if frame else ''
 
-        if frame_name in ['737-3A', '737-3B', '737-3C']:
+        if frame_name in ['737-3', '737-3A', '737-3B', '737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
 
         elif frame_name in ['737-4', '737-5', '737-5_NON-EIS', '737-6',
-                            '737-6_NON-EIS']:
+                            '737-6_NON-EIS', '737-2227000-335A']:
             self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
 
         else:

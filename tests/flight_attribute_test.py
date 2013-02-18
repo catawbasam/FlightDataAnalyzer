@@ -229,7 +229,7 @@ class TestDuration(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Duration.get_operational_combinations(),
                          [('FDR Takeoff Datetime', 'FDR Landing Datetime')])
-    
+
     def test_derive(self):
         duration = Duration()
         duration.set_flight_attr = Mock()
@@ -245,7 +245,7 @@ class TestFlightID(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(FlightID.get_operational_combinations(),
                          [('AFR Flight ID',)])
-    
+
     def test_derive(self):
         afr_flight_id = A('AFR Flight ID', value=10245)
         flight_id = FlightID()
@@ -258,7 +258,7 @@ class TestFlightNumber(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(FlightNumber.get_operational_combinations(),
                          [('Flight Number',)])
-    
+
     def test_derive(self):
         flight_number_param = P('Flight Number',
                                 array=np.ma.masked_array([103, 102,102]))
@@ -266,22 +266,35 @@ class TestFlightNumber(unittest.TestCase):
         flight_number.set_flight_attr = Mock()
         flight_number.derive(flight_number_param)
         flight_number.set_flight_attr.assert_called_with('102')
-        
+
+    def test_derive_ascii(self):
+        flight_number_param = P('Flight Number',
+                                array=np.ma.masked_array(['ABC', 'DEF', 'DEF']))
+        flight_number = FlightNumber()
+        flight_number.set_flight_attr = Mock()
+        flight_number.derive(flight_number_param)
+        flight_number.set_flight_attr.assert_called_with('DEF')
+        flight_number.set_flight_attr.reset_mock()
+        # Entirely masked.
+        flight_number_param.array[:] = np.ma.masked
+        flight_number.derive(flight_number_param)
+        flight_number.set_flight_attr.called = False
+
     def test_derive_most_common_positive_float(self):
         flight_number = FlightNumber()
-        
+
         neg_number_param = P(
             'Flight Number',
             array=np.ma.array([-1,2,-4,10]))
         flight_number.derive(neg_number_param)
         self.assertEqual(flight_number.value, None)
-        
+
         # TODO: Implement variance checks as below
         ##high_variance_number_param = P(
             ##'Flight Number',
             ##array=np.ma.array([2,2,4,4,4,7,7,7,4,5,4,7,910]))
         ##self.assertRaises(ValueError, flight_number.derive, high_variance_number_param)
-        
+
         flight_number_param= P(
             'Flight Number',
             array=np.ma.array([2,555.6,444,444,444,444,444,444,888,444,444,444,
@@ -391,7 +404,7 @@ class TestLandingDatetime(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(LandingDatetime.get_operational_combinations(),
                          [('Start Datetime', 'Touchdown')])
-    
+
     def test_derive(self):
         landing_datetime = LandingDatetime()
         landing_datetime.set_flight_attr = Mock()
@@ -414,7 +427,7 @@ class TestLandingFuel(unittest.TestCase):
         self.assertEqual(LandingFuel.get_operational_combinations(),
                          [('AFR Landing Fuel',), ('Fuel Qty At Touchdown',),
                           ('AFR Landing Fuel', 'Fuel Qty At Touchdown')])
-    
+
     def test_derive(self):
         landing_fuel = LandingFuel()
         landing_fuel.set_flight_attr = Mock()
@@ -439,7 +452,7 @@ class TestLandingGrossWeight(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(LandingGrossWeight.get_operational_combinations(),
                          [('Gross Weight At Touchdown',)])
-    
+
     def test_derive(self):
         landing_gross_weight = LandingGrossWeight()
         landing_gross_weight.set_flight_attr = Mock()
@@ -649,7 +662,7 @@ class TestOffBlocksDatetime(unittest.TestCase):
         off_blocks_datetime.derive(turning, start_datetime)
         off_blocks_datetime.set_flight_attr.assert_called_once_with(
             start_datetime.value + timedelta(seconds=20))
-        
+
         turning = S('Turning', items=[KeyPointValue(name='Turning On Ground',
                                                     slice=slice(10, 20)),
                                       KeyPointValue(name='Turning On Ground',
@@ -789,7 +802,7 @@ class TestTakeoffDatetime(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(TakeoffDatetime.get_operational_combinations(),
                          [('Liftoff', 'Start Datetime')])
-    
+
     def test_derive(self):
         takeoff_dt = TakeoffDatetime()
         takeoff_dt.set_flight_attr = Mock()
@@ -810,7 +823,7 @@ class TestTakeoffFuel(unittest.TestCase):
         self.assertEqual(TakeoffFuel.get_operational_combinations(),
                          [('AFR Takeoff Fuel',), ('Fuel Qty At Liftoff',),
                           ('AFR Takeoff Fuel', 'Fuel Qty At Liftoff')])
-    
+
     def test_derive(self):
         takeoff_fuel = TakeoffFuel()
         takeoff_fuel.set_flight_attr = Mock()
@@ -834,7 +847,7 @@ class TestTakeoffGrossWeight(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(TakeoffGrossWeight.get_operational_combinations(),
                          [('Gross Weight At Liftoff',)])
-    
+
     def test_derive(self):
         takeoff_gross_weight = TakeoffGrossWeight()
         takeoff_gross_weight.set_flight_attr = Mock()
@@ -1057,9 +1070,9 @@ class TestFlightType(unittest.TestCase):
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go'),
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Groundspeed'),
            ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 'Groundspeed'),
-           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 
+           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go',
             'Groundspeed')])
-    
+
     def test_derive(self):
         '''
         Tests every flow, but does not test every conceivable set of arguments.
@@ -1092,7 +1105,7 @@ class TestFlightType(unittest.TestCase):
             type_node.derive(None, fast, liftoffs, empty_touchdowns, None, None)
         except InvalidFlightType as err:
             self.assertEqual(err.flight_type, 'LIFTOFF_ONLY')
-        
+
         # Liftoff and Touchdown missing, only Fast.
         type_node.set_flight_attr = Mock()
         type_node.derive(None, fast, empty_liftoffs, empty_touchdowns, None,
@@ -1143,15 +1156,15 @@ class TestFlightType(unittest.TestCase):
             type_node.derive(afr_type, fast, liftoffs, touchdowns,
                              touch_and_gos, None)
         except InvalidFlightType as err:
-            self.assertEqual(err.flight_type, 'LIFTOFF_ONLY')        
+            self.assertEqual(err.flight_type, 'LIFTOFF_ONLY')
 
 
 class TestAnalysisDatetime(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
+
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -1160,7 +1173,7 @@ class TestVersion(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Version.get_operational_combinations(),
                          [('Start Datetime',)])
-        
+
     def test_derive(self):
         version = Version()
         version.set_flight_attr = Mock()
