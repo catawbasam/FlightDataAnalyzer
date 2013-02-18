@@ -2497,10 +2497,12 @@ class Eng_1_FuelBurn(DerivedParameterNode):
     '''
     Amount of fuel burnt since the start of the data.
     '''
+
+    name = 'Eng (1) Fuel Burn'
     units = 'kgs'
-    name = "Eng (1) Fuel Burn"
 
     def derive(self, ff=P('Eng (1) Fuel Flow')):
+
         flow = repair_mask(ff.array)
         self.array = np.ma.array(integrate(flow / 3600.0, ff.frequency))
 
@@ -2509,10 +2511,40 @@ class Eng_2_FuelBurn(DerivedParameterNode):
     '''
     Amount of fuel burnt since the start of the data.
     '''
+
+    name = 'Eng (2) Fuel Burn'
     units = 'kgs'
-    name = "Eng (2) Fuel Burn"
 
     def derive(self, ff=P('Eng (2) Fuel Flow')):
+
+        flow = repair_mask(ff.array)
+        self.array = np.ma.array(integrate(flow / 3600.0, ff.frequency))
+
+
+class Eng_3_FuelBurn(DerivedParameterNode):
+    '''
+    Amount of fuel burnt since the start of the data.
+    '''
+
+    name = 'Eng (3) Fuel Burn'
+    units = 'kgs'
+
+    def derive(self, ff=P('Eng (3) Fuel Flow')):
+
+        flow = repair_mask(ff.array)
+        self.array = np.ma.array(integrate(flow / 3600.0, ff.frequency))
+
+
+class Eng_4_FuelBurn(DerivedParameterNode):
+    '''
+    Amount of fuel burnt since the start of the data.
+    '''
+
+    name = 'Eng (4) Fuel Burn'
+    units = 'kgs'
+
+    def derive(self, ff=P('Eng (4) Fuel Flow')):
+
         flow = repair_mask(ff.array)
         self.array = np.ma.array(integrate(flow / 3600.0, ff.frequency))
 
