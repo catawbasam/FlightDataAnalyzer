@@ -1,18 +1,86 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 
+
 import numpy as np
 
 from collections import Counter
 from datetime import datetime
 from operator import itemgetter
 
-from analysis_engine import __version__, settings
+from analysis_engine import __version__, library, settings
 from analysis_engine.api_handler import get_api_handler, NotFoundError
 from analysis_engine.library import (datetime_of_index,
                                      min_value,
                                      max_value)
-from analysis_engine.node import A, KTI, KPV, FlightAttributeNode, P, S
+from analysis_engine.node import A, KTI, KPV, FlightAttributeNode, M, P, S
+
+
+##############################################################################
+# Superclasses
+
+
+class DeterminePilot(object):
+    '''
+    '''
+
+    # FIXME: Handle third autopilot!?
+    def _autopilot_engaged(self, ap1, ap2, ap3):
+        if ap1 and not ap2:
+            return 'Captain'
+        if not ap1 and ap2:
+            return 'First Officer'
+        return None
+
+    def _controls_changed(self, slice_, pitch, roll):
+        # Check if either pitch or roll changed during provided slice:
+        return pitch[slice_].ptp() > settings.CONTROLS_IN_USE_TOLERANCE or \
+                roll[slice_].ptp() > settings.CONTROLS_IN_USE_TOLERANCE
+
+    def _controls_in_use(self, pitch_capt, pitch_fo, roll_capt, roll_fo, phase):
+        capt_flying = self._controls_changed(phase.slice, pitch_capt, roll_capt)
+        fo_flying = self._controls_changed(phase.slice, pitch_fo, roll_fo)
+
+        # 1. Cannot determine who is flying - both sets of controls have input:
+        if capt_flying and fo_flying:
+            self.warning("Cannot determine whether captain or first officer "
+                "was at the controls because both controls change during '%s' "
+                "slice.", phase.name)
+            return None
+
+        # 2. The captain was flying the aircraft:
+        if capt_flying:
+            return 'Captain'
+
+        # 3. The first officer was flying the aircraft:
+        if fo_flying:
+            return 'First Officer'
+
+        # 4. No change in captain or first officer controls:
+        self.warning("Both captain and first officer controls do not change "
+            "during '%s' slice.", phase.name)
+        return None
+
+    def _determine_pilot(self, pitch_capt, pitch_fo, roll_capt, roll_fo, phase,
+                               ap1, ap2, ap3):
+
+        # 1. Check for change in controls during the phase:
+        if all((pitch_capt, pitch_fo, roll_capt, roll_fo, phase)):
+            pilot = self._controls_in_use(pitch_capt.array, pitch_fo.array,
+                    roll_capt.array, roll_fo.array, phase)
+            if pilot:
+                return pilot
+
+        # 2. Check which autopilot is engaged:
+        if all((ap1, ap2)):
+            pilot = self._autopilot_engaged(ap1, ap2, ap3)
+            if pilot:
+                return pilot
+
+        return None
+
+
+##############################################################################
 
 
 class InvalidFlightType(Exception):
@@ -31,66 +99,6 @@ class AnalysisDatetime(FlightAttributeNode):
         dependency as it will always be present, though it is unused.
         '''
         self.set_flight_attr(datetime.now())
-
-
-class DeterminePilot(object):
-    def _autopilot_engaged(self, autopilot1, autopilot2):
-        if not autopilot1 or not autopilot2:
-            return None
-        elif autopilot1.value and not autopilot2.value:
-            return 'Captain'
-        elif not autopilot1.value and autopilot2.value:
-            return 'First Officer'
-
-    def _pitch_roll_changed(self, slice_, pitch, roll):
-        '''
-        Check if either pitch or roll changed during slice_.
-        '''
-        return pitch[slice_].ptp() > settings.CONTROLS_IN_USE_TOLERANCE or \
-               roll[slice_].ptp() > settings.CONTROLS_IN_USE_TOLERANCE
-
-    def _controls_in_use(self, pitch_captain, roll_captain, pitch_fo, roll_fo,
-                         section):
-        captain_flying = self._pitch_roll_changed(section.slice, pitch_captain,
-                                                  roll_captain)
-        fo_flying = self._pitch_roll_changed(section.slice, pitch_fo, roll_fo)
-        if captain_flying and fo_flying:
-            self.warning("Cannot determine whether Captain or First "
-                            "Officer was at the controls because both "
-                            "controls change during '%s' slice.",
-                            section.name)
-            return None
-        elif captain_flying:
-            return 'Captain'
-        elif fo_flying:
-            return 'First Officer'
-        else:
-            self.warning("Both captain and first officer controls "
-                         "do not change during '%s' slice.",
-                         section.name)
-            return None
-
-    def _determine_pilot(self, pitch_captain, roll_captain, pitch_fo, roll_fo,
-                         takeoff_or_landing, autopilot1, autopilot2):
-        if not takeoff_or_landing and (not autopilot1 or not autopilot2):
-            return None
-        # 1) Find out whether the captain or first officer's controls changed
-        # during takeoff_or_landing.
-        if pitch_captain and roll_captain and pitch_fo and roll_fo and \
-           takeoff_or_landing:
-            # Detect which controls were in use during takeoff_or_landing.
-            pilot_flying = self._controls_in_use(pitch_captain.array,
-                                                 roll_captain.array,
-                                                 pitch_fo.array,
-                                                 roll_fo.array,
-                                                 takeoff_or_landing)
-            if pilot_flying:
-                return pilot_flying
-
-        # 2) Find out which autopilot is engaged at liftoff.
-        if autopilot1 and autopilot2:
-            pilot_flying = self._autopilot_engaged(autopilot1, autopilot2)
-            return pilot_flying
 
 
 class Duration(FlightAttributeNode):
@@ -478,39 +486,58 @@ class TakeoffGrossWeight(FlightAttributeNode):
             self.set_flight_attr(None)
 
 
-"""
-
-TODO: This code does not identify the pilot correctly. Roll (FO) is the roll
-attitude from the right side instrument, not the Airbus first officer
-sidestick roll input. Needs a rewrite.
-
+# FIXME: Check parameters for pitch and roll for captain and first officer!
+#        What about 'Pitch Command (*)' and 'Sidestick [Pitch|Roll] (*)'?
+# FIXME: This code does not identify the pilot correctly. Roll (FO) is the roll
+#        attitude from the right side instrument, not the Airbus first officer
+#        sidestick roll input. Needs a rewrite.
 class TakeoffPilot(FlightAttributeNode, DeterminePilot):
-    "Pilot flying at takeoff, Captain, First Officer or None"
+    '''
+    Pilot flying at takeoff - may be the captain, first officer or none.
+    '''
+
     name = 'FDR Takeoff Pilot'
+
     @classmethod
     def can_operate(cls, available):
-        controls_available = all([n in available for n in ('Pitch (Capt)',
-                                                           'Pitch (FO)',
-                                                           'Roll (Capt)',
-                                                           'Roll (FO)',
-                                                           'Takeoff')])
-        autopilot_available = 'Autopilot Engaged 1 At Liftoff' in available and\
-                              'Autopilot Engaged 2 At Liftoff' in available
-        return controls_available or autopilot_available
 
-    def derive(self, pitch_captain=P('Pitch (Capt)'),
-               roll_captain=P('Roll (Capt)'), pitch_fo=P('Pitch (FO)'),
-               roll_fo=P('Roll (FO)'), takeoffs=S('Takeoff'),
-               autopilot1=KPV('Autopilot Engaged 1 At Liftoff'),
-               autopilot2=KPV('Autopilot Engaged 2 At Liftoff')):
-        first_takeoff = takeoffs.get_first() if takeoffs else None
-        first_autopilot1 = autopilot1.get_first() if autopilot1 else None
-        first_autopilot2 = autopilot2.get_first() if autopilot2 else None
-        pilot_flying = self._determine_pilot(pitch_captain, roll_captain,
-                                             pitch_fo, roll_fo, first_takeoff,
-                                             first_autopilot1, first_autopilot2)
-        self.set_flight_attr(pilot_flying)
-        """
+        controls = library.all_of((
+            'Pitch (Capt)',
+            'Pitch (FO)',
+            'Roll (Capt)',
+            'Roll (FO)',
+            'Takeoff',
+        ), available)
+        autopilot = library.all_of((
+            'AP (1) Engaged',
+            'AP (2) Engaged',
+            'Liftoff',
+            # Optional: 'AP (3) Engaged'
+        ), available)
+        return controls or autopilot
+
+    def derive(self,
+               pitch_capt=P('Pitch (Capt)'),
+               pitch_fo=P('Pitch (FO)'),
+               roll_capt=P('Roll (Capt)'),
+               roll_fo=P('Roll (FO)'),
+               ap1_eng=M('AP (1) Engaged'),
+               ap2_eng=M('AP (2) Engaged'),
+               ap3_eng=M('AP (3) Engaged'),
+               takeoffs=S('Takeoff'),
+               liftoffs=KTI('Liftoff')):
+
+        phase = takeoffs.get_first() if takeoffs else None
+        index = liftoffs.get_first() if liftoffs else None
+        if index is not None:
+            ap_at_index = lambda ap: library.value_at_index(ap.array, index)
+            ap1 = ap_at_index(ap1_eng) if ap1_eng else None
+            ap2 = ap_at_index(ap2_eng) if ap2_eng else None
+            ap3 = ap_at_index(ap3_eng) if ap3_eng else None
+        else:
+            ap1 = ap2 = ap3 = None
+        args = (pitch_capt, pitch_fo, roll_capt, roll_fo, phase, ap1, ap2, ap3)
+        self.set_flight_attr(self._determine_pilot(*args))
 
 
 class TakeoffRunway(FlightAttributeNode):
@@ -755,34 +782,58 @@ class LandingGrossWeight(FlightAttributeNode):
             self.set_flight_attr(None)
 
 
+# FIXME: Check parameters for pitch and roll for captain and first officer!
+#        What about 'Pitch Command (*)' and 'Sidestick [Pitch|Roll] (*)'?
+# FIXME: This code does not identify the pilot correctly. Roll (FO) is the roll
+#        attitude from the right side instrument, not the Airbus first officer
+#        sidestick roll input. Needs a rewrite.
 class LandingPilot(FlightAttributeNode, DeterminePilot):
-    "Pilot flying at takeoff, Captain, First Officer or None"
+    '''
+    Pilot flying at landing - may be the captain, first officer or none.
+    '''
+
     name = 'FDR Landing Pilot'
+
     @classmethod
     def can_operate(cls, available):
-        controls_available = all([n in available for n in (
-            'Sidestick Pitch (Capt)',
-            'Sidestick Pitch (FO)',
-            'Sidestick Roll (Capt)',
-            'Sidestick Roll (FO)',
-            'Landing')])
-        autopilot_available = 'Autopilot Engaged 1 At Touchdown' in available \
-            and 'Autopilot Engaged 2 At Touchdown' in available
-        return controls_available or autopilot_available
 
-    def derive(self, pitch_captain=P('Sidestick Pitch (Capt)'),
-               roll_captain=P('Sidestick Roll (Capt)'),
-               pitch_fo=P('Sidestick Pitch (FO)'),
-               roll_fo=P('Sidestick Roll (FO)'), landings=S('Landing'),
-               autopilot1=KPV('Autopilot Engaged 1 At Touchdown'),
-               autopilot2=KPV('Autopilot Engaged 2 At Touchdown')):
-        last_landing = landings.get_last()
-        last_autopilot1 = autopilot1.get_last()
-        last_autopilot2 = autopilot2.get_last()
-        pilot_flying = self._determine_pilot(pitch_captain, roll_captain,
-                                             pitch_fo, roll_fo, last_landing,
-                                             last_autopilot1, last_autopilot2)
-        self.set_flight_attr(pilot_flying)
+        controls = library.all_of((
+            'Pitch (Capt)',
+            'Pitch (FO)',
+            'Roll (Capt)',
+            'Roll (FO)',
+            'Landing',
+        ), available)
+        autopilot = library.all_of((
+            'AP (1) Engaged',
+            'AP (2) Engaged',
+            'Touchdown',
+            # Optional: 'AP (3) Engaged'
+        ), available)
+        return controls or autopilot
+
+    def derive(self,
+               pitch_capt=P('Pitch (Capt)'),
+               pitch_fo=P('Pitch (FO)'),
+               roll_capt=P('Roll (Capt)'),
+               roll_fo=P('Roll (FO)'),
+               ap1_eng=M('AP (1) Engaged'),
+               ap2_eng=M('AP (2) Engaged'),
+               ap3_eng=M('AP (3) Engaged'),
+               landings=S('Landing'),
+               touchdowns=KTI('Touchdown')):
+
+        phase = landings.get_last() if landings else None
+        index = touchdowns.get_last() if touchdowns else None
+        if index is not None:
+            ap_at_index = lambda ap: library.value_at_index(ap.array, index)
+            ap1 = ap_at_index(ap1_eng) if ap1_eng else None
+            ap2 = ap_at_index(ap2_eng) if ap2_eng else None
+            ap3 = ap_at_index(ap3_eng) if ap3_eng else None
+        else:
+            ap1 = ap2 = ap3 = None
+        args = (pitch_capt, pitch_fo, roll_capt, roll_fo, phase, ap1, ap2, ap3)
+        self.set_flight_attr(self._determine_pilot(*args))
 
 
 class Version(FlightAttributeNode):
@@ -795,3 +846,7 @@ class Version(FlightAttributeNode):
         dependency as it will always be present, though it is unused.
         '''
         self.set_flight_attr(__version__)
+
+
+##############################################################################
+# vim:et:ft=python:nowrap:sts=4:sw=4:ts=4

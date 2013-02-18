@@ -10,6 +10,7 @@ import pprint
 
 from abc import ABCMeta
 from collections import namedtuple, Iterable
+from functools import total_ordering
 from itertools import product
 from operator import attrgetter
 
@@ -457,10 +458,19 @@ class DerivedParameterNode(Node):
 
     def __init__(self, name='', array=np.ma.array([], dtype=float), frequency=1, offset=0,
                  data_type=None, *args, **kwargs):
-        # create array results placeholder
-        self.array = array # np.ma.array derive result goes here!
+
+        # Set the array on the derive parameter first. Some subclasses of this
+        # class will handle appropriate type conversion of the provided array
+        # in __setattr__:
+        self.array = array  # np.ma.array derive result goes here!
+
+        # Force conversion to a numpy masked array if one is not provided:
+        if not isinstance(self.array, np.ma.MaskedArray):
+            self.array = np.ma.array(array, dtype=float)
+
         if not self.data_type:
             self.data_type = data_type
+
         super(DerivedParameterNode, self).__init__(name=name,
                                                    frequency=frequency,
                                                    offset=offset,
@@ -2044,21 +2054,26 @@ class NodeManager(object):
 # The following acronyms are intended to be used as placeholder values
 # for kwargs in Node derive methods. Cannot instantiate Node subclass without
 # implementing derive.
+@total_ordering
 class Attribute(object):
-    def __repr__(self):
-        return "Attribute(%s, %s)" % (self.name, pprint.pformat(self.value))
+
+    __hash__ = None  # Fix assertItemsEqual in unit tests!
 
     def __init__(self, name, value=None):
         '''
-        :type name: str
         '''
         self.name = name
         self.value = value
         self.frequency = self.hz = self.sample_rate = None
         self.offset = None
 
+    def __repr__(self):
+        '''
+        '''
+        return 'Attribute(%r, %s)' % (self.name, pprint.pformat(self.value))
+
     def __nonzero__(self):
-        """
+        '''
         Set the boolean value of the object depending on it's attriubute
         content.
 
@@ -2068,20 +2083,35 @@ class Attribute(object):
         bool(node) == bool(node.value)
 
         :rtype: bool
-        """
+        '''
         # 0 is a meaningful value. Check self.value is not False as False == 0.
         return bool(self.value or (self.value == 0 and self.value is not False))
 
     def __eq__(self, other):
-        return (isinstance(other, Attribute) and
-                self.name == other.name and
-                self.value == other.value)
+        '''
+        '''
+        return isinstance(other, Attribute) \
+            and self.name == other.name \
+            and self.value == other.value
 
+    def __ne__(self, other):
+        '''
+        '''
+        return not self == other
+
+    def __lt__(self, other):
+        '''
+        '''
+        if self.name == other.name:
+            return self.value < other.value
+        else:
+            return self.name < other.name
+
+    # NOTE: If attributes start storing indices rather than time, this will
+    #       require implementing.
     def get_aligned(self, param):
         '''
         Attributes do not contain data which can be aligned to other parameters.
-        Q: If attributes start storing indices rather than time, this will
-        require implementing.
 
         :returns: self
         :rtype: FlightAttributeNode

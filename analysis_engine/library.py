@@ -4718,7 +4718,8 @@ def is_day(when, latitude, longitude, twilight='civil'):
     # Geom Mean Anom Sun (deg)
     Manom    = 357.52910+Jcent*(35999.05030-Jcent*(0.0001559+0.00000048*Jcent)) # 24.3
     # Eccent Earth Orbit
-    Eccent   = 0.016708617-Jcent*(0.000042037+0.0000001236*Jcent) # 24.4 (significantly changed from web version)
+    ##### XXX: The following line is unused. Remove?
+    ####Eccent   = 0.016708617-Jcent*(0.000042037+0.0000001236*Jcent) # 24.4 (significantly changed from web version)
     # Sun Eq of Ctr
     Seqcent  = sin(radians(Manom))*(1.914600-Jcent*(0.004817+0.000014*Jcent))+sin(radians(2*Manom))*(0.019993-0.000101*Jcent)+sin(radians(3*Manom))*0.000290 # p152
     # Sun True Long (deg)

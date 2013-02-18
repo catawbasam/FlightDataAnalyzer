@@ -24,6 +24,8 @@ from analysis_engine.settings import METRES_TO_FEET
 from flight_phase_test import buildsection
 
 from analysis_engine.derived_parameters import (
+    APEngaged,
+    #ATEngaged,
     AccelerationVertical,
     AccelerationForwards,
     AccelerationSideways,
@@ -43,7 +45,6 @@ from analysis_engine.derived_parameters import (
     #AltitudeRadioForFlightPhases,
     #AltitudeSTD,
     AltitudeTail,
-    AimingPointRange,
     ApproachRange,
     ClimbForFlightPhases,
     Configuration,
@@ -65,6 +66,10 @@ from analysis_engine.derived_parameters import (
     Eng_N3Avg,
     Eng_N3Max,
     Eng_N3Min,
+    Eng_1_FuelBurn,
+    Eng_2_FuelBurn,
+    Eng_3_FuelBurn,
+    Eng_4_FuelBurn,
     Flap,
     FuelQty,
     GearDownSelected,
@@ -156,6 +161,51 @@ class NodeTest(object):
                 self.operational_combinations,
             )
 
+
+##############################################################################
+# Automated Systems
+
+
+class TestAPEngaged(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = APEngaged
+        self.operational_combinations = [
+            ('AP (1) Engaged',),
+            ('AP (2) Engaged',),
+            ('AP (3) Engaged',),
+            ('AP (1) Engaged', 'AP (2) Engaged'),
+            ('AP (1) Engaged', 'AP (3) Engaged'),
+            ('AP (2) Engaged', 'AP (3) Engaged'),
+            ('AP (1) Engaged', 'AP (2) Engaged', 'AP (3) Engaged'),
+        ]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##### FIXME: Re-enable when 'AT Engaged' has been implemented.
+####class TestATEngaged(unittest.TestCase, NodeTest):
+####
+####    def setUp(self):
+####        self.node_class = ATEngaged
+####        self.operational_combinations = [
+####            ('AT (1) Engaged',),
+####            ('AT (2) Engaged',),
+####            ('AT (3) Engaged',),
+####            ('AT (1) Engaged', 'AT (2) Engaged'),
+####            ('AT (1) Engaged', 'AT (3) Engaged'),
+####            ('AT (2) Engaged', 'AT (3) Engaged'),
+####            ('AT (1) Engaged', 'AT (2) Engaged', 'AT (3) Engaged'),
+####        ]
+####
+####    @unittest.skip('Test Not Implemented')
+####    def test_derive(self):
+####        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
 
 class TestAccelerationVertical(unittest.TestCase):
     def test_can_operate(self):
@@ -692,7 +742,7 @@ class TestAltitudeAAL(unittest.TestCase):
         hdf_copy = copy_file(os.path.join(test_data_path,
                                           'alt_aal_faulty_alt_rad.hdf5'),
                              postfix='_test_copy')
-        result = process_flight(hdf_copy, {
+        process_flight(hdf_copy, {
             'engine': {'classification': 'JET',
                        'quantity': 2},
             'frame': {'doubled': False, 'name': '737-3C'},
@@ -707,7 +757,7 @@ class TestAltitudeAAL(unittest.TestCase):
             'recorder': {'name': 'SAGEM', 'serial': '123456'},
             'tail_number': 'G-DEMA'})
         with hdf_file(hdf_copy) as hdf:
-            alt_aal = hdf['Altitude AAL']
+            hdf['Altitude AAL']
             self.assertTrue(False, msg='Test not implemented.')
 
     def test_alt_aal_training_flight(self):
@@ -1805,6 +1855,7 @@ class TestGrossWeightSmoothed(unittest.TestCase):
 
 
 class TestGroundspeedAlongTrack(unittest.TestCase):
+
     @unittest.skip('Commented out until new computation of sliding motion')
     def test_can_operate(self):
         expected = [('Groundspeed','Acceleration Along Track', 'Altitude AAL',
@@ -2492,6 +2543,50 @@ class TestEng_FuelFlow(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_1_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_1_FuelBurn
+        self.operational_combinations = [('Eng (1) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_2_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_2_FuelBurn
+        self.operational_combinations = [('Eng (2) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_3_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_3_FuelBurn
+        self.operational_combinations = [('Eng (3) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_4_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_4_FuelBurn
+        self.operational_combinations = [('Eng (4) Fuel Flow', )]
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')

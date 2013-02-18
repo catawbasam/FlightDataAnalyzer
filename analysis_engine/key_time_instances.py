@@ -97,54 +97,77 @@ class ApproachLowestPoint(KeyTimeInstanceNode):
             if value:
                 self.create_kti(index)
                 '''
-    
 
-class AutopilotEngagedSelection(KeyTimeInstanceNode):
+
+##############################################################################
+# Automated Systems
+
+
+class APEngagedSelection(KeyTimeInstanceNode):
+    '''
+    '''
+
     name = 'AP Engaged Selection'
 
-    def derive(self, autopilot=M('AP Engaged'), phase=S('Airborne')):
+    def derive(self, ap=M('AP Engaged'), phase=S('Airborne')):
+
         self.create_ktis_on_state_change(
             'Engaged',
-            autopilot.array,
+            ap.array,
             change='entering',
             phase=phase
         )
 
 
-class AutopilotDisengagedSelection(KeyTimeInstanceNode):
+class APDisengagedSelection(KeyTimeInstanceNode):
+    '''
+    '''
+
     name = 'AP Disengaged Selection'
 
-    def derive(self, autopilot=M('AP Engaged'), phase=S('Airborne')):
+    def derive(self, ap=M('AP Engaged'), phase=S('Airborne')):
+
         self.create_ktis_on_state_change(
             'Engaged',
-            autopilot.array,
+            ap.array,
             change='leaving',
             phase=phase
         )
 
 
-class AutothrottleEngagedSelection(KeyTimeInstanceNode):
+class ATEngagedSelection(KeyTimeInstanceNode):
+    '''
+    '''
+
     name = 'AT Engaged Selection'
 
-    def derive(self, autothrottle=M('AT Engaged'), phase=S('Airborne')):
+    def derive(self, at=M('AT Engaged'), phase=S('Airborne')):
+
         self.create_ktis_on_state_change(
             'Engaged',
-            autothrottle.array,
+            at.array,
             change='entering',
             phase=phase
         )
 
 
-class AutothrottleDisengagedSelection(KeyTimeInstanceNode):
+class ATDisengagedSelection(KeyTimeInstanceNode):
+    '''
+    '''
+
     name = 'AT Disengaged Selection'
 
-    def derive(self, autothrottle=P('AT Engaged'), phase=S('Airborne')):
+    def derive(self, at=P('AT Engaged'), phase=S('Airborne')):
+
         self.create_ktis_on_state_change(
             'Engaged',
-            autothrottle.array,
+            at.array,
             change='leaving',
             phase=phase
         )
+
+
+##############################################################################
 
 
 class Transmit(KeyTimeInstanceNode):

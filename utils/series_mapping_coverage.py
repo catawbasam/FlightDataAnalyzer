@@ -3,7 +3,6 @@ import csv
 import httplib2
 import os
 import simplejson
-import urllib2
 
 from analysis_engine.model_information import (
     get_aileron_map,
@@ -39,7 +38,7 @@ def get_series():
             lookup_name = lookup.__name__.split('_')[1]
             try:
                 series_info[lookup_name] = 'Y' if lookup(series=series, family=family) else 'N/R'
-            except KeyError as ex:
+            except KeyError:
                 series_info[lookup_name] = 'N'
     return series_list
 

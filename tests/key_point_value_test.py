@@ -1,39 +1,41 @@
+import operator
 import os
 import numpy as np
 import sys
 import unittest
 
-from mock import Mock, patch
+from mock import Mock, call, patch
 
 from utilities.geometry import midpoint
 
 from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, KTI, P, KeyPointValue, KeyTimeInstance, Section, S
+    A, KPV, KTI, P, KeyPointValue, KeyTimeInstance, Section, S
 )
 
 from analysis_engine.key_point_values import (
     AccelerationLateralAtTouchdown,
-    AccelerationLateralDuringLanding,
+    AccelerationLateralDuringLandingMax,
     AccelerationLateralMax,
-    AccelerationLateralTakeoffMax,
-    AccelerationLateralTaxiingStraightMax,
-    AccelerationLateralTaxiingTurnsMax,
+    AccelerationLateralDuringTakeoffMax,
+    AccelerationLateralWhileTaxiingStraightMax,
+    AccelerationLateralWhileTaxiingTurnMax,
+    AccelerationLateralOffset,
     AccelerationLongitudinalDuringTakeoffMax,
     AccelerationLongitudinalDuringLandingMax,
     AccelerationNormal20FtToFlareMax,
-    AccelerationNormalAirborneFlapsDownMax,
-    AccelerationNormalAirborneFlapsDownMin,
-    AccelerationNormalAirborneFlapsUpMax,
-    AccelerationNormalAirborneFlapsUpMin,
+    AccelerationNormalWithFlapDownWhileAirborneMax,
+    AccelerationNormalWithFlapDownWhileAirborneMin,
+    AccelerationNormalWithFlapUpWhileAirborneMax,
+    AccelerationNormalWithFlapUpWhileAirborneMin,
     AccelerationNormalAtLiftoff,
     AccelerationNormalAtTouchdown,
     AccelerationNormalLiftoffTo35FtMax,
     AccelerationNormalMax,
     AccelerationNormalOffset,
     Airspeed10000To8000FtMax,
-    Airspeed10000ToLandMax,
+    AirspeedBelow10000FtDuringDescentMax,
     Airspeed1000To500FtMax,
     Airspeed1000To500FtMin,
     Airspeed1000To8000FtMax,
@@ -45,27 +47,27 @@ from analysis_engine.key_point_values import (
     Airspeed500To20FtMin,
     Airspeed8000To10000FtMax,
     Airspeed8000To5000FtMax,
-    AirspeedAsGearExtendingMax,
-    AirspeedAsGearRetractingMax,
-    AirspeedAt35FtInTakeoff,
+    AirspeedWhileGearExtendingMax,
+    AirspeedWhileGearRetractingMax,
+    AirspeedAt35FtDuringTakeoff,
     AirspeedAtGearDownSelection,
     AirspeedAtGearUpSelection,
     AirspeedAtLiftoff,
     AirspeedAtTouchdown,
     AirspeedBelowAltitudeMax,
     AirspeedBetween90SecToTouchdownAndTouchdownMax,
-    AirspeedCruiseMax,
-    AirspeedCruiseMin,
+    AirspeedDuringCruiseMax,
+    AirspeedDuringCruiseMin,
     AirspeedGustsDuringFinalApproach,
-    AirspeedLevelFlightMax,
+    AirspeedDuringLevelFlightMax,
     AirspeedMax,
     AirspeedMinusV235To1000FtMax,
     AirspeedMinusV235To1000FtMin,
     AirspeedMinusV2For3Sec35To1000FtMax,
     AirspeedMinusV2For3Sec35To1000FtMin,
-    AirspeedMinusV2At35Ft,
+    AirspeedMinusV2At35FtDuringTakeoff,
     AirspeedMinusV2AtLiftoff,
-    AirspeedRTOMax,
+    AirspeedDuringRejectedTakeoffMax,
     AirspeedRelative1000To500FtMax,
     AirspeedRelative1000To500FtMin,
     AirspeedRelative20FtToTouchdownMax,
@@ -79,15 +81,16 @@ from analysis_engine.key_point_values import (
     AirspeedRelativeFor3Sec20FtToTouchdownMin,
     AirspeedRelativeFor3Sec500To20FtMax,
     AirspeedRelativeFor3Sec500To20FtMin,
-    AirspeedRelativeWithFlapDescentMin,
-    AirspeedTODTo10000Max,
-    AirspeedThrustReverseDeployedMin,
+    AirspeedRelativeWithFlapDuringDescentMin,
+    AirspeedTopOfDescentTo10000FtMax,
+    AirspeedWithThrustReversersDeployedMin,
+    AirspeedAtThrustReversersSelection,
     AirspeedTrueAtTouchdown,
     AirspeedVacatingRunway,
-    AirspeedWithFlapClimbMax,
-    AirspeedWithFlapClimbMin,
-    AirspeedWithFlapDescentMax,
-    AirspeedWithFlapDescentMin,
+    AirspeedWithFlapDuringClimbMax,
+    AirspeedWithFlapDuringClimbMin,
+    AirspeedWithFlapDuringDescentMax,
+    AirspeedWithFlapDuringDescentMin,
     AirspeedWithFlapMax,
     AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
@@ -101,26 +104,24 @@ from analysis_engine.key_point_values import (
     AltitudeAtGearDownSelection,
     AltitudeAtGearUpSelection,
     AltitudeAtTouchdown,
-    AltitudeAutopilotDisengaged,
-    AltitudeAutopilotEngaged,
-    AltitudeAutothrottleDisengaged,
-    AltitudeAutothrottleEngaged,
+    AltitudeAtAPDisengagedSelection,
+    AltitudeAtAPEngagedSelection,
+    AltitudeAtATDisengagedSelection,
+    AltitudeAtATEngagedSelection,
     AltitudeFirstStableDuringApproach,
     AltitudeFlapExtensionMax,
     AltitudeGoAroundFlapRetracted,
     AltitudeLastUnStableDuringApproach,
     AltitudeMax,
-    AltitudeMinsToTouchdown,
     AltitudeWithFlapsMax,
     AOAInGoAroundMax,
     AOAWithFlapMax,
     APDisengagedDuringCruiseDuration,
-    AP1EngagedAtLiftoff,
-    AP1EngagedAtTouchdown,
     BrakePressureInTakeoffRollMax,
     ControlColumnStiffness,
     DecelerationFromTouchdownToStopOnRunway,
     DelayedBrakingAfterTouchdown,
+    EngBleedValvesAtLiftoff,
     EngEPR500FtToTouchdownMin,
     EngGasTempTakeoffMax,
     EngN1500To20FtMin,
@@ -139,11 +140,13 @@ from analysis_engine.key_point_values import (
     FlareDuration20FtToTouchdown,
     FuelQtyAtLiftoff,
     FuelQtyAtTouchdown,
+    GroundspeedAtTOGA,
     GroundspeedAtTouchdown,
-    GroundspeedOnGroundMax,
-    GroundspeedRTOMax,
-    GroundspeedTaxiingStraightMax,
-    GroundspeedTaxiingTurnsMax,
+    GroundspeedMax,
+    GroundspeedDuringRejectedTakeoffMax,
+    GroundspeedWhileTaxiingStraightMax,
+    GroundspeedWhileTaxiingTurnMax,
+    GroundspeedWithThrustReversersDeployedMin,
     GroundspeedVacatingRunway,
     GrossWeightAtLiftoff,
     GrossWeightAtTouchdown,
@@ -161,7 +164,8 @@ from analysis_engine.key_point_values import (
     HeightLossLiftoffTo35Ft,
     HeightLoss35To1000Ft,
     HeightLoss1000To2000Ft,
-    ILSFrequencyOnApproach,
+    HeightMinsToTouchdown,
+    ILSFrequencyDuringApproach,
     ILSGlideslopeDeviation1500To1000FtMax,
     ILSGlideslopeDeviation1000To500FtMax,
     ILSGlideslopeDeviation500To200FtMax,
@@ -177,8 +181,8 @@ from analysis_engine.key_point_values import (
     LongitudeAtLiftoff,
     LongitudeAtTakeoff,
     LongitudeAtTouchdown,
-    MachAsGearExtendingMax,
-    MachAsGearRetractingMax,
+    MachWhileGearExtendingMax,
+    MachWhileGearRetractingMax,
     MachMax,
     MachWithGearDownMax,
     PercentApproachStableBelow1000Ft,
@@ -203,11 +207,11 @@ from analysis_engine.key_point_values import (
     PitchRate20FtToTouchdownMin,
     PitchRate2DegPitchTo35FtMax,
     PitchRate2DegPitchTo35FtMin,
-    PitchRate2DegPitchTo35FtAverage,
     PitchTakeoffTo35FtMax,
     RateOfClimbMax,
     RateOfClimb35To1000FtMin,
     RateOfClimbBelow10000FtMax,
+    RateOfClimbDuringGoAroundMax,
     RateOfDescent10000To5000FtMax,
     RateOfDescent5000To3000FtMax,
     RateOfDescent3000To2000FtMax,
@@ -219,6 +223,7 @@ from analysis_engine.key_point_values import (
     RateOfDescentBelow10000FtMax,
     RateOfDescentMax,
     RateOfDescentTopOfDescentTo10000FtMax,
+    RateOfDescentDuringGoAroundMax,
     RollTakeoffTo20FtMax,
     Roll20To400FtMax,
     Roll400To1000FtMax,
@@ -230,21 +235,22 @@ from analysis_engine.key_point_values import (
     RollCyclesNotInFinalApproach,
     RudderExcursionDuringTakeoff,
     RudderReversalAbove50Ft,
-    SpeedbrakesDeployedInGoAroundDuration,
-    SpeedbrakesDeployed1000To20FtDuration,
-    SpeedbrakesDeployedWithPowerOnDuration,
-    SpeedbrakesDeployedWithConfDuration,
-    SpeedbrakesDeployedWithFlapDuration,
-    SpeedbrakesDeployedWithPowerOnInHeightBandsDuration,
-    TailClearanceOnApproach,
-    TailClearanceOnLandingMin,
-    TailClearanceOnTakeoffMin,
+    SpeedbrakeDeployedDuringGoAroundDuration,
+    SpeedbrakeDeployed1000To20FtDuration,
+    SpeedbrakeDeployedWithPowerOnDuration,
+    SpeedbrakeDeployedWithConfDuration,
+    SpeedbrakeDeployedWithFlapDuration,
+    StickPusherActivatedDuration,
+    StickShakerActivatedDuration,
+    TailClearanceDuringApproachMin,
+    TailClearanceDuringLandingMin,
+    TailClearanceDuringTakeoffMin,
     TailwindLiftoffTo100FtMax,
     Tailwind100FtToTouchdownMax,
     TCASRAWarningDuration,
     TCASRAReactionDelay,
     TCASRAInitialReactionStrength,
-    TCASRAToAPDisengageDuration,
+    TCASRAToAPDisengagedDuration,
     TerrainClearanceAbove3000FtMin,
     ThrottleCyclesInFinalApproach,
     ThrustAsymmetryInFlight,
@@ -256,15 +262,30 @@ from analysis_engine.key_point_values import (
     ThrustAsymmetryWithReverseThrustDuration,
     TouchdownTo60KtsDuration,
     TouchdownToElevatorDownDuration,
-    TurbulenceInApproachMax,
-    TurbulenceInCruiseMax,
-    TurbulenceInFlightMax,
-    TwoDegPitchTo35FtDuration,
-    VerticalSpeedInGoAroundMax,
+    TurbulenceDuringApproachMax,
+    TurbulenceDuringCruiseMax,
+    TurbulenceDuringFlightMax,
     WindAcrossLandingRunwayAt50Ft,
-    WindDirectionInDescent,
-    WindSpeedInDescent,
+    WindDirectionAtAltitudeDuringDescent,
+    WindSpeedAtAltitudeDuringDescent,
     ZeroFuelWeight,
+    TakeoffConfigWarningDuration,
+    MasterWarningDuringTakeoffDuration,
+    MasterCautionDuringTakeoffDuration,
+    TAWSAlertDuration,
+    TAWSGeneralWarningDuration,
+    TAWSSinkRateWarningDuration,
+    TAWSTooLowFlapWarningDuration,
+    TAWSTerrainWarningDuration,
+    TAWSTerrainPullUpWarningDuration,
+    TAWSGlideslopeWarning1500To1000FtDuration,
+    TAWSGlideslopeWarning1000To500FtDuration,
+    TAWSGlideslopeWarning500To200FtDuration,
+    TAWSTooLowTerrainWarningDuration,
+    TAWSTooLowGearWarningDuration,
+    TAWSPullUpWarningDuration,
+    TAWSDontSinkWarningDuration,
+    TAWSWindshearWarningBelow1500FtDuration,
 )
 from analysis_engine.key_time_instances import Eng_Stop
 from analysis_engine.library import (max_abs_value, max_value, min_value)
@@ -278,11 +299,12 @@ test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
 
 
-################################################################################
+##############################################################################
 # Superclasses
 
 
 class NodeTest(object):
+
     def test_can_operate(self):
         self.assertEqual(
             self.node_class.get_operational_combinations(),
@@ -454,49 +476,20 @@ class ILSTest(NodeTest):
         return ils_localizer, alt_aal, ils_ests
 
 
-################################################################################
+##############################################################################
 # Test Classes
 
 
-################################################################################
+##############################################################################
 # Acceleration
 
 
-class TestAccelerationLateralAtTouchdown(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AccelerationLateralAtTouchdown
-        self.operational_combinations = [('Acceleration Lateral Offset Removed', 'Touchdown')]
-
-    @patch('analysis_engine.key_point_values.bump')
-    def test_derive(self, bump):
-        values = [(1, 2,), (3, 4,)]
-        bump.side_effect = lambda *args, **kwargs: values.pop()
-        node = AccelerationLateralAtTouchdown()
-        acc = Mock()
-        tdwn = [Section('Touchdown', slice(10, 20), 10, 20),
-                Section('Touchdown', slice(30, 40), 30, 40),]
-        node.derive(acc, tdwn)
-        self.assertEqual(bump.call_args_list[0][0], (acc, tdwn[0]))
-        self.assertEqual(bump.call_args_list[1][0], (acc, tdwn[1]))
-        self.assertEqual(
-            node,
-            [KeyPointValue(3, 4.0, 'Acceleration Lateral At Touchdown',
-                           slice(None, None)),
-             KeyPointValue(1, 2.0, 'Acceleration Lateral At Touchdown',
-                           slice(None, None))])
-
-
-class TestAccelerationLateralDuringLanding(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AccelerationLateralDuringLanding
-        self.operational_combinations = [('Acceleration Lateral Offset Removed', 'Landing Roll', 'FDR Landing Runway')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
+########################################
+# Acceleration: Lateral
 
 
 class TestAccelerationLateralMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = AccelerationLateralMax
         self.operational_combinations = [
@@ -509,12 +502,37 @@ class TestAccelerationLateralMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAccelerationLateralTakeoffMax(unittest.TestCase,
-                                        CreateKPVsWithinSlicesTest):
+class TestAccelerationLateralAtTouchdown(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = AccelerationLateralTakeoffMax
-        self.operational_combinations = [
-            ('Acceleration Lateral Offset Removed', 'Takeoff Roll')]
+        self.node_class = AccelerationLateralAtTouchdown
+        self.operational_combinations = [('Acceleration Lateral Offset Removed', 'Touchdown')]
+
+    @patch('analysis_engine.key_point_values.bump')
+    def test_derive(self, bump):
+        bump.side_effect = [(3, 4), (1, 2)]
+        acc_lat = Mock()
+        touchdowns = KTI('Touchdown', items=[
+            KeyTimeInstance(3, 'Touchdown'),
+            KeyTimeInstance(1, 'Touchdown'),
+        ])
+        node = AccelerationLateralAtTouchdown()
+        node.derive(acc_lat, touchdowns)
+        bump.assert_has_calls([
+            call(acc_lat, touchdowns[0]),
+            call(acc_lat, touchdowns[1]),
+        ])
+        self.assertEqual(node, [
+            KeyPointValue(3, 4.0, 'Acceleration Lateral At Touchdown', slice(None, None)),
+            KeyPointValue(1, 2.0, 'Acceleration Lateral At Touchdown', slice(None, None)),
+        ])
+
+
+class TestAccelerationLateralDuringTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = AccelerationLateralDuringTakeoffMax
+        self.operational_combinations = [('Acceleration Lateral Offset Removed', 'Takeoff Roll')]
         self.function = max_abs_value
 
     @unittest.skip('Test Not Implemented')
@@ -522,9 +540,21 @@ class TestAccelerationLateralTakeoffMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAccelerationLateralTaxiingStraightMax(unittest.TestCase, NodeTest):
+class TestAccelerationLateralDuringLandingMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = AccelerationLateralTaxiingStraightMax
+        self.node_class = AccelerationLateralDuringLandingMax
+        self.operational_combinations = [('Acceleration Lateral Offset Removed', 'Landing Roll', 'FDR Landing Runway')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAccelerationLateralWhileTaxiingStraightMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AccelerationLateralWhileTaxiingStraightMax
         self.operational_combinations = [('Acceleration Lateral Offset Removed', 'Taxiing', 'Turning On Ground')]
 
     @unittest.skip('Test Not Implemented')
@@ -532,17 +562,30 @@ class TestAccelerationLateralTaxiingStraightMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAccelerationLateralTaxiingTurnsMax(unittest.TestCase,
-                                             CreateKPVsWithinSlicesTest):
+class TestAccelerationLateralWhileTaxiingTurnMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = AccelerationLateralTaxiingTurnsMax
-        self.operational_combinations = [('Acceleration Lateral Offset Removed',
-                                          'Turning On Ground',)]
-        self.function = max_abs_value
+        self.node_class = AccelerationLateralWhileTaxiingTurnMax
+        self.operational_combinations = [('Acceleration Lateral Offset Removed', 'Taxiing', 'Turning On Ground')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAccelerationLateralOffset(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AccelerationLateralOffset
+        self.operational_combinations = [('Acceleration Lateral', 'Taxiing', 'Turning On Ground')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+########################################
+# Acceleration: Longitudinal
 
 
 class TestAccelerationLongitudinalDuringTakeoffMax(unittest.TestCase, CreateKPVFromSlicesTest):
@@ -569,11 +612,15 @@ class TestAccelerationLongitudinalDuringLandingMax(unittest.TestCase, CreateKPVF
         self.assertTrue(False, msg='Test Not Implemented')
 
 
+########################################
+# Acceleration: Normal
+
+
 class TestAccelerationNormalMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
     def setUp(self):
         self.node_class = AccelerationNormalMax
-        self.operational_combinations = [('Acceleration Normal Offset Removed',
-                                          'Mobile')]
+        self.operational_combinations = [('Acceleration Normal Offset Removed', 'Mobile')]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
@@ -581,41 +628,39 @@ class TestAccelerationNormalMax(unittest.TestCase, CreateKPVFromSlicesTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAccelerationNormal20FtToFlareMax(unittest.TestCase,
-                                           CreateKPVsWithinSlicesTest):
+class TestAccelerationNormal20FtToFlareMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AccelerationNormal20FtToFlareMax
-        self.operational_combinations = [('Acceleration Normal Offset Removed',
-                                          'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Acceleration Normal Offset Removed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (20, 5,), {})]
+        self.second_param_method_calls = [('slices_from_to', (20, 5), {})]
 
     def test_derive(self):
         '''
         Depends upon DerivedParameterNode.slices_from_to and library.max_value.
         '''
-        # Test height range limit
+        # Test height range limit:
         alt_aal = P('Altitude AAL For Flight Phases', np.ma.arange(48, 0, -3))
-        acceleration_normal = \
-            P('Acceleration Normal',
-              np.ma.array(range(10,18) + range(18, 10, -1)) / 10.0)
+        acc_norm = P('Acceleration Normal', np.ma.array(range(10, 18) + range(18, 10, -1)) / 10.0)
         node = AccelerationNormal20FtToFlareMax()
-        node.derive(acceleration_normal, alt_aal)
-        self.assertEqual(node,
-                [KeyPointValue(index=10, value=1.6,
-                               name='Acceleration Normal 20 Ft To Flare Max')])
-        # Test peak acceleration
+        node.derive(acc_norm, alt_aal)
+        self.assertEqual(node, [
+            KeyPointValue(index=10, value=1.6, name='Acceleration Normal 20 Ft To Flare Max'),
+        ])
+        # Test peak acceleration:
         alt_aal = P('Altitude AAL For Flight Phases', np.ma.arange(32, 0, -2))
         node = AccelerationNormal20FtToFlareMax()
-        node.derive(acceleration_normal, alt_aal)
-        self.assertEqual(node,
-                [KeyPointValue(index=8, value=1.8,
-                               name='Acceleration Normal 20 Ft To Flare Max')])
+        node.derive(acc_norm, alt_aal)
+        self.assertEqual(node, [
+            KeyPointValue(index=8, value=1.8, name='Acceleration Normal 20 Ft To Flare Max'),
+        ])
 
 
-class TestAccelerationNormalAirborneFlapsUpMax(unittest.TestCase, NodeTest):
+class TestAccelerationNormalWithFlapUpWhileAirborneMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = AccelerationNormalAirborneFlapsUpMax
+        self.node_class = AccelerationNormalWithFlapUpWhileAirborneMax
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'Flap', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
@@ -623,9 +668,10 @@ class TestAccelerationNormalAirborneFlapsUpMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAccelerationNormalAirborneFlapsUpMin(unittest.TestCase, NodeTest):
+class TestAccelerationNormalWithFlapUpWhileAirborneMin(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = AccelerationNormalAirborneFlapsUpMin
+        self.node_class = AccelerationNormalWithFlapUpWhileAirborneMin
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'Flap', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
@@ -633,9 +679,10 @@ class TestAccelerationNormalAirborneFlapsUpMin(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAccelerationNormalAirborneFlapsDownMax(unittest.TestCase, NodeTest):
+class TestAccelerationNormalWithFlapDownWhileAirborneMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = AccelerationNormalAirborneFlapsDownMax
+        self.node_class = AccelerationNormalWithFlapDownWhileAirborneMax
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'Flap', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
@@ -643,9 +690,10 @@ class TestAccelerationNormalAirborneFlapsDownMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAccelerationNormalAirborneFlapsDownMin(unittest.TestCase, NodeTest):
+class TestAccelerationNormalWithFlapDownWhileAirborneMin(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = AccelerationNormalAirborneFlapsDownMin
+        self.node_class = AccelerationNormalWithFlapDownWhileAirborneMin
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'Flap', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
@@ -653,62 +701,63 @@ class TestAccelerationNormalAirborneFlapsDownMin(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAccelerationNormalAtLiftoff(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(
-            AccelerationNormalAtLiftoff.get_operational_combinations(),
-            [('Acceleration Normal Offset Removed', 'Liftoff',)])
+class TestAccelerationNormalAtLiftoff(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AccelerationNormalAtLiftoff
+        self.operational_combinations = [('Acceleration Normal Offset Removed', 'Liftoff')]
 
     @patch('analysis_engine.key_point_values.bump')
     def test_derive(self, bump):
-        values = [(1, 2,), (3, 4,)]
-        bump.side_effect = lambda *args, **kwargs: values.pop()
+        bump.side_effect = [(3, 4), (1, 2)]
+        acc_norm = Mock()
+        liftoffs = KTI('Liftoff', items=[
+            KeyTimeInstance(3, 'Liftoff'),
+            KeyTimeInstance(1, 'Liftoff'),
+        ])
         node = AccelerationNormalAtLiftoff()
-        acc = Mock()
-        tdwn = [Section('Liftoff', slice(10, 20), 10, 20),
-                Section('Liftoff', slice(30, 40), 30, 40),]
-        node.derive(acc, tdwn)
-        self.assertEqual(bump.call_args_list[0][0], (acc, tdwn[0]))
-        self.assertEqual(bump.call_args_list[1][0], (acc, tdwn[1]))
-        self.assertEqual(
-            node,
-            [KeyPointValue(3, 4.0, 'Acceleration Normal At Liftoff',
-                           slice(None, None)),
-             KeyPointValue(1, 2.0, 'Acceleration Normal At Liftoff',
-                           slice(None, None))])
+        node.derive(acc_norm, liftoffs)
+        bump.assert_has_calls([
+            call(acc_norm, liftoffs[0]),
+            call(acc_norm, liftoffs[1]),
+        ])
+        self.assertEqual(node, [
+            KeyPointValue(3, 4.0, 'Acceleration Normal At Liftoff', slice(None, None)),
+            KeyPointValue(1, 2.0, 'Acceleration Normal At Liftoff', slice(None, None)),
+        ])
 
 
-class TestAccelerationNormalAtTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(
-            AccelerationNormalAtTouchdown.get_operational_combinations(),
-            [('Acceleration Normal Offset Removed', 'Touchdown',)])
+class TestAccelerationNormalAtTouchdown(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AccelerationNormalAtTouchdown
+        self.operational_combinations = [('Acceleration Normal Offset Removed', 'Touchdown')]
 
     @patch('analysis_engine.key_point_values.bump')
     def test_derive(self, bump):
-        values = [(1, 2,), (3, 4,)]
-        bump.side_effect = lambda *args, **kwargs: values.pop()
+        bump.side_effect = [(3, 4), (1, 2)]
+        acc_norm = Mock()
+        touchdowns = KTI('Touchdown', items=[
+            KeyTimeInstance(3, 'Touchdown'),
+            KeyTimeInstance(1, 'Touchdown'),
+        ])
         node = AccelerationNormalAtTouchdown()
-        acc = Mock()
-        tdwn = [Section('Touchdown', slice(10, 20), 10, 20),
-                Section('Touchdown', slice(30, 40), 30, 40),]
-        node.derive(acc, tdwn)
-        self.assertEqual(bump.call_args_list[0][0], (acc, tdwn[0]))
-        self.assertEqual(bump.call_args_list[1][0], (acc, tdwn[1]))
-        self.assertEqual(
-            node,
-            [KeyPointValue(3, 4.0, 'Acceleration Normal At Touchdown',
-                           slice(None, None)),
-             KeyPointValue(1, 2.0, 'Acceleration Normal At Touchdown',
-                           slice(None, None))])
+        node.derive(acc_norm, touchdowns)
+        bump.assert_has_calls([
+            call(acc_norm, touchdowns[0]),
+            call(acc_norm, touchdowns[1]),
+        ])
+        self.assertEqual(node, [
+            KeyPointValue(3, 4.0, 'Acceleration Normal At Touchdown', slice(None, None)),
+            KeyPointValue(1, 2.0, 'Acceleration Normal At Touchdown', slice(None, None)),
+        ])
 
 
-class TestAccelerationNormalLiftoffTo35FtMax(unittest.TestCase,
-                                             CreateKPVsWithinSlicesTest):
+class TestAccelerationNormalLiftoffTo35FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AccelerationNormalLiftoffTo35FtMax
-        self.operational_combinations = [('Acceleration Normal Offset Removed',
-                                          'Takeoff',)]
+        self.operational_combinations = [('Acceleration Normal Offset Removed', 'Takeoff')]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
@@ -716,17 +765,8 @@ class TestAccelerationNormalLiftoffTo35FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAccelerationLateralOffset(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestAccelerationNormalOffset(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = AccelerationNormalOffset
         self.operational_combinations = [('Acceleration Normal', 'Taxiing')]
@@ -736,7 +776,7 @@ class TestAccelerationNormalOffset(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Airspeed
 
 
@@ -745,19 +785,20 @@ class TestAccelerationNormalOffset(unittest.TestCase, NodeTest):
 
 
 class TestAirspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedMax
         self.operational_combinations = [('Airspeed', 'Airborne')]
         self.function = max_value
 
     def test_derive_basic(self):
-        testline = np.arange(0,12.6,0.1)
-        testwave = (np.cos(testline)*(-100))+100
+        testline = np.arange(0, 12.6, 0.1)
+        testwave = np.cos(testline) * -100 + 100
         spd = P('Airspeed', np.ma.array(testwave))
-        waves=np.ma.clump_unmasked(np.ma.masked_less(testwave,80))
-        airs=[]
+        waves=np.ma.clump_unmasked(np.ma.masked_less(testwave, 80))
+        airs = []
         for wave in waves:
-            airs.append(Section('Airborne',wave, wave.start, wave.stop))
+            airs.append(Section('Airborne', wave, wave.start, wave.stop))
         kpv = AirspeedMax()
         kpv.derive(spd, airs)
         self.assertEqual(len(kpv), 2)
@@ -769,10 +810,11 @@ class TestAirspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertLess(kpv[1].value, 200)
 
 
-class TestAirspeedCruiseMax(unittest.TestCase, CreateKPVFromSlicesTest):
+class TestAirspeedDuringCruiseMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = AirspeedCruiseMax
-        self.operational_combinations = [('Airspeed', 'Cruise',)]
+        self.node_class = AirspeedDuringCruiseMax
+        self.operational_combinations = [('Airspeed', 'Cruise')]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
@@ -780,10 +822,11 @@ class TestAirspeedCruiseMax(unittest.TestCase, CreateKPVFromSlicesTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedCruiseMin(unittest.TestCase, CreateKPVFromSlicesTest):
+class TestAirspeedDuringCruiseMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = AirspeedCruiseMin
-        self.operational_combinations = [('Airspeed', 'Cruise',)]
+        self.node_class = AirspeedDuringCruiseMin
+        self.operational_combinations = [('Airspeed', 'Cruise')]
         self.function = min_value
 
     @unittest.skip('Test Not Implemented')
@@ -791,25 +834,35 @@ class TestAirspeedCruiseMin(unittest.TestCase, CreateKPVFromSlicesTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedGustsDuringFinalApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test Not Implemented')
+class TestAirspeedGustsDuringFinalApproach(unittest.TestCase, NodeTest):
 
-    # This function interpolates twice, hence the more complex test case.
+    def setUp(self):
+        self.node_class = AirspeedGustsDuringFinalApproach
+        self.operational_combinations = [('Airspeed', 'Groundspeed', 'Altitude Radio', 'Airborne')]
+
     def test_derive_basic(self):
-        aspd = P('Airspeed',
-                 np.ma.array([180, 180, 180, 180, 170, 150, 140, 120, 100]),
-                 frequency=1.0, offset=0.0)
-        gspd = P('Groundspeed',
-                 np.ma.array([180, 180, 180, 180, 170, 100, 100, 100, 100]),
-                 frequency=1.0, offset=0.0)
-        alt = P('Altitude Radio',
-                np.ma.array([45, 45, 45, 45, 35, 25, 15, 5, 0]),
-                frequency=1.0, offset=0.0)
-        airs = S(items=[Section('Airborne', slice(3, 9), 3, 9)])
+        # This function interpolates twice, hence the more complex test case.
+        air_spd = P(
+            name='Airspeed',
+            array=np.ma.array([180, 180, 180, 180, 170, 150, 140, 120, 100]),
+            frequency=1.0,
+            offset=0.0,
+        )
+        gnd_spd = P(
+            name='Groundspeed',
+            array=np.ma.array([180, 180, 180, 180, 170, 100, 100, 100, 100]),
+            frequency=1.0,
+            offset=0.0,
+        )
+        alt_rad = P(
+            name='Altitude Radio',
+            array=np.ma.array([45, 45, 45, 45, 35, 25, 15, 5, 0]),
+            frequency=1.0,
+            offset=0.0,
+        )
+        airborne = S(items=[Section('Airborne', slice(3, 9), 3, 9)])
         kpv = AirspeedGustsDuringFinalApproach()
-        kpv.get_derived([aspd, gspd, alt, airs])
+        kpv.get_derived([air_spd, gnd_spd, alt_rad, airborne])
         self.assertEqual(kpv[0].value, 25)
         self.assertEqual(kpv[0].index, 4.75)
 
@@ -818,20 +871,21 @@ class TestAirspeedGustsDuringFinalApproach(unittest.TestCase):
 # Airspeed: Climbing
 
 
-class TestAirspeedAtLiftoff(unittest.TestCase,
-                            CreateKPVsAtKTIsTest):
+class TestAirspeedAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = AirspeedAtLiftoff
-        self.operational_combinations = [('Airspeed', 'Liftoff',)]
+        self.operational_combinations = [('Airspeed', 'Liftoff')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedAt35FtInTakeoff(unittest.TestCase, NodeTest):
+class TestAirspeedAt35FtDuringTakeoff(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = AirspeedAt35FtInTakeoff
+        self.node_class = AirspeedAt35FtDuringTakeoff
         self.operational_combinations = [('Airspeed', 'Takeoff')]
 
     @unittest.skip('Test Not Implemented')
@@ -839,12 +893,11 @@ class TestAirspeedAt35FtInTakeoff(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeed35To1000FtMax(unittest.TestCase,
-                                CreateKPVsWithinSlicesTest):
+class TestAirspeed35To1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed35To1000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
 
@@ -853,12 +906,11 @@ class TestAirspeed35To1000FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeed35To1000FtMin(unittest.TestCase,
-                                CreateKPVsWithinSlicesTest):
+class TestAirspeed35To1000FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed35To1000FtMin
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
 
@@ -868,10 +920,10 @@ class TestAirspeed35To1000FtMin(unittest.TestCase,
 
 
 class TestAirspeed1000To8000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed1000To8000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (1000, 8000), {})]
 
@@ -881,10 +933,10 @@ class TestAirspeed1000To8000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
 
 class TestAirspeed8000To10000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed8000To10000FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (8000, 10000), {})]
 
@@ -898,9 +950,10 @@ class TestAirspeed8000To10000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
 
 class TestAirspeed10000To8000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed10000To8000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (10000, 8000), {})]
 
@@ -910,9 +963,10 @@ class TestAirspeed10000To8000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
 
 class TestAirspeed8000To5000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed8000To5000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (8000, 5000), {})]
 
@@ -922,9 +976,10 @@ class TestAirspeed8000To5000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
 
 class TestAirspeed5000To3000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed5000To3000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (5000, 3000), {})]
 
@@ -934,9 +989,10 @@ class TestAirspeed5000To3000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
 
 class TestAirspeed3000To1000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed3000To1000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (3000, 1000), {})]
 
@@ -946,10 +1002,10 @@ class TestAirspeed3000To1000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
 
 class TestAirspeed1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed1000To500FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (1000, 500,), {})]
 
@@ -957,8 +1013,7 @@ class TestAirspeed1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         testline = np.arange(0, 12.6, 0.1)
         testwave = (np.cos(testline) * -100) + 100
         spd = P('Airspeed', np.ma.array(testwave))
-        alt_ph = P('Altitude AAL For Flight Phases',
-                           np.ma.array(testwave) * 10)
+        alt_ph = P('Altitude AAL For Flight Phases', np.ma.array(testwave) * 10)
         kpv = Airspeed1000To500FtMax()
         kpv.derive(spd, alt_ph)
         self.assertEqual(len(kpv), 2)
@@ -968,12 +1023,11 @@ class TestAirspeed1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertEqual(kpv[1].value, 99.557430201194919)
 
 
-class TestAirspeed1000To500FtMin(unittest.TestCase,
-                                 CreateKPVsWithinSlicesTest):
+class TestAirspeed1000To500FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed1000To500FtMin
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
 
@@ -982,12 +1036,11 @@ class TestAirspeed1000To500FtMin(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeed500To20FtMax(unittest.TestCase,
-                                CreateKPVsWithinSlicesTest):
+class TestAirspeed500To20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed500To20FtMax
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
 
@@ -996,12 +1049,11 @@ class TestAirspeed500To20FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeed500To20FtMin(unittest.TestCase,
-                                CreateKPVsWithinSlicesTest):
+class TestAirspeed500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = Airspeed500To20FtMin
-        self.operational_combinations = [('Airspeed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
 
@@ -1011,6 +1063,7 @@ class TestAirspeed500To20FtMin(unittest.TestCase,
 
 
 class TestAirspeedAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = AirspeedAtTouchdown
         self.operational_combinations = [('Airspeed', 'Touchdown')]
@@ -1020,11 +1073,11 @@ class TestAirspeedAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedTrueAtTouchdown(unittest.TestCase,
-                                  CreateKPVsAtKTIsTest):
+class TestAirspeedTrueAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = AirspeedTrueAtTouchdown
-        self.operational_combinations = [('Airspeed True', 'Touchdown',)]
+        self.operational_combinations = [('Airspeed True', 'Touchdown')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -1036,6 +1089,7 @@ class TestAirspeedTrueAtTouchdown(unittest.TestCase,
 
 
 class TestAirspeedMinusV2AtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = AirspeedMinusV2AtLiftoff
         self.operational_combinations = [('Airspeed Minus V2', 'Liftoff')]
@@ -1045,9 +1099,10 @@ class TestAirspeedMinusV2AtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedMinusV2At35Ft(unittest.TestCase, NodeTest):
+class TestAirspeedMinusV2At35FtDuringTakeoff(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = AirspeedMinusV2At35Ft
+        self.node_class = AirspeedMinusV2At35FtDuringTakeoff
         self.operational_combinations = [('Airspeed Minus V2', 'Takeoff')]
 
     @unittest.skip('Test Not Implemented')
@@ -1055,12 +1110,11 @@ class TestAirspeedMinusV2At35Ft(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeedMinusV235To1000FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestAirspeedMinusV235To1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedMinusV235To1000FtMax
-        self.operational_combinations = [('Airspeed Minus V2',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Minus V2', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
 
@@ -1069,12 +1123,11 @@ class TestAirspeedMinusV235To1000FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedMinusV235To1000FtMin(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestAirspeedMinusV235To1000FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedMinusV235To1000FtMin
-        self.operational_combinations = [('Airspeed Minus V2',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Minus V2', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
 
@@ -1083,12 +1136,11 @@ class TestAirspeedMinusV235To1000FtMin(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedMinusV2For3Sec35To1000FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestAirspeedMinusV2For3Sec35To1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedMinusV2For3Sec35To1000FtMax
-        self.operational_combinations = [('Airspeed Minus V2 For 3 Sec',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Minus V2 For 3 Sec', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
 
@@ -1097,12 +1149,11 @@ class TestAirspeedMinusV2For3Sec35To1000FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedMinusV2For3Sec35To1000FtMin(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestAirspeedMinusV2For3Sec35To1000FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedMinusV2For3Sec35To1000FtMin
-        self.operational_combinations = [('Airspeed Minus V2 For 3 Sec',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Minus V2 For 3 Sec', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
 
@@ -1115,6 +1166,7 @@ class TestAirspeedMinusV2For3Sec35To1000FtMin(unittest.TestCase,
 # Airspeed: Relative
 
 class TestAirspeedRelativeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = AirspeedRelativeAtTouchdown
         self.operational_combinations = [('Airspeed Relative', 'Touchdown')]
@@ -1124,12 +1176,11 @@ class TestAirspeedRelativeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedRelative1000To500FtMax(unittest.TestCase,
-                                         CreateKPVsWithinSlicesTest):
+class TestAirspeedRelative1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedRelative1000To500FtMax
-        self.operational_combinations = [('Airspeed Relative',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Relative', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
 
@@ -1138,12 +1189,11 @@ class TestAirspeedRelative1000To500FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedRelative1000To500FtMin(unittest.TestCase,
-                                         CreateKPVsWithinSlicesTest):
+class TestAirspeedRelative1000To500FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedRelative1000To500FtMin
-        self.operational_combinations = [('Airspeed Relative',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Relative', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
 
@@ -1152,12 +1202,11 @@ class TestAirspeedRelative1000To500FtMin(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedRelative500To20FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestAirspeedRelative500To20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedRelative500To20FtMax
-        self.operational_combinations = [('Airspeed Relative',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Relative', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
 
@@ -1166,12 +1215,11 @@ class TestAirspeedRelative500To20FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedRelative500To20FtMin(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestAirspeedRelative500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedRelative500To20FtMin
-        self.operational_combinations = [('Airspeed Relative',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Relative', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
 
@@ -1180,40 +1228,39 @@ class TestAirspeedRelative500To20FtMin(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedRelative20FtToTouchdownMax(unittest.TestCase,
-                                             CreateKPVsWithinSlicesTest):
+class TestAirspeedRelative20FtToTouchdownMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
+        # XXX: This test does not explicitly test how the Touchdown dependency is used.
         self.node_class = AirspeedRelative20FtToTouchdownMax
-        self.operational_combinations = [('Airspeed Relative',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Relative', 'Altitude AAL For Flight Phases', 'Touchdown')]
         self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (20, 0), {})]
+        self.second_param_method_calls = [('slices_to_kti', (20, []), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedRelative20FtToTouchdownMin(unittest.TestCase,
-                                             CreateKPVsWithinSlicesTest):
+class TestAirspeedRelative20FtToTouchdownMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
+        # XXX: This test does not explicitly test how the Touchdown dependency is used.
         self.node_class = AirspeedRelative20FtToTouchdownMin
-        self.operational_combinations = [('Airspeed Relative',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Relative', 'Altitude AAL For Flight Phases', 'Touchdown')]
         self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (20, 0), {})]
+        self.second_param_method_calls = [('slices_to_kti', (20, []), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedRelativeFor3Sec1000To500FtMax(unittest.TestCase,
-                                                CreateKPVsWithinSlicesTest):
+class TestAirspeedRelativeFor3Sec1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedRelativeFor3Sec1000To500FtMax
-        self.operational_combinations = [('Airspeed Relative For 3 Sec',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Relative For 3 Sec', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
 
@@ -1222,12 +1269,11 @@ class TestAirspeedRelativeFor3Sec1000To500FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedRelativeFor3Sec1000To500FtMin(unittest.TestCase,
-                                                CreateKPVsWithinSlicesTest):
+class TestAirspeedRelativeFor3Sec1000To500FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedRelativeFor3Sec1000To500FtMin
-        self.operational_combinations = [('Airspeed Relative For 3 Sec',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Relative For 3 Sec', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
 
@@ -1236,40 +1282,11 @@ class TestAirspeedRelativeFor3Sec1000To500FtMin(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedRelativeFor3Sec20FtToTouchdownMax(unittest.TestCase,
-                                                    CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedRelativeFor3Sec20FtToTouchdownMax
-        self.operational_combinations = [('Airspeed Relative For 3 Sec',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (20, 0), {})]
+class TestAirspeedRelativeFor3Sec500To20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestAirspeedRelativeFor3Sec20FtToTouchdownMin(unittest.TestCase,
-                                                    CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedRelativeFor3Sec20FtToTouchdownMin
-        self.operational_combinations = [('Airspeed Relative For 3 Sec',
-                                          'Altitude AAL For Flight Phases',)]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (20, 0), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestAirspeedRelativeFor3Sec500To20FtMax(unittest.TestCase,
-                                              CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = AirspeedRelativeFor3Sec500To20FtMax
-        self.operational_combinations = [('Airspeed Relative For 3 Sec',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Relative For 3 Sec', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
 
@@ -1278,14 +1295,217 @@ class TestAirspeedRelativeFor3Sec500To20FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedRelativeFor3Sec500To20FtMin(unittest.TestCase,
-                                              CreateKPVsWithinSlicesTest):
+class TestAirspeedRelativeFor3Sec500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = AirspeedRelativeFor3Sec500To20FtMin
-        self.operational_combinations = [('Airspeed Relative For 3 Sec',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Airspeed Relative For 3 Sec', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAirspeedRelativeFor3Sec20FtToTouchdownMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        # XXX: This test does not explicitly test how the Touchdown dependency is used.
+        self.node_class = AirspeedRelativeFor3Sec20FtToTouchdownMax
+        self.operational_combinations = [('Airspeed Relative For 3 Sec', 'Altitude AAL For Flight Phases', 'Touchdown')]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_to_kti', (20, []), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAirspeedRelativeFor3Sec20FtToTouchdownMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        # XXX: This test does not explicitly test how the Touchdown dependency is used.
+        self.node_class = AirspeedRelativeFor3Sec20FtToTouchdownMin
+        self.operational_combinations = [('Airspeed Relative For 3 Sec', 'Altitude AAL For Flight Phases', 'Touchdown')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_to_kti', (20, []), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+##############################################################################
+# Airspeed: Flap
+
+
+class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWithFlapMax
+        self.operational_combinations = [('Flap', 'Airspeed', 'Fast')]
+
+    def test_derive(self):
+        flap = [[0, 5, 10]] * 10
+        flap = P('Flap', np.ma.array(reduce(operator.add, zip(*flap))))
+        air_spd = P('Airspeed', np.ma.array(range(30)))
+        fast = buildsection('Fast', 0, 30)
+        flap.array[19] = np.ma.masked  # mask the max value
+        air_spd_flap_max = AirspeedWithFlapMax()
+        air_spd_flap_max.derive(flap, air_spd, fast)
+
+        self.assertEqual(len(air_spd_flap_max), 2)
+        self.assertEqual(air_spd_flap_max[0].name, 'Airspeed With Flap 5 Max')
+        self.assertEqual(air_spd_flap_max[0].index, 18)  # 19 was masked
+        self.assertEqual(air_spd_flap_max[0].value, 18)
+        self.assertEqual(air_spd_flap_max[1].name, 'Airspeed With Flap 10 Max')
+        self.assertEqual(air_spd_flap_max[1].index, 29)
+        self.assertEqual(air_spd_flap_max[1].value, 29)
+
+    def test_derive_alternative_method(self):
+        # Note: This test will produce the following warning:
+        #       "No flap settings - rounding to nearest 5"
+        flap = [[0, 1, 2, 5, 10, 15, 25, 30, 40, 0]] * 2
+        flap = P('Flap', np.ma.masked_array(reduce(operator.add, zip(*flap))))
+        air_spd = P('Airspeed', np.ma.arange(20))
+        fast = buildsection('Fast', 0, 20)
+        step = Flap()
+        step.derive(flap)
+        air_spd_flap_max = AirspeedWithFlapMax()
+        air_spd_flap_max.derive(step, air_spd, fast)
+
+        self.assertEqual(air_spd_flap_max, [
+            KeyPointValue(index=7, value=7, name='Airspeed With Flap 5 Max'),
+            KeyPointValue(index=9, value=9, name='Airspeed With Flap 10 Max'),
+            KeyPointValue(index=11, value=11, name='Airspeed With Flap 15 Max'),
+            KeyPointValue(index=13, value=13, name='Airspeed With Flap 25 Max'),
+            KeyPointValue(index=15, value=15, name='Airspeed With Flap 30 Max'),
+            KeyPointValue(index=17, value=17, name='Airspeed With Flap 40 Max'),
+        ])
+
+
+class TestAirspeedWithFlapMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWithFlapMin
+        self.operational_combinations = [('Flap', 'Airspeed', 'Airborne')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAirspeedWithFlapDuringClimbMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWithFlapDuringClimbMax
+        self.operational_combinations = [('Flap', 'Airspeed', 'Climb')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAirspeedWithFlapDuringClimbMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWithFlapDuringClimbMin
+        self.operational_combinations = [('Flap', 'Airspeed', 'Climb')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAirspeedWithFlapDuringDescentMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWithFlapDuringDescentMax
+        self.operational_combinations = [('Flap', 'Airspeed', 'Descent')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAirspeedWithFlapDuringDescentMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWithFlapDuringDescentMin
+        self.operational_combinations = [('Flap', 'Airspeed', 'Descent To Flare')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAirspeedRelativeWithFlapDuringDescentMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedRelativeWithFlapDuringDescentMin
+        self.operational_combinations = [('Flap', 'Airspeed Relative', 'Descent To Flare')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+########################################
+# Airspeed: Landing Gear
+
+
+class TestAirspeedWithGearDownMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWithGearDownMax
+        self.operational_combinations = [('Airspeed', 'Gear Down', 'Airborne')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAirspeedWhileGearRetractingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWhileGearRetractingMax
+        self.operational_combinations = [('Airspeed', 'Gear Retracting')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAirspeedWhileGearExtendingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWhileGearExtendingMax
+        self.operational_combinations = [('Airspeed', 'Gear Extending')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAirspeedAtGearUpSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AirspeedAtGearUpSelection
+        self.operational_combinations = [('Airspeed', 'Gear Up Selection')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAirspeedAtGearDownSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AirspeedAtGearDownSelection
+        self.operational_combinations = [('Airspeed', 'Gear Down Selection')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -1293,25 +1513,51 @@ class TestAirspeedRelativeFor3Sec500To20FtMin(unittest.TestCase,
 
 
 ########################################
-# Airspeed: (Other)
+# Airspeed: Thrust Reversers
 
-class TestAirspeedVacatingRunway(unittest.TestCase,
-                                 CreateKPVsAtKTIsTest):
+
+class TestAirspeedWithThrustReversersDeployedMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWithThrustReversersDeployedMin
+        self.operational_combinations = [('Airspeed True', 'Thrust Reversers', 'Eng (*) N1 Avg', 'Landing')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAirspeedAtThrustReversersSelection(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedAtThrustReversersSelection
+        self.operational_combinations = [('Airspeed', 'Thrust Reversers', 'Landing')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+########################################
+# Airspeed: Other
+
+
+class TestAirspeedVacatingRunway(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = AirspeedVacatingRunway
-        self.operational_combinations = [('Airspeed True',
-                                          'Landing Turn Off Runway',)]
+        self.operational_combinations = [('Airspeed True', 'Landing Turn Off Runway')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeedRTOMax(unittest.TestCase,
-                         CreateKPVsWithinSlicesTest):
+class TestAirspeedDuringRejectedTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = AirspeedRTOMax
-        self.operational_combinations = [('Airspeed', 'Rejected Takeoff',)]
+        self.node_class = AirspeedDuringRejectedTakeoffMax
+        self.operational_combinations = [('Airspeed', 'Rejected Takeoff')]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
@@ -1319,9 +1565,10 @@ class TestAirspeedRTOMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeed10000ToLandMax(unittest.TestCase, NodeTest):
+class TestAirspeedBelow10000FtDuringDescentMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = Airspeed10000ToLandMax
+        self.node_class = AirspeedBelow10000FtDuringDescentMax
         self.operational_combinations = [('Airspeed', 'Altitude STD Smoothed', 'Altitude QNH', 'FDR Landing Airport', 'Descent')]
 
     @unittest.skip('Test Not Implemented')
@@ -1329,9 +1576,10 @@ class TestAirspeed10000ToLandMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeedTODTo10000Max(unittest.TestCase, NodeTest):
+class TestAirspeedTopOfDescentTo10000FtMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = AirspeedTODTo10000Max
+        self.node_class = AirspeedTopOfDescentTo10000FtMax
         self.operational_combinations = [('Airspeed', 'Altitude STD Smoothed', 'Altitude QNH', 'FDR Landing Airport', 'Descent')]
 
     @unittest.skip('Test Not Implemented')
@@ -1340,6 +1588,7 @@ class TestAirspeedTODTo10000Max(unittest.TestCase, NodeTest):
 
 
 class TestAirspeedBetween90SecToTouchdownAndTouchdownMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = AirspeedBetween90SecToTouchdownAndTouchdownMax
         self.operational_combinations = [('Airspeed', 'Secs To Touchdown')]
@@ -1349,9 +1598,10 @@ class TestAirspeedBetween90SecToTouchdownAndTouchdownMax(unittest.TestCase, Node
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeedLevelFlightMax(unittest.TestCase, NodeTest):
+class TestAirspeedDuringLevelFlightMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = AirspeedLevelFlightMax
+        self.node_class = AirspeedDuringLevelFlightMax
         self.operational_combinations = [('Airspeed', 'Level Flight')]
 
     @unittest.skip('Test Not Implemented')
@@ -1360,6 +1610,7 @@ class TestAirspeedLevelFlightMax(unittest.TestCase, NodeTest):
 
 
 class TestAirspeedBelowAltitudeMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = AirspeedBelowAltitudeMax
         self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
@@ -1369,26 +1620,28 @@ class TestAirspeedBelowAltitudeMax(unittest.TestCase, NodeTest):
         alt_aal = P(array=np.ma.arange(0, 10000, 500))
         param = AirspeedBelowAltitudeMax()
         param.derive(airspeed, alt_aal)
-        self.assertEqual(param,
-            [KeyPointValue(index=19, value=19.0,
-                           name='Airspeed Below 10000 Ft Max',
-                           slice=slice(None, None, None), datetime=None),
-             KeyPointValue(index=15, value=15.0,
-                           name='Airspeed Below 8000 Ft Max',
-                           slice=slice(None, None, None), datetime=None),
-             KeyPointValue(index=9, value=9.0,
-                           name='Airspeed Below 5000 Ft Max',
-                           slice=slice(None, None, None), datetime=None),
-             KeyPointValue(index=5, value=5.0,
-                           name='Airspeed Below 3000 Ft Max',
-                           slice=slice(None, None, None), datetime=None)])
+        self.assertEqual(param, [
+            KeyPointValue(index=19, value=19.0,
+                name='Airspeed Below 10000 Ft Max',
+                slice=slice(None, None, None), datetime=None),
+            KeyPointValue(index=15, value=15.0,
+                name='Airspeed Below 8000 Ft Max',
+                slice=slice(None, None, None), datetime=None),
+            KeyPointValue(index=9, value=9.0,
+                name='Airspeed Below 5000 Ft Max',
+                slice=slice(None, None, None), datetime=None),
+            KeyPointValue(index=5, value=5.0,
+                name='Airspeed Below 3000 Ft Max',
+                slice=slice(None, None, None), datetime=None),
+        ])
 
 
-################################################################################
+##############################################################################
 # Angle of Attack
 
 
 class TestAOAWithFlapMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = AOAWithFlapMax
         self.operational_combinations = [('Flap', 'AOA', 'Fast')]
@@ -1398,7 +1651,7 @@ class TestAOAWithFlapMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Autopilot
 
 
@@ -1413,172 +1666,16 @@ class TestAPDisengagedDuringCruiseDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAP1EngagedAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
-
-    def setUp(self):
-        self.node_class = AP1EngagedAtLiftoff
-        self.operational_combinations = [('AP (1) Engaged', 'Liftoff')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAP1EngagedAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
-
-    def setUp(self):
-        self.node_class = AP1EngagedAtTouchdown
-        self.operational_combinations = [('AP (1) Engaged', 'Touchdown')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-################################################################################
-# Airspeed With Flap
-
-class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AirspeedWithFlapMax
-        self.operational_combinations = [('Flap', 'Airspeed', 'Fast')]
-
-    def test_derive(self):
-        spd = P('Airspeed', np.ma.array(range(30)))
-        flap = P('Flap', np.ma.array([0]*10 + [5]*10 + [10]*10))
-        fast = buildsection('Fast',0,30)
-        flap.array[19] = np.ma.masked # mask the max val
-        spd_flap = AirspeedWithFlapMax()
-        spd_flap.derive(flap, spd, fast)
-        self.assertEqual(len(spd_flap), 2)
-        self.assertEqual(spd_flap[0].name, 'Airspeed With Flap 5 Max')
-        self.assertEqual(spd_flap[0].index, 18) # 19 was masked
-        self.assertEqual(spd_flap[0].value, 18)
-        self.assertEqual(spd_flap[1].name, 'Airspeed With Flap 10 Max')
-        self.assertEqual(spd_flap[1].index, 29)
-        self.assertEqual(spd_flap[1].value, 29)
-
-    def test_derive_alternative_method(self):
-        # This test will produce a warning "No flap settings - rounding to nearest 5"
-        airspeed = P('Airspeed', np.ma.arange(20))
-        flap = P('Flap',
-                 np.ma.masked_array([0] * 2 + [1] * 2 + [2] * 2 + [5] * 2 +
-                                    [10] * 2 +  [15] * 2 + [25] * 2 +
-                                    [30] * 2 + [40] * 2 + [0] * 2))
-        fast = buildsection('Fast',0,20)
-        step = Flap()
-        step.derive(flap)
-
-        airspeed_with_flap_max = AirspeedWithFlapMax()
-        airspeed_with_flap_max.derive(step, airspeed, fast)
-        self.assertEqual(airspeed_with_flap_max,
-          [KeyPointValue(index=7, value=7, name='Airspeed With Flap 5 Max'),
-           KeyPointValue(index=9, value=9, name='Airspeed With Flap 10 Max'),
-           KeyPointValue(index=11, value=11, name='Airspeed With Flap 15 Max'),
-           KeyPointValue(index=13, value=13, name='Airspeed With Flap 25 Max'),
-           KeyPointValue(index=15, value=15, name='Airspeed With Flap 30 Max'),
-           KeyPointValue(index=17, value=17, name='Airspeed With Flap 40 Max')])
-
-
-class TestAirspeedWithFlapMin(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AirspeedWithFlapMin
-        self.operational_combinations = [('Flap', 'Airspeed', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedWithFlapClimbMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AirspeedWithFlapClimbMax
-        self.operational_combinations = [('Flap', 'Airspeed', 'Climb')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedWithFlapClimbMin(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AirspeedWithFlapClimbMin
-        self.operational_combinations = [('Flap', 'Airspeed', 'Climb')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedWithFlapDescentMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AirspeedWithFlapDescentMax
-        self.operational_combinations = [('Flap', 'Airspeed', 'Descent')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedWithFlapDescentMin(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AirspeedWithFlapDescentMin
-        self.operational_combinations = [('Flap', 'Airspeed', 'Descent To Flare')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedRelativeWithFlapDescentMin(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AirspeedRelativeWithFlapDescentMin
-        self.operational_combinations = [('Flap', 'Airspeed Relative', 'Descent To Flare')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-################################################################################
-# Thrust Reversers
-
-class TestAirspeedThrustReverseDeployedMin(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AirspeedThrustReverseDeployedMin
-        self.operational_combinations = [('Airspeed True', 'Thrust Reversers', 'Eng (*) N1 Avg', 'Landing')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestGroundspeedThrustReverseDeployedMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedThrustReverseSelected(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+##############################################################################
+# Thrust Asymmetry
 
 
 class TestThrustAsymetryWithThrustReverse(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
+    
+    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -1587,8 +1684,8 @@ class TestThrustWithThrustReverseInTransit(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
+    
+    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -1597,8 +1694,8 @@ class TestTouchdownToThrustReverseDeployedDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
+    
+    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -1607,32 +1704,22 @@ class TouchdownToSpoilersDeployedDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
+    
+    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Takeoff and Use of TOGA
-
-
-class TestGroundspeedAtTOGA(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestTOGASelectedInFlightNotGoAroundDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
+    
+    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -1641,116 +1728,14 @@ class TestLiftoffToClimbPitchDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
+    
+    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertTrue(False, msg='Test not implemented.')    
 
 
-################################################################################
+##############################################################################
 # Landing Gear
-
-
-########################################
-# 'Gear Down' Multistate
-
-
-class TestAirspeedWithGearDownMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AirspeedWithGearDownMax
-        self.operational_combinations = [('Airspeed', 'Gear Down', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestMachWithGearDownMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = MachWithGearDownMax
-        self.operational_combinations = [('Mach', 'Gear Down', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-########################################
-# Gear Retracting/Extending Section
-
-
-class TestAirspeedAsGearRetractingMax(unittest.TestCase,
-                                      CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedAsGearRetractingMax
-        self.operational_combinations = [('Airspeed', 'Gear Retracting',)]
-        self.function = max_value
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestAirspeedAsGearExtendingMax(unittest.TestCase,
-                                     CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AirspeedAsGearExtendingMax
-        self.operational_combinations = [('Airspeed', 'Gear Extending',)]
-        self.function = max_value
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestMachAsGearRetractingMax(unittest.TestCase,
-                                  CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = MachAsGearRetractingMax
-        self.operational_combinations = [('Mach', 'Gear Retracting',)]
-        self.function = max_value
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestMachAsGearExtendingMax(unittest.TestCase,
-                                     CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = MachAsGearExtendingMax
-        self.operational_combinations = [('Mach', 'Gear Extending',)]
-        self.function = max_value
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-########################################
-# Gear Up/Down Selection KTI
-
-
-class TestAirspeedAtGearUpSelection(unittest.TestCase,
-                                    CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = AirspeedAtGearUpSelection
-        self.operational_combinations = [('Airspeed', 'Gear Up Selection',)]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestAirspeedAtGearDownSelection(unittest.TestCase,
-                                      CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = AirspeedAtGearDownSelection
-        self.operational_combinations = [('Airspeed', 'Gear Down Selection',)]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
 
 
 ##################################
@@ -1779,7 +1764,7 @@ class TestDelayedBrakingAfterTouchdown(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 
 
 class TestAltitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -1969,17 +1954,21 @@ class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
         self.assertEqual(len(max_dur), 1)
 
 
-class TestILSFrequencyOnApproach(unittest.TestCase, ILSTest):
+##############################################################################
+# ILS
+
+
+class TestILSFrequencyDuringApproach(unittest.TestCase, ILSTest):
 
     def setUp(self):
-        self.node_class = ILSFrequencyOnApproach
+        self.node_class = ILSFrequencyDuringApproach
         self.operational_combinations = [(
             'ILS Frequency',
             'ILS Localizer Established',
         )]
 
     def test_derive_basic(self):
-        kpv = ILSFrequencyOnApproach()
+        kpv = ILSFrequencyDuringApproach()
         kpv.derive(*self.prepare__frequency__basic())
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 2)
@@ -2138,7 +2127,16 @@ class TestILSLocalizerDeviationAtTouchdown(unittest.TestCase, ILSTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
+##############################################################################
+# Mach
+
+
+########################################
+# Mach: Landing Gear
+
+
 class TestMachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = MachMax
         self.operational_combinations = [('Mach', 'Airborne')]
@@ -2147,6 +2145,48 @@ class TestMachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+########################################
+# Mach: Landing Gear
+
+
+class TestMachWithGearDownMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = MachWithGearDownMax
+        self.operational_combinations = [('Mach', 'Gear Down', 'Airborne')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestMachWhileGearRetractingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = MachWhileGearRetractingMax
+        self.operational_combinations = [('Mach', 'Gear Retracting')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestMachWhileGearExtendingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = MachWhileGearExtendingMax
+        self.operational_combinations = [('Mach', 'Gear Extending')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+##############################################################################
 
 
 class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase, NodeTest):
@@ -2200,52 +2240,55 @@ class TestAltitudeAtLiftoff(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeAutopilotDisengaged(unittest.TestCase,
-                                      CreateKPVsAtKTIsTest):
+########################################
+# Automated Systems
+
+
+class TestAltitudeAtAPEngagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = AltitudeAutopilotDisengaged
-        self.operational_combinations = [('Altitude AAL',
-                                          'AP Disengaged Selection',)]
+        self.node_class = AltitudeAtAPEngagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AP Engaged Selection')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeAutopilotEngaged(unittest.TestCase,
-                                   CreateKPVsAtKTIsTest):
+class TestAltitudeAtAPDisengagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = AltitudeAutopilotEngaged
-        self.operational_combinations = [('Altitude AAL',
-                                          'AP Engaged Selection',)]
+        self.node_class = AltitudeAtAPDisengagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AP Disengaged Selection')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeAutothrottleDisengaged(unittest.TestCase,
-                                         CreateKPVsAtKTIsTest):
+class TestAltitudeAtATEngagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = AltitudeAutothrottleDisengaged
-        self.operational_combinations = [('Altitude AAL',
-                                          'AT Disengaged Selection',)]
+        self.node_class = AltitudeAtATEngagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AT Engaged Selection')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeAutothrottleEngaged(unittest.TestCase,
-                                      CreateKPVsAtKTIsTest):
+class TestAltitudeAtATDisengagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = AltitudeAutothrottleEngaged
-        self.operational_combinations = [('Altitude AAL',
-                                          'AT Engaged Selection',)]
+        self.node_class = AltitudeAtATDisengagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AT Disengaged Selection')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+########################################
 
 
 class TestAltitudeFirstStableDuringApproach(unittest.TestCase):
@@ -2428,14 +2471,42 @@ class TestDistancePastGlideslopeAntennaToTouchdown(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngBleedValvesAtLiftoff(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngBleedValvesAtLiftoff(unittest.TestCase, NodeTest):
 
-    @unittest.skip('Test Not Implemented')
+    def setUp(self):
+        self.node_class = EngBleedValvesAtLiftoff
+        self.operational_combinations = [
+            ('Liftoff', 'Eng (1) Bleed', 'Eng (2) Bleed'),
+            ('Liftoff', 'Eng (1) Bleed', 'Eng (2) Bleed', 'Eng (3) Bleed'),
+            ('Liftoff', 'Eng (1) Bleed', 'Eng (2) Bleed', 'Eng (4) Bleed'),
+            ('Liftoff', 'Eng (1) Bleed', 'Eng (2) Bleed', 'Eng (3) Bleed', 'Eng (4) Bleed'),
+        ]
+
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        liftoff = KTI('Liftoff', items=[KeyTimeInstance(name='Liftoff', index=3)])
+        b1 = P('Eng (1) Bleed', array=[0, 0, 1, 0, 0])
+        b2 = P('Eng (2) Bleed', array=[0, 0, 0, 1, 0])
+        b3 = P('Eng (3) Bleed', array=[0, 1, 0, 0, 0])
+        b4 = P('Eng (4) Bleed', array=[0, 1, 0, 1, 0])
+        # Test with four engines, integer values:
+        node = EngBleedValvesAtLiftoff()
+        node.derive(liftoff, b1, b2, b3, b4)
+        self.assertEqual(node, KPV('Eng Bleed Valves At Liftoff', items=[
+            KeyPointValue(name='Eng Bleed Valves At Liftoff', index=3, value=2),
+        ]))
+        # Test with four engines, float values:
+        b4f = P('Eng (4) Bleed', array=[0, 1.5, 0, 1.5, 0])
+        node = EngBleedValvesAtLiftoff()
+        node.derive(liftoff, b1, b2, b3, b4f)
+        self.assertEqual(node, KPV('Eng Bleed Valves At Liftoff', items=[
+            KeyPointValue(name='Eng Bleed Valves At Liftoff', index=3, value=2),
+        ]))
+        # Test with two engines, integer values:
+        node = EngBleedValvesAtLiftoff()
+        node.derive(liftoff, b1, b2)
+        self.assertEqual(node, KPV('Eng Bleed Valves At Liftoff', items=[
+            KeyPointValue(name='Eng Bleed Valves At Liftoff', index=3, value=1),
+        ]))
 
 
 class TestEngEPRAboveFL100Max(unittest.TestCase):
@@ -2759,16 +2830,6 @@ class TestEngTorqueToFL100Max(unittest.TestCase):
 
 
 class TestEventMarkerPressed(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestGroundspeedThrustReversersDeployedMin(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3422,9 +3483,9 @@ class TestHeadingVacatingRunway(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAltitudeMinsToTouchdown(unittest.TestCase, NodeTest):
+class TestHeightMinsToTouchdown(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = AltitudeMinsToTouchdown
+        self.node_class = HeightMinsToTouchdown
         self.operational_combinations = [('Altitude AAL', 'Mins To Touchdown')]
 
     @unittest.skip('Test Not Implemented')
@@ -3588,29 +3649,26 @@ class TestFuelQtyAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestGrossWeightAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+##############################################################################
+# Groundspeed
+
+
+class TestGroundspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = GrossWeightAtLiftoff
-        self.operational_combinations = [('Gross Weight Smoothed', 'Liftoff')]
+        self.node_class = GroundspeedMax
+        self.operational_combinations = [('Groundspeed', 'Grounded')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestGrossWeightAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestGroundspeedWhileTaxiingStraightMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = GrossWeightAtTouchdown
-        self.operational_combinations = [('Gross Weight Smoothed', 'Touchdown')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestGroundspeedTaxiingStraightMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = GroundspeedTaxiingStraightMax
+        self.node_class = GroundspeedWhileTaxiingStraightMax
         self.operational_combinations = [('Groundspeed', 'Taxiing', 'Turning On Ground')]
 
     @unittest.skip('Test Not Implemented')
@@ -3618,9 +3676,10 @@ class TestGroundspeedTaxiingStraightMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestGroundspeedTaxiingTurnsMax(unittest.TestCase, NodeTest):
+class TestGroundspeedWhileTaxiingTurnMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = GroundspeedTaxiingTurnsMax
+        self.node_class = GroundspeedWhileTaxiingTurnMax
         self.operational_combinations = [('Groundspeed', 'Taxiing', 'Turning On Ground')]
 
     @unittest.skip('Test Not Implemented')
@@ -3628,9 +3687,10 @@ class TestGroundspeedTaxiingTurnsMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestGroundspeedRTOMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestGroundspeedDuringRejectedTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = GroundspeedRTOMax
+        self.node_class = GroundspeedDuringRejectedTakeoffMax
         self.operational_combinations = [('Groundspeed', 'Rejected Takeoff')]
         self.function = max_value
 
@@ -3640,39 +3700,50 @@ class TestGroundspeedRTOMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
 
 class TestGroundspeedAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = GroundspeedAtTouchdown
-        self.operational_combinations = [('Groundspeed',
-                                          'Touchdown')]
+        self.operational_combinations = [('Groundspeed', 'Touchdown')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestGroundspeedOnGroundMax(unittest.TestCase, CreateKPVFromSlicesTest):
-    def setUp(self):
-        self.node_class = GroundspeedOnGroundMax
-        self.operational_combinations = [('Groundspeed', 'Grounded')]
-        self.function = max_value
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
 
 
 class TestGroundspeedVacatingRunway(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = GroundspeedVacatingRunway
-        self.operational_combinations = [('Groundspeed',
-                                          'Landing Turn Off Runway')]
+        self.operational_combinations = [('Groundspeed', 'Landing Turn Off Runway')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+class TestGroundspeedAtTOGA(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = GroundspeedAtTOGA
+        self.operational_combinations = [('Groundspeed', 'Takeoff And Go Around', 'Takeoff')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGroundspeedWithThrustReversersDeployedMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = GroundspeedWithThrustReversersDeployedMin
+        self.operational_combinations = [('Groundspeed', 'Thrust Reversers', 'Eng (*) N1 Max', 'Landing')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
 # Pitch
 
 
@@ -3888,7 +3959,7 @@ class TestPitchCyclesInFinalApproach(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Pitch Rate
 
 
@@ -3960,31 +4031,12 @@ class TestPitchRate2DegPitchTo35FtMin(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestPitchRate2DegPitchTo35FtAverage(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = PitchRate2DegPitchTo35FtAverage
-        self.operational_combinations = [('Pitch', '2 Deg Pitch To 35 Ft')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestTwoDegPitchTo35FtDuration(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = TwoDegPitchTo35FtDuration
-        self.operational_combinations = [('Pitch', '2 Deg Pitch To 35 Ft')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-################################################################################
+##############################################################################
 # Rate of Climb
 
 
 class TestRateOfClimbMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = RateOfClimbMax
         self.operational_combinations = [('Vertical Speed', 'Climbing')]
@@ -3994,12 +4046,11 @@ class TestRateOfClimbMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRateOfClimb35To1000FtMin(unittest.TestCase,
-                                     CreateKPVsWithinSlicesTest):
+class TestRateOfClimb35To1000FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = RateOfClimb35To1000FtMin
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
 
@@ -4008,12 +4059,11 @@ class TestRateOfClimb35To1000FtMin(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRateOfClimbBelow10000FtMax(unittest.TestCase,
-                                     CreateKPVsWithinSlicesTest):
+class TestRateOfClimbBelow10000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = RateOfClimbBelow10000FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (0, 10000), {})]
 
@@ -4022,11 +4072,24 @@ class TestRateOfClimbBelow10000FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+class TestRateOfClimbDuringGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = RateOfClimbDuringGoAroundMax
+        self.operational_combinations = [('Vertical Speed', 'Go Around And Climbout')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
 # Rate of Descent
 
 
 class TestRateOfDescentMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = RateOfDescentMax
         self.operational_combinations = [('Vertical Speed', 'Descending')]
@@ -4037,21 +4100,21 @@ class TestRateOfDescentMax(unittest.TestCase, NodeTest):
 
 
 class TestRateOfDescentTopOfDescentTo10000FtMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = RateOfDescentTopOfDescentTo10000FtMax
-        self.operational_combinations = [('Altitude AAL For Flight Phases', 'Vertical Speed', 'Descent')]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Descent')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRateOfDescentBelow10000FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestRateOfDescentBelow10000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = RateOfDescentBelow10000FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (10000, 0), {})]
 
@@ -4060,12 +4123,11 @@ class TestRateOfDescentBelow10000FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRateOfDescent10000To5000FtMax(unittest.TestCase,
-                                        CreateKPVsWithinSlicesTest):
+class TestRateOfDescent10000To5000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = RateOfDescent10000To5000FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (10000, 5000), {})]
 
@@ -4074,12 +4136,11 @@ class TestRateOfDescent10000To5000FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestRateOfDescent5000To3000FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestRateOfDescent5000To3000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = RateOfDescent5000To3000FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (5000, 3000), {})]
 
@@ -4088,12 +4149,11 @@ class TestRateOfDescent5000To3000FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestRateOfDescent3000To2000FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestRateOfDescent3000To2000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = RateOfDescent3000To2000FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (3000, 2000), {})]
 
@@ -4102,12 +4162,11 @@ class TestRateOfDescent3000To2000FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestRateOfDescent2000To1000FtMax(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestRateOfDescent2000To1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = RateOfDescent2000To1000FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (2000, 1000), {})]
 
@@ -4116,12 +4175,11 @@ class TestRateOfDescent2000To1000FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestRateOfDescent1000To500FtMax(unittest.TestCase,
-                                      CreateKPVsWithinSlicesTest):
+class TestRateOfDescent1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = RateOfDescent1000To500FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
 
@@ -4130,12 +4188,11 @@ class TestRateOfDescent1000To500FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestRateOfDescent500To50FtMax(unittest.TestCase,
-                                    CreateKPVsWithinSlicesTest):
+class TestRateOfDescent500To50FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = RateOfDescent500To50FtMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
 
@@ -4144,15 +4201,12 @@ class TestRateOfDescent500To50FtMax(unittest.TestCase,
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestRateOfDescent50FtToTouchdownMax(unittest.TestCase,
-                                           CreateKPVsWithinSlicesTest):
+class TestRateOfDescent50FtToTouchdownMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        # XXX: This test does not explicitly test how the Touchdown dependency
-        #      is used.
+        # XXX: This test does not explicitly test how the Touchdown dependency is used.
         self.node_class = RateOfDescent50FtToTouchdownMax
-        self.operational_combinations = [('Vertical Speed Inertial',
-                                          'Altitude AAL For Flight Phases',
-                                          'Touchdown',)]
+        self.operational_combinations = [('Vertical Speed Inertial', 'Altitude AAL For Flight Phases', 'Touchdown')]
         self.function = min_value
         self.second_param_method_calls = [('slices_to_kti', (50, []), {})]
 
@@ -4162,16 +4216,29 @@ class TestRateOfDescent50FtToTouchdownMax(unittest.TestCase,
 
 
 class TestRateOfDescentAtTouchdown(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = RateOfDescentAtTouchdown
-        self.operational_combinations = [('Vertical Speed Inertial', 'Landing', 'Altitude AAL')]
+        self.operational_combinations = [('Vertical Speed Inertial', 'Altitude AAL', 'Landing')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+class TestRateOfDescentDuringGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = RateOfDescentDuringGoAroundMax
+        self.operational_combinations = [('Vertical Speed', 'Go Around And Climbout')]
+        self.function = min_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
 # Roll
 
 
@@ -4290,7 +4357,7 @@ class TestRollCyclesNotInFinalApproach(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Rudder
 
 
@@ -4316,13 +4383,14 @@ class TestRudderReversalAbove50Ft(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Speedbrake
 
 
-class TestSpeedbrakesDeployed1000To20FtDuration(unittest.TestCase, NodeTest):
+class TestSpeedbrakeDeployed1000To20FtDuration(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = SpeedbrakesDeployed1000To20FtDuration
+        self.node_class = SpeedbrakeDeployed1000To20FtDuration
         self.operational_combinations = [('Speedbrake Selected', 'Altitude AAL For Flight Phases')]
 
     @unittest.skip('Test Not Implemented')
@@ -4330,9 +4398,10 @@ class TestSpeedbrakesDeployed1000To20FtDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestSpeedbrakesDeployedWithPowerOnDuration(unittest.TestCase, NodeTest):
+class TestSpeedbrakeDeployedWithPowerOnDuration(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = SpeedbrakesDeployedWithPowerOnDuration
+        self.node_class = SpeedbrakeDeployedWithPowerOnDuration
         self.operational_combinations = [('Speedbrake Selected', 'Eng (*) N1 Avg', 'Airborne', 'Manufacturer')]
 
     @unittest.skip('Test Not Implemented')
@@ -4340,9 +4409,10 @@ class TestSpeedbrakesDeployedWithPowerOnDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestSpeedbrakesDeployedWithFlapDuration(unittest.TestCase, NodeTest):
+class TestSpeedbrakeDeployedWithFlapDuration(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = SpeedbrakesDeployedWithFlapDuration
+        self.node_class = SpeedbrakeDeployedWithFlapDuration
         self.operational_combinations = [('Speedbrake Selected', 'Flap', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
@@ -4350,61 +4420,65 @@ class TestSpeedbrakesDeployedWithFlapDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestSpeedbrakesDeployedWithConfDuration(unittest.TestCase, NodeTest):
+class TestSpeedbrakeDeployedWithConfDuration(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = SpeedbrakesDeployedWithConfDuration
-        self.operational_combinations = [('Speedbrake Selected', 'Configuration')]
+        self.node_class = SpeedbrakeDeployedWithConfDuration
+        self.operational_combinations = [('Speedbrake Selected', 'Configuration', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestSpeedbrakesDeployedWithPowerOnInHeightBandsDuration(unittest.TestCase, NodeTest):
+class TestSpeedbrakeDeployedDuringGoAroundDuration(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = SpeedbrakesDeployedWithPowerOnInHeightBandsDuration
-        self.operational_combinations = [('Speedbrake Selected', 'Eng (*) N1 Avg', 'Altitude AAL For Flight Phases', 'Airborne')]
+        self.node_class = SpeedbrakeDeployedDuringGoAroundDuration
+        self.operational_combinations = [('Speedbrake Selected', 'Go Around And Climbout')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Warnings: Stick Pusher/Shaker
 
 
-class TestStickPusherActivatedDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestStickPusherActivatedDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = StickPusherActivatedDuration
+        self.operational_combinations = [('Stick Pusher', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestStickShakerActivatedDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestStickShakerActivatedDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = StickShakerActivatedDuration
+        self.operational_combinations = [('Stick Shaker', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Tail Clearance
 
 
-class TestTailClearanceOnTakeoffMin(unittest.TestCase,
-                                    CreateKPVsWithinSlicesTest):
+class TestTailClearanceDuringTakeoffMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = TailClearanceOnTakeoffMin
-        self.operational_combinations = [('Altitude Tail', 'Takeoff',)]
+        self.node_class = TailClearanceDuringTakeoffMin
+        self.operational_combinations = [('Altitude Tail', 'Takeoff')]
         self.function = min_value
 
     @unittest.skip('Test Not Implemented')
@@ -4412,11 +4486,11 @@ class TestTailClearanceOnTakeoffMin(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTailClearanceOnLandingMin(unittest.TestCase,
-                                    CreateKPVsWithinSlicesTest):
+class TestTailClearanceDuringLandingMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = TailClearanceOnLandingMin
-        self.operational_combinations = [('Altitude Tail', 'Landing',)]
+        self.node_class = TailClearanceDuringLandingMin
+        self.operational_combinations = [('Altitude Tail', 'Landing')]
         self.function = min_value
 
     @unittest.skip('Test Not Implemented')
@@ -4424,41 +4498,41 @@ class TestTailClearanceOnLandingMin(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTailClearanceOnApproach(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(TailClearanceOnApproach.get_operational_combinations(),
-                         [('Altitude AAL', 'Altitude Tail',
-                           'Distance To Landing')])
+class TestTailClearanceDuringApproachMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TailClearanceDuringApproachMin
+        self.operational_combinations = [('Altitude AAL', 'Altitude Tail', 'Distance To Landing')]
 
     @unittest.skip('Test Out Of Date')
     def test_derive(self):
         # XXX: The BDUTerrain test files are missing from the repository?
         test_data_dir = os.path.join(test_data_path, 'BDUTerrain')
-        alt_aal_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
-                                                                'alt_aal.npy')))
-        alt_radio_array = \
-            np.ma.masked_array(np.load(os.path.join(test_data_dir,
-                                                    'alt_radio.npy')))
-        dtl_array = np.ma.masked_array(np.load(os.path.join(test_data_dir,
-                                                            'dtl.npy')))
+        alt_aal_array = np.ma.masked_array(np.load(os.path.join(test_data_dir, 'alt_aal.npy')))
+        alt_radio_array = np.ma.masked_array(np.load(os.path.join(test_data_dir, 'alt_radio.npy')))
+        dtl_array = np.ma.masked_array(np.load(os.path.join(test_data_dir, 'dtl.npy')))
         alt_aal = P(array=alt_aal_array, frequency=8)
         alt_radio = P(array=alt_radio_array, frequency=0.5)
         dtl = P(array=dtl_array, frequency=0.25)
         alt_radio.array = align(alt_radio, alt_aal)
         dtl.array = align(dtl, alt_aal)
-        # Q: Should tests for the BDUTerrain node be in a separate TestCase?
-        param = BDUTerrain()
-        param.derive(alt_aal, alt_radio, dtl)
-        self.assertEqual(param, [KeyPointValue(name='BDU Terrain', index=1008,
-                                               value=0.037668517049960347)])
+        # FIXME: Should tests for the BDUTerrain node be in a separate TestCase?
+        ####param = BDUTerrain()
+        ####param.derive(alt_aal, alt_radio, dtl)
+        ####self.assertEqual(param, [
+        ####    KeyPointValue(name='BDU Terrain', index=1008, value=0.037668517049960347),
+        ####])
 
 
-class TestTerrainClearanceAbove3000FtMin(unittest.TestCase,
-                                         CreateKPVsWithinSlicesTest):
+##############################################################################
+# Terrain Clearance
+
+
+class TestTerrainClearanceAbove3000FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
         self.node_class = TerrainClearanceAbove3000FtMin
-        self.operational_combinations = [('Altitude Radio',
-                                          'Altitude AAL For Flight Phases',)]
+        self.operational_combinations = [('Altitude Radio', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_above', (3000.0,), {})]
 
@@ -4467,7 +4541,7 @@ class TestTerrainClearanceAbove3000FtMin(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Tailwind
 
 
@@ -4477,7 +4551,7 @@ class TestTailwindLiftoffTo100FtMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = TailwindLiftoffTo100FtMax
         self.operational_combinations = [('Tailwind', 'Altitude AAL For Flight Phases')]
-        #self.second_param_method_calls = [('slices_from_to', (0, 100,), {})]
+        #self.second_param_method_calls = [('slices_from_to', (0, 100), {})]
         #self.function = max_value
 
     @unittest.skip('Test Not Implemented')
@@ -4489,216 +4563,235 @@ class TestTailwindLiftoffTo100FtMax(unittest.TestCase, NodeTest):
 class TestTailwind100FtToTouchdownMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
+        # XXX: This test does not explicitly test how the Touchdown dependency is used.
         self.node_class = Tailwind100FtToTouchdownMax
-        self.operational_combinations = [('Tailwind', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Tailwind', 'Altitude AAL For Flight Phases', 'Touchdown')]
         #self.function = max_value
-        #self.second_param_method_calls = [('slices_from_to', (100, 0,), {})]
+        #self.second_param_method_calls = [('slices_to_kti', (100, []), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Warnings: Takeoff Configuration Warning
 
 
-class TestTakeoffConfigWarningDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTakeoffConfigWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TakeoffConfigWarningDuration
+        self.operational_combinations = [('Takeoff Config Warning', 'Takeoff Roll')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestMasterWarningInTakeoffDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestMasterWarningDuringTakeoffDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = MasterWarningDuringTakeoffDuration
+        self.operational_combinations = [('Master Warning', 'Takeoff Roll')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestMasterCautionInTakeoffDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestMasterCautionDuringTakeoffDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = MasterCautionDuringTakeoffDuration
+        self.operational_combinations = [('Master Caution', 'Takeoff Roll')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Warnings: Terrain Awareness & Warning System (TAWS)
 
 
-class TestTAWSGeneralDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSAlertDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSAlertDuration
+        self.operational_combinations = [('TAWS Alert', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSAlertDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSGeneralWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSGeneralWarningDuration
+        self.operational_combinations = [('TAWS General', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSSinkRateWarningDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSSinkRateWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSSinkRateWarningDuration
+        self.operational_combinations = [('TAWS Sink Rate', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSTooLowFlapWarningDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSTooLowFlapWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSTooLowFlapWarningDuration
+        self.operational_combinations = [('TAWS Too Low Flap', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSTerrainWarningDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSTerrainWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSTerrainWarningDuration
+        self.operational_combinations = [('TAWS Terrain', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSTerrainPullUpWarningDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSTerrainPullUpWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSTerrainPullUpWarningDuration
+        self.operational_combinations = [('TAWS Terrain Pull Up', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSGlideslopeWarning1500To1000FtDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSGlideslopeWarning1500To1000FtDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSGlideslopeWarning1500To1000FtDuration
+        self.operational_combinations = [('TAWS Glideslope', 'Altitude AAL For Flight Phases')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSGlideslopeWarning1000To500FtDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSGlideslopeWarning1000To500FtDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSGlideslopeWarning1000To500FtDuration
+        self.operational_combinations = [('TAWS Glideslope', 'Altitude AAL For Flight Phases')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSGlideslopeWarning500To200FtDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSGlideslopeWarning500To200FtDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSGlideslopeWarning500To200FtDuration
+        self.operational_combinations = [('TAWS Glideslope', 'Altitude AAL For Flight Phases')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSTooLowTerrainWarningDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSTooLowTerrainWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSTooLowTerrainWarningDuration
+        self.operational_combinations = [('TAWS Too Low Terrain', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSTooLowGearWarningDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSTooLowGearWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSTooLowGearWarningDuration
+        self.operational_combinations = [('TAWS Too Low Gear', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSPullUpWarningDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSPullUpWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSPullUpWarningDuration
+        self.operational_combinations = [('TAWS Pull Up', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSDontSinkWarningDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSDontSinkWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSDontSinkWarningDuration
+        self.operational_combinations = [('TAWS Dont Sink', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTAWSWindshearWarningBelow1500FtDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState Test Superclass
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTAWSWindshearWarningBelow1500FtDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TAWSWindshearWarningBelow1500FtDuration
+        self.operational_combinations = [('TAWS Windshear Warning', 'Altitude AAL For Flight Phases')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Warnings: Traffic Collision Avoidance System (TCAS)
 
 
 class TestTCASRAWarningDuration(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = TCASRAWarningDuration
         self.operational_combinations = [('TCAS Combined Control', 'Airborne')]
@@ -4709,6 +4802,7 @@ class TestTCASRAWarningDuration(unittest.TestCase, NodeTest):
 
 
 class TestTCASRAReactionDelay(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = TCASRAReactionDelay
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'TCAS Combined Control', 'Airborne')]
@@ -4719,6 +4813,7 @@ class TestTCASRAReactionDelay(unittest.TestCase, NodeTest):
 
 
 class TestTCASRAInitialReactionStrength(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = TCASRAInitialReactionStrength
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'TCAS Combined Control', 'Airborne')]
@@ -4728,9 +4823,10 @@ class TestTCASRAInitialReactionStrength(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTCASRAToAPDisengageDuration(unittest.TestCase, NodeTest):
+class TestTCASRAToAPDisengagedDuration(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = TCASRAToAPDisengageDuration
+        self.node_class = TCASRAToAPDisengagedDuration
         self.operational_combinations = [('AP Disengaged Selection', 'TCAS Combined Control', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
@@ -4738,7 +4834,7 @@ class TestTCASRAToAPDisengageDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 
 
 class TestThrottleCyclesInFinalApproach(unittest.TestCase, NodeTest):
@@ -4751,7 +4847,7 @@ class TestThrottleCyclesInFinalApproach(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Thrust Asymmetry in different conditions
 
 
@@ -4844,46 +4940,54 @@ class TestTouchdownTo60KtsDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
 # Turbulence
 
 
-class TestTurbulenceInApproachMax(unittest.TestCase, NodeTest):
+class TestTurbulenceDuringApproachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = TurbulenceInApproachMax
+        self.node_class = TurbulenceDuringApproachMax
         self.operational_combinations = [('Turbulence RMS g', 'Approach')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTurbulenceInCruiseMax(unittest.TestCase, NodeTest):
+class TestTurbulenceDuringCruiseMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = TurbulenceInCruiseMax
+        self.node_class = TurbulenceDuringCruiseMax
         self.operational_combinations = [('Turbulence RMS g', 'Cruise')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestTurbulenceInFlightMax(unittest.TestCase, NodeTest):
+class TestTurbulenceDuringFlightMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = TurbulenceInFlightMax
+        self.node_class = TurbulenceDuringFlightMax
         self.operational_combinations = [('Turbulence RMS g', 'Airborne')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
+##############################################################################
+# Wind
 
 
-class TestWindSpeedInDescent(unittest.TestCase, NodeTest):
+class TestWindSpeedAtAltitudeDuringDescent(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = WindSpeedInDescent
+        self.node_class = WindSpeedAtAltitudeDuringDescent
         self.operational_combinations = [('Altitude AAL For Flight Phases', 'Wind Speed')]
 
     @unittest.skip('Test Not Implemented')
@@ -4891,9 +4995,10 @@ class TestWindSpeedInDescent(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestWindDirectionInDescent(unittest.TestCase, NodeTest):
+class TestWindDirectionAtAltitudeDuringDescent(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = WindDirectionInDescent
+        self.node_class = WindDirectionAtAltitudeDuringDescent
         self.operational_combinations = [('Altitude AAL For Flight Phases', 'Wind Direction Continuous')]
 
     @unittest.skip('Test Not Implemented')
@@ -4902,6 +5007,7 @@ class TestWindDirectionInDescent(unittest.TestCase, NodeTest):
 
 
 class TestWindAcrossLandingRunwayAt50Ft(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = WindAcrossLandingRunwayAt50Ft
         self.operational_combinations = [('Wind Across Landing Runway', 'Landing')]
@@ -4911,17 +5017,48 @@ class TestWindAcrossLandingRunwayAt50Ft(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+##############################################################################
+# Weight
+
+
+class TestGrossWeightAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = GrossWeightAtLiftoff
+        self.operational_combinations = [('Gross Weight Smoothed', 'Liftoff')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestGrossWeightAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = GrossWeightAtTouchdown
+        self.operational_combinations = [('Gross Weight Smoothed', 'Touchdown')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
 class TestZeroFuelWeight(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = ZeroFuelWeight
         self.operational_combinations = [('Fuel Qty', 'Gross Weight')]
 
     def test_derive(self):
-        fuel = P('Fuel Qty', np.ma.array([1,2,3,4]))
-        weight = P('Gross Weight', np.ma.array([11,12,13,14]))
+        fuel_qty = P('Fuel Qty', np.ma.array([1, 2, 3, 4]))
+        gross_wgt = P('Gross Weight', np.ma.array([11, 12, 13, 14]))
         zfw = ZeroFuelWeight()
-        zfw.derive(fuel, weight)
+        zfw.derive(fuel_qty, gross_wgt)
+        self.assertEqual(zfw[0].index, 0)  # Note: Index should always be 0!
         self.assertEqual(zfw[0].value, 10.0)
+
+
+##############################################################################
 
 
 class TestHoldingDuration(unittest.TestCase):
@@ -4935,9 +5072,9 @@ class TestHoldingDuration(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-################################################################################
-# Go Around Related KPVs
-
+##############################################################################
+# Go Around Related KPVs 
+        
 #See also: EngGasTempGoAroundMax, EngN1GoAroundMax, EngN2GoAroundMax,
 #EngN3GoAroundMax, EngTorqueGoAroundMax
 
@@ -5024,16 +5161,6 @@ class TestAltitudeAtGoAroundGearUpSelection(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestSpeedbrakesDeployedInGoAroundDuration(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = SpeedbrakesDeployedInGoAroundDuration
-        self.operational_combinations = [('Speedbrake Selected', 'Go Around And Climbout')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestThrustAsymmetryInGoAround(unittest.TestCase,
                                     CreateKPVsWithinSlicesTest):
     def setUp(self):
@@ -5059,20 +5186,7 @@ class TestPitchInGoAroundMax(unittest.TestCase,
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
-
-class TestVerticalSpeedInGoAroundMax(unittest.TestCase,
-                                     CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = VerticalSpeedInGoAroundMax
-        self.operational_combinations = [('Vertical Speed',
-                                          'Go Around And Climbout',)]
-        self.function = max_value
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
+   
 class TestAOAInGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = AOAInGoAroundMax
