@@ -167,7 +167,7 @@ class AccelerationLateralMax(KeyPointValueNode):
                 max_abs_value,
             )
         else:
-            self.create_kpv(max_value(acc_lat.array))
+            self.create_kpv(*max_value(acc_lat.array))
 
 
 class AccelerationLateralAtTouchdown(KeyPointValueNode):
@@ -1575,7 +1575,7 @@ class AirspeedDuringLevelFlightMax(KeyPointValueNode):
                lvl_flt=S('Level Flight')):
 
         for section in lvl_flt:
-            self.create_kpv(max_value(air_spd.array, section.slice))
+            self.create_kpv(*max_value(air_spd.array, section.slice))
 
 
 class AirspeedBelowAltitudeMax(KeyPointValueNode):
