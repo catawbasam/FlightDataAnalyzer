@@ -107,6 +107,22 @@ def buildsections(*args):
     return SectionNode(name, items=built_list)
 
 
+##############################################################################
+# Superclasses
+
+
+class NodeTest(object):
+
+    def test_can_operate(self):
+        self.assertEqual(
+            self.node_class.get_operational_combinations(),
+            self.operational_combinations,
+        )
+
+
+##############################################################################
+
+
 class TestAirborne(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
     # outside edges of the envelope.
@@ -1056,38 +1072,45 @@ class TestMobile(unittest.TestCase):
         expected = buildsection('Mobile', 2, 5)
         self.assertEqual(move, expected)
 
-"""
-class TestLevelFlight(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Vertical Speed For Flight Phases','Airborne')]
-        opts = LevelFlight.get_operational_combinations()
-        self.assertEqual(opts, expected)
+
+class TestLevelFlight(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = LevelFlight
+        self.operational_combinations = [('Airborne', 'Vertical Speed For Flight Phases')]
 
     def test_level_flight_phase_basic(self):
-        vert_spd_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
-                                         range(-450,50,50))
-        vert_spd = Parameter('Vertical Speed For Flight Phases', np.ma.array(vert_spd_data))
-        airborne = SectionNode('Airborne',
-                               items=[Section('Airborne',slice(0,36,None))])
+        data = range(0, 400, 50) + range(400, -450, -50) + range(-450, 50, 50)
+        vrt_spd = Parameter(
+            name='Vertical Speed For Flight Phases',
+            array=np.ma.array(data),
+        )
+        airborne = SectionNode('Airborne', items=[
+            Section('Airborne', slice(0, 36, None), 0, 36),
+        ])
         level = LevelFlight()
-        level.derive(vert_spd, airborne)
-        expected = [Section(name='Level Flight', slice=slice(0, 7, None)),
-                    Section(name='Level Flight', slice=slice(10, 23, None)),
-                    Section(name='Level Flight', slice=slice(28, 35, None))]
-        self.assertEqual(level, expected)
+        level.derive(airborne, vrt_spd)
+        self.assertEqual(level, [
+            Section('Level Flight', slice(0, 7, None), 0, 7),
+            Section('Level Flight', slice(10, 23, None), 10, 23),
+            Section('Level Flight', slice(28, 35, None), 28, 35),
+        ])
 
     def test_level_flight_phase_not_airborne_basic(self):
-        vert_spd_data = np.ma.array(range(0,400,50)+range(400,-450,-50)+
-                                         range(-450,50,50))
-        vert_spd = Parameter('Vertical Speed For Flight Phases', np.ma.array(vert_spd_data))
-        airborne = SectionNode('Airborne',
-                               items=[Section('Airborne',slice(8,30,None))])
+        data = range(0, 400, 50) + range(400, -450, -50) + range(-450, 50, 50)
+        vrt_spd = Parameter(
+            name='Vertical Speed For Flight Phases',
+            array=np.ma.array(data),
+        )
+        airborne = SectionNode('Airborne', items=[
+            Section('Airborne', slice(8, 30, None), 8, 30),
+        ])
         level = LevelFlight()
-        level.derive(vert_spd, airborne)
-        expected = [Section(name='Level Flight', slice=slice(10, 23, None)),
-                    Section(name='Level Flight', slice=slice(28, 30, None))]
-        self.assertEqual(level, expected)
-        """
+        level.derive(airborne, vrt_spd)
+        self.assertEqual(level, [
+            Section('Level Flight', slice(10, 23, None), 10, 23),
+            Section('Level Flight', slice(28, 30, None), 28, 30),
+        ])
 
 
 class TestTakeoff(unittest.TestCase):
@@ -1268,16 +1291,6 @@ class TestGoAround5MinRating(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(GoAround5MinRating.get_operational_combinations(),
                          [('Go Around And Climbout',)])
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestLevelFlight(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(LevelFlight.get_operational_combinations(),
-                         [('Airborne', 'Vertical Speed For Flight Phases',)])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

@@ -2375,7 +2375,7 @@ class TestBlendTwoParameters(unittest.TestCase):
     def test_blend_two_parameters_param_one_rubbish(self):
         p1 = P(array=[5,10,7,8], frequency=2, offset=0.1, name='First')
         p2 = P(array=[1,2,3,4], frequency=2, offset=0.0, name='Second')
-        p1.array = np.ma.masked
+        p1.array.mask = True
         arr, freq, off = blend_two_parameters(p1, p2)
         self.assertEqual(arr[2], 3)
         self.assertEqual(freq, 2)
@@ -2384,7 +2384,7 @@ class TestBlendTwoParameters(unittest.TestCase):
     def test_blend_two_parameters_param_two_rubbish(self):
         p1 = P(array=[5,10,7,8], frequency=2, offset=0.1, name='First')
         p2 = P(array=[1,2,3,4], frequency=2, offset=0.0, name='Second')
-        p2.array = np.ma.masked
+        p2.array.mask = True
         arr, freq, off = blend_two_parameters(p1, p2)
         self.assertEqual(arr[2], 7)
         self.assertEqual(freq, 2)
@@ -3612,7 +3612,10 @@ class TestSlicesOr(unittest.TestCase):
     def test_slices_or_one_list(self):
         self.assertEqual(slices_or([slice(1,2)]), [slice(1,2)])
 
-
+    def test_slices_or_raises_with_none(self):
+        self.assertRaises(slices_or([None]))
+        
+              
 class TestStepValues(unittest.TestCase):
     def test_step_values(self):
         # borrowed from TestSlat

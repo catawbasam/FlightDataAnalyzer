@@ -264,15 +264,55 @@ class TestNode(unittest.TestCase):
 
 
 class TestAttribute(unittest.TestCase):
+
     def test___eq__(self):
-        a = Attribute('a', 1)
-        b1 = Attribute('b', 2)
-        b2 = Attribute('b', 2)
-        b3 = Attribute('b', 3)
-        self.assertEqual(b1, b2)
-        self.assertNotEqual(a, b1)
-        self.assertNotEqual(b2, b3)
-        self.assertNotEqual(a, b3)
+        pairs = [
+            (Attribute('Test', 0), Attribute('Test', 0)),
+            (Attribute('Test', 'a'), Attribute('Test', 'a')),
+            (Attribute('Test', []), Attribute('Test', [])),
+            (Attribute('Test', {}), Attribute('Test', {})),
+        ]
+        for a, b in pairs:
+            self.assertEqual(a, b)
+            self.assertEqual(b, a)
+            self.assertTrue(a == b)
+            self.assertTrue(b == a)
+            self.assertFalse(a != b)
+            self.assertFalse(b != a)
+            self.assertEqual(0, cmp(a, b))
+            self.assertEqual(0, cmp(b, a))
+
+    def test___ne__(self):
+        pairs = [
+            (Attribute('Test', 0), Attribute('Test', 1)),
+            (Attribute('Test', 'a'), Attribute('Test', 'b')),
+            (Attribute('Test', []), Attribute('Test', [1])),
+            (Attribute('Test', {}), Attribute('Test', {'a': 1})),
+        ]
+        for a, b in pairs:
+            self.assertNotEqual(a, b)
+            self.assertNotEqual(b, a)
+            self.assertFalse(a == b)
+            self.assertFalse(b == a)
+            self.assertTrue(a != b)
+            self.assertTrue(b != a)
+            self.assertNotEqual(0, cmp(a, b))
+            self.assertNotEqual(0, cmp(b, a))
+
+    def test___lt__(self):
+        pairs = [
+            (Attribute('Test', 0), Attribute('Test', 1)),
+            (Attribute('Test', 'a'), Attribute('Test', 'b')),
+            (Attribute('Test', [1]), Attribute('Test', [2])),
+            (Attribute('Test', {'a': 1}), Attribute('Test', {'a': 2})),
+        ]
+        for a, b in pairs:
+            self.assertLess(a, b)
+            self.assertGreater(b, a)
+            self.assertTrue(a < b)
+            self.assertTrue(b > a)
+            self.assertFalse(a > b)
+            self.assertFalse(b < a)
 
 
 class TestFlightAttributeNode(unittest.TestCase):
@@ -1403,6 +1443,18 @@ class TestDerivedParameterNode(unittest.TestCase):
     def test_offset(self):
         self.assertTrue(False)
         # assert that offset MUST be set
+
+    def test_force_masked_array(self):
+        '''
+        Ensures that we create a masked array if one was not provided.
+        '''
+        p1 = Parameter('Parameter')
+        p2 = Parameter('Parameter', array=[1, 2, 3])
+        p3 = Parameter('Parameter', array=np.ma.MaskedArray([1, 2, 3]))
+        self.assertIsInstance(p1.array, np.ma.MaskedArray)
+        self.assertIsInstance(p2.array, np.ma.MaskedArray)
+        self.assertIsInstance(p3.array, np.ma.MaskedArray)
+        self.assertRaises(TypeError, Parameter, ('Parameter', ['a', 'b', 'c']))
 
     def test_get_derived_aligns(self):
         '''

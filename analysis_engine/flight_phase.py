@@ -3,6 +3,7 @@ import numpy as np
 # and clump_unmasked but used here to clump discrete arrays.
 from numpy.ma.extras import _ezclump
 
+from analysis_engine import settings
 from analysis_engine.exceptions import DataFrameError
 
 from analysis_engine.library import (
@@ -49,7 +50,6 @@ from analysis_engine.settings import (
     LANDING_THRESHOLD_HEIGHT,
     VERTICAL_SPEED_FOR_CLIMB_PHASE,
     VERTICAL_SPEED_FOR_DESCENT_PHASE,
-    VERTICAL_SPEED_FOR_LEVEL_FLIGHT,
     RATE_OF_TURN_FOR_FLIGHT_PHASES,
     RATE_OF_TURN_FOR_TAXI_TURNS
 )
@@ -173,6 +173,9 @@ class Holding(FlightPhaseNode):
 
 
 class ApproachAndLanding(FlightPhaseNode):
+    # Force to remove problem with desynchronising of approaches and landings
+    # (when offset > 0.5)
+    align_offset = 0
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                lands=S('Landing'), go_arounds=S('Go Around And Climbout')):
@@ -788,16 +791,31 @@ class InitialApproach(FlightPhaseNode):
                                                    app_land.slice.start))
                                                    """
 
+
 class LevelFlight(FlightPhaseNode):
-    def derive(self, airs=S('Airborne'),
-               vert_spd=P('Vertical Speed For Flight Phases')):
+    '''
+    '''
+
+    @staticmethod
+    def _duration_filter(slices, frequency):
+        filtered = []
+        for _slice in slices:
+            duration = (_slice.stop - _slice.start) / frequency
+            if duration < settings.LEVEL_FLIGHT_MIN_DURATION:
+                filtered.append(_slice)
+        return filtered
+
+    def derive(self,
+               airs=S('Airborne'),
+               vrt_spd=P('Vertical Speed For Flight Phases')):
+
         # Vertical speed limit set to identify both level flight and end of
         # takeoff / start of landing.
         for air in airs:
-            level_flight = np.ma.masked_outside(
-                vert_spd.array[air.slice], -VERTICAL_SPEED_FOR_LEVEL_FLIGHT,
-                VERTICAL_SPEED_FOR_LEVEL_FLIGHT)
+            limit = settings.VERTICAL_SPEED_FOR_LEVEL_FLIGHT
+            level_flight = np.ma.masked_outside(vrt_spd.array[air.slice], -limit, limit)
             level_slices = np.ma.clump_unmasked(level_flight)
+            level_slices = self._duration_filter(level_slices, airs.frequency)
             self.create_phases(shift_slices(level_slices, air.slice.start))
 
 

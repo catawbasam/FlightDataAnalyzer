@@ -141,7 +141,7 @@ class ApproachInformation(ApproachNode):
                                                 **kwargs)
             except NotFoundError:
                 msg = 'No runway found for airport #%d @ %03.1f deg with %s.'
-                self.warning(msg, airport_id, lowest_hdg.value, kwargs)
+                self.warning(msg, airport_id, lowest_hdg, kwargs)
                 # No runway was found, so fall through and try AFR.
                 if 'ils_freq' in kwargs:
                     # This is a trap for airports where the ILS data is not

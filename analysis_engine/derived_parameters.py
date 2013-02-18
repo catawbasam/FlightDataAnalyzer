@@ -12,6 +12,7 @@ from analysis_engine.node import (
 from analysis_engine.library import (air_track,
                                      align,
                                      all_of,
+                                     any_of,
                                      alt2press,
                                      alt2sat,
                                      bearing_and_distance,
@@ -20,6 +21,7 @@ from analysis_engine.library import (air_track,
                                      cas2dp,
                                      cas_alt2mach,
                                      clip,
+                                     clump_multistate,
                                      coreg,
                                      cycle_finder,
                                      datetime_of_index,
@@ -69,7 +71,8 @@ from analysis_engine.library import (air_track,
                                      straighten_headings,
                                      track_linking,
                                      value_at_index,
-                                     vstack_params)
+                                     vstack_params,
+                                     vstack_params_where_state)
 from analysis_engine.velocity_speed import get_vspeed_map
 
 from settings import (AZ_WASHOUT_TC,
@@ -853,8 +856,11 @@ class AltitudeRadio(DerivedParameterNode):
         frame_qualifier = frame_qual.value if frame_qual else None
 
         # 737-1 & 737-i has Altitude Radio recorded.
+        if frame_name in ['737-3']:
+            # Select the source without abnormal latency.
+            self.array = source_B.array
 
-        if frame_name in ['737-3A', '737-3B', '737-3C', '757-DHL']:
+        elif frame_name in ['737-3A', '737-3B', '737-3C', '757-DHL']:
             # 737-3* comment:
             # Alternate samples (A) for this frame have latency of over 1
             # second, so do not contribute to the height measurements
@@ -1177,26 +1183,31 @@ class AltitudeTail(DerivedParameterNode):
         self.array = (alt_rad.array + ground2tail -
                       np.ma.sin(pitch_rad) * gear2tail - min_rad)
 
-class AutopilotEngaged(MultistateDerivedParameterNode):
+
+##############################################################################
+# Automated Systems
+
+
+class APEngaged(MultistateDerivedParameterNode):
     '''
-    This function assumes that either autopilot is capable of controlling the aircraft.
+    This function assumes that either autopilot is capable of controlling the
+    aircraft.
 
     This function will be extended to be multi-state parameter with states
     Off/Single/Dual as a first step towards monitoring autoland function.
     '''
-
-    align=False
-
+    align = False
+    name = 'AP Engaged'
     values_mapping = {0: '-', 1: 'Engaged'}
 
     @classmethod
     def can_operate(cls, available):
         return any(d in available for d in cls.get_dependency_names())
 
-    def derive(self, ap1=M('Autopilot (1) Engaged'),
-               ap2=M('Autopilot (2) Engaged'),
-               ap3=M('Autopilot (3) Engaged')):
-
+    def derive(self,
+               ap1=M('AP (1) Engaged'),
+               ap2=M('AP (2) Engaged'),
+               ap3=M('AP (3) Engaged')):
 
         if ap3 == None:
             # Only got a duplex autopilot.
@@ -1209,17 +1220,16 @@ class AutopilotEngaged(MultistateDerivedParameterNode):
         self.frequency = ap1.frequency
 
 
-'''
-class Autothrottle(DerivedParameterNode):
-    name = 'AT Engaged'
-    """
-    Placeholder for combining multi-channel AP modes into a single consistent status.
-
-    Not required for 737-5 frame as AT Engaged is recorded directly.
-    """
-'''
-
-
+##### FIXME: Implement this derived parameter.
+####class ATEngaged(MultistateDerivedParameterNode):
+####    '''
+####    Placeholder for combining multi-channel AP modes into a single
+####    consistent status.
+####
+####    Not required for 737-5 frame as AT Engaged is recorded directly.
+####    '''
+####
+####    name = 'AT Engaged'
 
 
 class ClimbForFlightPhases(DerivedParameterNode):
@@ -1564,7 +1574,7 @@ class Eng_FuelFlow(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Fuel Flow'
-    units = 'lbs/h'
+    units = 'kg/h'
     align = False
 
     @classmethod
@@ -2484,10 +2494,12 @@ class Eng_1_FuelBurn(DerivedParameterNode):
     '''
     Amount of fuel burnt since the start of the data.
     '''
-    units = 'kgs'
-    name = "Eng (1) Fuel Burn"
+
+    name = 'Eng (1) Fuel Burn'
+    units = 'kg'
 
     def derive(self, ff=P('Eng (1) Fuel Flow')):
+
         flow = repair_mask(ff.array)
         self.array = np.ma.array(integrate(flow / 3600.0, ff.frequency))
 
@@ -2496,10 +2508,40 @@ class Eng_2_FuelBurn(DerivedParameterNode):
     '''
     Amount of fuel burnt since the start of the data.
     '''
-    units = 'kgs'
-    name = "Eng (2) Fuel Burn"
+
+    name = 'Eng (2) Fuel Burn'
+    units = 'kg'
 
     def derive(self, ff=P('Eng (2) Fuel Flow')):
+
+        flow = repair_mask(ff.array)
+        self.array = np.ma.array(integrate(flow / 3600.0, ff.frequency))
+
+
+class Eng_3_FuelBurn(DerivedParameterNode):
+    '''
+    Amount of fuel burnt since the start of the data.
+    '''
+
+    name = 'Eng (3) Fuel Burn'
+    units = 'kg'
+
+    def derive(self, ff=P('Eng (3) Fuel Flow')):
+
+        flow = repair_mask(ff.array)
+        self.array = np.ma.array(integrate(flow / 3600.0, ff.frequency))
+
+
+class Eng_4_FuelBurn(DerivedParameterNode):
+    '''
+    Amount of fuel burnt since the start of the data.
+    '''
+
+    name = 'Eng (4) Fuel Burn'
+    units = 'kg'
+
+    def derive(self, ff=P('Eng (4) Fuel Flow')):
+
         flow = repair_mask(ff.array)
         self.array = np.ma.array(integrate(flow / 3600.0, ff.frequency))
 
@@ -3114,24 +3156,45 @@ class ILSFrequency(DerivedParameterNode):
 
 class ILSLocalizer(DerivedParameterNode):
 
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        return ('ILS (1) Localizer' in available and 'ILS (2) Localizer' in available)\
+               or\
+               ('ILS Localizer (Capt)' in available and 'ILS Localizer (Azimuth)' in available)
+
     name = "ILS Localizer"
     units = 'dots'
     align = False
 
-    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
-        self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer'),
+               loc_c=P('ILS Localizer (Capt)'),loc_az=P('ILS Localizer (Azimuth)')):
+        if loc_1:
+            self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+        else:
+            self.array, self.frequency, self.offset = blend_two_parameters(loc_c, loc_az)
 
 
 class ILSGlideslope(DerivedParameterNode):
+
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        return ('ILS (1) Glideslope' in available and 'ILS (2) Glideslope' in available)\
+               or\
+               ('ILS Glideslope (Capt)' in available and 'ILS Glideslope (Elevation)' in available)
 
     name = "ILS Glideslope"
     units = 'dots'
     align = False
 
-    def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope')):
-        self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
-        # Would like to do this, except the frequencies don't match
-        # self.array.mask = np.ma.logical_or(self.array.mask, freq.array.mask)
+    def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope'),
+               gs_c=P('ILS Glideslope (Capt)'), gs_e=P('ILS Glideslope (Elevation)')):
+
+        if gs_1:
+            self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
+        else:
+            self.array, self.frequency, self.offset = blend_two_parameters(gs_c, gs_e)
 
 
 class AimingPointRange(DerivedParameterNode):
@@ -4201,6 +4264,79 @@ class TAT(DerivedParameterNode):
             blend_two_parameters(source_1, source_2)
 
 
+
+class TAWSAlert(MultistateDerivedParameterNode):
+    '''
+    Merging all available TAWS alert signals into a single parameter for
+    subsequent monitoring.
+    '''
+    values_mapping = {
+        0: '-',
+        1: 'Alert'}
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(['TAWS Caution Terrain',
+                       'TAWS Caution',
+                       'TAWS Dont Sink',
+                       'TAWS Glideslope'
+                       'TAWS Predictive Windshear',
+                       'TAWS Pull Up',
+                       'TAWS Sink Rate',
+                       'TAWS Terrain',
+                       'TAWS Terrain Warning Amber',
+                       'TAWS Terrain Pull Up',
+                       'TAWS Terrain Warning Red',
+                       'TAWS Too Low Flap',
+                       'TAWS Too Low Gear',
+                       'TAWS Too Low Terrain',
+                       'TAWS Windshear Warning',
+                       ],
+                      available)
+
+    def derive(self, airs=S('Airborne'),
+               taws_caution_terrain=P('TAWS Caution Terrain'),
+               taws_caution=P('TAWS Caution'),
+               taws_dont_sink=P('TAWS Dont Sink'),
+               taws_glideslope=P('TAWS Glideslope'),
+               taws_predictive_windshear=P('TAWS Predictive Windshear'),
+               taws_pull_up=P('TAWS Pull Up'),
+               taws_sink_rate=P('TAWS Sink Rate'),
+               taws_terrain_pull_up=P('TAWS Terrain Pull Up'),
+               taws_terrain_warning_amber=P('TAWS Terrain Warning Amber'),
+               taws_terrain_warning_red=P('TAWS Terrain Warning Red'),
+               taws_terrain=P('TAWS Terrain'),
+               taws_too_low_flap=P('TAWS Too Low Flap'),
+               taws_too_low_gear=P('TAWS Too Low Gear'),
+               taws_too_low_terrain=P('TAWS Too Low Terrain'),
+               taws_windshear_warning=P('TAWS Windshear Warning')):
+
+        taws_states = (
+            (taws_caution_terrain, 'Caution'),
+            (taws_caution, 'Caution'),
+            (taws_dont_sink, 'Warning'),
+            (taws_glideslope, 'Warning'),
+            (taws_predictive_windshear, 'Caution'),
+            (taws_predictive_windshear, 'Warning'),
+            (taws_pull_up, 'Warning'),
+            (taws_sink_rate, 'Warning'),
+            (taws_terrain_pull_up, 'Warning'),
+            (taws_terrain_warning_amber, 'Warning'),
+            (taws_terrain_warning_red, 'Warning'),
+            (taws_terrain, 'Warning'),
+            (taws_too_low_flap, 'Warning'),
+            (taws_too_low_gear, 'Warning'),
+            (taws_too_low_terrain, 'Warning'),
+            (taws_windshear_warning, 'Warning'),
+        )
+        params_state = vstack_params_where_state(taws_states)
+        res = params_state.any(axis=0)
+
+        self.array = np_ma_masked_zeros_like(params_state[0])
+        for air in airs:
+            self.array[air.slice] = res[air.slice]
+
+
 class V2(DerivedParameterNode):
     '''
     Based on weight and flap at time of Liftoff, first liftoff only.
@@ -4393,7 +4529,7 @@ class Speedbrake(DerivedParameterNode):
         '''
         frame_name = frame.value if frame else ''
 
-        if frame_name in ['737-3A', '737-3B', '737-3C']:
+        if frame_name in ['737-3', '737-3A', '737-3B', '737-3C']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
 
         elif frame_name in ['737-4', '737-5', '737-5_NON-EIS', '737-6',
@@ -4548,7 +4684,7 @@ class StickShaker(MultistateDerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 shake_act.array, shake_act.frequency, shake_act.offset
 
-        elif frame_name in ['737-1', '737-3A', '737-3B', '737-3C', '737-4',
+        elif frame_name in ['737-1', '737-3', '737-3A', '737-3B', '737-3C', '737-4',
                             '737-i', '737-2227000-335A', '757-DHL']:
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset
