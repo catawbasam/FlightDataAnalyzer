@@ -72,7 +72,7 @@ from analysis_engine.derived_parameters import (
     GearOnGround,
     GearUpSelected,
     GrossWeightSmoothed,
-    GroundspeedAlongTrack,
+    #GroundspeedAlongTrack,
     HeadingContinuous,
     HeadingIncreasing,
     HeadingTrue,
@@ -1850,6 +1850,7 @@ class TestGrossWeightSmoothed(unittest.TestCase):
 
 
 class TestGroundspeedAlongTrack(unittest.TestCase):
+
     @unittest.skip('Commented out until new computation of sliding motion')
     def test_can_operate(self):
         expected = [('Groundspeed','Acceleration Along Track', 'Altitude AAL',
