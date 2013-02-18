@@ -264,15 +264,55 @@ class TestNode(unittest.TestCase):
 
 
 class TestAttribute(unittest.TestCase):
+
     def test___eq__(self):
-        a = Attribute('a', 1)
-        b1 = Attribute('b', 2)
-        b2 = Attribute('b', 2)
-        b3 = Attribute('b', 3)
-        self.assertEqual(b1, b2)
-        self.assertNotEqual(a, b1)
-        self.assertNotEqual(b2, b3)
-        self.assertNotEqual(a, b3)
+        pairs = [
+            (Attribute('Test', 0), Attribute('Test', 0)),
+            (Attribute('Test', 'a'), Attribute('Test', 'a')),
+            (Attribute('Test', []), Attribute('Test', [])),
+            (Attribute('Test', {}), Attribute('Test', {})),
+        ]
+        for a, b in pairs:
+            self.assertEqual(a, b)
+            self.assertEqual(b, a)
+            self.assertTrue(a == b)
+            self.assertTrue(b == a)
+            self.assertFalse(a != b)
+            self.assertFalse(b != a)
+            self.assertEqual(0, cmp(a, b))
+            self.assertEqual(0, cmp(b, a))
+
+    def test___ne__(self):
+        pairs = [
+            (Attribute('Test', 0), Attribute('Test', 1)),
+            (Attribute('Test', 'a'), Attribute('Test', 'b')),
+            (Attribute('Test', []), Attribute('Test', [1])),
+            (Attribute('Test', {}), Attribute('Test', {'a': 1})),
+        ]
+        for a, b in pairs:
+            self.assertNotEqual(a, b)
+            self.assertNotEqual(b, a)
+            self.assertFalse(a == b)
+            self.assertFalse(b == a)
+            self.assertTrue(a != b)
+            self.assertTrue(b != a)
+            self.assertNotEqual(0, cmp(a, b))
+            self.assertNotEqual(0, cmp(b, a))
+
+    def test___lt__(self):
+        pairs = [
+            (Attribute('Test', 0), Attribute('Test', 1)),
+            (Attribute('Test', 'a'), Attribute('Test', 'b')),
+            (Attribute('Test', [1]), Attribute('Test', [2])),
+            (Attribute('Test', {'a': 1}), Attribute('Test', {'a': 2})),
+        ]
+        for a, b in pairs:
+            self.assertLess(a, b)
+            self.assertGreater(b, a)
+            self.assertTrue(a < b)
+            self.assertTrue(b > a)
+            self.assertFalse(a > b)
+            self.assertFalse(b < a)
 
 
 class TestFlightAttributeNode(unittest.TestCase):

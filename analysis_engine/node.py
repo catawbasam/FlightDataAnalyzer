@@ -10,6 +10,7 @@ import pprint
 
 from abc import ABCMeta
 from collections import namedtuple, Iterable
+from functools import total_ordering
 from itertools import product
 from operator import attrgetter
 
@@ -2044,21 +2045,26 @@ class NodeManager(object):
 # The following acronyms are intended to be used as placeholder values
 # for kwargs in Node derive methods. Cannot instantiate Node subclass without
 # implementing derive.
+@total_ordering
 class Attribute(object):
-    def __repr__(self):
-        return "Attribute(%s, %s)" % (self.name, pprint.pformat(self.value))
+
+    __hash__ = None  # Fix assertItemsEqual in unit tests!
 
     def __init__(self, name, value=None):
         '''
-        :type name: str
         '''
         self.name = name
         self.value = value
         self.frequency = self.hz = self.sample_rate = None
         self.offset = None
 
+    def __repr__(self):
+        '''
+        '''
+        return 'Attribute(%r, %s)' % (self.name, pprint.pformat(self.value))
+
     def __nonzero__(self):
-        """
+        '''
         Set the boolean value of the object depending on it's attriubute
         content.
 
@@ -2068,20 +2074,35 @@ class Attribute(object):
         bool(node) == bool(node.value)
 
         :rtype: bool
-        """
+        '''
         # 0 is a meaningful value. Check self.value is not False as False == 0.
         return bool(self.value or (self.value == 0 and self.value is not False))
 
     def __eq__(self, other):
-        return (isinstance(other, Attribute) and
-                self.name == other.name and
-                self.value == other.value)
+        '''
+        '''
+        return isinstance(other, Attribute) \
+            and self.name == other.name \
+            and self.value == other.value
 
+    def __ne__(self, other):
+        '''
+        '''
+        return not self == other
+
+    def __lt__(self, other):
+        '''
+        '''
+        if self.name == other.name:
+            return self.value < other.value
+        else:
+            return self.name < other.name
+
+    # NOTE: If attributes start storing indices rather than time, this will
+    #       require implementing.
     def get_aligned(self, param):
         '''
         Attributes do not contain data which can be aligned to other parameters.
-        Q: If attributes start storing indices rather than time, this will
-        require implementing.
 
         :returns: self
         :rtype: FlightAttributeNode

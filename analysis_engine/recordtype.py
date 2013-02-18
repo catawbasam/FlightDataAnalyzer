@@ -76,10 +76,16 @@ def recordtype(typename, field_names, verbose=False, **default_kwds):
         raise ValueError('Invalid keyword arguments: %s' % default_kwds)
     # Create and fill-in the class template
     template = dedent('''
-        class %(typename)s(object):
-            '%(typename)s(%(argtxt)s)'
+        from functools import total_ordering
 
-            __slots__  = %(field_names)r
+        @total_ordering
+        class %(typename)s(object):
+            \'\'\'
+            %(typename)s(%(argtxt)s)
+            \'\'\'
+
+            __hash__ = None
+            __slots__ = %(field_names)r
 
             def __init__(self, %(argtxt)s):
                 %(inittxt)s
@@ -107,7 +113,15 @@ def recordtype(typename, field_names, verbose=False, **default_kwds):
                 return isinstance(other, self.__class__) and %(eqtxt)s
 
             def __ne__(self, other):
-                return not self==other
+                return not self == other
+
+            def __lt__(self, other):
+                if not self.__class__ == other.__class__:
+                    return NotImplemented
+                for field in ['index', 'datetime', 'slice', 'name']:
+                    if field in self.__slots__:
+                        return getattr(self, field) < getattr(other, field)
+                return NotImplemented
 
             def __getstate__(self):
                 return %(tupletxt)s
