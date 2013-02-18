@@ -1444,6 +1444,18 @@ class TestDerivedParameterNode(unittest.TestCase):
         self.assertTrue(False)
         # assert that offset MUST be set
 
+    def test_force_masked_array(self):
+        '''
+        Ensures that we create a masked array if one was not provided.
+        '''
+        p1 = Parameter('Parameter')
+        p2 = Parameter('Parameter', array=[1, 2, 3])
+        p3 = Parameter('Parameter', array=np.ma.MaskedArray([1, 2, 3]))
+        self.assertIsInstance(p1.array, np.ma.MaskedArray)
+        self.assertIsInstance(p2.array, np.ma.MaskedArray)
+        self.assertIsInstance(p3.array, np.ma.MaskedArray)
+        self.assertRaises(TypeError, Parameter, ('Parameter', ['a', 'b', 'c']))
+
     def test_get_derived_aligns(self):
         '''
         Tests get_derived returns a Parameter object rather than a

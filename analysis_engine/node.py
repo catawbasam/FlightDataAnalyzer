@@ -458,10 +458,19 @@ class DerivedParameterNode(Node):
 
     def __init__(self, name='', array=np.ma.array([], dtype=float), frequency=1, offset=0,
                  data_type=None, *args, **kwargs):
-        # create array results placeholder
-        self.array = array # np.ma.array derive result goes here!
+
+        # Set the array on the derive parameter first. Some subclasses of this
+        # class will handle appropriate type conversion of the provided array
+        # in __setattr__:
+        self.array = array  # np.ma.array derive result goes here!
+
+        # Force conversion to a numpy masked array if one is not provided:
+        if not isinstance(self.array, np.ma.MaskedArray):
+            self.array = np.ma.array(array, dtype=float)
+
         if not self.data_type:
             self.data_type = data_type
+
         super(DerivedParameterNode, self).__init__(name=name,
                                                    frequency=frequency,
                                                    offset=offset,
