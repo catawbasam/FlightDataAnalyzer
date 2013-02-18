@@ -18,6 +18,7 @@ from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M
 
 from analysis_engine.library import (ambiguous_runway,
+                                     all_of,
                                      any_of,
                                      bearings_and_distances,
                                      bump,
@@ -56,7 +57,8 @@ from analysis_engine.library import (ambiguous_runway,
                                      slices_overlap,
                                      slices_and,
                                      touchdown_inertial,
-                                     value_at_index)
+                                     value_at_index,
+                                     vstack_params)
 
 
 ##############################################################################
@@ -3323,25 +3325,39 @@ class MagneticVariationAtLanding(KeyPointValueNode):
 # Engine Bleed
 
 
-# FIXME: Need to handle at least four engines here!
-# Alignment should be resolved by align method, not use of integers.
+# FIXME: Alignment should be resolved by align method, not use of integers.
 class EngBleedValvesAtLiftoff(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, lifts=KTI('Liftoff'),
-               b1=M('Eng (1) Bleed'), b2=M('Eng (2) Bleed')):
-        '''
-        '''
-        # b1 & b2 are integer arrays, but to index them correctly we need to
-        # align the KTI to match these arrays. The alignment will cause the
-        # integer arrays to blur at transitions, so int(b1 + b2) is used to
-        # remove this effect as the bleeds are changing state.
-        bleeds = np.ma.array(b1.array + b2.array, dtype=int)
-        for lift in lifts:
-            valves = bleeds[lift.index]
+    units = ''
+
+    @classmethod
+    def can_operate(cls, available):
+        return all_of((
+            'Eng (1) Bleed',
+            'Eng (2) Bleed',
+            'Liftoff',
+        ), available)
+
+    def derive(self,
+               liftoffs=KTI('Liftoff'),
+               b1=M('Eng (1) Bleed'),
+               b2=M('Eng (2) Bleed'),
+               b3=M('Eng (3) Bleed'),
+               b4=M('Eng (4) Bleed')):
+
+        # Note: The bleed arrays for each engine are integer arrays, but to
+        # index them correctly we need to align the liftoff KTI to match these
+        # arrays. The alignment will cause the integer arrays to blur at
+        # transitions, so int(b1 + b2 + b3 + b4) is used to remove this effect
+        # as the bleeds are changing state.
+        params = (b for b in (b1, b2, b3, b4) if b is not None and b.array.size)
+        bleeds = vstack_params(*params).sum(axis=0).astype(int)
+        for liftoff in liftoffs:
+            valves = bleeds[liftoff.index]
             if valves:
-                self.create_kpv(lift.index, valves)
+                self.create_kpv(liftoff.index, valves)
 
 
 ##############################################################################

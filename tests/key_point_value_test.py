@@ -11,7 +11,7 @@ from utilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, KTI, P, KeyPointValue, KeyTimeInstance, Section, S
+    A, KPV, KTI, P, KeyPointValue, KeyTimeInstance, Section, S
 )
 
 from analysis_engine.key_point_values import (
@@ -121,6 +121,7 @@ from analysis_engine.key_point_values import (
     ControlColumnStiffness,
     DecelerationFromTouchdownToStopOnRunway,
     DelayedBrakingAfterTouchdown,
+    EngBleedValvesAtLiftoff,
     EngEPR500FtToTouchdownMin,
     EngGasTempTakeoffMax,
     EngN1500To20FtMin,
@@ -2470,14 +2471,42 @@ class TestDistancePastGlideslopeAntennaToTouchdown(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngBleedValvesAtLiftoff(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngBleedValvesAtLiftoff(unittest.TestCase, NodeTest):
 
-    @unittest.skip('Test Not Implemented')
+    def setUp(self):
+        self.node_class = EngBleedValvesAtLiftoff
+        self.operational_combinations = [
+            ('Liftoff', 'Eng (1) Bleed', 'Eng (2) Bleed'),
+            ('Liftoff', 'Eng (1) Bleed', 'Eng (2) Bleed', 'Eng (3) Bleed'),
+            ('Liftoff', 'Eng (1) Bleed', 'Eng (2) Bleed', 'Eng (4) Bleed'),
+            ('Liftoff', 'Eng (1) Bleed', 'Eng (2) Bleed', 'Eng (3) Bleed', 'Eng (4) Bleed'),
+        ]
+
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        liftoff = KTI('Liftoff', items=[KeyTimeInstance(name='Liftoff', index=3)])
+        b1 = P('Eng (1) Bleed', array=[0, 0, 1, 0, 0])
+        b2 = P('Eng (2) Bleed', array=[0, 0, 0, 1, 0])
+        b3 = P('Eng (3) Bleed', array=[0, 1, 0, 0, 0])
+        b4 = P('Eng (4) Bleed', array=[0, 1, 0, 1, 0])
+        # Test with four engines, integer values:
+        node = EngBleedValvesAtLiftoff()
+        node.derive(liftoff, b1, b2, b3, b4)
+        self.assertEqual(node, KPV('Eng Bleed Valves At Liftoff', items=[
+            KeyPointValue(name='Eng Bleed Valves At Liftoff', index=3, value=2),
+        ]))
+        # Test with four engines, float values:
+        b4f = P('Eng (4) Bleed', array=[0, 1.5, 0, 1.5, 0])
+        node = EngBleedValvesAtLiftoff()
+        node.derive(liftoff, b1, b2, b3, b4f)
+        self.assertEqual(node, KPV('Eng Bleed Valves At Liftoff', items=[
+            KeyPointValue(name='Eng Bleed Valves At Liftoff', index=3, value=2),
+        ]))
+        # Test with two engines, integer values:
+        node = EngBleedValvesAtLiftoff()
+        node.derive(liftoff, b1, b2)
+        self.assertEqual(node, KPV('Eng Bleed Valves At Liftoff', items=[
+            KeyPointValue(name='Eng Bleed Valves At Liftoff', index=3, value=1),
+        ]))
 
 
 class TestEngEPRAboveFL100Max(unittest.TestCase):
