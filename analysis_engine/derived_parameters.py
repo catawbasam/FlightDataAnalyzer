@@ -1577,7 +1577,7 @@ class Eng_FuelFlow(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Fuel Flow'
-    units = 'lbs/h'
+    units = 'kg/h'
     align = False
 
     @classmethod
@@ -2499,7 +2499,7 @@ class Eng_1_FuelBurn(DerivedParameterNode):
     '''
 
     name = 'Eng (1) Fuel Burn'
-    units = 'kgs'
+    units = 'kg'
 
     def derive(self, ff=P('Eng (1) Fuel Flow')):
 
@@ -2513,7 +2513,7 @@ class Eng_2_FuelBurn(DerivedParameterNode):
     '''
 
     name = 'Eng (2) Fuel Burn'
-    units = 'kgs'
+    units = 'kg'
 
     def derive(self, ff=P('Eng (2) Fuel Flow')):
 
@@ -2527,7 +2527,7 @@ class Eng_3_FuelBurn(DerivedParameterNode):
     '''
 
     name = 'Eng (3) Fuel Burn'
-    units = 'kgs'
+    units = 'kg'
 
     def derive(self, ff=P('Eng (3) Fuel Flow')):
 
@@ -2541,7 +2541,7 @@ class Eng_4_FuelBurn(DerivedParameterNode):
     '''
 
     name = 'Eng (4) Fuel Burn'
-    units = 'kgs'
+    units = 'kg'
 
     def derive(self, ff=P('Eng (4) Fuel Flow')):
 
