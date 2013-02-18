@@ -2395,6 +2395,19 @@ class TestMovingAverage(unittest.TestCase):
         # test masked edges
         self.assertEqual(list(res.mask[:5]), [True]*5) # first 5 are masked (upper boundary of window/2)
         self.assertEqual(list(res.mask[-5:]), [True]*5) # last 5 are masked (lower boundary of window/2 + one masked value)
+        
+    def test_array_length_less_than_window(self):
+        array = np.ma.array([10, 20])
+        res = moving_average(array, window=9)
+        # result should also contain 2 ellements
+        self.assertEqual(len(res), 2)
+
+        # moving average over one value does not change it!
+        self.assertEqual(moving_average(np.ma.array([1])), [1])
+        
+        # raise error if one specifies weightings longer than available
+        self.assertRaises(ValueError, moving_average, np.ma.array([10, 20]),
+                          window=5, weightings=[0.1, 0.25, 0.3, 0.25, 0.1])
 
 
 class TestNearestNeighbourMaskRepair(unittest.TestCase):

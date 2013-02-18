@@ -3058,11 +3058,17 @@ def moving_average(array, window=9, weightings=None, pad=True):
     
     Ref: http://argandgahandapandpa.wordpress.com/2011/02/24/python-numpy-moving-average-for-data/
     """
+    #Q: What to do if the array is completely masked?
     if weightings is None:
+        if window > len(array):
+            # shorten window to the length of the data
+            window = len(array)
         weightings = np.repeat(1.0, window) / window
     elif len(weightings) != window:
         raise ValueError("weightings argument (len:%d) must equal window (len:%d)" % (
             len(weightings), window))
+    elif len(weightings) > len(array):
+        raise ValueError("weightings supplied are shorter than data length")
     # repair mask
     repaired = repair_mask(array, repair_duration=None,
                            raise_duration_exceedance=False)
