@@ -4521,6 +4521,26 @@ def vstack_params(*params):
     return np.ma.vstack([getattr(p, 'array', p) for p in params if p is not None])
 
 
+def vstack_params_where_state(*param_states):
+    '''
+    Create a multi-dimensional masked array with a dimension for each param,
+    where the state is equal to that provided.
+
+    :param param_states: tuples containing params or array and multistate value to match with. Allows None parameters.
+    :type param_states: np.ma.array or Parameter object or None
+    :returns: Each parameter stacked onto a new dimension
+    :rtype: np.ma.array
+    :raises: ValueError if all params are None (concatenation of zero-length sequences is impossible)
+    '''
+    param_arrays = []
+    for param, state in param_states[0]:
+        if param is None:
+            continue
+        array = getattr(param, 'array', param)
+        param_arrays.append(np.ma.where(array == state, True, False))
+    return np.ma.vstack(param_arrays)
+
+
 #---------------------------------------------------------------------------
 # Air data calculations adapted from AeroCalc V0.11 to suit POLARIS Numpy
 # data format. For increased speed, only standard POLARIS units used.

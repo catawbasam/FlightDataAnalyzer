@@ -89,6 +89,7 @@ from analysis_engine.derived_parameters import (
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
     RateOfTurn,
+    TAWSAlert,
     TrackDeviationFromRunway,
     TrackTrue,
     TurbulenceRMSG,
@@ -3060,6 +3061,82 @@ class TestTAT(unittest.TestCase):
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
+
+class TestTAWSAlert(unittest.TestCase):
+    def test_can_operate(self):
+        parameters = ['TAWS Caution Terrain',
+                       'TAWS Caution',
+                       'TAWS Dont Sink',
+                       'TAWS Glideslope'
+                       'TAWS Predictive Windshear',
+                       'TAWS Pull Up',
+                       'TAWS Sink Rate',
+                       'TAWS Terrain',
+                       'TAWS Terrain Warning Amber',
+                       'TAWS Terrain Pull Up',
+                       'TAWS Terrain Warning Red',
+                       'TAWS Too Low Flap',
+                       'TAWS Too Low Gear',
+                       'TAWS Too Low Terrain',
+                       'TAWS Windshear Warning',
+                       ]
+        for p in parameters:
+            self.assertTrue(TAWSAlert.can_operate(p))
+
+    def setUp(self):
+        terrain_array = [ 1,  1,  0,  1,  1,  0,  0,  0,  1,  0,  1,  0,  0,  0,  0,  0,  1,  0,  0,  0]
+        pull_up_array = [ 0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  0,  0,  0,  0,  0,  1,  0]
+
+        self.airs = S(name='Airborne')
+        self.airs.create_section(slice(5,15))
+        self.terrain = M(name='TAWS Terrain', array=np.ma.array(terrain_array), values_mapping={1:'Warning'})
+        self.pull_up = M(name='TAWS Pull Up', array=np.ma.array(pull_up_array), values_mapping={1:'Warning'})
+        self.taws_alert = TAWSAlert()
+
+    def test_derive(self):
+        result =        [ 0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
+
+        self.taws_alert.get_derived((self.airs,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                self.pull_up,
+                                None,
+                                None,
+                                None,
+                                None,
+                                self.terrain,
+                                None,
+                                None,
+                                None,
+                                None,))
+        np.testing.assert_equal(self.taws_alert.array.data, result)
+
+    def test_derive_masked_values(self):
+        result =        [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
+        self.terrain.array[8] = np.ma.masked
+        self.terrain.array[10] = np.ma.masked
+
+        self.taws_alert.get_derived((self.airs,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                self.pull_up,
+                                None,
+                                None,
+                                None,
+                                None,
+                                self.terrain,
+                                None,
+                                None,
+                                None,
+                                None,))
+        np.testing.assert_equal(self.taws_alert.array.data, result)
+        
 
 class TestTailwind(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
