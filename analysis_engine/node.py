@@ -42,7 +42,45 @@ KeyPointValue = recordtype('KeyPointValue',
 KeyTimeInstance = recordtype('KeyTimeInstance',
                              'index name datetime latitude longitude', 
                              default=None)
-Section = namedtuple('Section', 'name slice start_edge stop_edge') #Q: rename mask -> slice/section
+##Section = namedtuple('Section', 'name slice start_edge stop_edge') #Q: rename mask -> slice/section
+
+
+class Section(object):
+    '''
+    Section nodes start and stop are aligned. The start and stops are
+    accurate positions (including interpolation) of indexes into the data.
+    Note that these are more accurate than the slices the Section can create
+    which are rounded appropriately to integer values.
+    '''
+    # TODO: immutable type so that you cannot add random attrs
+    def __init__(self, start_pos=None, stop_pos=None, _slice=None, name=''):
+        self.name = name
+        if (start_pos or stop_pos) and _slice:
+            raise TypeError("Section does not accept both start_pos/stop_pos"\
+                            "and _slice arguments")
+        elif _slice:
+            if _slice.step not in (1, None):
+                raise NotImplementedError("Section does not support step %s" %\
+                                          _slice.step)
+            self.start_pos = _slice.start
+            self.stop_pos = _slice.stop - 1
+        else:
+            self.start_pos = start_pos
+            self.stop_pos = stop_pos
+        if self.stop_pos is not None and self.start_pos > self.stop_pos:
+            raise TypeError("Cannot create a Section which stops before it starts")
+        ##self.frequency # (handy for those who set align=False)?
+        
+    @property
+    def slice(self):
+        # cast to integer to reassure end-user that no decimals used here!
+        # start is always the top end of the value to constrain results
+        start = int(math.ceil(self.start_pos)) if self.start_pos else None
+        # stop is the bottom end of the value plus one to include the last value
+        stop = int(math.floor(self.stop_pos)) + 1 if self.stop_pos else None
+        return slice(start, stop)
+
+
 
 # Ref: django/db/models/options.py:20
 # Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
@@ -726,8 +764,7 @@ class SectionNode(Node, list):
     '''
     Derives from list to implement iteration and list methods.
     
-    Is a list of Section namedtuples, each with attributes .name, .slice,
-    .start_edge and .stop_edge
+    Is a list container of Section objects.
     '''
     def __init__(self, *args, **kwargs):
         '''
@@ -741,27 +778,26 @@ class SectionNode(Node, list):
             del kwargs['items']
         super(SectionNode, self).__init__(*args, **kwargs)
 
-    def create_section(self, section_slice, name='', begin=None, end=None):
+    def create_section(self, start_pos, stop_pos, name=''):
         """
-        Create a slice of the data.
+        Create a section between the start_pos and the stop_pos.
         
-        NOTE: Sections with slice start/ends of None can cause errors later
+        NOTE: Sections with start/ends of None can cause errors later
         when creating KPV/KTIs from a slice. However, they are valid for
         slicing data arrays from.
         
-        :type section_slice: slice
+        :type start_pos: float (or None)
         :type name: str
         :type begin: int or float
         :type end: int or float
         :rtype: None
         """
-        if section_slice.start is None or section_slice.stop is None:
-            logger.debug("Section %s created %s with None start or stop.", 
-                          self.get_name(), section_slice)
-        section = Section(name or self.get_name(), section_slice, 
-                          begin or section_slice.start, 
-                          end or section_slice.stop)
+        section = Section(start_pos, stop_pos,
+                          name=name or self.get_name())
         self.append(section)
+        if start_pos is None or stop_pos is None:
+            logger.debug("Section %s created %s with None start or stop.", 
+                          self.get_name(), section)
         return self
         
     def create_sections(self, section_slices, name=''):
@@ -790,23 +826,17 @@ class SectionNode(Node, list):
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         for section in self:
-
-            if section.start_edge is None:
-                converted_start = inner_slice_start = None
+            if section.start_pos is None:
+                start = None
             else:
-                converted_start = (section.start_edge * multiplier) + offset
-                inner_slice_start = int(math.ceil(converted_start))
+                start = (section.start_pos * multiplier) + offset
             
-            if section.stop_edge is None:
-                converted_stop = inner_slice_stop = None
+            if section.stop_pos is None:
+                stop = None
             else:
-                converted_stop = (section.stop_edge * multiplier) + offset
-                inner_slice_stop = int(math.ceil(converted_stop))
+                stop = (section.stop_pos * multiplier) + offset
 
-            inner_slice = slice(inner_slice_start, inner_slice_stop)
-            aligned_node.create_section(inner_slice, section.name, 
-                                        begin = converted_start,
-                                        end = converted_stop)
+            aligned_node.create_section(start, stop, section.name)
         return aligned_node
     
     slice_attrgetters = {'start': attrgetter('slice.start'),
@@ -987,11 +1017,9 @@ class SectionNode(Node, list):
     def get_slices(self):
         '''
         :returns: A list of slices from sections.
-        :rtype: [slice]
+        :rtype: [slice,slice]
         '''
-        ##return [section.slice for section in self]
-        return [slice(section.start_edge, section.stop_edge)
-                for section in self]
+        return [section.slice for section in self]
 
 
 class FlightPhaseNode(SectionNode):

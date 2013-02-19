@@ -3069,6 +3069,7 @@ def moving_average(array, window=9, weightings=None, pad=True):
             len(weightings), window))
     elif len(weightings) > len(array):
         raise ValueError("weightings supplied are shorter than data length")
+    
     # repair mask
     repaired = repair_mask(array, repair_duration=None,
                            raise_duration_exceedance=False)
@@ -4319,6 +4320,13 @@ def _value(array, _slice, operator):
     """
     Applies logic of min_value and max_value across the array slice.
     """
+    
+    #Check if slice or section..
+    ##if isinstance(_slice, slice):
+        ##start_pos = _slice.start
+        ##stop_pos = _slice.stop
+        
+        
     if _slice.step and _slice.step < 0:
         raise ValueError("Negative step not supported")
     if not np.ma.count(array[_slice]):
