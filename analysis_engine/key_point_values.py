@@ -4739,7 +4739,7 @@ class GroundspeedWithThrustReversersDeployedMin(KeyPointValueNode):
 # Pitch
 
 
-class PitchMaxAfterFlapRetraction(KeyPointValueNode):
+class PitchAfterFlapRetractionMax(KeyPointValueNode):
     '''
     FDS added this KPV during the UK CAA Significant Seven programme. "Loss
     of Control Pitch. FDS recommend addition of a maximum pitch attitude KPV,
@@ -4751,35 +4751,60 @@ class PitchMaxAfterFlapRetraction(KeyPointValueNode):
     but flap retraction is a good condition to apply to avoid these normal
     maxima.
     '''
-    def derive(self, flap=P('Flap'), pitch=P('Pitch'), airs=S('Airborne')):
-        scope=[]
-        for air in airs:
-            clean = np.ma.clump_unmasked(np.ma.masked_greater(flap.array[air.slice],0.0))
-            if clean:
-                scope.append(slice(air.slice.start+clean[0].start, air.slice.stop))
+
+    units = 'deg'
+
+    def derive(self,
+               flap=P('Flap'),
+               pitch=P('Pitch'),
+               airborne=S('Airborne')):
+
+        scope = []
+        for air in airborne:
+            clean = np.ma.masked_greater(flap.array[air.slice], 0.0)
+            slices = np.ma.clump_unmasked(clean)
+            if not slices:
+                continue
+            scope.append(slice(air.slice.start + slices[0].start, air.slice.stop))
         self.create_kpvs_within_slices(pitch.array, scope, max_value)
 
 
 class PitchAtLiftoff(KeyPointValueNode):
     '''
     '''
-    def derive(self, pitch=P('Pitch'), liftoffs=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(pitch.array, liftoffs)
 
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
+               liftoffs=KTI('Liftoff')):
+
+        self.create_kpvs_at_ktis(pitch.array, liftoffs)
 
 
 class PitchAtTouchdown(KeyPointValueNode):
     '''
     '''
-    def derive(self, pitch=P('Pitch'), touchdowns=KTI('Touchdown')):
+
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
+               touchdowns=KTI('Touchdown')):
+
         self.create_kpvs_at_ktis(pitch.array, touchdowns)
 
 
-class PitchAt35FtInClimb(KeyPointValueNode):
+class PitchAt35FtDuringClimb(KeyPointValueNode):
     '''
     '''
-    def derive(self, pitch=P('Pitch'),
+
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
                alt_aal=P('Altitude AAL')):
+
         # Q: Should we create a KPV method for this?
         for climb in alt_aal.slices_from_to(1, 100):
             index = index_at_value(alt_aal.array, 35.0, climb)
@@ -4788,11 +4813,16 @@ class PitchAt35FtInClimb(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-class PitchTakeoffTo35FtMax(KeyPointValueNode):
+class PitchLiftoffTo35FtMax(KeyPointValueNode):
     '''
     '''
-    def derive(self, pitch=P('Pitch'),
+
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
                alt_aal=P('Altitude AAL')):
+
         self.create_kpvs_within_slices(
             pitch.array,
             alt_aal.slices_from_to(0, 35),
@@ -4804,8 +4834,12 @@ class Pitch35To400FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch=P('Pitch'),
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             pitch.array,
             alt_aal.slices_from_to(35, 400),
@@ -4817,8 +4851,12 @@ class Pitch35To400FtMin(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch=P('Pitch'),
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             pitch.array,
             alt_aal.slices_from_to(35, 400),
@@ -4830,8 +4868,12 @@ class Pitch400To1000FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch=P('Pitch'),
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             pitch.array,
             alt_aal.slices_from_to(400, 1000),
@@ -4843,8 +4885,12 @@ class Pitch400To1000FtMin(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch=P('Pitch'),
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             pitch.array,
             alt_aal.slices_from_to(400, 1000),
@@ -4856,8 +4902,12 @@ class Pitch1000To500FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch=P('Pitch'),
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             pitch.array,
             alt_aal.slices_from_to(1000, 500),
@@ -4869,8 +4919,12 @@ class Pitch1000To500FtMin(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch=P('Pitch'),
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             pitch.array,
             alt_aal.slices_from_to(1000, 500),
@@ -4882,8 +4936,12 @@ class Pitch500To50FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch=P('Pitch'),
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             pitch.array,
             alt_aal.slices_from_to(500, 50),
@@ -4895,8 +4953,12 @@ class Pitch500To20FtMin(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch=P('Pitch'),
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             pitch.array,
             alt_aal.slices_from_to(500, 20),
@@ -4904,57 +4966,94 @@ class Pitch500To20FtMin(KeyPointValueNode):
         )
 
 
-class Pitch50FtToLandingMax(KeyPointValueNode):
+class Pitch50FtToTouchdownMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               touchdowns=KTI('Touchdown')):
+
         self.create_kpvs_within_slices(
             pitch.array,
-            alt_aal.slices_from_to(50, 1),  # TODO: Implement .slices_to_landing_from(50)
+            alt_aal.slices_to_kti(50, touchdowns),
             max_value,
         )
 
 
-class Pitch20FtToLandingMin(KeyPointValueNode):
+class Pitch20FtToTouchdownMin(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               touchdowns=KTI('Touchdown')):
+
         self.create_kpvs_within_slices(
             pitch.array,
-            alt_aal.slices_from_to(20, 1),  # TODO: Implement .slices_to_landing_from(20)
+            alt_aal.slices_to_kti(20, touchdowns),
             min_value,
         )
 
 
-class Pitch7FtToLandingMin(KeyPointValueNode):
+class Pitch7FtToTouchdownMin(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch=P('Pitch'), tdwns=KTI('Touchdown'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               touchdowns=KTI('Touchdown')):
+
         self.create_kpvs_within_slices(
             pitch.array,
-            alt_aal.slices_to_kti(7, tdwns),  # TODO: Implement .slices_to_landing_from(5)
+            alt_aal.slices_to_kti(7, touchdowns),
             min_value,
         )
 
 
-class PitchCyclesInFinalApproach(KeyPointValueNode):
+class PitchCyclesDuringFinalApproach(KeyPointValueNode):
     '''
     Counts the number of half-cycles of pitch attitude that exceed 3 deg in
     pitch from peak to peak and with a maximum cycle period of 10 seconds
     during the final approach phase.
     '''
 
-    def derive(self, pitch=P('Pitch'), fapps=S('Final Approach')):
-        for fapp in fapps:
-            cycle = cycle_counter(pitch.array[fapp.slice], 3.0, 10.0,
-                                  pitch.hz, fapp.slice.start)
-            self.create_kpv(*cycle)
+    units = 'cycles'
+
+    def derive(self,
+               pitch=P('Pitch'),
+               fin_apps=S('Final Approach')):
+
+        for fin_app in fin_apps:
+            self.create_kpv(*cycle_counter(
+                pitch.array[fin_app.slice],
+                3.0, 10.0, pitch.hz,
+                fin_app.slice.start,
+            ))
+
+
+class PitchDuringGoAroundMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control Mis-handled G/A - ...Rotation to 12 deg pitch..."
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
+               go_arounds=S('Go Around And Climbout')):
+
+        self.create_kpvs_within_slices(pitch.array, go_arounds, max_value)
 
 
 ##############################################################################
@@ -4965,8 +5064,12 @@ class PitchRate35To1000FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch_rate=P('Pitch Rate'),
+    units = 'deg/s'
+
+    def derive(self,
+               pitch_rate=P('Pitch Rate'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             pitch_rate.array,
             alt_aal.slices_from_to(35, 1000),
@@ -4978,11 +5081,16 @@ class PitchRate20FtToTouchdownMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch_rate=P('Pitch Rate'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+    units = 'deg/s'
+
+    def derive(self,
+               pitch_rate=P('Pitch Rate'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               touchdowns=KTI('Touchdown')):
+
         self.create_kpvs_within_slices(
             pitch_rate.array,
-            alt_aal.slices_from_to(20, 0),
+            alt_aal.slices_to_kti(20, touchdowns),
             max_value,
         )
 
@@ -4991,11 +5099,16 @@ class PitchRate20FtToTouchdownMin(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, pitch_rate=P('Pitch Rate'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+    units = 'deg/s'
+
+    def derive(self,
+               pitch_rate=P('Pitch Rate'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               touchdowns=KTI('Touchdown')):
+
         self.create_kpvs_within_slices(
             pitch_rate.array,
-            alt_aal.slices_from_to(20, 0),
+            alt_aal.slices_to_kti(20, touchdowns),
             min_value,
         )
 
@@ -5003,17 +5116,35 @@ class PitchRate20FtToTouchdownMin(KeyPointValueNode):
 class PitchRate2DegPitchTo35FtMax(KeyPointValueNode):
     '''
     '''
-    def derive(self, pitch_rate=P('Pitch Rate'),
-               lifts=S('2 Deg Pitch To 35 Ft')):
-        self.create_kpvs_within_slices(pitch_rate.array, lifts, max_value)
+
+    units = 'deg/s'
+
+    def derive(self,
+               pitch_rate=P('Pitch Rate'),
+               two_deg_pitch_to_35ft=S('2 Deg Pitch To 35 Ft')):
+
+        self.create_kpvs_within_slices(
+            pitch_rate.array,
+            two_deg_pitch_to_35ft,
+            max_value,
+        )
 
 
 class PitchRate2DegPitchTo35FtMin(KeyPointValueNode):
     '''
     '''
-    def derive(self, pitch_rate=P('Pitch Rate'),
-               lifts=S('2 Deg Pitch To 35 Ft')):
-        self.create_kpvs_within_slices(pitch_rate.array, lifts, min_value)
+
+    units = 'deg/s'
+
+    def derive(self,
+               pitch_rate=P('Pitch Rate'),
+               two_deg_pitch_to_35ft=S('2 Deg Pitch To 35 Ft')):
+
+        self.create_kpvs_within_slices(
+            pitch_rate.array,
+            two_deg_pitch_to_35ft,
+            min_value,
+        )
 
 
 ##############################################################################
@@ -5340,15 +5471,19 @@ class RateOfDescentDuringGoAroundMax(KeyPointValueNode):
 # Roll
 
 
-class RollTakeoffTo20FtMax(KeyPointValueNode):
+class RollLiftoffTo20FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, roll=P('Roll'),
+    units = 'deg'
+
+    def derive(self,
+               roll=P('Roll'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             roll.array,
-            alt_aal.slices_from_to(1, 20),  # TODO: Implement .slices_from_takeoff_to(20)
+            alt_aal.slices_from_to(1, 20),
             max_abs_value,
         )
 
@@ -5357,8 +5492,12 @@ class Roll20To400FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, roll=P('Roll'),
+    units = 'deg'
+
+    def derive(self,
+               roll=P('Roll'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             roll.array,
             alt_aal.slices_from_to(20, 400),
@@ -5370,8 +5509,12 @@ class Roll400To1000FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, roll=P('Roll'),
+    units = 'deg'
+
+    def derive(self,
+               roll=P('Roll'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             roll.array,
             alt_aal.slices_from_to(400, 1000),
@@ -5383,8 +5526,12 @@ class RollAbove1000FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, roll=P('Roll'),
+    units = 'deg'
+
+    def derive(self,
+               roll=P('Roll'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             roll.array,
             alt_aal.slices_above(1000),
@@ -5396,8 +5543,12 @@ class Roll1000To300FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, roll=P('Roll'),
+    units = 'deg'
+
+    def derive(self,
+               roll=P('Roll'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             roll.array,
             alt_aal.slices_from_to(1000, 300),
@@ -5409,8 +5560,12 @@ class Roll300To20FtMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, roll=P('Roll'),
+    units = 'deg'
+
+    def derive(self,
+               roll=P('Roll'),
                alt_aal=P('Altitude AAL For Flight Phases')):
+
         self.create_kpvs_within_slices(
             roll.array,
             alt_aal.slices_from_to(300, 20),
@@ -5418,20 +5573,25 @@ class Roll300To20FtMax(KeyPointValueNode):
         )
 
 
-class Roll20FtToLandingMax(KeyPointValueNode):
+class Roll20FtToTouchdownMax(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, roll=P('Roll'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+    units = 'deg'
+
+    def derive(self,
+               roll=P('Roll'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               touchdowns=KTI('Touchdown')):
+
         self.create_kpvs_within_slices(
             roll.array,
-            alt_aal.slices_from_to(20, 1),  # TODO: Implement .slices_to_landing_from(20)
+            alt_aal.slices_to_kti(20, touchdowns),
             max_abs_value,
         )
 
 
-class RollCyclesInFinalApproach(KeyPointValueNode):
+class RollCyclesDuringFinalApproach(KeyPointValueNode):
     '''
     Counts the number of cycles of roll attitude that exceed 5 deg from
     peak to peak and with a maximum cycle period of 10 seconds during the
@@ -5441,15 +5601,21 @@ class RollCyclesInFinalApproach(KeyPointValueNode):
     of 1.5 cycles.
     '''
 
-    def derive(self, roll=P('Roll'), fapps=S('Final Approach')):
-        '''
-        '''
-        for fapp in fapps:
-            self.create_kpv(*cycle_counter(roll.array[fapp.slice], 5.0, 10.0,
-                                           roll.hz, fapp.slice.start))
+    units = 'cycles'
+
+    def derive(self,
+               roll=P('Roll'),
+               fin_apps=S('Final Approach')):
+
+        for fin_app in fin_apps:
+            self.create_kpv(*cycle_counter(
+                roll.array[fin_app.slice],
+                5.0, 10.0, roll.hz,
+                fin_app.slice.start,
+            ))
 
 
-class RollCyclesNotInFinalApproach(KeyPointValueNode):
+class RollCyclesNotDuringFinalApproach(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Loss of Control - PIO. CAA limit > 20 deg total variation side to side".
@@ -5466,14 +5632,23 @@ class RollCyclesNotInFinalApproach(KeyPointValueNode):
     value of 1.5 cycles.
     '''
 
-    def derive(self, roll=P('Roll'), airs=S('Airborne'),
-               fapps=S('Final Approach'), lands=S('Landing')):
-        not_fas = slices_and_not(airs, fapps)
-        # TODO: Fix this
-        # not_fas = slices_and_not(not_fas, lands)
+    units = 'cycles'
+
+    def derive(self,
+               roll=P('Roll'),
+               airborne=S('Airborne'),
+               fin_apps=S('Final Approach'),
+               landings=S('Landing')):
+
+        not_fas = slices_and_not(airborne, fin_apps)
+        # TODO: Fix this:
+        #not_fas = slices_and_not(not_fas, landings)
         for not_fa in not_fas:
-            self.create_kpv(*cycle_counter(roll.array[not_fa], 5.0, 10.0,
-                                           roll.hz, not_fa.start))
+            self.create_kpv(*cycle_counter(
+                roll.array[not_fa],
+                5.0, 10.0, roll.hz,
+                not_fa.start,
+            ))
 
 
 ##############################################################################
@@ -6769,16 +6944,6 @@ class ThrustAsymmetryInGoAround(KeyPointValueNode):
     def derive(self, ta=P('Thrust Asymmetry'),
                gas=S('Go Around And Climbout')):
         self.create_kpvs_within_slices(ta.array, gas, max_value)
-
-
-class PitchInGoAroundMax(KeyPointValueNode):
-    '''
-    FDS developed this KPV to support the UK CAA Significant Seven programme.
-    "Loss of Control Mis-handled G/A - ...Rotation to 12 deg pitch..."
-    '''
-    def derive(self, pitch=P('Pitch'),
-               gas=S('Go Around And Climbout')):
-        self.create_kpvs_within_slices(pitch.array, gas, max_value)
 
 
 class AOAInGoAroundMax(KeyPointValueNode):
