@@ -3279,13 +3279,15 @@ class TestThrottleLevers(unittest.TestCase):
 
 
 class TestThrustReversers(unittest.TestCase):
+
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
 
 class TestTurbulence(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
