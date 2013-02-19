@@ -563,7 +563,7 @@ class TestLandingRunway(unittest.TestCase, NodeTest):
         approaches = S(name='Approach', items=[
             Section(name='Approach', slice=slice(14, 20), start_edge=14, stop_edge=20),
         ])
-        ils_freq_on_app = KPV(name='ILS Frequency On Approach', items=[
+        ils_freq_on_app = KPV(name='ILS Frequency During Approach', items=[
             KeyPointValue(index=18, value=330150),
         ])
         rwy = self.node_class()

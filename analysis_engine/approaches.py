@@ -174,7 +174,7 @@ class ApproachInformation(ApproachNode):
                appr_lon=KPV('Longitude At Lowest Point On Approach'),
                loc_ests=S('ILS Localizer Established'),
                gs_ests=S('ILS Glideslope Established'),
-               appr_ils_freq=KPV('ILS Frequency On Approach'),
+               appr_ils_freq=KPV('ILS Frequency During Approach'),
                land_afr_apt=A('AFR Landing Airport'),
                land_afr_rwy=A('AFR Landing Runway'),
                precision=A('Precise Positioning'),

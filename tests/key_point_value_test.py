@@ -122,15 +122,47 @@ from analysis_engine.key_point_values import (
     DecelerationFromTouchdownToStopOnRunway,
     DelayedBrakingAfterTouchdown,
     EngBleedValvesAtLiftoff,
-    EngEPR500FtToTouchdownMin,
-    EngGasTempTakeoffMax,
+    EngEPRDuringTaxiMax,
+    EngEPRDuringTakeoff5MinRatingMax,
+    EngEPRDuringGoAround5MinRatingMax,
+    EngEPRDuringMaximumContinuousPowerMax,
+    EngEPR500To20FtMax,
+    EngEPR500To20FtMin,
+    EngGasTempDuringTakeoff5MinRatingMax,
+    EngGasTempDuringGoAround5MinRatingMax,
+    EngGasTempDuringMaximumContinuousPowerMax,
+    EngGasTempDuringFlightMin,
+    EngN1DuringTaxiMax,
+    EngN1DuringTakeoff5MinRatingMax,
+    EngN1DuringGoAround5MinRatingMax,
+    EngN1DuringMaximumContinuousPowerMax,
+    EngN1CyclesDuringFinalApproach,
+    EngN1500To20FtMax,
     EngN1500To20FtMin,
-    EngN1TakeoffMax,
+    EngN1Below60PercentAfterTouchdownDuration,
+    EngN2DuringTaxiMax,
+    EngN2DuringTakeoff5MinRatingMax,
+    EngN2DuringGoAround5MinRatingMax,
+    EngN2DuringMaximumContinuousPowerMax,
+    EngN2CyclesDuringFinalApproach,
+    EngN3DuringTaxiMax,
+    EngN3DuringTakeoff5MinRatingMax,
+    EngN3DuringGoAround5MinRatingMax,
+    EngN3DuringMaximumContinuousPowerMax,
+    EngOilPressMax,
+    EngOilPressMin,
+    EngOilQtyMax,
+    EngOilQtyMin,
     EngOilTempMax,
-    EngOilTemp15MinuteMax,
+    EngOilTempFor15MinMax,
+    EngTorqueDuringTaxiMax,
+    EngTorqueDuringTakeoff5MinRatingMax,
+    EngTorqueDuringGoAround5MinRatingMax,
+    EngTorqueDuringMaximumContinuousPowerMax,
+    EngTorque500To20FtMax,
+    EngTorque500To20FtMin,
     EngVibN1Max,
     EngVibN2Max,
-    Eng_N1MaxDurationUnder60PercentAfterTouchdown,
     FlapAtGearDownSelection,
     FlapAtLiftoff,
     FlapAtTouchdown,
@@ -1825,135 +1857,6 @@ class TestControlColumnStiffness(unittest.TestCase, NodeTest):
         self.assertAlmostEqual(stiff.get_first().value, 2.7) # lb/deg
 
 
-class TestEngEPR500FtToTouchdownMin(unittest.TestCase,
-                                    CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = EngEPR500FtToTouchdownMin
-        self.operational_combinations = [('Eng (*) EPR Min',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (500, 0,), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestEngN1500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = EngN1500To20FtMin
-        self.operational_combinations = [('Eng (*) N1 Min',
-                                          'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (500, 20,), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestEngGasTempTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = EngGasTempTakeoffMax
-        self.operational_combinations = [('Eng (*) Gas Temp Max',
-                                          'Takeoff 5 Min Rating')]
-        self.function = max_value
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestEngN1TakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = EngN1TakeoffMax
-        self.function = max_value
-        self.operational_combinations = [('Eng (*) N1 Max',
-                                          'Takeoff 5 Min Rating')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestEngOilTempMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = EngOilTempMax
-        self.function = max_value
-        self.operational_combinations = [('Eng (*) Oil Temp Max', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestEngOilTemp15MinuteMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = EngOilTempMax
-        self.operational_combinations = [('Eng (*) Oil Temp Max', 'Airborne')]
-
-    def test_derive_all_oil_data_masked(self):
-        # This has been a specific problem, hence this test.
-        oil_temp=np.ma.array(data=[123,124,125,126,127], dtype=float,
-                             mask=[1,1,1,1,1])
-        kpv = EngOilTemp15MinuteMax()
-        kpv.derive(P('Eng (*) Oil Temp Max', oil_temp))
-
-
-class TestEngVibN1Max(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = EngVibN1Max
-        self.function = max_value
-        self.operational_combinations = [('Eng (*) Vib N1 Max', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestEngVibN2Max(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = EngVibN2Max
-        self.function = max_value
-        self.operational_combinations = [('Eng (*) Vib N2 Max', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestEng_N1MaxDurationUnder60PercentAfterTouchdown(unittest.TestCase):
-    def test_can_operate(self):
-        opts = Eng_N1MaxDurationUnder60PercentAfterTouchdown.get_operational_combinations()
-        self.assertEqual(
-            ('Eng (*) Stop', 'Eng (1) N1', 'Touchdown'), opts[0])
-        self.assertEqual(
-            ('Eng (*) Stop', 'Eng (2) N1', 'Touchdown'), opts[1])
-        self.assertEqual(
-            ('Eng (*) Stop', 'Eng (3) N1', 'Touchdown'), opts[2])
-        self.assertEqual(
-            ('Eng (*) Stop', 'Eng (4) N1', 'Touchdown'), opts[3])
-        self.assertTrue(
-            ('Eng (*) Stop', 'Eng (1) N1', 'Eng (2) N1', 'Touchdown') in opts)
-        self.assertTrue(all(['Touchdown' in avail for avail in opts]))
-        self.assertTrue(all(['Eng (*) Stop' in avail for avail in opts]))
-
-    def test_derive_eng_n1_cooldown(self):
-        #TODO: Add later if required
-        #gnd = S(items=[Section('', slice(10,100))])
-        eng_stop = Eng_Stop(items=[KeyTimeInstance(90, 'Eng (1) Stop'),])
-        eng = P(array=np.ma.array([100] * 60 + [40] * 40)) # idle for 40
-        tdwn = KTI(items=[KeyTimeInstance(30), KeyTimeInstance(50)])
-        max_dur = Eng_N1MaxDurationUnder60PercentAfterTouchdown()
-        max_dur.derive(eng_stop, eng, eng, None, None, tdwn)
-        self.assertEqual(max_dur[0].index, 60) # starts at drop below 60
-        self.assertEqual(max_dur[0].value, 30) # stops at 90
-        self.assertTrue('Eng (1)' in max_dur[0].name)
-        # Eng (2) should not be in the results as it did not have an Eng Stop KTI
-        ##self.assertTrue('Eng (2)' in max_dur[1].name)
-        self.assertEqual(len(max_dur), 1)
-
-
 ##############################################################################
 # ILS
 
@@ -2471,6 +2374,10 @@ class TestDistancePastGlideslopeAntennaToTouchdown(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+##############################################################################
+# Engine Bleed
+
+
 class TestEngBleedValvesAtLiftoff(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -2509,7 +2416,125 @@ class TestEngBleedValvesAtLiftoff(unittest.TestCase, NodeTest):
         ]))
 
 
-class TestEngEPRAboveFL100Max(unittest.TestCase):
+##############################################################################
+# Engine EPR
+
+
+class TestEngEPRDuringTaxiMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngEPRDuringTaxiMax
+        self.operational_combinations = [('Eng (*) EPR Max', 'Taxiing')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngEPRDuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngEPRDuringTakeoff5MinRatingMax
+        self.operational_combinations = [('Eng (*) EPR Max', 'Takeoff 5 Min Rating')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngEPRDuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngEPRDuringGoAround5MinRatingMax
+        self.operational_combinations = [('Eng (*) EPR Max', 'Go Around 5 Min Rating')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngEPRMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngEPRDuringMaximumContinuousPowerMax
+        self.operational_combinations = [('Eng (*) EPR Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngEPR500To20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngEPR500To20FtMax
+        self.operational_combinations = [('Eng (*) EPR Max', 'Altitude AAL For Flight Phases')]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngEPR500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngEPR500To20FtMin
+        self.operational_combinations = [('Eng (*) EPR Min', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+##############################################################################
+# Engine Gas Temperature
+
+
+class TestEngGasTempDuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngGasTempDuringTakeoff5MinRatingMax
+        self.operational_combinations = [('Eng (*) Gas Temp Max', 'Takeoff 5 Min Rating')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngGasTempDuringGoAround5MinRatingMax(unittest.TestCase):
+
+    def setUp(self):
+        self.node_class = EngGasTempDuringGoAround5MinRatingMax
+        self.operational_combinations = [('Eng (*) Gas Temp Max', 'Go Around 5 Min Rating')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngGasTempDuringMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngGasTempDuringMaximumContinuousPowerMax
+        self.operational_combinations = [('Eng (*) Gas Temp Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Airborne')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngGasTempDuringEngStartMax(unittest.TestCase):
+
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -2519,314 +2544,442 @@ class TestEngEPRAboveFL100Max(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngEPRToFL100Max(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngGasTempDuringFlightMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngGasTempDuringFlightMin
+        self.operational_combinations = [('Eng (*) Gas Temp Min', 'Airborne')]
+        self.function = min_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngGasTempGoAroundMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+##############################################################################
+# Engine N1
+
+
+class TestEngN1DuringTaxiMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN1DuringTaxiMax
+        self.operational_combinations = [('Eng (*) N1 Max', 'Taxiing')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngGasTempMaximumContinuousPowerMax(unittest.TestCase):
+class TestEngN1DuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN1DuringTakeoff5MinRatingMax
+        self.operational_combinations = [('Eng (*) N1 Max', 'Takeoff 5 Min Rating')]
+        self.function = max_value
+
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngN1DuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN1DuringGoAround5MinRatingMax
+        self.operational_combinations = [('Eng (*) N1 Max', 'Go Around 5 Min Rating')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngGasTempStartMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngN1MaximumContinuousPowerMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngN1DuringMaximumContinuousPowerMax
+        self.operational_combinations = [('Eng (*) N1 Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN1500To20FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngN1CyclesDuringFinalApproach(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngN1CyclesDuringFinalApproach
+        self.operational_combinations = [('Eng (*) N1 Avg', 'Final Approach')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN1CyclesInFinalApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngN1500To20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN1500To20FtMax
+        self.operational_combinations = [('Eng (*) N1 Max', 'Altitude AAL For Flight Phases')]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN1GoAroundMax(unittest.TestCase):
+class TestEngN1500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN1500To20FtMin
+        self.operational_combinations = [('Eng (*) N1 Min', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+
     @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngN1Below60PercentAfterTouchdownDuration(unittest.TestCase):
+
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = EngN1Below60PercentAfterTouchdownDuration.get_operational_combinations()
+        self.assertEqual(('Eng (*) Stop', 'Eng (1) N1', 'Touchdown'), opts[0])
+        self.assertEqual(('Eng (*) Stop', 'Eng (2) N1', 'Touchdown'), opts[1])
+        self.assertEqual(('Eng (*) Stop', 'Eng (3) N1', 'Touchdown'), opts[2])
+        self.assertEqual(('Eng (*) Stop', 'Eng (4) N1', 'Touchdown'), opts[3])
+        self.assertTrue(('Eng (*) Stop', 'Eng (1) N1', 'Eng (2) N1', 'Touchdown') in opts)
+        self.assertTrue(all(['Touchdown' in avail for avail in opts]))
+        self.assertTrue(all(['Eng (*) Stop' in avail for avail in opts]))
+
+    def test_derive_eng_n1_cooldown(self):
+        #TODO: Add later if required
+        #gnd = S(items=[Section('', slice(10,100))])
+        eng_stop = Eng_Stop(items=[KeyTimeInstance(90, 'Eng (1) Stop'),])
+        eng = P(array=np.ma.array([100] * 60 + [40] * 40)) # idle for 40
+        tdwn = KTI(items=[KeyTimeInstance(30), KeyTimeInstance(50)])
+        max_dur = EngN1Below60PercentAfterTouchdownDuration()
+        max_dur.derive(eng_stop, eng, eng, None, None, tdwn)
+        self.assertEqual(max_dur[0].index, 60) # starts at drop below 60
+        self.assertEqual(max_dur[0].value, 30) # stops at 90
+        self.assertTrue('Eng (1)' in max_dur[0].name)
+        # Eng (2) should not be in the results as it did not have an Eng Stop KTI
+        ##self.assertTrue('Eng (2)' in max_dur[1].name)
+        self.assertEqual(len(max_dur), 1)
+
+
+##############################################################################
+# Engine N2
+
+
+class TestEngN2DuringTaxiMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN2DuringTaxiMax
+        self.operational_combinations = [('Eng (*) N2 Max', 'Taxiing')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN1MaximumContinuousPowerMax(unittest.TestCase):
+class TestEngN2DuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN2DuringTakeoff5MinRatingMax
+        self.operational_combinations = [('Eng (*) N2 Max', 'Takeoff 5 Min Rating')]
+        self.function = max_value
+
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngN2DuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN2DuringGoAround5MinRatingMax
+        self.operational_combinations = [('Eng (*) N2 Max', 'Go Around 5 Min Rating')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN1TaxiMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngN2MaximumContinuousPowerMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngN2DuringMaximumContinuousPowerMax
+        self.operational_combinations = [('Eng (*) N2 Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN2CyclesInFinalApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngN2CyclesDuringFinalApproach(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngN2CyclesDuringFinalApproach
+        self.operational_combinations = [('Eng (*) N2 Avg', 'Final Approach')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN2GoAroundMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+##############################################################################
+# Engine N3
+
+
+class TestEngN3DuringTaxiMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN3DuringTaxiMax
+        self.operational_combinations = [('Eng (*) N3 Max', 'Taxiing')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN2MaximumContinuousPowerMax(unittest.TestCase):
+class TestEngN3DuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN3DuringTakeoff5MinRatingMax
+        self.operational_combinations = [('Eng (*) N3 Max', 'Takeoff 5 Min Rating')]
+        self.function = max_value
+
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngN3DuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN3DuringGoAround5MinRatingMax
+        self.operational_combinations = [('Eng (*) N3 Max', 'Go Around 5 Min Rating')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN2TakeoffMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngN3MaximumContinuousPowerMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngN3DuringMaximumContinuousPowerMax
+        self.operational_combinations = [('Eng (*) N3 Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN2TaxiMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+##############################################################################
+# Engine Oil Pressure
+
+
+class TestEngOilPressMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngOilPressMax
+        self.operational_combinations = [('Eng (*) Oil Press Max', )]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN3GoAroundMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngOilPressMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngOilPressMin
+        self.operational_combinations = [('Eng (*) Oil Press Min', 'Airborne')]
+        self.function = min_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN3MaximumContinuousPowerMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+##############################################################################
+# Engine Oil Quantity
+
+
+class TestEngOilQtyMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngOilQtyMax
+        self.operational_combinations = [('Eng (*) Oil Qty Max', 'Airborne')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN3TakeoffMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngOilQtyMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngOilQtyMin
+        self.operational_combinations = [('Eng (*) Oil Qty Min', 'Airborne')]
+        self.function = min_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN3TaxiMax(unittest.TestCase):
+##############################################################################
+# Engine Oil Temperature
+
+
+class TestEngOilTempMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngOilTempMax
+        self.operational_combinations = [('Eng (*) Oil Temp Max', 'Airborne')]
+        self.function = max_value
+
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngOilTemp15MinuteMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngOilTempFor15MinMax
+        self.operational_combinations = [('Eng (*) Oil Temp Max', )]
+
+    def test_derive_all_oil_data_masked(self):
+        # This has been a specific problem, hence this test.
+        oil_temp = P(
+            name='Eng (*) Oil Temp Max',
+            array=np.ma.array(data=range(123, 128), dtype=float, mask=True),
+        )
+        node = EngOilTempFor15MinMax()
+        node.derive(oil_temp)
+        self.assertEqual(node, KPV('Eng Oil Temp For 15 Min Max', items=[]))
+
+
+##############################################################################
+# Engine Torque
+
+
+class TestEngTorqueDuringTaxiMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngTorqueDuringTaxiMax
+        self.operational_combinations = [('Eng (*) Torque Max', 'Taxiing')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngOilPressMax(unittest.TestCase):
+class TestEngTorqueDuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngTorqueDuringTakeoff5MinRatingMax
+        self.operational_combinations = [('Eng (*) Torque Max', 'Takeoff 5 Min Rating')]
+        self.function = max_value
+
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngTorqueDuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngTorqueDuringGoAround5MinRatingMax
+        self.operational_combinations = [('Eng (*) Torque Max', 'Go Around 5 Min Rating')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngOilPressMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngTorqueMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngTorqueDuringMaximumContinuousPowerMax
+        self.operational_combinations = [('Eng (*) Torque Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngOilQtyMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngTorque500To20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngTorque500To20FtMax
+        self.operational_combinations = [('Eng (*) Torque Max', 'Altitude AAL For Flight Phases')]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngOilQtyMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngTorque500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngTorque500To20FtMin
+        self.operational_combinations = [('Eng (*) Torque Min', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestEngTorque500FtToTouchdownMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+##############################################################################
+# Engine Vibration
 
 
-class TestEngTorque500FtToTouchdownMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngVibN1Max(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngVibN1Max
+        self.operational_combinations = [('Eng (*) Vib N1 Max', 'Airborne')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestEngTorqueAbove10000FtMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEngVibN2Max(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestEngTorqueAbove10000FtMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def setUp(self):
+        self.node_class = EngVibN2Max
+        self.operational_combinations = [('Eng (*) Vib N2 Max', 'Airborne')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestEngTorqueAboveFL100Max(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestEngTorqueGoAroundMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestEngTorqueMaximumContinuousPowerMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestEngTorqueTakeoffMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestEngTorqueToFL100Max(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+##############################################################################
 
 
 class TestEventMarkerPressed(unittest.TestCase):

@@ -90,7 +90,7 @@ class TestProcessSpecimenFlight(unittest.TestCase):
             items=[
                 ApproachItem(
                     type='LANDING',
-                    slice=slice(2036.5, 2322.5, None),
+                    slice=slice(2036.0, 2323.0, None),
                     airport={
                         'code': {'icao': 'ENGM', 'iata': 'OSL'},
                         'distance': 1582.789862070702,
@@ -138,8 +138,8 @@ class TestProcessSpecimenFlight(unittest.TestCase):
                             'threshold_distance': 943,
                         },
                     },
-                    gs_est=slice(2039, 2235, None),
-                    loc_est=slice(2038, 2318, None),
+                    gs_est=slice(2038, 2235, None),
+                    loc_est=slice(2037, 2318, None),
                     ils_freq=None,
                     turnoff=2297.671875,
                     lowest_lat=60.18765449523926,
