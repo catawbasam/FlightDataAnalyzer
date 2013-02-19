@@ -6517,18 +6517,28 @@ class TCASRAToAPDisengagedDuration(KeyPointValueNode):
 
 
 ##############################################################################
+# Throttle
 
 
-class ThrottleCyclesInFinalApproach(KeyPointValueNode):
+class ThrottleCyclesDuringFinalApproach(KeyPointValueNode):
     '''
     Counts the number of half-cycles of throttle lever movement that exceed
     10 deg peak to peak and with a maximum cycle period of 14 seconds during
     the final approach phase.
     '''
-    def derive(self, lever=P('Throttle Levers'), fapps=S('Final Approach')):
-        for fapp in fapps:
-            self.create_kpv(*cycle_counter(lever.array[fapp.slice], 10.0, 10.0,
-                                           lever.hz, fapp.slice.start))
+
+    units = 'cycles'
+
+    def derive(self,
+               levers=P('Throttle Levers'),
+               fin_apps=S('Final Approach')):
+
+        for fin_app in fin_apps:
+            self.create_kpv(*cycle_counter(
+                levers.array[fin_app.slice],
+                10.0, 10.0, levers.hz,
+                fin_app.slice.start,
+            ))
 
 
 ##############################################################################

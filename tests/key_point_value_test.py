@@ -286,7 +286,7 @@ from analysis_engine.key_point_values import (
     TCASRAInitialReactionStrength,
     TCASRAToAPDisengagedDuration,
     TerrainClearanceAbove3000FtMin,
-    ThrottleCyclesInFinalApproach,
+    ThrottleCyclesDuringFinalApproach,
     ThrustAsymmetryDuringTakeoffMax,
     ThrustAsymmetryDuringFlightMax,
     ThrustAsymmetryDuringGoAroundMax,
@@ -5000,11 +5000,13 @@ class TestTCASRAToAPDisengagedDuration(unittest.TestCase, NodeTest):
 
 
 ##############################################################################
+# Throttle
 
 
-class TestThrottleCyclesInFinalApproach(unittest.TestCase, NodeTest):
+class TestThrottleCyclesDuringFinalApproach(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = ThrottleCyclesInFinalApproach
+        self.node_class = ThrottleCyclesDuringFinalApproach
         self.operational_combinations = [('Throttle Levers', 'Final Approach')]
 
     @unittest.skip('Test Not Implemented')
