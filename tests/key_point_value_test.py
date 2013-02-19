@@ -2412,7 +2412,7 @@ class TestEngBleedValvesAtLiftoff(unittest.TestCase, NodeTest):
         ]))
         # Test with two engines, integer values:
         node = EngBleedValvesAtLiftoff()
-        node.derive(liftoff, b1, b2)
+        node.derive(liftoff, b1, b2, None, None)
         self.assertEqual(node, KPV('Eng Bleed Valves At Liftoff', items=[
             KeyPointValue(name='Eng Bleed Valves At Liftoff', index=3, value=1),
         ]))

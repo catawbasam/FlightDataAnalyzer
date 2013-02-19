@@ -3338,8 +3338,7 @@ class EngBleedValvesAtLiftoff(KeyPointValueNode):
         # arrays. The alignment will cause the integer arrays to blur at
         # transitions, so int(b1 + b2 + b3 + b4) is used to remove this effect
         # as the bleeds are changing state.
-        params = (b for b in (b1, b2, b3, b4) if b is not None and b.array.size)
-        bleeds = vstack_params(*params).sum(axis=0).astype(int)
+        bleeds = vstack_params(b1, b2, b3, b4).sum(axis=0).astype(int)
         for liftoff in liftoffs:
             valves = bleeds[liftoff.index]
             if valves:
