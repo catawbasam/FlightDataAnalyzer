@@ -15,14 +15,17 @@ from utilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
 from analysis_engine.library import (align, max_value, np_ma_masked_zeros_like)
-from analysis_engine.node import (Attribute, A, KPV, KeyTimeInstance, KTI, load,
-                                  M, Parameter, P, Section, S)
+from analysis_engine.node import (
+    Attribute, A, App, ApproachItem, KPV, KeyTimeInstance, KTI, load, M,
+    Parameter, P, Section, S)
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import METRES_TO_FEET
 
 from flight_phase_test import buildsection
 
 from analysis_engine.derived_parameters import (
+    APEngaged,
+    #ATEngaged,
     AccelerationVertical,
     AccelerationForwards,
     AccelerationSideways,
@@ -42,7 +45,6 @@ from analysis_engine.derived_parameters import (
     #AltitudeRadioForFlightPhases,
     #AltitudeSTD,
     AltitudeTail,
-    AimingPointRange,
     ApproachRange,
     ClimbForFlightPhases,
     Configuration,
@@ -64,6 +66,10 @@ from analysis_engine.derived_parameters import (
     Eng_N3Avg,
     Eng_N3Max,
     Eng_N3Min,
+    Eng_1_FuelBurn,
+    Eng_2_FuelBurn,
+    Eng_3_FuelBurn,
+    Eng_4_FuelBurn,
     Flap,
     FuelQty,
     GearDownSelected,
@@ -88,6 +94,7 @@ from analysis_engine.derived_parameters import (
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
     RateOfTurn,
+    TAWSAlert,
     TrackDeviationFromRunway,
     TrackTrue,
     TurbulenceRMSG,
@@ -154,6 +161,51 @@ class NodeTest(object):
                 self.operational_combinations,
             )
 
+
+##############################################################################
+# Automated Systems
+
+
+class TestAPEngaged(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = APEngaged
+        self.operational_combinations = [
+            ('AP (1) Engaged',),
+            ('AP (2) Engaged',),
+            ('AP (3) Engaged',),
+            ('AP (1) Engaged', 'AP (2) Engaged'),
+            ('AP (1) Engaged', 'AP (3) Engaged'),
+            ('AP (2) Engaged', 'AP (3) Engaged'),
+            ('AP (1) Engaged', 'AP (2) Engaged', 'AP (3) Engaged'),
+        ]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##### FIXME: Re-enable when 'AT Engaged' has been implemented.
+####class TestATEngaged(unittest.TestCase, NodeTest):
+####
+####    def setUp(self):
+####        self.node_class = ATEngaged
+####        self.operational_combinations = [
+####            ('AT (1) Engaged',),
+####            ('AT (2) Engaged',),
+####            ('AT (3) Engaged',),
+####            ('AT (1) Engaged', 'AT (2) Engaged'),
+####            ('AT (1) Engaged', 'AT (3) Engaged'),
+####            ('AT (2) Engaged', 'AT (3) Engaged'),
+####            ('AT (1) Engaged', 'AT (2) Engaged', 'AT (3) Engaged'),
+####        ]
+####
+####    @unittest.skip('Test Not Implemented')
+####    def test_derive(self):
+####        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
 
 class TestAccelerationVertical(unittest.TestCase):
     def test_can_operate(self):
@@ -379,10 +431,8 @@ class TestAirspeedMinusV2(unittest.TestCase):
 class TestAirspeedReference(unittest.TestCase):
     def setUp(self):
         self.approach_slice = slice(105, 120)
-        apps = S('Approach', items=(Section(name='Approach',
-                                            slice=self.approach_slice,
-                                            start_edge=104.5,
-                                            stop_edge=119.5),))
+        apps = App('Approach', items=[ApproachItem('LANDING',
+                                                   self.approach_slice)])
         self.default_kwargs = {'spd':False,
                                'gw':None,
                                'flap':None,
@@ -462,8 +512,8 @@ class TestAirspeedReference(unittest.TestCase):
         vspeed_map.return_value = vspeed_table
         test_hdf = copy_file(os.path.join(test_data_path, 'airspeed_reference.hdf5'))
         with hdf_file(test_hdf) as hdf:
-            approaches = (Section(name='Approach', slice=slice(3346, 3540), start_edge=3345.5, stop_edge=3539.5),
-                          Section(name='Approach', slice=slice(5502, 5795), start_edge=5501.5, stop_edge=5794.5))
+            approaches = [ApproachItem('TOUCH_AND_GO', slice(3346, 3540)),
+                          ApproachItem('LANDING', slice(5502, 5795))]
             args = [
                 P(**hdf['Airspeed'].__dict__),
                 P(**hdf['Gross Weight Smoothed'].__dict__),
@@ -473,7 +523,7 @@ class TestAirspeedReference(unittest.TestCase):
                 None,
                 None,
                 None,
-                S('Approach', items=approaches),
+                App('Approach Information', items=approaches),
                 A('Series', value='B737-300'),
                 A('Family', value='B737 Classic'),
             ]
@@ -692,7 +742,7 @@ class TestAltitudeAAL(unittest.TestCase):
         hdf_copy = copy_file(os.path.join(test_data_path,
                                           'alt_aal_faulty_alt_rad.hdf5'),
                              postfix='_test_copy')
-        result = process_flight(hdf_copy, {
+        process_flight(hdf_copy, {
             'engine': {'classification': 'JET',
                        'quantity': 2},
             'frame': {'doubled': False, 'name': '737-3C'},
@@ -707,7 +757,7 @@ class TestAltitudeAAL(unittest.TestCase):
             'recorder': {'name': 'SAGEM', 'serial': '123456'},
             'tail_number': 'G-DEMA'})
         with hdf_file(hdf_copy) as hdf:
-            alt_aal = hdf['Altitude AAL']
+            hdf['Altitude AAL']
             self.assertTrue(False, msg='Test not implemented.')
 
     def test_alt_aal_training_flight(self):
@@ -741,21 +791,23 @@ class TestAltitudeAAL(unittest.TestCase):
 
 class TestAimingPointRange(unittest.TestCase):
     def test_basic_scaling(self):
-        approaches = A(name = 'FDR Approaches',
-                       value=[{'runway': {'end': {'elevation': 3294,
-                                                  'latitude': 31.497511,
-                                                  'longitude': 65.833933},
-                                          'start': {'elevation': 3320,
-                                                    'latitude': 31.513997,
-                                                    'longitude': 65.861714}},
-                               'slice_start': 3.0,
-                               'slice_stop': 8.0}])
-        app_rng=P('Approach Range',array=np.ma.arange(10000.0,-2000.0,-1000.0))
+        approaches = App(items=[ApproachItem(
+            'Landing', slice(3, 8),
+            runway={'end': 
+                    {'elevation': 3294,
+                     'latitude': 31.497511,
+                     'longitude': 65.833933},
+                    'start': 
+                    {'elevation': 3320,
+                     'latitude': 31.513997,
+                     'longitude': 65.861714}})])
+        app_rng=P('Approach Range',
+                  array=np.ma.arange(10000.0, -2000.0, -1000.0))
         apr = AimingPointRange()
         apr.derive(app_rng, approaches)
         # convoluted way to check masked outside slice !
-        self.assertEqual(apr.array[0].mask,np.ma.masked.mask)
-        self.assertAlmostEqual(apr.array[4],1.67,places=2)
+        self.assertEqual(apr.array[0].mask, np.ma.masked.mask)
+        self.assertAlmostEqual(apr.array[4], 1.67, places=2)
         
         
 class TestAltitudeAALForFlightPhases(unittest.TestCase):
@@ -1803,6 +1855,7 @@ class TestGrossWeightSmoothed(unittest.TestCase):
 
 
 class TestGroundspeedAlongTrack(unittest.TestCase):
+
     @unittest.skip('Commented out until new computation of sliding motion')
     def test_can_operate(self):
         expected = [('Groundspeed','Acceleration Along Track', 'Altitude AAL',
@@ -1860,13 +1913,44 @@ class TestHeadingContinuous(unittest.TestCase):
 
 class TestTrackDeviationFromRunway(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(TrackDeviationFromRunway.get_operational_combinations(),
-                    [('Track True', 'FDR Approaches'),
-                     ('Track True', 'Takeoff', 'FDR Takeoff Runway'),
-                     ('Track True', 'Takeoff', 'FDR Takeoff Runway', 'FDR Approaches')])
-
+        self.assertEqual(
+            TrackDeviationFromRunway.get_operational_combinations(),
+            [('Track True', 'Approach Information'),
+             ('Track True', 'Takeoff', 'FDR Takeoff Runway'),
+             ('Track True', 'Takeoff', 'FDR Takeoff Runway',
+              'Approach Information')])
+        
     def test_deviation(self):
-        apps = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_apps.nod'))
+        apps = App(items=[ApproachItem(
+            'LANDING', slice(8763, 9037),
+            airport={'code': {'iata': 'FRA', 'icao': 'EDDF'},
+                     'distance': 2.2981699358981746,
+                     'id': 2289,
+                     'latitude': 50.0264,
+                     'location': {'city': 'Frankfurt-Am-Main',
+                                  'country': 'Germany'},
+                     'longitude': 8.54313,
+                     'magnetic_variation': 'E000459 0106',
+                     'name': 'Frankfurt Am Main'},
+            runway={'end': {'latitude': 50.027542, 'longitude': 8.534175},
+                    'glideslope': {'angle': 3.0,
+                                   'latitude': 50.037992,
+                                   'longitude': 8.582733,
+                                   'threshold_distance': 1098},
+                    'id': 4992,
+                    'identifier': '25L',
+                    'localizer': {'beam_width': 4.5,
+                                  'frequency': 110700.0,
+                                  'heading': 249,
+                                  'latitude': 50.026722,
+                                  'longitude': 8.53075},
+                    'magnetic_heading': 248.0,
+                    'start': {'latitude': 50.040053, 'longitude': 8.586531},
+                    'strip': {'id': 2496,
+                              'length': 13123,
+                              'surface': 'CON',
+                              'width': 147}},
+            turnoff=8998.2717013888887)])
         heading_track = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_heading_track.nod'))
         to_runway = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_runway.nod'))
         takeoff = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_takeoff.nod'))
@@ -2464,6 +2548,50 @@ class TestEng_FuelFlow(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestEng_1_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_1_FuelBurn
+        self.operational_combinations = [('Eng (1) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_2_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_2_FuelBurn
+        self.operational_combinations = [('Eng (2) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_3_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_3_FuelBurn
+        self.operational_combinations = [('Eng (3) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_4_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_4_FuelBurn
+        self.operational_combinations = [('Eng (4) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestEng_GasTempAvg(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -3029,6 +3157,107 @@ class TestTAT(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestTAWSAlert(unittest.TestCase):
+    def test_can_operate(self):
+        parameters = ['TAWS Caution Terrain',
+                       'TAWS Caution',
+                       'TAWS Dont Sink',
+                       'TAWS Glideslope'
+                       'TAWS Predictive Windshear',
+                       'TAWS Pull Up',
+                       'TAWS Sink Rate',
+                       'TAWS Terrain',
+                       'TAWS Terrain Warning Amber',
+                       'TAWS Terrain Pull Up',
+                       'TAWS Terrain Warning Red',
+                       'TAWS Too Low Flap',
+                       'TAWS Too Low Gear',
+                       'TAWS Too Low Terrain',
+                       'TAWS Windshear Warning',
+                       ]
+        for p in parameters:
+            self.assertTrue(TAWSAlert.can_operate(p))
+
+    def setUp(self):
+        terrain_array = [ 1,  1,  0,  1,  1,  0,  0,  0,  1,  0,  1,  0,  0,  0,  0,  0,  1,  0,  0,  0]
+        pull_up_array = [ 0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  0,  0,  0,  0,  0,  1,  0]
+
+        self.airs = S(name='Airborne')
+        self.airs.create_section(slice(5,15))
+        self.terrain = M(name='TAWS Terrain', array=np.ma.array(terrain_array), values_mapping={1:'Warning'})
+        self.pull_up = M(name='TAWS Pull Up', array=np.ma.array(pull_up_array), values_mapping={1:'Warning'})
+        self.taws_alert = TAWSAlert()
+
+    def test_derive(self):
+        result =        [ 0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
+
+        self.taws_alert.get_derived((self.airs,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                self.pull_up,
+                                None,
+                                None,
+                                None,
+                                None,
+                                self.terrain,
+                                None,
+                                None,
+                                None,
+                                None,))
+        np.testing.assert_equal(self.taws_alert.array.data, result)
+
+    def test_derive_masked_values(self):
+        result =        [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
+        self.terrain.array[8] = np.ma.masked
+        self.terrain.array[10] = np.ma.masked
+
+        self.taws_alert.get_derived((self.airs,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                self.pull_up,
+                                None,
+                                None,
+                                None,
+                                None,
+                                self.terrain,
+                                None,
+                                None,
+                                None,
+                                None,))
+        np.testing.assert_equal(self.taws_alert.array.data, result)
+
+    def test_derive_zeros(self):
+        result = [ 0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
+        
+        terrain_array = [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
+        
+        caution = M(name='TAWS Caution Terrain', array=np.ma.array(terrain_array), values_mapping={1:'Warning'})
+        caution.array.mask = True
+
+        self.taws_alert.get_derived((self.airs,
+                                caution,
+                                None,
+                                None,
+                                None,
+                                None,
+                                self.pull_up,
+                                None,
+                                None,
+                                None,
+                                None,
+                                self.terrain,
+                                None,
+                                None,
+                                None,
+                                None,))
+        np.testing.assert_equal(self.taws_alert.array.data, result)
+
 class TestTailwind(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -3113,72 +3342,66 @@ class TestWindDirectionContinuous(unittest.TestCase):
 
 class TestCoordinatesSmoothed(TemporaryFileTest, unittest.TestCase):
     def setUp(self):
-        self.approaches = A(name = 'FDR Approaches',
-                            value=[{'ILS frequency': 108.55,
-                                    'ILS glideslope established': slice(3200, 3390, None),
-                                    'ILS localizer established': slice(3199, 3445, None),
-                                    'airport': {'code': {'iata': 'KDH', 'icao': 'OAKN'},
-                                                'distance': 2.483270162497824,
-                                                'elevation': 3301,
-                                                'id': 3279,
-                                                'latitude': 31.5058,
-                                                'location': {'country': 'Afghanistan'},
-                                                'longitude': 65.8478,
-                                                'magnetic_variation': 'E001590 0506',
-                                                'name': 'Kandahar'},
-                                    'datetime': datetime.datetime(2012, 12, 9, 18, 20, 54, 504000),
-                                    'runway': {'end': {'elevation': 3294,
-                                                       'latitude': 31.497511,
-                                                       'longitude': 65.833933},
-                                               'id': 44,
-                                               'identifier': '23',
-                                               'magnetic_heading': 232.9,
-                                               'start': {'elevation': 3320,
-                                                         'latitude': 31.513997,
-                                                         'longitude': 65.861714},
-                                               'strip': {'id': 22,
-                                                         'length': 10532,
-                                                         'surface': 'ASP',
-                                                         'width': 147}},
-                                    'slice_start': 3198.0,
-                                    'slice_stop': 3422.0,
-                                    'type': 'GO_AROUND'},
-                                   {'ILS frequency': 111.3,
-                                    'ILS glideslope established': slice(13034, 13262, None),
-                                    'ILS localizer established': slice(12929, 13347, None),
-                                    'Landing Turn Off Runway': 13362.455208333333,
-                                    'airport': {'code': {'iata': 'DXB', 'icao': 'OMDB'},
-                                                'distance': 1.6842014290716794,
-                                                'id': 3302,
-                                                'latitude': 25.2528,
-                                                'location': {'city': 'Dubai',
-                                                             'country': 'United Arab Emirates'},
-                                                'longitude': 55.3644,
-                                                'magnetic_variation': 'E001315 0706',
-                                                'name': 'Dubai Intl'},
-                                    'datetime': datetime.datetime(2012, 12, 9, 21, 3, 4, 504000),
-                                    'runway': {'end': {'latitude': 25.262131, 'longitude': 55.347572},
-                                               'glideslope': {'angle': 3.0,
-                                                              'latitude': 25.246333,
-                                                              'longitude': 55.378417,
-                                                              'threshold_distance': 1508},
-                                               'id': 22,
-                                               'identifier': '30L',
-                                               'localizer': {'beam_width': 4.5,
-                                                             'frequency': 111300.0,
-                                                             'heading': 300,
-                                                             'latitude': 25.263139,
-                                                             'longitude': 55.345722},
-                                               'magnetic_heading': 299.7,
-                                               'start': {'latitude': 25.243322, 'longitude': 55.381519},
-                                               'strip': {'id': 11,
-                                                         'length': 13124,
-                                                         'surface': 'ASP',
-                                                         'width': 150}},
-                                    'slice_start': 12928.0,
-                                    'slice_stop': 13440.0,
-                                    'type': 'LANDING'}])
-                              
+        self.approaches = App('Approach Information',
+            items=[ApproachItem('GO_AROUND', slice(3198.0, 3422.0),
+                            ils_freq=108.55,
+                            gs_est=slice(3200, 3390),
+                            loc_est=slice(3199, 3445),
+                            airport={'code': {'iata': 'KDH', 'icao': 'OAKN'},
+                                     'distance': 2.483270162497824,
+                                     'elevation': 3301,
+                                     'id': 3279,
+                                     'latitude': 31.5058,
+                                     'location': {'country': 'Afghanistan'},
+                                     'longitude': 65.8478,
+                                     'magnetic_variation': 'E001590 0506',
+                                     'name': 'Kandahar'},
+                            runway={'end': {'elevation': 3294,
+                                            'latitude': 31.497511,
+                                            'longitude': 65.833933},
+                                    'id': 44,
+                                    'identifier': '23',
+                                    'magnetic_heading': 232.9,
+                                    'start': {'elevation': 3320,
+                                              'latitude': 31.513997,
+                                              'longitude': 65.861714},
+                                    'strip': {'id': 22,
+                                              'length': 10532,
+                                              'surface': 'ASP',
+                                              'width': 147}}),
+                   ApproachItem('LANDING', slice(12928.0, 13440.0),
+                            ils_freq=111.3,
+                            gs_est=slice(13034, 13262),
+                            loc_est=slice(12929, 13347),
+                            turnoff=13362.455208333333,
+                            airport={'code': {'iata': 'DXB', 'icao': 'OMDB'},
+                                     'distance': 1.6842014290716794,
+                                     'id': 3302,
+                                     'latitude': 25.2528,
+                                     'location': {'city': 'Dubai',
+                                                  'country': 'United Arab Emirates'},
+                                     'longitude': 55.3644,
+                                     'magnetic_variation': 'E001315 0706',
+                                     'name': 'Dubai Intl'},
+                            runway={'end': {'latitude': 25.262131, 'longitude': 55.347572},
+                                    'glideslope': {'angle': 3.0,
+                                                   'latitude': 25.246333,
+                                                   'longitude': 55.378417,
+                                                   'threshold_distance': 1508},
+                                    'id': 22,
+                                    'identifier': '30L',
+                                    'localizer': {'beam_width': 4.5,
+                                                  'frequency': 111300.0,
+                                                  'heading': 300,
+                                                  'latitude': 25.263139,
+                                                  'longitude': 55.345722},
+                                    'magnetic_heading': 299.7,
+                                    'start': {'latitude': 25.243322, 'longitude': 55.381519},
+                                    'strip': {'id': 11,
+                                              'length': 13124,
+                                              'surface': 'ASP',
+                                              'width': 150}})])
+        
         self.toff = [Section(name='Takeoff', 
                              slice=slice(372, 414, None), 
                              start_edge=371.32242063492066, 
@@ -3296,91 +3519,85 @@ class TestCoordinatesSmoothed(TemporaryFileTest, unittest.TestCase):
 
 class TestApproachRange(TemporaryFileTest, unittest.TestCase):
     def setUp(self):
-        self.approaches = A(name = 'FDR Approaches',
-                            value=[{'ILS frequency': 108.55,
-                                    'ILS glideslope established': slice(3200, 3390, None),
-                                    'ILS localizer established': slice(3199, 3445, None),
-                                    'airport': {'code': {'iata': 'KDH', 'icao': 'OAKN'},
-                                                'distance': 2.483270162497824,
-                                                'elevation': 3301,
-                                                'id': 3279,
-                                                'latitude': 31.5058,
-                                                'location': {'country': 'Afghanistan'},
-                                                'longitude': 65.8478,
-                                                'magnetic_variation': 'E001590 0506',
-                                                'name': 'Kandahar'},
-                                    'datetime': datetime.datetime(2012, 12, 9, 18, 20, 54, 504000),
-                                    'runway': {'end': {'elevation': 3294,
-                                                       'latitude': 31.497511,
-                                                       'longitude': 65.833933},
-                                               'id': 44,
-                                               'identifier': '23',
-                                               'magnetic_heading': 232.9,
-                                               'start': {'elevation': 3320,
-                                                         'latitude': 31.513997,
-                                                         'longitude': 65.861714},
-                                               'strip': {'id': 22,
-                                                         'length': 10532,
-                                                         'surface': 'ASP',
-                                                         'width': 147}},
-                                    'slice_start': 3198.0,
-                                    'slice_stop': 3422.0,
-                                    'type': 'GO_AROUND'},
-                                   {'ILS frequency': 111.3,
-                                    'ILS glideslope established': slice(13034, 13262, None),
-                                    'ILS localizer established': slice(12929, 13347, None),
-                                    'Landing Turn Off Runway': 13362.455208333333,
-                                    'airport': {'code': {'iata': 'DXB', 'icao': 'OMDB'},
-                                                'distance': 1.6842014290716794,
-                                                'id': 3302,
-                                                'latitude': 25.2528,
-                                                'location': {'city': 'Dubai',
-                                                             'country': 'United Arab Emirates'},
-                                                'longitude': 55.3644,
-                                                'magnetic_variation': 'E001315 0706',
-                                                'name': 'Dubai Intl'},
-                                    'datetime': datetime.datetime(2012, 12, 9, 21, 3, 4, 504000),
-                                    'runway': {'end': {'latitude': 25.262131, 'longitude': 55.347572},
-                                               'glideslope': {'angle': 3.0,
-                                                              'latitude': 25.246333,
-                                                              'longitude': 55.378417,
-                                                              'threshold_distance': 1508},
-                                               'id': 22,
-                                               'identifier': '30L',
-                                               'localizer': {'beam_width': 4.5,
-                                                             'frequency': 111300.0,
-                                                             'heading': 300,
-                                                             'latitude': 25.263139,
-                                                             'longitude': 55.345722},
-                                               'magnetic_heading': 299.7,
-                                               'start': {'latitude': 25.243322, 'longitude': 55.381519},
-                                               'strip': {'id': 11,
-                                                         'length': 13124,
-                                                         'surface': 'ASP',
-                                                         'width': 150}},
-                                    'slice_start': 12928.0,
-                                    'slice_stop': 13440.0,
-                                    'type': 'LANDING'}])
-                              
+        self.approaches = App(items=[
+            ApproachItem('GO_AROUND', slice(3198, 3422),
+                     ils_freq=108.55,
+                     gs_est=slice(3200, 3390),
+                     loc_est=slice(3199, 3445),
+                     airport={'code': {'iata': 'KDH', 'icao': 'OAKN'},
+                              'distance': 2.483270162497824,
+                              'elevation': 3301,
+                              'id': 3279,
+                              'latitude': 31.5058,
+                              'location': {'country': 'Afghanistan'},
+                              'longitude': 65.8478,
+                              'magnetic_variation': 'E001590 0506',
+                              'name': 'Kandahar'},
+                     runway={'end': {'elevation': 3294,
+                                     'latitude': 31.497511,
+                                     'longitude': 65.833933},
+                             'id': 44,
+                             'identifier': '23',
+                             'magnetic_heading': 232.9,
+                             'start': {'elevation': 3320,
+                                       'latitude': 31.513997,
+                                       'longitude': 65.861714},
+                             'strip': {'id': 22,
+                                       'length': 10532,
+                                       'surface': 'ASP',
+                                       'width': 147}}),
+            ApproachItem('LANDING', slice(12928, 13440),
+                     ils_freq=111.3,
+                     gs_est=slice(13034, 13262),
+                     loc_est=slice(12929, 13347),
+                     turnoff=13362.455208333333,
+                     airport={'code': {'iata': 'DXB', 'icao': 'OMDB'},
+                              'distance': 1.6842014290716794,
+                              'id': 3302,
+                              'latitude': 25.2528,
+                              'location': {'city': 'Dubai',
+                                           'country': 'United Arab Emirates'},
+                              'longitude': 55.3644,
+                              'magnetic_variation': 'E001315 0706',
+                              'name': 'Dubai Intl'},
+                     runway={'end': {'latitude': 25.262131, 'longitude': 55.347572},
+                             'glideslope': {'angle': 3.0,
+                                            'latitude': 25.246333,
+                                            'longitude': 55.378417,
+                                            'threshold_distance': 1508},
+                             'id': 22,
+                             'identifier': '30L',
+                             'localizer': {'beam_width': 4.5,
+                                           'frequency': 111300.0,
+                                           'heading': 300,
+                                           'latitude': 25.263139,
+                                           'longitude': 55.345722},
+                             'magnetic_heading': 299.7,
+                             'start': {'latitude': 25.243322, 'longitude': 55.381519},
+                             'strip': {'id': 11,
+                                       'length': 13124,
+                                       'surface': 'ASP',
+                                       'width': 150}})])
+        
         self.toff = Section(name='Takeoff', 
                        slice=slice(372, 414, None), 
                        start_edge=371.32242063492066, 
                        stop_edge=413.12204760355382)
         
-        self.toff_rwy = A(name = 'FDR Takeoff Runway',
-                          value = {'end': {'elevation': 4843, 
-                                           'latitude': 34.957972, 
-                                           'longitude': 69.272944},
-                                   'id': 41,
-                                   'identifier': '03',
-                                   'magnetic_heading': 26.0,
-                                   'start': {'elevation': 4862, 
-                                             'latitude': 34.934306, 
-                                             'longitude': 69.257},
-                                   'strip': {'id': 21, 
-                                             'length': 9852, 
-                                             'surface': 'CON', 
-                                             'width': 179}})
+        self.toff_rwy = A(name='FDR Takeoff Runway',
+                          value={'end': {'elevation': 4843, 
+                                         'latitude': 34.957972, 
+                                         'longitude': 69.272944},
+                                 'id': 41,
+                                 'identifier': '03',
+                                 'magnetic_heading': 26.0,
+                                 'start': {'elevation': 4862,
+                                           'latitude': 34.934306,
+                                           'longitude': 69.257},
+                                 'strip': {'id': 21,
+                                           'length': 9852,
+                                           'surface': 'CON',
+                                           'width': 179}})
 
         self.source_file_path = os.path.join(
             test_data_path, 'flight_with_go_around_and_landing.hdf5')

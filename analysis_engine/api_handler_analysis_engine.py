@@ -69,10 +69,10 @@ class AnalysisEngineAPI(object):
 
     @abstractmethod
     def get_nearest_runway(self, airport, heading, latitude=None,
-            longitude=None, ilsfreq=None, hint=None):
+            longitude=None, ils_freq=None, hint=None):
         '''
         Will return the nearest runway from the specified airport using
-        latitude, longitude, precision and ilsfreq.
+        latitude, longitude, precision and ils freq.
 
         :param airport: Value identifying the airport.
         :type airport: undefined
@@ -82,8 +82,8 @@ class AnalysisEngineAPI(object):
         :type latitude: float
         :param longitude: Longitude in decimal degrees.
         :type longitude: float
-        :param ilsfreq: ILS localizer frequency of runway
-        :type ilsfreq: float # Q: could/should it be int?
+        :param ils_freq: ILS localizer frequency of runway
+        :type ils_freq: float # Q: could/should it be int?
         :raises NotFoundError: If runway cannot be found.
         :raises InvalidAPIInputError: If latitude, longitude or heading are out
                 of bounds.
@@ -167,10 +167,10 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         return self._attempt_request(url)['airport']
 
     def get_nearest_runway(self, airport, heading, latitude=None,
-                           longitude=None, ilsfreq=None, hint=None):
+                           longitude=None, ils_freq=None, hint=None):
         '''
         Returns the nearest runway from the specified airport using latitude,
-        longitude, precision and ilsfreq.
+        longitude, precision and ils frequency.
 
         :param airport: Either ICAO code, IATA code or database ID of airport.
         :type airport: int or str
@@ -180,8 +180,8 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         :type latitude: float
         :param longitude: Longitude in decimal degrees.
         :type longitude: float
-        :param ilsfreq: ILS Localizer frequency of the runway in KHz.
-        :type ilsfreq: float # Q: could/should it be int?
+        :param ils_freq: ILS Localizer frequency of the runway in KHz.
+        :type ils_freq: float # Q: could/should it be int?
         :param hint: Whether we are looking up a runway for 'takeoff',
                 'landing', or 'approach'.
         :type hint: str
@@ -202,9 +202,9 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         params = {'heading': heading}
         if latitude and longitude:
             params['ll'] = '%f,%f' % (latitude, longitude)
-        if ilsfreq:
+        if ils_freq:
             # While ILS frequency is recorded in MHz, the API expects KHz.
-            params['ilsfreq'] = int(ilsfreq * 1000)
+            params['ilsfreq'] = int(ils_freq * 1000)
         if hint in ['takeoff', 'landing', 'approach']:
             params['hint'] = hint
         url += '?' + urllib.urlencode(params)
@@ -368,7 +368,7 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
         return min(airports, key=itemgetter('distance'))
     
     def get_nearest_runway(self, airport, heading, latitude=None,
-                           longitude=None, ilsfreq=None, hint=None):
+                           longitude=None, ils_freq=None, hint=None):
         '''
         Get the nearest runway from a pre-defined list.
         
@@ -378,7 +378,7 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
         :type latitude: float
         :param longitude: Longitude value for looking up a runway.
         :type longitude: float
-        :param ilsfreq: Not used.
+        :param ils_freq: Not used.
         :param hint: Not used.
         :raises NotFoundError:  If longitude or latitude is not defined.
         :returns: Runway dictionary.

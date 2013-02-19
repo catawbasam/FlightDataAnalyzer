@@ -11,10 +11,10 @@ from analysis_engine.key_time_instances import (
     AltitudePeak,
     AltitudeWhenClimbing,
     AltitudeWhenDescending,
-    AutopilotDisengagedSelection,
-    AutopilotEngagedSelection,
-    AutothrottleDisengagedSelection,
-    AutothrottleEngagedSelection,
+    APDisengagedSelection,
+    APEngagedSelection,
+    ATDisengagedSelection,
+    ATEngagedSelection,
     BottomOfDescent,
     ClimbStart,
     Eng_Stop,
@@ -49,6 +49,22 @@ from analysis_engine.key_time_instances import (
 from flight_phase_test import buildsection, buildsections
 
 debug = sys.gettrace() is not None
+
+
+##############################################################################
+# Superclasses
+
+
+class NodeTest(object):
+
+    def test_can_operate(self):
+        self.assertEqual(
+            self.node_class.get_operational_combinations(),
+            self.operational_combinations,
+        )
+
+
+##############################################################################
 
 
 class TestAltitudePeak(unittest.TestCase):
@@ -626,76 +642,87 @@ class TestTouchdown(unittest.TestCase):
         self.assertEqual(tdwn, expected)
 
 
-class TestAutopilotDisengagedSelection(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('AP Engaged', 'Airborne')]
-        self.assertEqual(
-            AutopilotDisengagedSelection.get_operational_combinations(),
-            expected)
+##############################################################################
+# Automated Systems
+
+
+class TestAPEngagedSelection(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = APEngagedSelection
+        self.operational_combinations = [('AP Engaged', 'Airborne')]
 
     def test_derive(self):
-        ap = M('AP Engaged',
-               ['Off', 'Off', 'Off', 'Engaged', 'Off', 'Off', 'Off'],
-               values_mapping={0: 'Off', 1: 'Engaged'})
-        ads = AutopilotDisengagedSelection()
+        ap = M(
+            name='AP Engaged',
+            array=['-', '-', '-', 'Engaged', '-', '-', '-'],
+            values_mapping={0: '-', 1: 'Engaged'},
+        )
+        aes = APEngagedSelection()
+        air = buildsection('Airborne', 2, 5)
+        aes.derive(ap, air)
+        expected = [KeyTimeInstance(index=2.5, name='AP Engaged Selection')]
+        self.assertEqual(aes, expected)
+
+
+class TestAPDisengagedSelection(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = APEngagedSelection
+        self.operational_combinations = [('AP Engaged', 'Airborne')]
+
+    def test_derive(self):
+        ap = M(
+            name='AP Engaged',
+            array=['-', '-', '-', 'Engaged', '-', '-', '-'],
+            values_mapping={0: '-', 1: 'Engaged'},
+        )
+        ads = APDisengagedSelection()
         air = buildsection('Airborne', 2, 5)
         ads.derive(ap, air)
         expected = [KeyTimeInstance(index=3.5, name='AP Disengaged Selection')]
         self.assertEqual(ads, expected)
 
 
-class TestAutopilotEngagedSelection(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('AP Engaged', 'Airborne')]
-        self.assertEqual(
-            AutopilotEngagedSelection.get_operational_combinations(),
-            expected)
+class TestATEngagedSelection(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = ATEngagedSelection
+        self.operational_combinations = [('AT Engaged', 'Airborne')]
 
     def test_derive(self):
-        ap = M('AP Engaged',
-               ['Off', 'Off', 'Off', 'Engaged', 'Off', 'Off', 'Off'],
-               values_mapping={0: 'Off', 1: 'Engaged'})
-        ads = AutopilotEngagedSelection()
+        at = M(
+            name='AT Engaged',
+            array=['-', '-', '-', 'Engaged', '-', '-', '-'],
+            values_mapping={0: '-', 1: 'Engaged'},
+        )
+        aes = ATEngagedSelection()
         air = buildsection('Airborne', 2, 5)
-        ads.derive(ap, air)
-        expected = [KeyTimeInstance(index=2.5, name='AP Engaged Selection')]
-        self.assertEqual(ads, expected)
+        aes.derive(at, air)
+        expected = [KeyTimeInstance(index=2.5, name='AT Engaged Selection')]
+        self.assertEqual(aes, expected)
 
 
-class TestAutothrottleDisengagedSelection(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('AT Engaged', 'Airborne')]
-        self.assertEqual(
-            AutothrottleDisengagedSelection.get_operational_combinations(),
-            expected)
+class TestATDisengagedSelection(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = ATEngagedSelection
+        self.operational_combinations = [('AT Engaged', 'Airborne')]
 
     def test_derive(self):
-        ap = M('AT Engaged',
-               ['Off', 'Off', 'Off', 'Engaged', 'Off', 'Off', 'Off'],
-               values_mapping={0: 'Off', 1: 'Engaged'})
-        ads = AutothrottleDisengagedSelection()
+        at = M(
+            name='AT Engaged',
+            array=['-', '-', '-', 'Engaged', '-', '-', '-'],
+            values_mapping={0: '-', 1: 'Engaged'},
+        )
+        ads = ATDisengagedSelection()
         air = buildsection('Airborne', 2, 5)
-        ads.derive(ap, air)
+        ads.derive(at, air)
         expected = [KeyTimeInstance(index=3.5, name='AT Disengaged Selection')]
         self.assertEqual(ads, expected)
 
 
-class TestAutothrottleEngagedSelection(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('AT Engaged', 'Airborne')]
-        self.assertEqual(
-            AutothrottleEngagedSelection.get_operational_combinations(),
-            expected)
-
-    def test_derive(self):
-        ap = M('AT Engaged',
-               ['Off', 'Off', 'Off', 'Engaged', 'Off', 'Off', 'Off'],
-               values_mapping={0: 'Off', 1: 'Engaged'})
-        ads = AutothrottleEngagedSelection()
-        air = buildsection('Airborne', 2, 5)
-        ads.derive(ap, air)
-        expected = [KeyTimeInstance(index=2.5, name='AT Engaged Selection')]
-        self.assertEqual(ads, expected)
+##############################################################################
 
 
 class TestEng_Stop(unittest.TestCase):
@@ -862,7 +889,7 @@ class TestLocalizerEstablishedStart(unittest.TestCase):
 
 class TestLowestPointOnApproach(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL', 'Altitude Radio', 'Approach', 'Landing')]
+        expected = [('Altitude AAL', 'Altitude Radio', 'Approach And Landing')]
         self.assertEqual(
             expected,
             LowestPointOnApproach.get_operational_combinations())

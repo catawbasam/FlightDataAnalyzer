@@ -4,7 +4,7 @@ import unittest
 from datetime import datetime, timedelta
 from mock import Mock, call, patch
 
-from analysis_engine import __version__
+from analysis_engine import __version__, settings
 from analysis_engine.api_handler import NotFoundError
 from analysis_engine.node import (
     A, KPV, KTI, P, S,
@@ -12,34 +12,32 @@ from analysis_engine.node import (
     KeyTimeInstance,
     Section,
 )
-from analysis_engine.settings import CONTROLS_IN_USE_TOLERANCE
 from analysis_engine.flight_attribute import (
-    Approaches, 
     DeterminePilot,
-    Duration, 
-    FlightID, 
+    Duration,
+    FlightID,
     FlightNumber,
-    FlightType, 
+    FlightType,
     InvalidFlightType,
-    LandingAirport, 
-    LandingDatetime, 
-    LandingFuel, 
+    LandingAirport,
+    LandingDatetime,
+    LandingFuel,
     LandingGrossWeight,
     LandingPilot,
     LandingRunway,
     OffBlocksDatetime,
     OnBlocksDatetime,
     TakeoffAirport,
-    TakeoffDatetime, 
+    TakeoffDatetime,
     TakeoffFuel,
     TakeoffGrossWeight,
+    TakeoffPilot,
     TakeoffRunway,
     Version,
 )
 
 
 def setUpModule():
-    from analysis_engine import settings
     settings.API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
 
 
@@ -57,295 +55,181 @@ class NodeTest(object):
             )
 
 
-class TestApproaches(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = Approaches
-        self.operational_combination_length = 8192
-        self.check_operational_combination_length_only = True
-
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_runway')
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
-    @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal')
-    def test_derive(self, api, get_nearest_airport, get_nearest_runway):
-
-        api = api()
-
-        def _fake_approach(t, a, b):
-            return {
-                'airport': None,
-                'runway': None,
-                'type': t,
-                'datetime': datetime(1970, 1, 1, 0, 0, a),
-                'slice_start': a,
-                'slice_stop': b,
-            }
-
-        approaches = self.node_class()
-        approaches.set_flight_attr = Mock()
-        approaches._lookup_airport_and_runway = Mock()
-        approaches._lookup_airport_and_runway.return_value = []
-
-        alt_aal = P(name='Altitude AAL', array=np.ma.array([
-            10, 5, 0, 0, 5, 10, 20, 30, 40, 50,      # Touch & Go
-            50, 45, 30, 35, 30, 30, 35, 40, 40, 40,  # Go Around
-            30, 20, 10, 0, 0, 0, 0, 0, 0, 0,         # Landing
-        ]))
-
-        land_afr_apt = A(name='AFR Landing Airport', value={'id': 25})
-        land_afr_rwy = A(name='AFR Landing Runway', value={'ident': '09L'})
-
-        precise = A(name='Precise Positioning')
-        start_dt = A(name='Start Datetime', value=datetime(1970, 1, 1))
-
-        approach_sections = S(name='Approach', items=[
-            Section(name='Approach', slice=slice(0, 5), start_edge=0, stop_edge=5),
-            Section(name='Approach', slice=slice(10, 15), start_edge=10, stop_edge=15),
-            Section(name='Approach', slice=slice(20, 25), start_edge=20, stop_edge=25),
-        ])
-        fast = S(name='Fast', items=[
-            Section(name='Fast', slice=slice(0, 22), start_edge=0, stop_edge=22.5),
-        ])
-
-        land_hdg = KPV(name='Heading At Landing', items=[
-            KeyPointValue(index=15, value=60),
-        ])
-        land_lat = KPV(name='Latitude At Landing', items=[
-            KeyPointValue(index=5, value=10),
-        ])
-        land_lon = KPV(name='Longitude At Landing', items=[
-            KeyPointValue(index=5, value=-2),
-        ])
-        appr_hdg = KPV(name='Heading At Low Point On Approach', items=[
-            KeyPointValue(index=5, value=25),
-            KeyPointValue(index=12, value=35),
-        ])
-        appr_lat = KPV(name='Latitude At Lowest Point On Approach', items=[
-            KeyPointValue(index=5, value=8),
-        ])
-        appr_lon = KPV(name='Longitude At Lowest Point On Approach', items=[
-            KeyPointValue(index=5, value=4),
-        ])
-        appr_ils_freq = KPV(name='ILS Frequency on Approach', items=[
-            KeyPointValue(name=5, value=330150),
-        ])
-
-        # No approaches if no approach sections in the flight:
-        approaches.derive(S(name='Approach', items=[]), alt_aal, fast, start_dt)
-        approaches.set_flight_attr.assert_called_once_with([])
-        approaches.set_flight_attr.reset_mock()
-        # Test the different approach types:
-        land_afr_apt_none = A(name='AFR Landing Airport', value=None)
-        land_afr_rwy_none = A(name='AFR Landing Runway', value=None)
-        approaches.derive(approach_sections, alt_aal, fast, start_dt, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none)
-        approaches.set_flight_attr.assert_called_once_with([
-            _fake_approach('TOUCH_AND_GO', 0, 5),
-            _fake_approach('GO_AROUND', 10, 15),
-            _fake_approach('LANDING', 20, 25),
-        ])
-        approaches.set_flight_attr.reset_mock()
-        approaches._lookup_airport_and_runway.assert_has_calls([
-            call(approach=approach_sections[0], appr_hdg=[], appr_lat=[], appr_lon=[], appr_ilsfreq=[], precise=False, api=api),
-            call(approach=approach_sections[1], appr_hdg=[], appr_lat=[], appr_lon=[], appr_ilsfreq=[], precise=False, api=api),
-            call(approach=approach_sections[2], appr_hdg=[], appr_lat=[], appr_lon=[], appr_ilsfreq=[], precise=False, api=api, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none, hint='landing'),
-        ])
-        approaches._lookup_airport_and_runway.reset_mock()
-        # Test that landing lat/lon/hdg used for landing only, else use approach lat/lon/hdg:
-        approaches.derive(approach_sections, alt_aal, fast, start_dt, land_hdg, land_lat, land_lon, appr_hdg, appr_lat, appr_lon, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none)
-        approaches.set_flight_attr.assert_called_once_with([
-            _fake_approach('TOUCH_AND_GO', 0, 5),
-            _fake_approach('GO_AROUND', 10, 15),
-            _fake_approach('LANDING', 20, 25),
-        ])
-        approaches.set_flight_attr.reset_mock()
-        approaches._lookup_airport_and_runway.assert_has_calls([
-            call(approach=approach_sections[0], appr_hdg=appr_hdg, appr_lat=appr_lat, appr_lon=appr_lon, appr_ilsfreq=[], precise=False, api=api),
-            call(approach=approach_sections[1], appr_hdg=appr_hdg, appr_lat=appr_lat, appr_lon=appr_lon, appr_ilsfreq=[], precise=False, api=api),
-            call(approach=approach_sections[2], appr_hdg=land_hdg, appr_lat=land_lat, appr_lon=land_lon, appr_ilsfreq=[], precise=False, api=api, land_afr_apt=land_afr_apt_none, land_afr_rwy=land_afr_rwy_none, hint='landing'),
-        ])
-        approaches._lookup_airport_and_runway.reset_mock()
-
-        # FIXME: Finish implementing these tests to check that using the API
-        #        works correctly and any fall back values are used as
-        #        appropriate.
-    
-    @unittest.skip('Test Not Implemented')
-    def test_derive_afr_fallback(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestDeterminePilot(unittest.TestCase):
+
     def test__autopilot_engaged(self):
         determine_pilot = DeterminePilot()
-        # Q: What should discrete values be?
-        autopilot1 = KeyPointValue('AP Engaged 1 At Touchdown', value=0)
-        autopilot2 = KeyPointValue('AP Engaged 2 At Touchdown', value=0)
-        pilot = determine_pilot._autopilot_engaged(autopilot1, autopilot2)
+        # No autopilots engaged:
+        pilot = determine_pilot._autopilot_engaged(0, 0, None)
         self.assertEqual(pilot, None)
-        # Autopilot 1 Engaged.
-        autopilot1 = KeyPointValue('AP Engaged 1 At Touchdown', value=1)
-        autopilot2 = KeyPointValue('AP Engaged 2 At Touchdown', value=0)
-        pilot = determine_pilot._autopilot_engaged(autopilot1, autopilot2)
+        # Autopilot 1 engaged:
+        pilot = determine_pilot._autopilot_engaged(1, 0, None)
         self.assertEqual(pilot, 'Captain')
-        # Autopilot 2 Engaged.
-        autopilot1 = KeyPointValue('AP Engaged 1 At Touchdown', value=0)
-        autopilot2 = KeyPointValue('AP Engaged 2 At Touchdown', value=1)
-        pilot = determine_pilot._autopilot_engaged(autopilot1, autopilot2)
+        # Autopilot 2 engaged:
+        pilot = determine_pilot._autopilot_engaged(0, 1, None)
         self.assertEqual(pilot, 'First Officer')
-        # Both Autopilots Engaged.
-        autopilot1 = KeyPointValue('AP Engaged 1 At Touchdown', value=1)
-        autopilot2 = KeyPointValue('AP Engaged 2 At Touchdown', value=1)
-        pilot = determine_pilot._autopilot_engaged(autopilot1, autopilot2)
+        # Autopilots 1 & 2 engaged:
+        pilot = determine_pilot._autopilot_engaged(1, 1, None)
         self.assertEqual(pilot, None)
-    
-    def test__pitch_roll_changed(self):
+
+    def test__controls_changed(self):
         determine_pilot = DeterminePilot()
-        slice_ = slice(0,3)
-        below_tolerance = np.ma.array([CONTROLS_IN_USE_TOLERANCE/4.0, 0, 0,
-                                       CONTROLS_IN_USE_TOLERANCE/2.0, 0, 0])
-        above_tolerance = np.ma.array([CONTROLS_IN_USE_TOLERANCE*4, 0, 0,
-                                       CONTROLS_IN_USE_TOLERANCE*2, 0, 0])
-        # Both pitch and roll below tolerance.
-        pitch = below_tolerance
-        roll = below_tolerance
-        pilot = determine_pilot._pitch_roll_changed(slice_, pitch, roll)
-        self.assertFalse(pilot)
-        # Pitch above tolerance.
-        pitch = above_tolerance
-        roll = below_tolerance
-        pilot = determine_pilot._pitch_roll_changed(slice_, pitch, roll)
-        self.assertTrue(pilot)
-        # Roll above tolerance.
-        pitch = below_tolerance
-        roll = above_tolerance
-        pilot = determine_pilot._pitch_roll_changed(slice_, pitch, roll)
-        self.assertTrue(pilot)
-        # Pitch and Roll above tolerance.
-        pitch = above_tolerance
-        roll = above_tolerance
-        pilot = determine_pilot._pitch_roll_changed(slice_, pitch, roll)
-        self.assertTrue(pilot)
-        # Pitch and Roll above tolerance outside of slice.
-        slice_ = slice(1,3)
-        pitch = above_tolerance
-        roll = above_tolerance
-        pilot = determine_pilot._pitch_roll_changed(slice_, pitch, roll)
-        self.assertFalse(pilot)
-    
+        slice_ = slice(0, 3)
+        below_tolerance = np.ma.array([
+            settings.CONTROLS_IN_USE_TOLERANCE / 4.0, 0, 0,
+            settings.CONTROLS_IN_USE_TOLERANCE / 2.0, 0, 0,
+        ])
+        above_tolerance = np.ma.array([
+            settings.CONTROLS_IN_USE_TOLERANCE * 4.0, 0, 0,
+            settings.CONTROLS_IN_USE_TOLERANCE * 2.0, 0, 0,
+        ])
+        # Both pitch and roll below tolerance:
+        pitch, roll = below_tolerance, below_tolerance
+        change = determine_pilot._controls_changed(slice_, pitch, roll)
+        self.assertFalse(change)
+        # Pitch above tolerance:
+        pitch, roll = above_tolerance, below_tolerance
+        change = determine_pilot._controls_changed(slice_, pitch, roll)
+        self.assertTrue(change)
+        # Roll above tolerance:
+        pitch, roll = below_tolerance, above_tolerance
+        change = determine_pilot._controls_changed(slice_, pitch, roll)
+        self.assertTrue(change)
+        # Both pitch and roll above tolerance:
+        pitch, roll = above_tolerance, above_tolerance
+        change = determine_pilot._controls_changed(slice_, pitch, roll)
+        self.assertTrue(change)
+        # Both pitch and roll above tolerance outside of slice:
+        slice_ = slice(1, 3)
+        pitch, roll = above_tolerance, above_tolerance
+        change = determine_pilot._controls_changed(slice_, pitch, roll)
+        self.assertFalse(change)
+
     def test__controls_in_use(self):
-        # Instantiating subclass of DeterminePilot since it will gain a logging
-        # methods through multiple inheritance.        
-        determine_pilot = LandingPilot()
-        pitch_captain = Mock()
-        roll_captain = Mock()
+        pitch_capt = Mock()
         pitch_fo = Mock()
+        roll_capt = Mock()
         roll_fo = Mock()
-        section = Section('Takeoff', slice(0,3), 0, 3)
-        determine_pilot._pitch_roll_changed = Mock()
-        # Neither pilot's controls changed.
-        in_use = [False, False]
-        def side_effect(*args, **kwargs):
-            return in_use.pop()
-        determine_pilot._pitch_roll_changed.side_effect = side_effect
-        pilot = determine_pilot._controls_in_use(pitch_captain, roll_captain,
-                                                 pitch_fo, roll_fo, section)
-        self.assertEqual(determine_pilot._pitch_roll_changed.call_args_list,
-                         [((section.slice, pitch_captain, roll_captain), {}),
-                          ((section.slice, pitch_fo, roll_fo), {})])
+
+        section = Section('Takeoff', slice(0, 3), 0, 3)
+
+        # Note: We instantiate one of the subclasses of DeterminePilot as we
+        #       use logging methods not defined in this abstract superclass.
+        determine_pilot = LandingPilot()
+        determine_pilot._controls_changed = Mock()
+
+        # Neither pilot's controls changed:
+        determine_pilot._controls_changed.reset_mock()
+        determine_pilot._controls_changed.side_effect = [False, False]
+        pilot = determine_pilot._controls_in_use(pitch_capt, pitch_fo, roll_capt, roll_fo, section)
+        determine_pilot._controls_changed.assert_has_calls([
+            call(section.slice, pitch_capt, roll_capt),
+            call(section.slice, pitch_fo, roll_fo),
+        ])
         self.assertEqual(pilot, None)
-         # Captain's controls changed.
-        in_use = [False, True]
-        pilot = determine_pilot._controls_in_use(pitch_captain, roll_captain,
-                                                 pitch_fo, roll_fo, section)
+         # Only captain's controls changed:
+        determine_pilot._controls_changed.reset_mock()
+        determine_pilot._controls_changed.side_effect = [True, False]
+        pilot = determine_pilot._controls_in_use(pitch_capt, pitch_fo, roll_capt, roll_fo, section)
+        determine_pilot._controls_changed.assert_has_calls([
+            call(section.slice, pitch_capt, roll_capt),
+            call(section.slice, pitch_fo, roll_fo),
+        ])
         self.assertEqual(pilot, 'Captain')
-        # First Officer's controls changed.
-        in_use = [True, False]
-        pilot = determine_pilot._controls_in_use(pitch_captain, roll_captain,
-                                                 pitch_fo, roll_fo, section)
+        # Only first Officer's controls changed:
+        determine_pilot._controls_changed.reset_mock()
+        determine_pilot._controls_changed.side_effect = [False, True]
+        pilot = determine_pilot._controls_in_use(pitch_capt, pitch_fo, roll_capt, roll_fo, section)
+        determine_pilot._controls_changed.assert_has_calls([
+            call(section.slice, pitch_capt, roll_capt),
+            call(section.slice, pitch_fo, roll_fo),
+        ])
         self.assertEqual(pilot, 'First Officer')
-        # Both controls changed.
-        in_use = [True, True]
-        pilot = determine_pilot._controls_in_use(pitch_captain, roll_captain,
-                                                 pitch_fo, roll_fo, section)
+        # Both pilot's controls changed:
+        determine_pilot._controls_changed.reset_mock()
+        determine_pilot._controls_changed.side_effect = [True, True]
+        pilot = determine_pilot._controls_in_use(pitch_capt, pitch_fo, roll_capt, roll_fo, section)
+        determine_pilot._controls_changed.assert_has_calls([
+            call(section.slice, pitch_capt, roll_capt),
+            call(section.slice, pitch_fo, roll_fo),
+        ])
         self.assertEqual(pilot, None)
-    
+
     def test__determine_pilot(self):
         determine_pilot = DeterminePilot()
-        # Controls in use, no takeoff_or_landing.
-        takeoff_or_landing = None
-        pitch_captain = Mock()
-        pitch_captain.array = Mock()
-        roll_captain = Mock()
-        roll_captain.array = Mock()
+
+        pitch_capt = Mock()
         pitch_fo = Mock()
-        pitch_fo.array = Mock()
+        roll_capt = Mock()
         roll_fo = Mock()
+        pitch_capt.array = Mock()
+        pitch_fo.array = Mock()
+        roll_capt.array = Mock()
         roll_fo.array = Mock()
-        determine_pilot.set_flight_attr = Mock()
-        pilot_returned = determine_pilot._determine_pilot(pitch_captain,
-                                                          roll_captain, pitch_fo,
-                                                          roll_fo, takeoff_or_landing, None,
-                                                          None)
-        self.assertEqual(pilot_returned, None)
-        # Controls in use with takeoff_or_landing. Pilot cannot be discerned.
-        determine_pilot._controls_in_use = Mock()
-        pilot = None
-        determine_pilot._controls_in_use.return_value = pilot
-        takeoff_or_landing = Mock()
-        determine_pilot.set_flight_attr = Mock()
-        pilot_returned = determine_pilot._determine_pilot(pitch_captain, roll_captain, pitch_fo,
-                                                          roll_fo, takeoff_or_landing, None,
-                                                          None)
-        determine_pilot._controls_in_use.assert_called_once_with(
-            pitch_captain.array, roll_captain.array, pitch_fo.array,
-            roll_fo.array, takeoff_or_landing)
-        self.assertEqual(pilot, pilot_returned)
-        # Controls in use with takeoff_or_landing. Pilot returned
-        determine_pilot._controls_in_use = Mock()
-        pilot = 'Captain'
-        determine_pilot._controls_in_use.return_value = pilot
-        determine_pilot.set_flight_attr = Mock()
-        pilot_returned = determine_pilot._determine_pilot(pitch_captain, roll_captain, pitch_fo,
-                                                          roll_fo, takeoff_or_landing, None,
-                                                          None)
-        self.assertEqual(pilot_returned, pilot)
-        # Only Autopilot.
-        autopilot1 = Mock()
-        autopilot2 = Mock()
+        ap1 = Mock()
+        ap2 = Mock()
+        ap3 = Mock()
+        phase = Mock()
+
         determine_pilot._autopilot_engaged = Mock()
         determine_pilot._controls_in_use = Mock()
-        pilot = 'Captain'
-        determine_pilot._autopilot_engaged.return_value = pilot
         determine_pilot.set_flight_attr = Mock()
-        pilot_returned = determine_pilot._determine_pilot(None, None, None, None, None,
-                                                          autopilot1, autopilot2)
-        determine_pilot._autopilot_engaged.assert_called_once_with(autopilot1,
-                                                                 autopilot2)
-        self.assertEqual(determine_pilot._controls_in_use.called, False)
-        self.assertEqual(pilot_returned, pilot)
-        # Controls in Use overrides Autopilot.
-        controls_pilot = 'Captain'
-        autopilot_pilot = 'First Officer'
-        determine_pilot._controls_in_use.return_value = controls_pilot
-        determine_pilot._autopilot_engaged.return_value = autopilot_pilot
-        pilot_returned = determine_pilot._determine_pilot(pitch_captain, roll_captain, pitch_fo,
-                                                          roll_fo, takeoff_or_landing,
-                                                          autopilot1, autopilot2)
-        self.assertEqual(pilot_returned, controls_pilot)
-        # Autopilot is used when Controls in Use does not provide an answer.
+
+        def reset_all_mocks():
+            determine_pilot._autopilot_engaged.reset_mock()
+            determine_pilot._controls_in_use.reset_mock()
+            determine_pilot.set_flight_attr.reset_mock()
+
+        # Controls in use, no phase.
+        reset_all_mocks()
+        pilot = determine_pilot._determine_pilot(pitch_capt, pitch_fo, roll_capt, roll_fo, None, None, None, None)
+        self.assertFalse(determine_pilot._autopilot_engaged.called)
+        self.assertFalse(determine_pilot._controls_in_use.called)
+        self.assertEqual(pilot, None)
+        # Controls in use with phase. Pilot cannot be discerned.
+        reset_all_mocks()
         determine_pilot._controls_in_use.return_value = None
-        pilot = 'First Officer'
-        determine_pilot._autopilot_engaged.return_value = pilot
-        pilot_returned = determine_pilot._determine_pilot(pitch_captain, roll_captain, pitch_fo,
-                                                         roll_fo, takeoff_or_landing, autopilot1,
-                                                         autopilot2)
-        self.assertEqual(pilot_returned, pilot)
+        pilot = determine_pilot._determine_pilot(pitch_capt, pitch_fo, roll_capt, roll_fo, phase, None, None, None)
+        self.assertFalse(determine_pilot._autopilot_engaged.called)
+        determine_pilot._controls_in_use.assert_called_once_with(pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array, phase)
+        self.assertEqual(pilot, determine_pilot._controls_in_use.return_value)
+        # Controls in use with phase. Pilot returned
+        reset_all_mocks()
+        determine_pilot._controls_in_use.return_value = 'Captain'
+        pilot = determine_pilot._determine_pilot(pitch_capt, pitch_fo, roll_capt, roll_fo, phase, None, None, None)
+        self.assertFalse(determine_pilot._autopilot_engaged.called)
+        determine_pilot._controls_in_use.assert_called_once_with(pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array, phase)
+        self.assertEqual(pilot, determine_pilot._controls_in_use.return_value)
+        # Only Autopilot.
+        reset_all_mocks()
+        determine_pilot._autopilot_engaged.return_value = 'Captain'
+        pilot = determine_pilot._determine_pilot(None, None, None, None, None, ap1, ap2, ap3)
+        determine_pilot._autopilot_engaged.assert_called_once_with(ap1, ap2, ap3)
+        self.assertFalse(determine_pilot._controls_in_use.called)
+        self.assertEqual(pilot, determine_pilot._autopilot_engaged.return_value)
+        # Controls in Use overrides Autopilot.
+        reset_all_mocks()
+        determine_pilot._controls_in_use.return_value = 'Captain'
+        determine_pilot._autopilot_engaged.return_value = 'First Officer'
+        pilot = determine_pilot._determine_pilot(pitch_capt, pitch_fo, roll_capt, roll_fo, phase, ap1, ap2, ap3)
+        self.assertFalse(determine_pilot._autopilot_engaged.called)
+        determine_pilot._controls_in_use.assert_called_once_with(pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array, phase)
+        self.assertEqual(pilot, determine_pilot._controls_in_use.return_value)
+        # Autopilot is used when Controls in Use does not provide an answer.
+        reset_all_mocks()
+        determine_pilot._autopilot_engaged.return_value = 'First Officer'
+        determine_pilot._controls_in_use.return_value = None
+        pilot = determine_pilot._determine_pilot(pitch_capt, pitch_fo, roll_capt, roll_fo, phase, ap1, ap2, ap3)
+        determine_pilot._autopilot_engaged.assert_called_once_with(ap1, ap2, ap3)
+        determine_pilot._controls_in_use.assert_called_once_with(pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array, phase)
+        self.assertEqual(pilot, determine_pilot._autopilot_engaged.return_value)
 
 
 class TestDuration(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Duration.get_operational_combinations(),
                          [('FDR Takeoff Datetime', 'FDR Landing Datetime')])
-    
+
     def test_derive(self):
         duration = Duration()
         duration.set_flight_attr = Mock()
@@ -361,7 +245,7 @@ class TestFlightID(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(FlightID.get_operational_combinations(),
                          [('AFR Flight ID',)])
-    
+
     def test_derive(self):
         afr_flight_id = A('AFR Flight ID', value=10245)
         flight_id = FlightID()
@@ -374,7 +258,7 @@ class TestFlightNumber(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(FlightNumber.get_operational_combinations(),
                          [('Flight Number',)])
-    
+
     def test_derive(self):
         flight_number_param = P('Flight Number',
                                 array=np.ma.masked_array([103, 102,102]))
@@ -382,22 +266,35 @@ class TestFlightNumber(unittest.TestCase):
         flight_number.set_flight_attr = Mock()
         flight_number.derive(flight_number_param)
         flight_number.set_flight_attr.assert_called_with('102')
-        
+
+    def test_derive_ascii(self):
+        flight_number_param = P('Flight Number',
+                                array=np.ma.masked_array(['ABC', 'DEF', 'DEF']))
+        flight_number = FlightNumber()
+        flight_number.set_flight_attr = Mock()
+        flight_number.derive(flight_number_param)
+        flight_number.set_flight_attr.assert_called_with('DEF')
+        flight_number.set_flight_attr.reset_mock()
+        # Entirely masked.
+        flight_number_param.array[:] = np.ma.masked
+        flight_number.derive(flight_number_param)
+        flight_number.set_flight_attr.called = False
+
     def test_derive_most_common_positive_float(self):
         flight_number = FlightNumber()
-        
+
         neg_number_param = P(
             'Flight Number',
             array=np.ma.array([-1,2,-4,10]))
         flight_number.derive(neg_number_param)
         self.assertEqual(flight_number.value, None)
-        
+
         # TODO: Implement variance checks as below
         ##high_variance_number_param = P(
             ##'Flight Number',
             ##array=np.ma.array([2,2,4,4,4,7,7,7,4,5,4,7,910]))
         ##self.assertRaises(ValueError, flight_number.derive, high_variance_number_param)
-        
+
         flight_number_param= P(
             'Flight Number',
             array=np.ma.array([2,555.6,444,444,444,444,444,444,888,444,444,444,
@@ -507,7 +404,7 @@ class TestLandingDatetime(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(LandingDatetime.get_operational_combinations(),
                          [('Start Datetime', 'Touchdown')])
-    
+
     def test_derive(self):
         landing_datetime = LandingDatetime()
         landing_datetime.set_flight_attr = Mock()
@@ -530,7 +427,7 @@ class TestLandingFuel(unittest.TestCase):
         self.assertEqual(LandingFuel.get_operational_combinations(),
                          [('AFR Landing Fuel',), ('Fuel Qty At Touchdown',),
                           ('AFR Landing Fuel', 'Fuel Qty At Touchdown')])
-    
+
     def test_derive(self):
         landing_fuel = LandingFuel()
         landing_fuel.set_flight_attr = Mock()
@@ -555,7 +452,7 @@ class TestLandingGrossWeight(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(LandingGrossWeight.get_operational_combinations(),
                          [('Gross Weight At Touchdown',)])
-    
+
     def test_derive(self):
         landing_gross_weight = LandingGrossWeight()
         landing_gross_weight.set_flight_attr = Mock()
@@ -567,63 +464,67 @@ class TestLandingGrossWeight(unittest.TestCase):
 
 
 class TestLandingPilot(unittest.TestCase):
+
     def test_can_operate(self):
         opts = LandingPilot.get_operational_combinations()
-        # Only controls in use parameters.
-        self.assertTrue(('Sidestick Pitch (Capt)', 'Sidestick Roll (Capt)',
-                         'Sidestick Pitch (FO)', 'Sidestick Roll (FO)',
-                         'Landing') in opts)
-        # Only Autopilot.
-        self.assertTrue(('Autopilot Engaged 1 At Touchdown',
-                         'Autopilot Engaged 2 At Touchdown') in opts)
-        # Combinations.
-        self.assertTrue(('Sidestick Pitch (Capt)', 'Sidestick Roll (Capt)',
-                         'Sidestick Pitch (FO)', 'Sidestick Roll (FO)',
-                         'Landing', 'Autopilot Engaged 1 At Touchdown') in opts)
-        self.assertTrue(('Sidestick Pitch (Capt)', 'Sidestick Roll (Capt)',
-                         'Landing', 'Autopilot Engaged 1 At Touchdown',
-                         'Autopilot Engaged 2 At Touchdown' in opts))
-        # All.
-        self.assertTrue(('Sidestick Pitch (Capt)', 'Sidestick Roll (Capt)',
-                         'Sidestick Pitch (FO)', 'Sidestick Roll (FO)',
-                         'Landing', 'Autopilot Engaged 1 At Touchdown',
-                         'Autopilot Engaged 2 At Touchdown') in opts)
-        
-    def test_derive(self):
-        landing_pilot = LandingPilot()
+        combinations = [
+            # Only Controls:
+            ('Pitch (Capt)', 'Pitch (FO)', 'Roll (Capt)', 'Roll (FO)',
+                'Landing'),
+            # Only Autopilot:
+            ('AP (1) Engaged', 'AP (2) Engaged', 'Touchdown'),
+            # Combinations:
+            ('Pitch (Capt)', 'Pitch (FO)', 'Roll (Capt)', 'Roll (FO)',
+                'AP (1) Engaged', 'Landing', 'Touchdown'),
+            ('Pitch (Capt)', 'Roll (Capt)', 'AP (1) Engaged',
+                'AP (2) Engaged', 'Landing', 'Touchdown'),
+            # Everything:
+            ('Pitch (Capt)', 'Pitch (FO)', 'Roll (Capt)', 'Roll (FO)',
+                'AP (1) Engaged', 'AP (2) Engaged', 'Landing', 'Touchdown'),
+        ]
+        for combination in combinations:
+            self.assertTrue(combination in opts)
+
+    @patch('analysis_engine.library.value_at_index')
+    def test_derive(self, value_at_index):
+        ap1 = Mock()
+        ap2 = Mock()
+        ap3 = Mock()
+        phase = Mock()
+
+        pitch_capt = Mock()
+        pitch_fo = Mock()
+        roll_capt = Mock()
+        roll_fo = Mock()
+
+        ap1_eng = Mock()
+        ap2_eng = Mock()
+        ap3_eng = Mock()
+        value_at_index.side_effect = [ap1, ap2, ap3]
+
         landings = Mock()
         landings.get_last = Mock()
-        last_landing = Mock()
-        landings.get_last.return_value = last_landing
-        pitch_captain = Mock()
-        roll_captain = Mock()
-        pitch_fo = Mock()
-        roll_fo = Mock()
-        autopilot1 = Mock()
-        autopilot1.get_last = Mock()
-        last_autopilot1 = Mock()
-        autopilot1.get_last.return_value = last_autopilot1
-        autopilot2 = Mock()
-        autopilot2.get_last = Mock()
-        last_autopilot2 = Mock()
-        autopilot2.get_last.return_value = last_autopilot2
-        landing_pilot._determine_pilot = Mock()
-        landing_pilot._determine_pilot.return_value = Mock()
-        landing_pilot.set_flight_attr = Mock()
-        landing_pilot.derive(pitch_captain, roll_captain, pitch_fo, roll_fo,
-                             landings, autopilot1, autopilot2)
+        landings.get_last.return_value = phase
+
+        touchdowns = Mock()
+        touchdowns.get_last = Mock()
+        touchdowns.get_last.return_value = Mock()
+
+        pilot = LandingPilot()
+        pilot._determine_pilot = Mock()
+        pilot._determine_pilot.return_value = Mock()
+        pilot.set_flight_attr = Mock()
+
+        pilot.derive(pitch_capt, pitch_fo, roll_capt, roll_fo, ap1_eng,
+                ap2_eng, ap3_eng, landings, touchdowns)
+
         self.assertTrue(landings.get_last.called)
-        self.assertTrue(autopilot1.get_last.called)
-        self.assertTrue(autopilot2.get_last.called)
-        landing_pilot._determine_pilot.assert_called_once_with(pitch_captain,
-                                                               roll_captain,
-                                                               pitch_fo,
-                                                               roll_fo,
-                                                               last_landing,
-                                                               last_autopilot1,
-                                                               last_autopilot2)
-        landing_pilot.set_flight_attr.assert_called_once_with(\
-            landing_pilot._determine_pilot.return_value)
+        self.assertTrue(touchdowns.get_last.called)
+
+        pilot._determine_pilot.assert_called_once_with(pitch_capt, pitch_fo,
+                roll_capt, roll_fo, phase, ap1, ap2, ap3)
+
+        pilot.set_flight_attr.assert_called_once_with(pilot._determine_pilot.return_value)
 
 
 class TestLandingRunway(unittest.TestCase, NodeTest):
@@ -662,7 +563,7 @@ class TestLandingRunway(unittest.TestCase, NodeTest):
         approaches = S(name='Approach', items=[
             Section(name='Approach', slice=slice(14, 20), start_edge=14, stop_edge=20),
         ])
-        ilsfreq_on_app = KPV(name='ILS Frequency On Approach', items=[
+        ils_freq_on_app = KPV(name='ILS Frequency During Approach', items=[
             KeyPointValue(index=18, value=330150),
         ])
         rwy = self.node_class()
@@ -674,24 +575,25 @@ class TestLandingRunway(unittest.TestCase, NodeTest):
         get_nearest_runway.assert_called_once_with(25, 20.0, hint='landing')
         get_nearest_runway.reset_mock()
         # Test with ILS frequency:
-        rwy.derive(fdr_apt, afr_apt, hdg, None, None, None, approaches, ilsfreq_on_app)
+        rwy.derive(fdr_apt, afr_apt, hdg, None, None, None, approaches,
+                   ils_freq_on_app)
         rwy.set_flight_attr.assert_called_once_with(info)
         rwy.set_flight_attr.reset_mock()
-        get_nearest_runway.assert_called_once_with(25, 20.0, ilsfreq=330150, hint='landing')
+        get_nearest_runway.assert_called_once_with(25, 20.0, ils_freq=330150, hint='landing')
         get_nearest_runway.reset_mock()
         # Test for aircraft where positioning is not precise:
         precise.value = True
-        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise, approaches, ilsfreq_on_app)
+        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise, approaches, ils_freq_on_app)
         rwy.set_flight_attr.assert_called_with(info)
         rwy.set_flight_attr.reset_mock()
-        get_nearest_runway.assert_called_once_with(25, 20.0, latitude=6.0, longitude=9.0, ilsfreq=330150)
+        get_nearest_runway.assert_called_once_with(25, 20.0, latitude=6.0, longitude=9.0, ils_freq=330150)
         get_nearest_runway.reset_mock()
         # Test for aircraft where positioning is not precise:
         precise.value = False
-        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise, approaches, ilsfreq_on_app)
+        rwy.derive(fdr_apt, afr_apt, hdg, lat, lon, precise, approaches, ils_freq_on_app)
         rwy.set_flight_attr.assert_called_with(info)
         rwy.set_flight_attr.reset_mock()
-        get_nearest_runway.assert_called_once_with(25, 20.0, ilsfreq=330150, hint='landing')
+        get_nearest_runway.assert_called_once_with(25, 20.0, ils_freq=330150, hint='landing')
         get_nearest_runway.reset_mock()
 
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_runway')
@@ -760,7 +662,7 @@ class TestOffBlocksDatetime(unittest.TestCase):
         off_blocks_datetime.derive(turning, start_datetime)
         off_blocks_datetime.set_flight_attr.assert_called_once_with(
             start_datetime.value + timedelta(seconds=20))
-        
+
         turning = S('Turning', items=[KeyPointValue(name='Turning On Ground',
                                                     slice=slice(10, 20)),
                                       KeyPointValue(name='Turning On Ground',
@@ -900,7 +802,7 @@ class TestTakeoffDatetime(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(TakeoffDatetime.get_operational_combinations(),
                          [('Liftoff', 'Start Datetime')])
-    
+
     def test_derive(self):
         takeoff_dt = TakeoffDatetime()
         takeoff_dt.set_flight_attr = Mock()
@@ -921,7 +823,7 @@ class TestTakeoffFuel(unittest.TestCase):
         self.assertEqual(TakeoffFuel.get_operational_combinations(),
                          [('AFR Takeoff Fuel',), ('Fuel Qty At Liftoff',),
                           ('AFR Takeoff Fuel', 'Fuel Qty At Liftoff')])
-    
+
     def test_derive(self):
         takeoff_fuel = TakeoffFuel()
         takeoff_fuel.set_flight_attr = Mock()
@@ -945,7 +847,7 @@ class TestTakeoffGrossWeight(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(TakeoffGrossWeight.get_operational_combinations(),
                          [('Gross Weight At Liftoff',)])
-    
+
     def test_derive(self):
         takeoff_gross_weight = TakeoffGrossWeight()
         takeoff_gross_weight.set_flight_attr = Mock()
@@ -956,64 +858,68 @@ class TestTakeoffGrossWeight(unittest.TestCase):
         takeoff_gross_weight.set_flight_attr.assert_called_once_with(135)
 
 
-'''
 class TestTakeoffPilot(unittest.TestCase):
+
     def test_can_operate(self):
         opts = TakeoffPilot.get_operational_combinations()
-        # Only controls in use parameters.
-        self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
-                         'Roll (FO)', 'Takeoff') in opts)
-        # Only Autopilot.
-        self.assertTrue(('AP Engaged 1 At Liftoff',
-                         'AP Engaged 2 At Liftoff') in opts)
-        # Combinations.
-        self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
-                         'Roll (FO)', 'Takeoff',
-                         'AP Engaged 1 At Liftoff') in opts)
-        self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Takeoff',
-                         'AP Engaged 1 At Liftoff',
-                         'AP Engaged 2 At Liftoff' in opts))
-        # All.
-        self.assertTrue(('Pitch (Capt)', 'Roll (Capt)', 'Pitch (FO)',
-                         'Roll (FO)', 'Takeoff', 'AP Engaged 1 At Liftoff',
-                         'AP Engaged 2 At Liftoff') in opts)
-    
-    def test_derive(self):
-        takeoff_pilot = TakeoffPilot()
+        combinations = [
+            # Only Controls:
+            ('Pitch (Capt)', 'Pitch (FO)', 'Roll (Capt)', 'Roll (FO)',
+                'Takeoff'),
+            # Only Autopilot:
+            ('AP (1) Engaged', 'AP (2) Engaged', 'Liftoff'),
+            # Combinations:
+            ('Pitch (Capt)', 'Pitch (FO)', 'Roll (Capt)', 'Roll (FO)',
+                'AP (1) Engaged', 'Takeoff', 'Liftoff'),
+            ('Pitch (Capt)', 'Roll (Capt)', 'AP (1) Engaged',
+                'AP (2) Engaged', 'Takeoff', 'Liftoff'),
+            # Everything:
+            ('Pitch (Capt)', 'Pitch (FO)', 'Roll (Capt)', 'Roll (FO)',
+                'AP (1) Engaged', 'AP (2) Engaged', 'Takeoff', 'Liftoff'),
+        ]
+        for combination in combinations:
+            self.assertTrue(combination in opts)
+
+    @patch('analysis_engine.library.value_at_index')
+    def test_derive(self, value_at_index):
+        ap1 = Mock()
+        ap2 = Mock()
+        ap3 = Mock()
+        phase = Mock()
+
+        pitch_capt = Mock()
+        pitch_fo = Mock()
+        roll_capt = Mock()
+        roll_fo = Mock()
+
+        ap1_eng = Mock()
+        ap2_eng = Mock()
+        ap3_eng = Mock()
+        value_at_index.side_effect = [ap1, ap2, ap3]
+
         takeoffs = Mock()
         takeoffs.get_first = Mock()
-        first_takeoff = Mock()
-        takeoffs.get_first.return_value = first_takeoff
-        pitch_captain = Mock()
-        roll_captain = Mock()
-        pitch_fo = Mock()
-        roll_fo = Mock()
-        autopilot1 = Mock()
-        autopilot1.get_first = Mock()
-        first_autopilot1 = Mock()
-        autopilot1.get_first.return_value = first_autopilot1
-        autopilot2 = Mock()
-        autopilot2.get_first = Mock()
-        first_autopilot2 = Mock()
-        autopilot2.get_first.return_value = first_autopilot2
-        takeoff_pilot._determine_pilot = Mock()
-        takeoff_pilot._determine_pilot.return_value = Mock()
-        takeoff_pilot.set_flight_attr = Mock()
-        takeoff_pilot.derive(pitch_captain, roll_captain, pitch_fo, roll_fo,
-                             takeoffs, autopilot1, autopilot2)
+        takeoffs.get_first.return_value = phase
+
+        liftoffs = Mock()
+        liftoffs.get_first = Mock()
+        liftoffs.get_first.return_value = Mock()
+
+        pilot = TakeoffPilot()
+        pilot._determine_pilot = Mock()
+        pilot._determine_pilot.return_value = Mock()
+        pilot.set_flight_attr = Mock()
+
+        pilot.derive(pitch_capt, pitch_fo, roll_capt, roll_fo, ap1_eng,
+                ap2_eng, ap3_eng, takeoffs, liftoffs)
+
         self.assertTrue(takeoffs.get_first.called)
-        self.assertTrue(autopilot1.get_first.called)
-        self.assertTrue(autopilot2.get_first.called)
-        takeoff_pilot._determine_pilot.assert_called_once_with(pitch_captain,
-                                                               roll_captain,
-                                                               pitch_fo,
-                                                               roll_fo,
-                                                               first_takeoff,
-                                                               first_autopilot1,
-                                                               first_autopilot2)
-        takeoff_pilot.set_flight_attr.assert_called_once_with(\
-            takeoff_pilot._determine_pilot.return_value)
-'''
+        self.assertTrue(liftoffs.get_first.called)
+
+        pilot._determine_pilot.assert_called_once_with(pitch_capt, pitch_fo,
+                roll_capt, roll_fo, phase, ap1, ap2, ap3)
+
+        pilot.set_flight_attr.assert_called_once_with(pilot._determine_pilot.return_value)
 
 
 class TestTakeoffRunway(unittest.TestCase, NodeTest):
@@ -1164,9 +1070,9 @@ class TestFlightType(unittest.TestCase):
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go'),
            ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Groundspeed'),
            ('Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 'Groundspeed'),
-           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go', 
+           ('AFR Type', 'Fast', 'Liftoff', 'Touchdown', 'Touch And Go',
             'Groundspeed')])
-    
+
     def test_derive(self):
         '''
         Tests every flow, but does not test every conceivable set of arguments.
@@ -1199,7 +1105,7 @@ class TestFlightType(unittest.TestCase):
             type_node.derive(None, fast, liftoffs, empty_touchdowns, None, None)
         except InvalidFlightType as err:
             self.assertEqual(err.flight_type, 'LIFTOFF_ONLY')
-        
+
         # Liftoff and Touchdown missing, only Fast.
         type_node.set_flight_attr = Mock()
         type_node.derive(None, fast, empty_liftoffs, empty_touchdowns, None,
@@ -1250,15 +1156,15 @@ class TestFlightType(unittest.TestCase):
             type_node.derive(afr_type, fast, liftoffs, touchdowns,
                              touch_and_gos, None)
         except InvalidFlightType as err:
-            self.assertEqual(err.flight_type, 'LIFTOFF_ONLY')        
+            self.assertEqual(err.flight_type, 'LIFTOFF_ONLY')
 
 
 class TestAnalysisDatetime(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
+
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -1267,7 +1173,7 @@ class TestVersion(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Version.get_operational_combinations(),
                          [('Start Datetime',)])
-        
+
     def test_derive(self):
         version = Version()
         version.set_flight_attr = Mock()

@@ -26,7 +26,7 @@ class TestTrimmer(unittest.TestCase):
     def test_derived_trimmer_mocked(self, node_modules, strip_hdf,
                                     get_derived_nodes, datetime, file_patched):
         '''
-        Mocks the majority of inputs and outputs. 
+        Mocks the majority of inputs and outputs.
         '''
         datetime.now = Mock()
         hdf_contents = {'IVV': Mock(), 'DME': Mock(), 'WOW': Mock()}
@@ -47,15 +47,12 @@ class TestTrimmer(unittest.TestCase):
         dest = derived_trimmer(in_path, ['IVV', 'DME'], out_path)
         file_patched.assert_called_once_with(in_path)
         get_derived_nodes.assert_called_once_with(node_modules)
-        filtered_nodes = {'IVV': derived_nodes['IVV'],
-                          'DME': derived_nodes['DME']}
-        strip_hdf.assert_called_once_with(in_path,
-                                          ['IVV', 'DME'],
-                                          out_path)
+        strip_hdf.assert_called_once_with(
+            in_path, ['IVV', 'DME'], out_path)
         self.assertEqual(dest, strip_hdf.return_value)
-        
-        
-        
+
+
+
 class TestGetNames(unittest.TestCase):
     def test_list_parameters(self):
         params = list_parameters()
@@ -68,8 +65,8 @@ class TestGetNames(unittest.TestCase):
         self.assertNotIn('AOA With Flap 15 Max', params)  # KPV
         self.assertNotIn('Landing Turn Off Runway', params)  # KTI
         self.assertNotIn('FDR Takeoff Runway', params)  # Attribute
-        
-        
+
+
     def test_list_derived_parameters(self):
         params = list_derived_parameters()
         self.assertIn('Altitude AAL', params)  # Derived Node
@@ -85,19 +82,19 @@ class TestGetNames(unittest.TestCase):
         # check dependencies are not included
         self.assertNotIn('Airspeed', kpvs)
         self.assertNotIn('Landing Turn Off Runway', kpvs)
-        
+
     def test_list_ktis(self):
         ktis = list_ktis()
         self.assertIn('Landing Turn Off Runway', ktis)
         self.assertNotIn('Airspeed', ktis)
         self.assertNotIn('AOA With Flap 15 Max', ktis)
         self.assertNotIn('FDR Takeoff Runway', ktis)
-        
+
     def test_list_lfl_parameters(self):
         params = list_lfl_parameter_dependencies()
         self.assertIn('Airspeed', params)  # LFL
         self.assertNotIn('Altitude AAL', params)  # Derived Node
-        
+
     def test_list_everything(self):
         params = list_everything()
         self.assertIn('Airspeed', params)  # LFL
@@ -108,13 +105,12 @@ class TestGetNames(unittest.TestCase):
         self.assertIn('Landing Turn Off Runway', params)  # KTI
         self.assertIn('FDR Takeoff Runway', params)  # Attribute
 
-    def list_flight_attributes(self):
-        atts = list_attributes()
-        self.assertIn('Approaches', atts)
+    def test_list_flight_attributes(self):
+        atts = list_flight_attributes()
+        self.assertIn('FDR Landing Runway', atts)
 
     def test_list_flight_phases(self):
         phases = list_flight_phases()
         self.assertIn('Bounced Landing', phases)
-        
 
-                        
+

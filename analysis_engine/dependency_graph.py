@@ -3,9 +3,11 @@ import sys
 import logging 
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
+from pprint import pformat
 from utilities.dict_helpers import dict_filter
 
 from analysis_engine.node import (
+    ApproachNode,
     DerivedParameterNode,
     MultistateDerivedParameterNode,
     FlightAttributeNode,
@@ -22,8 +24,6 @@ TODO:
 =====
 * Colour nodes by derived parameter type
 * reverse digraph to get arrows poitning towards the root - use pre's rather than successors in tree traversal
-
-
 """
 
 
@@ -60,6 +60,9 @@ TODO:
 
 
 def dependencies3(di_graph, root, node_mgr):
+    '''
+    :raises RuntimeError: If a loop exists within the dependency tree.
+    '''
     
     def traverse_tree(node):
         # check this first to improve performance
@@ -145,9 +148,11 @@ def graph_nodes(node_mgr):
     # create nodes without attributes now as you can only add attributes once
     # (limitation of add_node_attribute())
     gr_all.add_nodes_from(node_mgr.hdf_keys, color='#72f4eb') # turquoise
-    derived_minus_lfl = dict_filter(node_mgr.derived_nodes, remove=node_mgr.hdf_keys)
+    derived_minus_lfl = dict_filter(node_mgr.derived_nodes,
+                                    remove=node_mgr.hdf_keys)
     # Group into node types to apply colour. TODO: Make colours less garish.
     colors = {
+        ApproachNode: '#663399', # purple
         MultistateDerivedParameterNode: '#2aa52a', # dark green
         DerivedParameterNode: '#72cdf4',  # fds-blue
         FlightAttributeNode: '#b88a00',  # brown
@@ -258,8 +263,13 @@ def dependency_order(node_mgr, draw=not_windows):
     :rtype: (list of strings, dict)
     """
     _graph = graph_nodes(node_mgr)
-    gr_all, gr_st, order = process_order(_graph, node_mgr)
-    
+    try:
+        gr_all, gr_st, order = process_order(_graph, node_mgr)
+    except RuntimeError:
+        msg = ('The following loops in the dependency tree caused infinite '
+               'recursion:\n%s' % pformat(nx.simple_cycles(_graph)))
+        print msg
+        raise RuntimeError(msg)
     if draw:
         from json import dumps
         logger.info("JSON Graph Representation:\n%s", dumps( graph_adjacencies(gr_st), indent=2))

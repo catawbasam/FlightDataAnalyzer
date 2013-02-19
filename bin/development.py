@@ -1,3 +1,5 @@
+import os
+
 from analysis_engine.split_hdf_file_into_segments import \
         split_hdf_file_into_segments
 from analysis_engine.process_flight import process_flight

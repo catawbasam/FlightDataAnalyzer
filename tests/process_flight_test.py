@@ -1,6 +1,5 @@
 import unittest
 
-from analysis_engine.process_flight import get_derived_nodes
 
 class TestProcessFlight(unittest.TestCase):
 

@@ -5,7 +5,6 @@ import unittest
 
 from datetime import datetime
 
-from analysis_engine import hooks, settings
 from analysis_engine.split_hdf_to_segments import (
     _calculate_start_datetime, append_segment_info, split_segments)
 from analysis_engine.node import P,  Parameter
