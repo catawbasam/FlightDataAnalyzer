@@ -6535,7 +6535,7 @@ class ThrottleCyclesInFinalApproach(KeyPointValueNode):
 # Thrust Asymmetry
 
 
-class ThrustAsymmetryDuringTakeoff(KeyPointValueNode):
+class ThrustAsymmetryDuringTakeoffMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take off (Lateral)" & "Loss of Control Significant torque
@@ -6551,7 +6551,7 @@ class ThrustAsymmetryDuringTakeoff(KeyPointValueNode):
         self.create_kpvs_within_slices(ta.array, takeoff_rolls, max_value)
 
 
-class ThrustAsymmetryDuringFlight(KeyPointValueNode):
+class ThrustAsymmetryDuringFlightMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Loss of Control Asymmetric thrust - may be due to an a/t fault"
@@ -6566,7 +6566,7 @@ class ThrustAsymmetryDuringFlight(KeyPointValueNode):
         self.create_kpvs_within_slices(ta.array, airborne, max_value)
 
 
-class ThrustAsymmetryDuringGoAround(KeyPointValueNode):
+class ThrustAsymmetryDuringGoAroundMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Loss of Control Significant torque or thrust split during T/O or G/A"

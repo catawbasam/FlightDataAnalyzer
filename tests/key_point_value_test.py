@@ -287,9 +287,9 @@ from analysis_engine.key_point_values import (
     TCASRAToAPDisengagedDuration,
     TerrainClearanceAbove3000FtMin,
     ThrottleCyclesInFinalApproach,
-    ThrustAsymmetryDuringTakeoff,
-    ThrustAsymmetryDuringFlight,
-    ThrustAsymmetryDuringGoAround,
+    ThrustAsymmetryDuringTakeoffMax,
+    ThrustAsymmetryDuringFlightMax,
+    ThrustAsymmetryDuringGoAroundMax,
     ThrustAsymmetryDuringApproachMax,
     ThrustAsymmetryWithThrustReversersDeployedMax,
     ThrustAsymmetryDuringApproachDuration,
@@ -1701,17 +1701,6 @@ class TestAPDisengagedDuringCruiseDuration(unittest.TestCase, NodeTest):
 
 
 ##############################################################################
-# Thrust Asymmetry
-
-
-class TestThrustAsymetryWithThrustReverse(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestThrustWithThrustReverseInTransit(unittest.TestCase):
@@ -5027,10 +5016,10 @@ class TestThrottleCyclesInFinalApproach(unittest.TestCase, NodeTest):
 # Thrust Asymmetry
 
 
-class TestThrustAsymmetryDuringTakeoff(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestThrustAsymmetryDuringTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = ThrustAsymmetryDuringTakeoff
+        self.node_class = ThrustAsymmetryDuringTakeoffMax
         self.operational_combinations = [('Thrust Asymmetry', 'Takeoff Roll')]
         self.function = max_value
 
@@ -5039,10 +5028,10 @@ class TestThrustAsymmetryDuringTakeoff(unittest.TestCase, CreateKPVsWithinSlices
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestThrustAsymmetryDuringFlight(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestThrustAsymmetryDuringFlightMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = ThrustAsymmetryDuringFlight
+        self.node_class = ThrustAsymmetryDuringFlightMax
         self.operational_combinations = [('Thrust Asymmetry', 'Airborne')]
         self.function = max_value
 
@@ -5051,10 +5040,10 @@ class TestThrustAsymmetryDuringFlight(unittest.TestCase, CreateKPVsWithinSlicesT
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestThrustAsymmetryInGoAround(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestThrustAsymmetryDuringGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = ThrustAsymmetryDuringGoAround
+        self.node_class = ThrustAsymmetryDuringGoAroundMax
         self.operational_combinations = [('Thrust Asymmetry', 'Go Around And Climbout')]
         self.function = max_value
 
