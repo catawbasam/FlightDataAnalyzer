@@ -4147,7 +4147,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
             e4_ulk_lft=P('Eng (4) Thrust Reverser (L) Unlocked'),
             e4_ulk_rgt=P('Eng (4) Thrust Reverser (R) Unlocked')):
 
-        stack = vstack_params_where_state(
+        stack = vstack_params_where_state((
             (e1_dep_all, 'Deployed'), (e1_ulk_all, 'Unlocked'),
             (e1_dep_lft, 'Deployed'), (e1_ulk_lft, 'Unlocked'),
             (e1_dep_rgt, 'Deployed'), (e1_ulk_rgt, 'Unlocked'),
@@ -4160,7 +4160,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
             (e4_dep_all, 'Deployed'), (e4_ulk_all, 'Unlocked'),
             (e4_dep_lft, 'Deployed'), (e4_ulk_lft, 'Unlocked'),
             (e4_dep_rgt, 'Deployed'), (e4_ulk_rgt, 'Unlocked'),
-        )
+        ))
 
         if not len(stack):
             return
