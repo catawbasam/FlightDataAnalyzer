@@ -1629,20 +1629,6 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
 
 
 ##############################################################################
-# Thrust Asymmetry
-
-
-class ThrustAsymmetryWithThrustReverse(KeyPointValueNode):
-    '''
-    FDS developed this KPV to support the UK CAA Significant Seven programme.
-    "Excursions - Landing (Lateral) Asymmetric reverse thrust."
-    '''
-    def derive(self, ta=P('Thrust Asymmetry'), tr=M('Thrust Reversers'),
-               lands=S('Landing')):
-        to_scan = clump_multistate(tr.array, 'Stowed',
-                                   [s.slice for s in lands],
-                                   condition=False)
-        self.create_kpv_from_slices(ta.array, to_scan, max_value)
 
 
 class ThrustWithThrustReverseInTransit(KeyPointValueNode):
@@ -6545,30 +6531,74 @@ class ThrottleCyclesInFinalApproach(KeyPointValueNode):
             self.create_kpv(*cycle_counter(lever.array[fapp.slice], 10.0, 10.0,
                                            lever.hz, fapp.slice.start))
 
-##############################################################################
-# Thrust Asymmetry in different conditions
 
-class ThrustAsymmetryOnTakeoff(KeyPointValueNode):
+##############################################################################
+# Thrust Asymmetry
+
+
+class ThrustAsymmetryDuringTakeoff(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take off (Lateral)" & "Loss of Control Significant torque
     or thrust split during T/O or G/A"
     '''
-    def derive(self, ta=P('Thrust Asymmetry'), rolls=S('Takeoff Roll')):
-        self.create_kpvs_within_slices(ta.array, rolls, max_value)
+
+    units = '%'
+
+    def derive(self,
+               ta=P('Thrust Asymmetry'),
+               takeoff_rolls=S('Takeoff Roll')):
+
+        self.create_kpvs_within_slices(ta.array, takeoff_rolls, max_value)
 
 
-class ThrustAsymmetryInFlight(KeyPointValueNode):
+class ThrustAsymmetryDuringFlight(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Loss of Control Asymmetric thrust - may be due to an a/t fault"
     '''
-    def derive(self, ta=P('Thrust Asymmetry'),
-               airs=S('Airborne')):
-        self.create_kpvs_within_slices(ta.array, airs, max_value)
+
+    units = '%'
+
+    def derive(self,
+               ta=P('Thrust Asymmetry'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_within_slices(ta.array, airborne, max_value)
 
 
-class ThrustAsymmetryWithReverseThrustMax(KeyPointValueNode):
+class ThrustAsymmetryDuringGoAround(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control Significant torque or thrust split during T/O or G/A"
+    '''
+
+    units = '%'
+
+    def derive(self,
+               ta=P('Thrust Asymmetry'),
+               go_arounds=S('Go Around And Climbout')):
+
+        self.create_kpvs_within_slices(ta.array, go_arounds, max_value)
+
+
+class ThrustAsymmetryDuringApproachMax(KeyPointValueNode):
+    '''
+    Peak thrust asymmetry on approach. A good KPV for providing measures on
+    every flight, and preferred to the ThrustAsymmetryOnApproachDuration
+    which will normally not record any value.
+    '''
+
+    units = '%'
+
+    def derive(self,
+               ta=P('Thrust Asymmetry'),
+               approaches=S('Approach')):
+
+        self.create_kpvs_within_slices(ta.array, approaches, max_value)
+
+
+class ThrustAsymmetryWithThrustReversersDeployedMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Landing (Lateral) - Asymmetric reverse thrust".
@@ -6577,59 +6607,69 @@ class ThrustAsymmetryWithReverseThrustMax(KeyPointValueNode):
     ThrustAsymmetryWithReverseThrustDuration which will normally not record
     any value.
     '''
-    def derive(self, ta=P('Thrust Asymmetry'), rev_th=M('Thrust Reversers'),
+
+    units = '%'
+
+    def derive(self,
+               ta=P('Thrust Asymmetry'),
+               tr=M('Thrust Reversers'),
                mobile=S('Mobile')):
-        revs = clump_multistate(rev_th.array, 'Deployed',
-                                [s.slice for s in mobile], condition=True)
-        for rev in revs:
-            idx = np.ma.argmax(ta.array[rev]) + rev.start
-            self.create_kpv(idx, ta.array[idx])
+
+        # Note: Inclusion of the 'Mobile' phase ensures use of thrust reverse
+        #       late on the landing run is included, but corrupt data at engine
+        #       start etc. should be rejected.
+        slices = [s.slice for s in mobile]
+        # Note: Use not 'Stowed' as 'In Transit' implies partially 'Deployed':
+        slices = clump_multistate(tr.array, 'Stowed', slices, condition=False)
+        self.create_kpvs_within_slices(ta.array, slices, max_value)
 
 
-class ThrustAsymmetryWithReverseThrustDuration(KeyPointValueNode):
-    '''
-    Durations of thrust asymmetry over 10% with reverse thrust operating.
-    Included for customers with existing events using this approach.
-    '''
-    def derive(self, ta=P('Thrust Asymmetry'), rev_th=M('Thrust Reversers'),
-               mobile=S('Mobile')):
-        #Note: Inclusion of the 'Mobile' phase ensures use of thrust reverse late
-        #on the landing run is included, but corrupt data at engine start etc.
-        #should be rejected.
-        revs = clump_multistate(rev_th.array, 'Stowed',
-                                [s.slice for s in mobile], condition=False)
-        for rev in revs:
-            big_asym = shift_slices(
-                np.ma.clump_unmasked(
-                    np.ma.masked_less(ta.array[rev], 10.0)),
-                rev.start)
-            self.create_kpvs_from_slice_durations(big_asym)
-
-
-class ThrustAsymmetryOnApproachMax(KeyPointValueNode):
-    '''
-    Peak thrust asymmetry on approach. A good KPV for providing measures on
-    every flight, and preferred to the ThrustAsymmetryOnApproachDuration
-    which will normally not record any value.
-    '''
-    def derive(self, ta=P('Thrust Asymmetry'), apps=S('Approach')):
-        for app in apps:
-            idx = np.ma.argmax(ta.array[app.slice]) + app.slice.start
-            self.create_kpv(idx, ta.array[idx])
-
-
-class ThrustAsymmetryOnApproachDuration(KeyPointValueNode):
+class ThrustAsymmetryDuringApproachDuration(KeyPointValueNode):
     '''
     Durations of thrust asymmetry over 10%. Included for customers with
     existing events using this approach.
     '''
-    def derive(self, ta=P('Thrust Asymmetry'), apps=S('Approach')):
-        for app in apps:
-            big_asym = shift_slices(
-                np.ma.clump_unmasked(
-                    np.ma.masked_less(ta.array[app.slice], 10.0)),
-                app.slice.start)
-            self.create_kpvs_from_slice_durations(big_asym)
+
+    units = 's'
+
+    def derive(self,
+               ta=P('Thrust Asymmetry'),
+               approaches=S('Approach')):
+
+        for approach in approaches:
+            asymmetry = np.ma.masked_less(ta.array[approach.slice], 10.0)
+            slices = np.ma.clump_unmasked(asymmetry)
+            slices = shift_slices(slices, approach.slice.start)
+            self.create_kpvs_from_slice_durations(slices)
+
+
+class ThrustAsymmetryWithThrustReversersDeployedDuration(KeyPointValueNode):
+    '''
+    Durations of thrust asymmetry over 10% with reverse thrust operating.
+    Included for customers with existing events using this approach.
+    '''
+
+    units = 's'
+
+    def derive(self,
+               ta=P('Thrust Asymmetry'),
+               tr=M('Thrust Reversers'),
+               mobile=S('Mobile')):
+
+        # Note: Inclusion of the 'Mobile' phase ensures use of thrust reverse
+        #       late on the landing run is included, but corrupt data at engine
+        #       start etc. should be rejected.
+        slices = [s.slice for s in mobile]
+        # Note: Use not 'Stowed' as 'In Transit' implies partially 'Deployed':
+        slices = clump_multistate(tr.array, 'Stowed', slices, condition=False)
+        for slice_ in slices:
+            asymmetry = np.ma.masked_less(ta.array[slice_], 10.0)
+            slices = np.ma.clump_unmasked(asymmetry)
+            slices = shift_slices(slices, slice_.start)
+            self.create_kpvs_from_slice_durations(slices)
+
+
+##############################################################################
 
 
 class TouchdownToElevatorDownDuration(KeyPointValueNode):
@@ -6934,16 +6974,6 @@ class AltitudeAtGoAroundGearUpSelection(KeyPointValueNode):
                     # Use zero if gear up selected before minimum height:
                     gear_up_ht = 0.0
                 self.create_kpv(gear_up.index, gear_up_ht)
-
-
-class ThrustAsymmetryInGoAround(KeyPointValueNode):
-    '''
-    FDS developed this KPV to support the UK CAA Significant Seven programme.
-    "Loss of Control Significant torque or thrust split during T/O or G/A"
-    '''
-    def derive(self, ta=P('Thrust Asymmetry'),
-               gas=S('Go Around And Climbout')):
-        self.create_kpvs_within_slices(ta.array, gas, max_value)
 
 
 class AOAInGoAroundMax(KeyPointValueNode):

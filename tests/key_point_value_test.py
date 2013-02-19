@@ -287,13 +287,13 @@ from analysis_engine.key_point_values import (
     TCASRAToAPDisengagedDuration,
     TerrainClearanceAbove3000FtMin,
     ThrottleCyclesInFinalApproach,
-    ThrustAsymmetryInFlight,
-    ThrustAsymmetryInGoAround,
-    ThrustAsymmetryOnApproachDuration,
-    ThrustAsymmetryOnApproachMax,
-    ThrustAsymmetryOnTakeoff,
-    ThrustAsymmetryWithReverseThrustMax,
-    ThrustAsymmetryWithReverseThrustDuration,
+    ThrustAsymmetryDuringTakeoff,
+    ThrustAsymmetryDuringFlight,
+    ThrustAsymmetryDuringGoAround,
+    ThrustAsymmetryDuringApproachMax,
+    ThrustAsymmetryWithThrustReversersDeployedMax,
+    ThrustAsymmetryDuringApproachDuration,
+    ThrustAsymmetryWithThrustReversersDeployedDuration,
     TouchdownTo60KtsDuration,
     TouchdownToElevatorDownDuration,
     TurbulenceDuringApproachMax,
@@ -5024,15 +5024,14 @@ class TestThrottleCyclesInFinalApproach(unittest.TestCase, NodeTest):
 
 
 ##############################################################################
-# Thrust Asymmetry in different conditions
+# Thrust Asymmetry
 
 
-class TestThrustAsymmetryOnTakeoff(unittest.TestCase,
-                                   CreateKPVsWithinSlicesTest):
+class TestThrustAsymmetryDuringTakeoff(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = ThrustAsymmetryOnTakeoff
-        self.operational_combinations = [('Thrust Asymmetry',
-                                          'Takeoff Roll',)]
+        self.node_class = ThrustAsymmetryDuringTakeoff
+        self.operational_combinations = [('Thrust Asymmetry', 'Takeoff Roll')]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
@@ -5040,12 +5039,11 @@ class TestThrustAsymmetryOnTakeoff(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestThrustAsymmetryInFlight(unittest.TestCase,
-                                  CreateKPVsWithinSlicesTest):
+class TestThrustAsymmetryDuringFlight(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = ThrustAsymmetryInFlight
-        self.operational_combinations = [('Thrust Asymmetry',
-                                          'Airborne',)]
+        self.node_class = ThrustAsymmetryDuringFlight
+        self.operational_combinations = [('Thrust Asymmetry', 'Airborne')]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
@@ -5053,9 +5051,34 @@ class TestThrustAsymmetryInFlight(unittest.TestCase,
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestThrustAsymmetryWithReverseThrustMax(unittest.TestCase, NodeTest):
+class TestThrustAsymmetryInGoAround(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = ThrustAsymmetryWithReverseThrustMax
+        self.node_class = ThrustAsymmetryDuringGoAround
+        self.operational_combinations = [('Thrust Asymmetry', 'Go Around And Climbout')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestThrustAsymmetryDuringApproachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = ThrustAsymmetryDuringApproachMax
+        self.operational_combinations = [('Thrust Asymmetry', 'Approach')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestThrustAsymmetryWithThrustReversersDeployedMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = ThrustAsymmetryWithThrustReversersDeployedMax
         self.operational_combinations = [('Thrust Asymmetry', 'Thrust Reversers', 'Mobile')]
 
     @unittest.skip('Test Not Implemented')
@@ -5063,9 +5086,21 @@ class TestThrustAsymmetryWithReverseThrustMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestThrustAsymmetryWithReverseThrustDuration(unittest.TestCase, NodeTest):
+class TestThrustAsymmetryDuringApproachDuration(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = ThrustAsymmetryWithReverseThrustDuration
+        self.node_class = ThrustAsymmetryDuringApproachDuration
+        self.operational_combinations = [('Thrust Asymmetry', 'Approach')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestThrustAsymmetryWithThrustReversersDeployedDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = ThrustAsymmetryWithThrustReversersDeployedDuration
         self.operational_combinations = [('Thrust Asymmetry', 'Thrust Reversers', 'Mobile')]
 
     @unittest.skip('Test Not Implemented')
@@ -5073,24 +5108,7 @@ class TestThrustAsymmetryWithReverseThrustDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestThrustAsymmetryOnApproachMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = ThrustAsymmetryOnApproachMax
-        self.operational_combinations = [('Thrust Asymmetry', 'Approach')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestThrustAsymmetryOnApproachDuration(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = ThrustAsymmetryOnApproachDuration
-        self.operational_combinations = [('Thrust Asymmetry', 'Approach')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+##############################################################################
 
 
 class TestTouchdownToElevatorDownDuration(unittest.TestCase, NodeTest):
@@ -5331,19 +5349,6 @@ class TestAltitudeAtGoAroundGearUpSelection(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AltitudeAtGoAroundGearUpSelection
         self.operational_combinations = [('Altitude AAL', 'Go Around And Climbout', 'Go Around Gear Selected Up')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestThrustAsymmetryInGoAround(unittest.TestCase,
-                                    CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = ThrustAsymmetryInGoAround
-        self.operational_combinations = [('Thrust Asymmetry',
-                                          'Go Around And Climbout',)]
-        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
