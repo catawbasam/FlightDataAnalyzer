@@ -3637,7 +3637,26 @@ class TestStepValues(unittest.TestCase):
         self.assertEqual(list(stepped),
                          [10, 10, 10, 11, 11, 11, 11, 15, 15])
 
+        
+class TestStraightenAltitudes(unittest.TestCase):
+    def test_alt_basic(self):
+        data=np.ma.array([5.0,100.0,300.0,450.0,46.0,380.0,230.0,110.0,0.0])
+        result=straighten_altitudes(data, None, 500.0, False)
+        self.assertEqual(np.ma.max(result),546.0)
 
+    def test_alt_offset_from_coarse(self):
+        data=np.ma.array([5.0,100.0,300.0,450.0,46.0,380.0,230.0,110.0,0.0])
+        fine = data + 1500.0
+        coarse = data * 1.01
+        result=straighten_altitudes(fine, coarse, 500.0, False)
+        self.assertEqual(np.ma.max(result),546.0)
+        
+    def test_alt_offset_from_coarse_just_first_sample(self):
+        fine = np.ma.array([495.0,100.0,300.0,450.0,46.0,380.0,230.0,110.0,0.0])
+        coarse = np.ma.array([5.0,100.0,300.0,450.0,46.0,380.0,230.0,110.0,0.0])
+        result=straighten_altitudes(fine, coarse, 500.0, False)
+        self.assertEqual(np.ma.max(result),546.0)
+        
 class TestStraightenHeadings(unittest.TestCase):
     def test_straight_headings(self):
         data = np.ma.array([35.5,29.5,11.3,0.0,348.4,336.8,358.9,2.5,8.1,14.4])
@@ -3651,6 +3670,14 @@ class TestStraightenHeadings(unittest.TestCase):
                          mask=[True]*10+[False]*8+[True]*4+[False]*5+[True]*4)
         ma_test.assert_masked_array_approx_equal(straighten_headings(data), expected)
 
+class TestStraighten(unittest.TestCase):
+    def test_offsets(self):
+        result = straighten(np.ma.array([0.0]), np.ma.array([9.0]), 20.0, False)
+        self.assertEqual(result[0], 0.0)
+        result = straighten(np.ma.array([0.0]), np.ma.array([100.0]), 43.0, False)
+        self.assertEqual(result[0], 86.0)
+        result = straighten(np.ma.array([0.0]), np.ma.array([-200.0]), 45.0, False)
+        self.assertEqual(result[0], -180.0)
 
 class TestSmoothTrack(unittest.TestCase):
     def test_smooth_track_latitude(self):

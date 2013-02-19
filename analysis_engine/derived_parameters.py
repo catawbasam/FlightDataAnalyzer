@@ -67,6 +67,7 @@ from analysis_engine.library import (air_track,
                                      slices_or,
                                      smooth_track,
                                      step_values,
+                                     straighten_altitudes,
                                      straighten_headings,
                                      track_linking,
                                      value_at_index,
@@ -917,7 +918,8 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
         if 'Altitude STD' in available:
             return True
 
-    def derive(self, alt = P('Altitude STD'), frame = A('Frame')):
+    def derive(self, fine = P('Altitude STD (Fine)'), alt = P('Altitude STD'),
+               frame = A('Frame')):
 
         frame_name = frame.value if frame else ''
 
@@ -933,6 +935,9 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             # weighting merges the two to create a smoothed average.
             self.array = moving_average(alt.array, window=3,
                                         weightings=[0.25,0.5,0.25], pad=True)
+        elif frame_name in ['747-200-GE']:
+            # Rollover is at 2^12 x resolution of fine part.
+            self.array = straighten_altitudes(fine.array, alt.array, 4096 * 1.220703125)
         else:
             self.array = alt.array
 
@@ -1213,8 +1218,9 @@ class APEngaged(MultistateDerivedParameterNode):
             self.array = np.ma.max(ap1.array.raw, ap2.array.raw)
             self.offset = offset_select('mean', [ap1, ap2])
         else:
-            self.array = np.ma.max(ap1.array.raw, ap2.array.raw, ap3.array.raw)
-            self.offset = offset_select('mean', [ap1, ap2, ap3])
+            #self.array = np.ma.max(ap1.array.raw, ap2.array.raw, ap3.array.raw)
+            #self.offset = offset_select('mean', [ap1, ap2, ap3])
+            self.array = ap1.array.raw # TEMPORARY FIX FOR 747-200
 
         self.frequency = ap1.frequency
 
@@ -2862,6 +2868,10 @@ class FlapSurface(DerivedParameterNode):
                     flap_herc[scope] = np.ma.where(alt_aal.array[scope]>1000.0,100.0,50.0)
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
+            
+        elif frame_name in ['747-200-GE']:
+            # Only the left inboard flap is instrumented.
+            self.array = flap_A.array
 
         else:
             raise DataFrameError(self.name, frame_name)
@@ -3836,7 +3846,7 @@ class VerticalSpeed(DerivedParameterNode):
     def derive(self, alt_std=P('Altitude STD Smoothed'), frame=A('Frame')):
         frame_name = frame.value if frame else ''
 
-        if frame_name in ['Hercules', '146']:
+        if frame_name in ['Hercules', '146', '747-200-GE']:
             timebase = 8.0
         else:
             timebase = 4.0
@@ -5137,10 +5147,10 @@ class StableApproach(MultistateDerivedParameterNode):
             self.array[_slice][stable] = 7
             STABLE_VERTICAL_SPEED_MIN = -1000
             STABLE_VERTICAL_SPEED_MAX = -200
-            stable_vert = (vertical_speed > STABLE_VERTICAL_SPEED_MIN) & (vertical_speed < STABLE_VERTICAL_SPEED_MAX)
+            stable_vert = (vertical_speed > STABLE_VERTICAL_SPEED_MIN) & (vertical_speed < STABLE_VERTICAL_SPEED_MAX) 
             stable_vert |= altitude < 50
             stable &= stable_vert.filled(True)  #Q: True best?
-
+            
             #== 8. Engine Power (N1) ==
             self.array[_slice][stable] = 8
             STABLE_N1_MIN = 45  # %
