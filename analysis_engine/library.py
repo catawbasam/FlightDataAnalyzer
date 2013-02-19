@@ -4536,8 +4536,9 @@ def vstack_params_where_state(*param_states):
     for param, state in param_states[0]:
         if param is None:
             continue
-        array = getattr(param, 'array', param)
-        param_arrays.append(np.ma.where(array == state, True, False))
+        if state in param.array.state:
+            array = getattr(param, 'array', param)
+            param_arrays.append(array == state)
     return np.ma.vstack(param_arrays)
 
 
