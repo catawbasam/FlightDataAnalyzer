@@ -4265,6 +4265,34 @@ def straighten_headings(heading_array, copy=True):
     :rtype: Generator of type Float
     '''
     return straighten(heading_array, None, 360.0, copy)
+    #if copy:
+        #heading_array = heading_array.copy()
+    #head_prev = None
+    #diff_prev = None
+    #for clump in np.ma.clump_unmasked(heading_array):
+        #head_start = heading_array.data[clump.start]
+        #if diff_prev is not None:
+            ## Account for rollovers within masked sections.
+            #if (head_start - head_prev) > 180:
+                #diff_prev -= 360  + head_prev
+            #elif (head_start - head_prev) < -180:
+                #diff_prev += 360 + (360 - head_prev)
+            #else:
+                #diff_prev += head_start - head_prev
+            #head_start += diff_prev
+        ## Store the last unmasked value of heading to compare with
+        ## the start of the next unmasked section.
+        #head_prev = heading_array[clump][-1]
+        
+        #diff = np.ediff1d(heading_array.data[clump])
+        #diff = diff - 360.0 * np.trunc(diff / 180.0)
+        #diff = np.cumsum(diff)
+        #diff_prev = diff[-1]
+        
+        #heading_array[clump][0] = head_start
+        #heading_array[clump][1:] = diff + head_start
+        
+    #return heading_array
 
 def straighten(array, estimate, limit, copy):
     '''

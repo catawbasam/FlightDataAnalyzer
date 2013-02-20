@@ -3102,7 +3102,7 @@ class HeadingTrue(DerivedParameterNode):
     def derive(self, head=P('Heading Continuous'),
                var = P('Magnetic Variation')):
         if var:
-            self.array = (head.array + var.array)%360.0
+            self.array = (head.array + var.array) % 360.0
         else:
             # Default to magnetic if we know no better.
             self.array = head.array
