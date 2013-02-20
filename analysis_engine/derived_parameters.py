@@ -4298,21 +4298,21 @@ class TAWSAlert(MultistateDerivedParameterNode):
                       available)
 
     def derive(self, airs=S('Airborne'),
-               taws_caution_terrain=P('TAWS Caution Terrain'),
-               taws_caution=P('TAWS Caution'),
-               taws_dont_sink=P('TAWS Dont Sink'),
-               taws_glideslope=P('TAWS Glideslope'),
-               taws_predictive_windshear=P('TAWS Predictive Windshear'),
-               taws_pull_up=P('TAWS Pull Up'),
-               taws_sink_rate=P('TAWS Sink Rate'),
-               taws_terrain_pull_up=P('TAWS Terrain Pull Up'),
-               taws_terrain_warning_amber=P('TAWS Terrain Warning Amber'),
-               taws_terrain_warning_red=P('TAWS Terrain Warning Red'),
-               taws_terrain=P('TAWS Terrain'),
-               taws_too_low_flap=P('TAWS Too Low Flap'),
-               taws_too_low_gear=P('TAWS Too Low Gear'),
-               taws_too_low_terrain=P('TAWS Too Low Terrain'),
-               taws_windshear_warning=P('TAWS Windshear Warning')):
+               taws_caution_terrain=M('TAWS Caution Terrain'),
+               taws_caution=M('TAWS Caution'),
+               taws_dont_sink=M('TAWS Dont Sink'),
+               taws_glideslope=M('TAWS Glideslope'),
+               taws_predictive_windshear=M('TAWS Predictive Windshear'),
+               taws_pull_up=M('TAWS Pull Up'),
+               taws_sink_rate=M('TAWS Sink Rate'),
+               taws_terrain_pull_up=M('TAWS Terrain Pull Up'),
+               taws_terrain_warning_amber=M('TAWS Terrain Warning Amber'),
+               taws_terrain_warning_red=M('TAWS Terrain Warning Red'),
+               taws_terrain=M('TAWS Terrain'),
+               taws_too_low_flap=M('TAWS Too Low Flap'),
+               taws_too_low_gear=M('TAWS Too Low Gear'),
+               taws_too_low_terrain=M('TAWS Too Low Terrain'),
+               taws_windshear_warning=M('TAWS Windshear Warning')):
 
         taws_states = (
             (taws_caution_terrain, 'Caution'),
