@@ -3388,11 +3388,11 @@ class EngEPRDuringMaximumContinuousPowerMax(KeyPointValueNode):
         self.create_kpv_outside_slices(eng_epr_max.array, slices, max_value)
 
 
-class EngEPR500To20FtMax(KeyPointValueNode):
+class EngEPR500To50FtMax(KeyPointValueNode):
     '''
     '''
 
-    name = 'Eng EPR 500 To 20 Ft Max'
+    name = 'Eng EPR 500 To 50 Ft Max'
     units = '%'
 
     def derive(self,
@@ -3401,16 +3401,16 @@ class EngEPR500To20FtMax(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_epr_max.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             max_value,
         )
 
 
-class EngEPR500To20FtMin(KeyPointValueNode):
+class EngEPR500To50FtMin(KeyPointValueNode):
     '''
     '''
 
-    name = 'Eng EPR 500 To 20 Ft Min'
+    name = 'Eng EPR 500 To 50 Ft Min'
     units = '%'
 
     def derive(self,
@@ -3419,7 +3419,7 @@ class EngEPR500To20FtMin(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_epr_min.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             min_value,
         )
 
@@ -3662,11 +3662,11 @@ class EngN1CyclesDuringFinalApproach(KeyPointValueNode):
             ))
 
 
-class EngN1500To20FtMax(KeyPointValueNode):
+class EngN1500To50FtMax(KeyPointValueNode):
     '''
     '''
 
-    name = 'Eng N1 500 To 20 Ft Max'
+    name = 'Eng N1 500 To 50 Ft Max'
     units = '%'
 
     def derive(self,
@@ -3675,16 +3675,16 @@ class EngN1500To20FtMax(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_n1_max.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             max_value,
         )
 
 
-class EngN1500To20FtMin(KeyPointValueNode):
+class EngN1500To50FtMin(KeyPointValueNode):
     '''
     '''
 
-    name = 'Eng N1 500 To 20 Ft Min'
+    name = 'Eng N1 500 To 50 Ft Min'
     units = '%'
 
     def derive(self,
@@ -3693,7 +3693,7 @@ class EngN1500To20FtMin(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_n1_min.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             min_value,
         )
 
@@ -4144,7 +4144,7 @@ class EngTorqueDuringMaximumContinuousPowerMax(KeyPointValueNode):
         self.create_kpv_outside_slices(eng_trq_max.array, slices, max_value)
 
 
-class EngTorque500To20FtMax(KeyPointValueNode):
+class EngTorque500To50FtMax(KeyPointValueNode):
     '''
     '''
 
@@ -4156,12 +4156,12 @@ class EngTorque500To20FtMax(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_trq_max.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             max_value,
         )
 
 
-class EngTorque500To20FtMin(KeyPointValueNode):
+class EngTorque500To50FtMin(KeyPointValueNode):
     '''
     '''
 
@@ -4173,7 +4173,7 @@ class EngTorque500To20FtMin(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_trq_min.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             min_value,
         )
 
