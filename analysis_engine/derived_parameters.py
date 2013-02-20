@@ -4132,30 +4132,30 @@ class ThrustReversers(MultistateDerivedParameterNode):
         ), available)
 
     def derive(self,
-            e1_dep_all=P('Eng (1) Thrust Reverser Deployed'),
-            e1_dep_lft=P('Eng (1) Thrust Reverser (L) Deployed'),
-            e1_dep_rgt=P('Eng (1) Thrust Reverser (R) Deployed'),
-            e1_ulk_all=P('Eng (1) Thrust Reverser Unlocked'),
-            e1_ulk_lft=P('Eng (1) Thrust Reverser (L) Unlocked'),
-            e1_ulk_rgt=P('Eng (1) Thrust Reverser (R) Unlocked'),
-            e2_dep_all=P('Eng (2) Thrust Reverser Deployed'),
-            e2_dep_lft=P('Eng (2) Thrust Reverser (L) Deployed'),
-            e2_dep_rgt=P('Eng (2) Thrust Reverser (R) Deployed'),
-            e2_ulk_all=P('Eng (2) Thrust Reverser Unlocked'),
-            e2_ulk_lft=P('Eng (2) Thrust Reverser (L) Unlocked'),
-            e2_ulk_rgt=P('Eng (2) Thrust Reverser (R) Unlocked'),
-            e3_dep_all=P('Eng (3) Thrust Reverser Deployed'),
-            e3_dep_lft=P('Eng (3) Thrust Reverser (L) Deployed'),
-            e3_dep_rgt=P('Eng (3) Thrust Reverser (R) Deployed'),
-            e3_ulk_all=P('Eng (3) Thrust Reverser Unlocked'),
-            e3_ulk_lft=P('Eng (3) Thrust Reverser (L) Unlocked'),
-            e3_ulk_rgt=P('Eng (3) Thrust Reverser (R) Unlocked'),
-            e4_dep_all=P('Eng (4) Thrust Reverser Deployed'),
-            e4_dep_lft=P('Eng (4) Thrust Reverser (L) Deployed'),
-            e4_dep_rgt=P('Eng (4) Thrust Reverser (R) Deployed'),
-            e4_ulk_all=P('Eng (4) Thrust Reverser Unlocked'),
-            e4_ulk_lft=P('Eng (4) Thrust Reverser (L) Unlocked'),
-            e4_ulk_rgt=P('Eng (4) Thrust Reverser (R) Unlocked')):
+            e1_dep_all=M('Eng (1) Thrust Reverser Deployed'),
+            e1_dep_lft=M('Eng (1) Thrust Reverser (L) Deployed'),
+            e1_dep_rgt=M('Eng (1) Thrust Reverser (R) Deployed'),
+            e1_ulk_all=M('Eng (1) Thrust Reverser Unlocked'),
+            e1_ulk_lft=M('Eng (1) Thrust Reverser (L) Unlocked'),
+            e1_ulk_rgt=M('Eng (1) Thrust Reverser (R) Unlocked'),
+            e2_dep_all=M('Eng (2) Thrust Reverser Deployed'),
+            e2_dep_lft=M('Eng (2) Thrust Reverser (L) Deployed'),
+            e2_dep_rgt=M('Eng (2) Thrust Reverser (R) Deployed'),
+            e2_ulk_all=M('Eng (2) Thrust Reverser Unlocked'),
+            e2_ulk_lft=M('Eng (2) Thrust Reverser (L) Unlocked'),
+            e2_ulk_rgt=M('Eng (2) Thrust Reverser (R) Unlocked'),
+            e3_dep_all=M('Eng (3) Thrust Reverser Deployed'),
+            e3_dep_lft=M('Eng (3) Thrust Reverser (L) Deployed'),
+            e3_dep_rgt=M('Eng (3) Thrust Reverser (R) Deployed'),
+            e3_ulk_all=M('Eng (3) Thrust Reverser Unlocked'),
+            e3_ulk_lft=M('Eng (3) Thrust Reverser (L) Unlocked'),
+            e3_ulk_rgt=M('Eng (3) Thrust Reverser (R) Unlocked'),
+            e4_dep_all=M('Eng (4) Thrust Reverser Deployed'),
+            e4_dep_lft=M('Eng (4) Thrust Reverser (L) Deployed'),
+            e4_dep_rgt=M('Eng (4) Thrust Reverser (R) Deployed'),
+            e4_ulk_all=M('Eng (4) Thrust Reverser Unlocked'),
+            e4_ulk_lft=M('Eng (4) Thrust Reverser (L) Unlocked'),
+            e4_ulk_rgt=M('Eng (4) Thrust Reverser (R) Unlocked')):
 
         stack = vstack_params_where_state((
             (e1_dep_all, 'Deployed'), (e1_ulk_all, 'Unlocked'),
@@ -4172,13 +4172,13 @@ class ThrustReversers(MultistateDerivedParameterNode):
             (e4_dep_rgt, 'Deployed'), (e4_ulk_rgt, 'Unlocked'),
         ))
 
-        if not len(stack):
-            return
-
         array = np_ma_zeros_like(stack[0])
         array = np.ma.where(stack.any(axis=0), 1, array)
         array = np.ma.where(stack.all(axis=0), 2, array)
+        # mask indexes with greater than 50% masked values
+        mask = np.ma.where(stack.mask.sum(axis=0).astype(float)/len(stack)*100 > 50, 1, 0)
         self.array = array
+        self.array.mask = mask
 
 
 class TurbulenceRMSG(DerivedParameterNode):
@@ -4308,21 +4308,21 @@ class TAWSAlert(MultistateDerivedParameterNode):
                       available)
 
     def derive(self, airs=S('Airborne'),
-               taws_caution_terrain=P('TAWS Caution Terrain'),
-               taws_caution=P('TAWS Caution'),
-               taws_dont_sink=P('TAWS Dont Sink'),
-               taws_glideslope=P('TAWS Glideslope'),
-               taws_predictive_windshear=P('TAWS Predictive Windshear'),
-               taws_pull_up=P('TAWS Pull Up'),
-               taws_sink_rate=P('TAWS Sink Rate'),
-               taws_terrain_pull_up=P('TAWS Terrain Pull Up'),
-               taws_terrain_warning_amber=P('TAWS Terrain Warning Amber'),
-               taws_terrain_warning_red=P('TAWS Terrain Warning Red'),
-               taws_terrain=P('TAWS Terrain'),
-               taws_too_low_flap=P('TAWS Too Low Flap'),
-               taws_too_low_gear=P('TAWS Too Low Gear'),
-               taws_too_low_terrain=P('TAWS Too Low Terrain'),
-               taws_windshear_warning=P('TAWS Windshear Warning')):
+               taws_caution_terrain=M('TAWS Caution Terrain'),
+               taws_caution=M('TAWS Caution'),
+               taws_dont_sink=M('TAWS Dont Sink'),
+               taws_glideslope=M('TAWS Glideslope'),
+               taws_predictive_windshear=M('TAWS Predictive Windshear'),
+               taws_pull_up=M('TAWS Pull Up'),
+               taws_sink_rate=M('TAWS Sink Rate'),
+               taws_terrain_pull_up=M('TAWS Terrain Pull Up'),
+               taws_terrain_warning_amber=M('TAWS Terrain Warning Amber'),
+               taws_terrain_warning_red=M('TAWS Terrain Warning Red'),
+               taws_terrain=M('TAWS Terrain'),
+               taws_too_low_flap=M('TAWS Too Low Flap'),
+               taws_too_low_gear=M('TAWS Too Low Gear'),
+               taws_too_low_terrain=M('TAWS Too Low Terrain'),
+               taws_windshear_warning=M('TAWS Windshear Warning')):
 
         taws_states = (
             (taws_caution_terrain, 'Caution'),
