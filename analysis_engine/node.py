@@ -49,14 +49,16 @@ KeyTimeInstance = recordtype('KeyTimeInstance',
                              default=None)
 ##Section = namedtuple('Section', 'name slice start_edge stop_edge') #Q: rename mask -> slice/section
 
-
+@total_ordering
 class Section(object):
     '''
     Section nodes start and stop are aligned. The start and stops are
     accurate positions (including interpolation) of indexes into the data.
     Note that these are more accurate than the slices the Section can create
     which are rounded appropriately to integer values.
-    '''
+    '''    
+    __hash__ = None
+    
     # TODO: immutable type so that you cannot add random attrs
     def __init__(self, start_pos=None, stop_pos=None, _slice=None, name=''):
         self.name = name
@@ -76,6 +78,26 @@ class Section(object):
             raise TypeError("Cannot create a Section which stops before it starts")
         ##self.frequency # (handy for those who set align=False)?
         
+    def __repr__(self):
+        return "Section(start_pos=%s, stop_pos=%s, name='%s')" % (
+            self.start_pos, self.stop_pos, self.name)
+        
+    def __eq__(self, other):
+        "Names do not have to be the same"
+        return isinstance(other, Section) \
+               and self.start_pos == other.start_pos \
+               and self.stop_pos == other.stop_pos
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __lt__(self, other):
+        "Start position ordering unless equal then use stop position"
+        if self.start_pos == other.start_pos:
+            return self.stop_pos < other.stop_pos
+        else:
+            return self.start_pos < other.start_pos
+    
     @property
     def slice(self):
         # cast to integer to reassure end-user that no decimals used here!
@@ -480,6 +502,34 @@ def can_operate(cls, available):
         logger.warning(*args, **kwargs)
 
 
+class ListNode(Node, list):
+    def __init__(self, *args, **kwargs):
+        '''
+        If the there is not an 'items' kwarg and the first argument is a list
+        or a tuple, the first argument's items will be extended to the node.
+
+        :param items: Optional keyword argument of initial items to be contained within self.
+        :type items: list
+        '''
+        if 'items' in kwargs:
+            self.extend(kwargs['items'])
+            del kwargs['items']
+            super(ListNode, self).__init__(*args, **kwargs)
+        elif args and any(isinstance(args[0], t) for t in (list, tuple)):
+            self.extend(args[0])
+            super(ListNode, self).__init__(*args[1:], **kwargs)
+        else:
+            super(ListNode, self).__init__(*args, **kwargs)
+
+    def __repr__(self):
+        return "%s(name='%s', frequency=%s, offset=%s, items=%s)" % (
+            self.__class__.__name__,
+            self.name,
+            self.frequency,
+            self.offset,
+            list(self))
+    
+    
 class DerivedParameterNode(Node):
     """
     Base class for DerivedParameters which overide def derive() method.
@@ -513,6 +563,15 @@ class DerivedParameterNode(Node):
                                                    frequency=frequency,
                                                    offset=offset,
                                                    *args, **kwargs)
+        
+    def __repr__(self):
+        '''
+        :rtype: str
+        '''
+        return "%s%s" % (
+            self.__class__.__name__,
+            pprint.pformat(
+                (self.get_name(), self.frequency, self.offset, self.array)))
 
     def at(self, secs):
         """
@@ -635,6 +694,7 @@ class DerivedParameterNode(Node):
                 if is_index_within_slice(tdwn.index, new_basic):
                     result.append(slice(new_basic.start, tdwn.index))
                     break
+            continue  # to next basic slice
         return result
 
 
@@ -777,7 +837,7 @@ def derived_param_from_hdf(hdf_parameter):
         )
 
 
-class SectionNode(Node, list):
+class SectionNode(ListNode):
     '''
     Derives from list to implement iteration and list methods.
     
@@ -1043,28 +1103,6 @@ class FlightPhaseNode(SectionNode):
     create_phase = SectionNode.create_section
     create_phases = SectionNode.create_sections
 
-
-class ListNode(Node, list):
-    def __init__(self, *args, **kwargs):
-        '''
-        If the there is not an 'items' kwarg and the first argument is a list
-        or a tuple, the first argument's items will be extended to the node.
-
-        :param items: Optional keyword argument of initial items to be contained within self.
-        :type items: list
-        '''
-        if 'items' in kwargs:
-            self.extend(kwargs['items'])
-            del kwargs['items']
-            super(ListNode, self).__init__(*args, **kwargs)
-        elif args and any(isinstance(args[0], t) for t in (list, tuple)):
-            self.extend(args[0])
-            super(ListNode, self).__init__(*args[1:], **kwargs)
-        else:
-            super(ListNode, self).__init__(*args, **kwargs)
-
-    def __repr__(self):
-        return '%s' % pprint.pformat(list(self))
 
 
 class FormattedNameNode(ListNode):
