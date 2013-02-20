@@ -818,13 +818,16 @@ class SectionNode(Node, list):
                           self.get_name(), section)
         return self
 
-    def create_sections(self, section_slices, name=''):
+    def create_sections(self, slices, name=''):
         '''
-        :type section_slices: [slice]
+        :param slices: List of slices to create sections from
+        :type slices: [slice,]
         :type name: str
         '''
-        for sect in section_slices:
-            self.create_section(sect, name=name)
+        for _slice in slices:
+            section = Section(_slice=_slice,
+                              name=name or self.get_name())
+            self.append(section)
         return self
 
     #TODO: Accessor for 1Hz slice, 8Hz slice etc.

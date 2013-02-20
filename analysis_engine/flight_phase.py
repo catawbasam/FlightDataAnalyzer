@@ -7,6 +7,8 @@ from analysis_engine import settings
 from analysis_engine.exceptions import DataFrameError
 
 from analysis_engine.library import (
+    all_of,
+    any_of,
     bearing_and_distance,
     closest_unmasked_value,
     cycle_finder,
@@ -56,16 +58,17 @@ from analysis_engine.settings import (
 
 
 class Airborne(FlightPhaseNode):
+    align_offset = 0
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                fast=S('Fast')):
         # Just find out when altitude above airfield is non-zero.
         for speedy in fast:
-            # Stop here if the aircraft never went fast.
-            if speedy.slice.start is None and speedy.slice.stop is None:
-                break
+            # Stop here if the aircraft never went fast.  ############ Doesn't this mean it was always fast?!!
+            ##if speedy.slice.start is None and speedy.slice.stop is None:
+                ##break
 
             start_point = speedy.slice.start or 0
-            stop_point = speedy.slice.stop or len(alt_aal.array)
+            stop_point = speedy.slice.stop ##or len(alt_aal.array)
             # First tidy up the data we're interested in
             working_alt = repair_mask(alt_aal.array[start_point:stop_point])
 
@@ -77,20 +80,35 @@ class Airborne(FlightPhaseNode):
             # Make sure we propogate None ends to data which starts or ends in
             # midflight.
             for air in airs:
-                begin = air.start
-                if begin + start_point == 0: # Was in the air at start of data
-                    begin = None
-                end = air.stop
-                if end + start_point >= len(alt_aal.array): # Was in the air at end of data
-                    end = None
-                if begin is None or end is None:
-                    self.create_phase(shift_slice(slice(begin, end),
-                                                  start_point))
-                else:
-                    duration = end - begin
-                    if (duration / alt_aal.hz) > AIRBORNE_THRESHOLD_TIME:
-                        self.create_phase(shift_slice(slice(begin, end),
-                                                      start_point))
+                begin = start_point + air.start
+                end = start_point + air.stop
+                if end > len(alt_aal.array):
+                    end = len(alt_aal.array)
+                end -= 1  # remove one to find index rather than stop position
+                
+                # if we've been in the air for long enough OR the start /
+                # stop is None (goes beyond the current data set such as
+                # for START_ONLY segments) then create a phase.
+                duration = end - begin
+                if (duration / alt_aal.hz) > AIRBORNE_THRESHOLD_TIME \
+                   or speedy.slice.start is None \
+                   or speedy.slice.stop is None:
+                    self.create_phase(begin, end)
+                        
+                #begin = air.start
+                #if begin + start_point == 0: # Was in the air at start of data
+                    #begin = None
+                #end = air.stop
+                #if end + start_point >= len(alt_aal.array): # Was in the air at end of data
+                    #end = None
+                #if begin is None or end is None:
+                    #self.create_phase(shift_slice(slice(begin, end),
+                                                  #start_point))
+                #else:
+                    #duration = end - begin
+                    #if (duration / alt_aal.hz) > AIRBORNE_THRESHOLD_TIME:
+                        #shifted = shift_slice(slice(begin, end), start_point)
+                        #self.create_phase(shifted.start, shifted.stop -1)
 
 
 class GoAroundAndClimbout(FlightPhaseNode):
@@ -475,7 +493,7 @@ class Fast(FlightPhaseNode):
                 start = None
             if abs(airspeed.array[stop - 1] - AIRSPEED_THRESHOLD) > 20:
                 stop = None
-            self.create_phase(slice(start, stop))
+            self.create_phase(start, stop)
 
 
 class FinalApproach(FlightPhaseNode):
@@ -533,7 +551,7 @@ class GearExtending(FlightPhaseNode):
                 # gear to extend.
                 begin = edge
                 end = edge + (5.0 * gear_down.frequency)
-                self.create_phase(slice(begin, end))
+                self.create_phase(begin, end)
 
 
 class GearRetracting(FlightPhaseNode):
@@ -569,7 +587,7 @@ class GearRetracting(FlightPhaseNode):
                 gear_moves = slices_and([air.slice], gear_moving)
                 for gear_move in gear_moves:
                     if gear_down.array[gear_move.start - 1] == 'Down':
-                        self.create_phase(gear_move)
+                        self.create_phase(gear_move.start, gear_move.stop-1)
         else:
             # Aircraft without red warning captions for travelling
             edge_list = []
@@ -582,13 +600,15 @@ class GearRetracting(FlightPhaseNode):
                 # gear to retract.
                 begin = edge
                 end = edge + (5.0 * gear_down.frequency)
-                self.create_phase(slice(begin, end))
+                self.create_phase(begin, end)
 
 
 def scan_ils(beam, ils_dots, height, scan_slice):
     '''
     :param beam: 'localizer' or 'glideslope'
     :type beam: str
+    :returns: (ils_capture_start, ils_capture_end)
+    :rtype: (float, float)
     '''
     if beam not in ['localizer', 'glideslope']:
         raise ValueError('Unrecognised beam type in scan_ils')
@@ -653,23 +673,25 @@ def scan_ils(beam, ils_dots, height, scan_slice):
         raise ValueError("Unrecognised beam type '%s' in scan_ils" % beam)
 
     if ils_capture_idx and ils_end_idx:
-        return slice(ils_capture_idx, ils_end_idx)
+        return ils_capture_idx, ils_end_idx
     else:
-        return None
+        return None, None
 
 
 class ILSLocalizerEstablished(FlightPhaseNode):
+    '''
+    Region of approaches where ILS Localizer was captured.
+    '''
     name = 'ILS Localizer Established'
-    """
-    """
+    
     def derive(self, ils_loc=P('ILS Localizer'),
                alt_aal=P('Altitude AAL For Flight Phases'),
                apps=S('Approach And Landing')):
         for app in apps:
-            ils_app = scan_ils('localizer', ils_loc.array, alt_aal.array,
-                               app.slice)
-            if ils_app is not None:
-                self.create_phase(ils_app)
+            ils_capture_start, ils_capture_end = scan_ils(
+                'localizer', ils_loc.array, alt_aal.array, app.slice)
+            if ils_capture_start is not None:
+                self.create_phase(ils_capture_start, ils_capture_end)
 
 
 '''
@@ -941,9 +963,9 @@ class LandingRoll(FlightPhaseNode):
         for land in lands:
             end = index_at_value(speed, 60.0, land.slice)
             begin = index_at_value(pitch.array, 2.0,
-                                   slice(end,land.slice.start,-1),
+                                   slice(end, land.slice.start, -1),
                                    endpoint='nearest')
-            self.create_phase(slice(begin, end), begin=begin, end=end)
+            self.create_phase(begin, end)
 
 
 class Takeoff(FlightPhaseNode):
@@ -1016,17 +1038,22 @@ class TakeoffRoll(FlightPhaseNode):
     in the takeoff KPVs where we are interested in the movement down the
     runway, not the turnon or liftoff.
     '''
+    @classmethod
+    def can_operate(cls, available):
+        if all_of(('Takeoff', 'Pitch')) in available:
+            return True
+        
     def derive(self, toffs=S('Takeoff'),
-               acc_starts=KTI('Takeoff Acceleration Start'),
-               pitch=P('Pitch')):
+               pitch=P('Pitch'),
+               acc_starts=KTI('Takeoff Acceleration Start')):
         for toff in toffs:
-            begin = toff.slice.start # Default if acceleration term not available.
-            if acc_starts: # We don't bother with this for data validation, hence the conditional
+            begin = toff.start_pos # Default if acceleration term not available.
+            if acc_starts:
                 for acc_start in acc_starts:
                     if is_index_within_slice(acc_start.index, toff.slice):
                         begin = acc_start.index
             two_deg_idx = index_at_value(pitch.array, 2.0, toff.slice)
-            self.create_phase(slice(begin, two_deg_idx))
+            self.create_phase(begin, two_deg_idx)
 
 
 class TakeoffRotation(FlightPhaseNode):

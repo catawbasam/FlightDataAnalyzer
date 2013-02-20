@@ -1102,7 +1102,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         knode.create_kpvs_within_slices(array, slices, function)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=22, value=27, name='Kpv'),
-                          KeyPointValue(index=10.7, value=15, name='Kpv')])
+                          KeyPointValue(index=10, value=15, name='Kpv')])
 
     def test_create_kpv_from_slices(self):
         knode = self.knode
@@ -1132,7 +1132,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         # See test_create_kpvs_within_slices - we need to handle non-integer endpoints.
 
         self.assertEqual(list(knode),
-                         [KeyPointValue(index=12.2, value=15, name='Kpv')])
+                         [KeyPointValue(index=12, value=15, name='Kpv')])
 
     def test_create_kpvs_where_state(self):
         knode = self.knode
@@ -1290,8 +1290,8 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(kpv_node_returned7, [])
 
     def test__get_slices(self):
-        section_node = SectionNode(items=[Section('A', slice(10, 20), 10, 20),
-                                          Section('B', slice(30, 40), 30, 40)])
+        section_node = SectionNode(items=[Section(10, 20),
+                                          Section(30, 40)])
         slices = KeyPointValueNode._get_slices(section_node)
         self.assertEqual(slices, section_node.get_slices())
         input_slices = [slice(10, 20), slice(10, 20)]
@@ -1299,8 +1299,8 @@ class TestKeyPointValueNode(unittest.TestCase):
                          input_slices)
 
     def test__get_slice_edges(self):
-        section_node = SectionNode(items=[Section('A', slice(10, 20), 9.9, 20.2),
-                                          Section('B', slice(30, 40), 30.1, 39.85)])
+        section_node = SectionNode(items=[Section(9.9, 20.2),
+                                          Section(30.1, 39.85)])
         slices = KeyPointValueNode._get_slices(section_node)
         self.assertEqual(slices, section_node.get_slices())
         input_slices = [slice(9.9, 20.2), slice(30.1, 39.85)]
@@ -1342,8 +1342,8 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
     def test_create_ktis_at_edges_inside_phases(self):
         kti=self.kti
         test_array = np.ma.array([0,1,0,1,0,1,0,1,0])
-        test_phase = SectionNode(items=[Section('try',slice(None,2,None),None,2),
-                                        Section('try',slice(5,None,None),5,None)])
+        test_phase = SectionNode(items=[Section(None, 2),
+                                        Section(5, None)])
         kti.create_ktis_at_edges(test_array, phase=test_phase)
         self.assertEqual(kti,[KeyTimeInstance(index=0.5, name='Kti'),
                               KeyTimeInstance(index=6.5, name='Kti')])
@@ -1598,19 +1598,19 @@ class TestDerivedParameterNode(unittest.TestCase):
     def test_slices_to_touchdown_basic(self):
         heights = np.ma.arange(100,-10,-10)
         heights[:-1] -= 10
-        alt_aal = P('Altitude AAL',heights)
+        alt_aal = P('Altitude AAL', heights)
         tdwns = KTI(items=[KeyTimeInstance(name='Touchdown', index=9.5)])
         result = alt_aal.slices_to_kti(75, tdwns)
-        expected = [slice(2,9.5)]
+        expected = [slice(1.5, 9.5)]
         self.assertEqual(result, expected)
 
     def test_slices_to_touchdown_early(self):
         heights = np.ma.arange(100,-10,-10)
         heights[:-1] -= 10
-        alt_aal = P('Altitude AAL',heights)
+        alt_aal = P('Altitude AAL', heights)
         tdwns = KTI(items=[KeyTimeInstance(name='Touchdown', index=6.7)])
         result = alt_aal.slices_to_kti(75, tdwns)
-        expected = [slice(2,6.7)]
+        expected = [slice(1.5,6.7)]
         self.assertEqual(result, expected)
 
     def test_slices_to_touchdown_outside_range(self):
