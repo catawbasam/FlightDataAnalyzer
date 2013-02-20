@@ -1550,22 +1550,6 @@ class AirspeedTopOfDescentTo10000FtMax(KeyPointValueNode):
         self.create_kpvs_within_slices(air_spd.array, descent_bands, max_value)
 
 
-class AirspeedBetween90SecToTouchdownAndTouchdownMax(KeyPointValueNode):
-    '''
-    '''
-
-    units = 'kt'
-
-    def derive(self,
-               air_spd=P('Airspeed'),
-               secs_to_touchdown=KTI('Secs To Touchdown')):
-
-        for _90_sec in secs_to_touchdown.get(name='90 Secs To Touchdown'):
-            tdwn = _90_sec.index + 90 * self.frequency
-            index, value = max_value(air_spd.array, slice(_90_sec.index, tdwn))
-            self.create_kpv(index, value)
-
-
 class AirspeedDuringLevelFlightMax(KeyPointValueNode):
     '''
     '''
@@ -1631,19 +1615,7 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
 ##############################################################################
 
 
-class ThrustWithThrustReverseInTransit(KeyPointValueNode):
-    '''
-    FDS developed this KPV to support the UK CAA Significant Seven programme.
-    "Excursions - Landing (Lateral) Asymmetric selection or achieved."
-    '''
-    def derive(self, pwr=P('Eng (*) N1 Avg'), tr=M('Thrust Reversers'),
-               lands=S('Landing')):
-        to_scan = clump_multistate(tr.array, 'In Transit',
-                                   [s.slice for s in lands])
-        self.create_kpv_from_slices(pwr.array, to_scan, max_value)
-
-
-class TouchdownToThrustReverseDeployedDuration(KeyPointValueNode):
+class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Landing (Lateral) Reverse thrust delay - time delay.
@@ -1651,17 +1623,25 @@ class TouchdownToThrustReverseDeployedDuration(KeyPointValueNode):
 
     Note: 3 second threshold may be applied to derive an event from this KPV.
     '''
-    def derive(self, tr=M('Thrust Reversers'),
-               lands = S('Landing'), tdwns=KTI('Touchdown')):
-        for land in lands:
-            deploys = clump_multistate(tr.array, 'Deployed', land.slice)
-            if deploys == []:
+
+    units = 's'
+
+    def derive(self,
+               tr=M('Thrust Reversers'),
+               landings=S('Landing'),
+               touchdowns=KTI('Touchdown')):
+
+        for landing in landings:
+            # Only interested in first opening of reversers on this landing:
+            deploys = clump_multistate(tr.array, 'Deployed', landing.slice)
+            try:
+                deployed = deploys[0].start
+            except IndexError:
                 continue
-            deploy = deploys[0].start # Only interested in first opening of reversers on this landing.
-            for tdwn in tdwns:
-                if not is_index_within_slice(tdwn.index, land.slice):
-                    continue
-                self.create_kpv(deploy, (deploy-tdwn.index)/tr.hz)
+            touchdown = touchdowns.get_first(within_slice=landing.slice)
+            if not touchdown:
+                continue
+            self.create_kpv(deployed, (deployed - touchdown.index) / tr.hz)
 
 
 class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
@@ -3716,6 +3696,25 @@ class EngN1500To20FtMin(KeyPointValueNode):
             alt_aal.slices_from_to(500, 20),
             min_value,
         )
+
+
+class EngN1WithThrustReversersInTransitMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Landing (Lateral) Asymmetric selection or achieved."
+    '''
+
+    name = 'Eng N1 With Thrust Reversers In Transit Max'
+    units = '%'
+
+    def derive(self,
+               eng_n1_avg=P('Eng (*) N1 Avg'),
+               tr=M('Thrust Reversers'),
+               landings=S('Landing')):
+
+        slices = [s.slice for s in landings]
+        slices = clump_multistate(tr.array, 'In Transit', slices)
+        self.create_kpv_from_slices(eng_n1_avg.array, slices, max_value)
 
 
 # NOTE: Was named 'Eng N1 Cooldown Duration'.
@@ -6517,25 +6516,35 @@ class TCASRAToAPDisengagedDuration(KeyPointValueNode):
 
 
 ##############################################################################
+# Throttle
 
 
-class ThrottleCyclesInFinalApproach(KeyPointValueNode):
+class ThrottleCyclesDuringFinalApproach(KeyPointValueNode):
     '''
     Counts the number of half-cycles of throttle lever movement that exceed
     10 deg peak to peak and with a maximum cycle period of 14 seconds during
     the final approach phase.
     '''
-    def derive(self, lever=P('Throttle Levers'), fapps=S('Final Approach')):
-        for fapp in fapps:
-            self.create_kpv(*cycle_counter(lever.array[fapp.slice], 10.0, 10.0,
-                                           lever.hz, fapp.slice.start))
+
+    units = 'cycles'
+
+    def derive(self,
+               levers=P('Throttle Levers'),
+               fin_apps=S('Final Approach')):
+
+        for fin_app in fin_apps:
+            self.create_kpv(*cycle_counter(
+                levers.array[fin_app.slice],
+                10.0, 10.0, levers.hz,
+                fin_app.slice.start,
+            ))
 
 
 ##############################################################################
 # Thrust Asymmetry
 
 
-class ThrustAsymmetryDuringTakeoff(KeyPointValueNode):
+class ThrustAsymmetryDuringTakeoffMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take off (Lateral)" & "Loss of Control Significant torque
@@ -6551,7 +6560,7 @@ class ThrustAsymmetryDuringTakeoff(KeyPointValueNode):
         self.create_kpvs_within_slices(ta.array, takeoff_rolls, max_value)
 
 
-class ThrustAsymmetryDuringFlight(KeyPointValueNode):
+class ThrustAsymmetryDuringFlightMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Loss of Control Asymmetric thrust - may be due to an a/t fault"
@@ -6566,7 +6575,7 @@ class ThrustAsymmetryDuringFlight(KeyPointValueNode):
         self.create_kpvs_within_slices(ta.array, airborne, max_value)
 
 
-class ThrustAsymmetryDuringGoAround(KeyPointValueNode):
+class ThrustAsymmetryDuringGoAroundMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Loss of Control Significant torque or thrust split during T/O or G/A"

@@ -4245,6 +4245,14 @@ def smooth_track(lat, lon, hz):
 
     return lat_last, lon_last, cost_0
 
+def straighten_altitudes(fine_array, coarse_array, limit, copy=False):
+    '''
+    Like straighten headings, this takes an array and removes jumps, however
+    in this case it is the fine altimeter rollovers that get corrected. We
+    keep the signal in step with the coarse altimeter signal without relying
+    upon that for accuracy.
+    '''
+    return straighten(fine_array, coarse_array, limit, copy)
 
 def straighten_headings(heading_array, copy=True):
     '''
@@ -4256,16 +4264,77 @@ def straighten_headings(heading_array, copy=True):
     :returns: Straightened headings
     :rtype: Generator of type Float
     '''
-    if copy:
-        heading_array = heading_array.copy()
-    for clump in np.ma.clump_unmasked(heading_array):
-        head_prev = heading_array.data[clump.start]
-        diff = np.ediff1d(heading_array.data[clump])
-        diff = diff - 360.0 * np.trunc(diff/180.0)
-        heading_array[clump][0] = head_prev
-        heading_array[clump][1:] = np.cumsum(diff) + head_prev
-    return heading_array
+    return straighten(heading_array, None, 360.0, copy)
+    #if copy:
+        #heading_array = heading_array.copy()
+    #head_prev = None
+    #diff_prev = None
+    #for clump in np.ma.clump_unmasked(heading_array):
+        #head_start = heading_array.data[clump.start]
+        #if diff_prev is not None:
+            ## Account for rollovers within masked sections.
+            #if (head_start - head_prev) > 180:
+                #diff_prev -= 360  + head_prev
+            #elif (head_start - head_prev) < -180:
+                #diff_prev += 360 + (360 - head_prev)
+            #else:
+                #diff_prev += head_start - head_prev
+            #head_start += diff_prev
+        ## Store the last unmasked value of heading to compare with
+        ## the start of the next unmasked section.
+        #head_prev = heading_array[clump][-1]
+        
+        #diff = np.ediff1d(heading_array.data[clump])
+        #diff = diff - 360.0 * np.trunc(diff / 180.0)
+        #diff = np.cumsum(diff)
+        #diff_prev = diff[-1]
+        
+        #heading_array[clump][0] = head_start
+        #heading_array[clump][1:] = diff + head_start
+        
+    #return heading_array
 
+def straighten(array, estimate, limit, copy):
+    '''
+    Basic straightening routine, used by both heading and altitude signals.
+    
+    :param array: array of numeric of overflowing values
+    :type array: numpy masked array
+    :param limit: limit value for overflow.
+    :type limit: float
+    :returns: Straightened parameter
+    :rtype: numpy masked array
+    '''
+    if copy:
+        array = array.copy()
+    last_value = None
+    for clump in np.ma.clump_unmasked(array):
+        starting_value = array[clump.start]
+        if estimate is not None and estimate[clump.start]:
+            # Make sure we are close to the estimate at the start of each block.
+            offset = estimate[clump.start] - starting_value
+            if offset>0.0:
+                starting_value += floor(offset / limit + 0.5) * limit
+            else:
+                starting_value += ceil(offset / limit - 0.5) * limit
+        else:
+            if last_value is not None:
+                # Check that we start this section within +/- limit/2 of the
+                # previous section. This situation arises when data has been
+                # masked at a rollover point.
+                last_half = np.trunc(last_value / (limit / 2))
+                starting_half = np.trunc(starting_value / (limit / 2))
+                if last_half > starting_half:
+                    starting_value += limit
+                elif last_half < starting_half:
+                    starting_value -= limit
+
+        diff = np.ediff1d(array[clump])
+        diff = diff - limit * np.trunc(diff * 2.0 / limit)
+        array[clump][0] = starting_value
+        array[clump][1:] = np.cumsum(diff) + starting_value
+        last_value = array[clump][-1]
+    return array
 
 def subslice(orig, new):
     """
