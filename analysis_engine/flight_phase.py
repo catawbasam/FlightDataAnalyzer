@@ -958,6 +958,12 @@ class LandingRoll(FlightPhaseNode):
     roll, and the landing roll starts as the aircraft passes 2 deg the last
     time, i.e. as the nosewheel comes down and not as the flare starts.
     '''
+    @classmethod
+    def can_operate(cls, available):
+        if all_of(('Pitch', 'Landing'), available) and \
+           any_of(('Groundspeed', 'Airspeed True'), available):
+            return True
+            
     def derive(self, pitch=P('Pitch'), gspd=P('Groundspeed'),
                aspd=P('Airspeed True'), lands=S('Landing')):
         if gspd:
