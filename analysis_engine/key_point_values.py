@@ -1615,19 +1615,7 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
 ##############################################################################
 
 
-class ThrustWithThrustReverseInTransit(KeyPointValueNode):
-    '''
-    FDS developed this KPV to support the UK CAA Significant Seven programme.
-    "Excursions - Landing (Lateral) Asymmetric selection or achieved."
-    '''
-    def derive(self, pwr=P('Eng (*) N1 Avg'), tr=M('Thrust Reversers'),
-               lands=S('Landing')):
-        to_scan = clump_multistate(tr.array, 'In Transit',
-                                   [s.slice for s in lands])
-        self.create_kpv_from_slices(pwr.array, to_scan, max_value)
-
-
-class TouchdownToThrustReverseDeployedDuration(KeyPointValueNode):
+class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Landing (Lateral) Reverse thrust delay - time delay.
@@ -1635,17 +1623,25 @@ class TouchdownToThrustReverseDeployedDuration(KeyPointValueNode):
 
     Note: 3 second threshold may be applied to derive an event from this KPV.
     '''
-    def derive(self, tr=M('Thrust Reversers'),
-               lands = S('Landing'), tdwns=KTI('Touchdown')):
-        for land in lands:
-            deploys = clump_multistate(tr.array, 'Deployed', land.slice)
-            if deploys == []:
+
+    units = 's'
+
+    def derive(self,
+               tr=M('Thrust Reversers'),
+               landings=S('Landing'),
+               touchdowns=KTI('Touchdown')):
+
+        for landing in landings:
+            # Only interested in first opening of reversers on this landing:
+            deploys = clump_multistate(tr.array, 'Deployed', landing.slice)
+            try:
+                deployed = deploys[0].start
+            except IndexError:
                 continue
-            deploy = deploys[0].start # Only interested in first opening of reversers on this landing.
-            for tdwn in tdwns:
-                if not is_index_within_slice(tdwn.index, land.slice):
-                    continue
-                self.create_kpv(deploy, (deploy-tdwn.index)/tr.hz)
+            touchdown = touchdowns.get_first(within_slice=landing.slice)
+            if not touchdown:
+                continue
+            self.create_kpv(deployed, (deployed - touchdown.index) / tr.hz)
 
 
 class TouchdownToSpoilersDeployedDuration(KeyPointValueNode):
@@ -3700,6 +3696,25 @@ class EngN1500To20FtMin(KeyPointValueNode):
             alt_aal.slices_from_to(500, 20),
             min_value,
         )
+
+
+class EngN1WithThrustReversersInTransitMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Landing (Lateral) Asymmetric selection or achieved."
+    '''
+
+    name = 'Eng N1 With Thrust Reversers In Transit Max'
+    units = '%'
+
+    def derive(self,
+               eng_n1_avg=P('Eng (*) N1 Avg'),
+               tr=M('Thrust Reversers'),
+               landings=S('Landing')):
+
+        slices = [s.slice for s in landings]
+        slices = clump_multistate(tr.array, 'In Transit', slices)
+        self.create_kpv_from_slices(eng_n1_avg.array, slices, max_value)
 
 
 # NOTE: Was named 'Eng N1 Cooldown Duration'.

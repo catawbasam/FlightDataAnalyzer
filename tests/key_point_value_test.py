@@ -138,6 +138,7 @@ from analysis_engine.key_point_values import (
     EngN1CyclesDuringFinalApproach,
     EngN1500To20FtMax,
     EngN1500To20FtMin,
+    EngN1WithThrustReversersInTransitMax,
     EngN1Below60PercentAfterTouchdownDuration,
     EngN2DuringTaxiMax,
     EngN2DuringTakeoff5MinRatingMax,
@@ -295,6 +296,7 @@ from analysis_engine.key_point_values import (
     ThrustAsymmetryWithThrustReversersDeployedDuration,
     TouchdownTo60KtsDuration,
     TouchdownToElevatorDownDuration,
+    TouchdownToThrustReversersDeployedDuration,
     TurbulenceDuringApproachMax,
     TurbulenceDuringCruiseMax,
     TurbulenceDuringFlightMax,
@@ -1691,22 +1693,13 @@ class TestAPDisengagedDuringCruiseDuration(unittest.TestCase, NodeTest):
 ##############################################################################
 
 
-class TestThrustWithThrustReverseInTransit(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestTouchdownToThrustReversersDeployedDuration(unittest.TestCase, NodeTest):
 
+    def setUp(self):
+        self.node_class = TouchdownToThrustReversersDeployedDuration
+        self.operational_combinations = [('Thrust Reversers', 'Landing', 'Touchdown')]
 
-class TestTouchdownToThrustReverseDeployedDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -2621,6 +2614,17 @@ class TestEngN1500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngN1WithThrustReversersInTransitMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngN1WithThrustReversersInTransitMax
+        self.operational_combinations = [('Eng (*) N1 Avg', 'Thrust Reversers', 'Landing')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEngN1Below60PercentAfterTouchdownDuration(unittest.TestCase):
