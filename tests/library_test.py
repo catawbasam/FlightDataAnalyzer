@@ -3656,19 +3656,37 @@ class TestStraightenAltitudes(unittest.TestCase):
         coarse = np.ma.array([5.0,100.0,300.0,450.0,46.0,380.0,230.0,110.0,0.0])
         result=straighten_altitudes(fine, coarse, 500.0, False)
         self.assertEqual(np.ma.max(result),546.0)
-        
+
+
 class TestStraightenHeadings(unittest.TestCase):
-    def test_straight_headings(self):
+    def test_straighten_headings(self):
         data = np.ma.array([35.5,29.5,11.3,0.0,348.4,336.8,358.9,2.5,8.1,14.4])
-        expected = np.ma.array([35.5,29.5,11.3,0.0,-11.6,-23.2,-1.1,2.5,8.1,14.4])
+        expected = np.ma.array(
+            [35.5,29.5,11.3,0.0,-11.6,-23.2,-1.1,2.5,8.1,14.4])
         np.testing.assert_array_almost_equal(straighten_headings(data),expected)
 
-    def test_straight_headings_starting_masked(self):
-        data=np.ma.array(data=[0]*10+[6]*8+[1]*4+[10,5,0,355,350]+[0]*4,
-                         mask=[True]*10+[False]*8+[True]*4+[False]*5+[True]*4)
-        expected=np.ma.array(data=[0]*10+[6]*8+[0]*4+[10,5,0,-5,-10]+[0]*4,
-                         mask=[True]*10+[False]*8+[True]*4+[False]*5+[True]*4)
-        ma_test.assert_masked_array_approx_equal(straighten_headings(data), expected)
+    def test_straighten_headings_starting_masked(self):
+        data = np.ma.array(
+            data=[0]*10+[6]*8+[1]*4+[10,5,0,355,350]+[0]*4,
+            mask=[True]*10+[False]*8+[True]*4+[False]*5+[True]*4)
+        expected = np.ma.array(
+            data=[0]*10+[6]*8+[0]*4+[10,5,0,-5,-10]+[0]*4,
+            mask=[True]*10+[False]*8+[True]*4+[False]*5+[True]*4)
+        ma_test.assert_masked_array_approx_equal(straighten_headings(data),
+                                                 expected)
+    
+    def test_straighten_headings_masked_rollover(self):
+        mask = [False, False, False, True, True, False, False, False, True,
+                True, False, False]
+        data = np.ma.array(
+            [340, 345, 350, 8539, 2920, 10, 15, 20, 8580, 6581, 35, 40],
+            mask=mask)
+        expected = np.ma.array(
+            [340, 345, 350, 8539, 2920, 370, 375, 380, 8580, 6581, 395, 400],
+            mask=mask)
+        ma_test.assert_masked_array_approx_equal(straighten_headings(data),
+                                                 expected)
+
 
 class TestStraighten(unittest.TestCase):
     def test_offsets(self):
