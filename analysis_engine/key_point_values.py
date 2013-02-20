@@ -1550,22 +1550,6 @@ class AirspeedTopOfDescentTo10000FtMax(KeyPointValueNode):
         self.create_kpvs_within_slices(air_spd.array, descent_bands, max_value)
 
 
-class AirspeedBetween90SecToTouchdownAndTouchdownMax(KeyPointValueNode):
-    '''
-    '''
-
-    units = 'kt'
-
-    def derive(self,
-               air_spd=P('Airspeed'),
-               secs_to_touchdown=KTI('Secs To Touchdown')):
-
-        for _90_sec in secs_to_touchdown.get(name='90 Secs To Touchdown'):
-            tdwn = _90_sec.index + 90 * self.frequency
-            index, value = max_value(air_spd.array, slice(_90_sec.index, tdwn))
-            self.create_kpv(index, value)
-
-
 class AirspeedDuringLevelFlightMax(KeyPointValueNode):
     '''
     '''

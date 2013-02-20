@@ -55,7 +55,6 @@ from analysis_engine.key_point_values import (
     AirspeedAtLiftoff,
     AirspeedAtTouchdown,
     AirspeedBelowAltitudeMax,
-    AirspeedBetween90SecToTouchdownAndTouchdownMax,
     AirspeedDuringCruiseMax,
     AirspeedDuringCruiseMin,
     AirspeedGustsDuringFinalApproach,
@@ -1615,17 +1614,6 @@ class TestAirspeedTopOfDescentTo10000FtMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AirspeedTopOfDescentTo10000FtMax
         self.operational_combinations = [('Airspeed', 'Altitude STD Smoothed', 'Altitude QNH', 'FDR Landing Airport', 'Descent')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedBetween90SecToTouchdownAndTouchdownMax(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = AirspeedBetween90SecToTouchdownAndTouchdownMax
-        self.operational_combinations = [('Airspeed', 'Secs To Touchdown')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
