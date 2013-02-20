@@ -723,12 +723,13 @@ class ILSApproach(FlightPhaseNode):
 
 
 class ILSGlideslopeEstablished(FlightPhaseNode):
-    name = "ILS Glideslope Established"
     """
     Within the Localizer Established phase, compute duration of approach with
     (repaired) Glideslope deviation continuously less than 1 dot,. Where > 10
     seconds, identify as Glideslope Established.
     """
+    name = "ILS Glideslope Established"
+
     def derive(self, ils_gs = P('ILS Glideslope'),
                ils_loc_ests = S('ILS Localizer Established'),
                alt_aal=P('Altitude AAL')):
@@ -739,21 +740,24 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
         for ils_loc_est in ils_loc_ests:
             # Only look for glideslope established if the localizer was
             # established.
-            if ils_loc_est.slice.start and ils_loc_est.slice.stop:
-                gs_est = scan_ils('glideslope', ils_gs.array, alt_aal.array,
-                                  ils_loc_est.slice)
-                # If the glideslope signal is corrupt or there is no
-                # glidepath (not fitted or out of service) there may be no
-                # glideslope established phase, or the proportion of unmasked
-                # values may be small.
-                if gs_est:
-                    good_data = np.ma.count(ils_gs.array[gs_est])
-                    all_data = len(ils_gs.array[gs_est]) or 1
-                    if (float(good_data)/all_data) < 0.7:
-                        self.warning('ILS glideslope signal poor quality in '
-                                     'approach - considered not established.')
-                        continue
-                    self.create_phase(gs_est)
+            if not ils_loc_est.slice.start or not ils_loc_est.slice.stop:
+                continue
+            gs_est_start, gs_est_end = scan_ils(
+                'glideslope', ils_gs.array, alt_aal.array, ils_loc_est.slice)
+            if gs_est_start is None:
+                continue
+            # If the glideslope signal is corrupt or there is no
+            # glidepath (not fitted or out of service) there may be no
+            # glideslope established phase, or the proportion of unmasked
+            # values may be small.
+            good_data = np.ma.count(ils_gs.array[gs_est_start:gs_est_end])
+            all_data = len(ils_gs.array[gs_est_start:gs_est_end]) or 1
+            if (float(good_data)/all_data) >= 0.7:
+                self.create_phase(gs_est_start, gs_est_end)
+            else:
+                self.warning('ILS glideslope signal poor quality in '
+                             'approach - considered not established.')
+                continue
 
 
         """
