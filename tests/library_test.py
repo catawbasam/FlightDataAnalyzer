@@ -1183,10 +1183,21 @@ class TestCycleFinder(unittest.TestCase):
 class TestDatetimeOfIndex(unittest.TestCase):
     def test_index_of_datetime(self):
         start_datetime = datetime.now()
-        index = 160
-        frequency = 4
-        dt = datetime_of_index(start_datetime, index, frequency=frequency)
+        dt = datetime_of_index(start_datetime, 160, frequency=4)
         self.assertEqual(dt, start_datetime + timedelta(seconds=40))
+
+
+class TestFilterSlicesDuration(unittest.TestCase):
+    def test_filter_slices_duration(self):
+        slices = [slice(1, 5), slice(4, 6), slice (5, 10)]
+        result = filter_slices_duration(slices, 0)
+        self.assertEqual(result, slices)
+        result = filter_slices_duration(slices, 4)
+        self.assertEqual(result, [slices[0], slices[2]])
+        result = filter_slices_duration(slices, 5)
+        self.assertEqual(result, [slices[2]])
+        result = filter_slices_duration(slices, 5, frequency=0.5)
+        self.assertEqual(result, [slices[0], slices[2]])
 
 
 class TestFilterVorIlsFrequencies(unittest.TestCase):
@@ -1832,7 +1843,7 @@ class TestIndexOfFirstStart(unittest.TestCase):
                           b, slice(None, None, -1))
 
 
-class TestIndexOfFirstStop(unittest.TestCase):
+class TestIndexOfLastStop(unittest.TestCase):
     def test_index_stop(self):
         b = np.array([0,0,1,1,1,1,0,0,0,0,0,1,1,0])
         pos = index_of_last_stop(b, slice(2, -1))
@@ -3230,11 +3241,10 @@ class TestSectionContainsKti(unittest.TestCase):
 
 class TestRunsOfOnes(unittest.TestCase):
     def test_runs_of_ones(self):
-        st, end, dur = runs_of_ones_array([0,0,1,0,1,1,1,1,1,0,0,1,1,1], 2)
-
-        self.assertEqual(list(st), [4, 11]) # starts at 4
-        self.assertEqual(list(end), [9, 14]) # ends at 8+1 = 9 for slicing
-        self.assertEqual(list(dur), [5, 3]) # dur of 5
+        result = runs_of_ones(np.ma.array(
+            [0,0,1,0,1,1,1,1,1,0,0,1,1,1,0,1,1,1],
+            mask=14 * [False] + 4 * [True]))
+        self.assertEqual(result, [slice(2, 3), slice(4, 9), slice(11, 14)])
 
 
 class TestShiftSlice(unittest.TestCase):

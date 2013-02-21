@@ -1106,7 +1106,8 @@ def find_app_rwy(app_info, this_loc):
     return approach, runway
 
 
-def index_of_first_start(bool_array, _slice=slice(0,None), min_dur=1):
+def index_of_first_start(bool_array, _slice=slice(0, None), min_dur=0.0,
+                         frequency=1):
     '''
     Find the first starting index of a state change.
 
@@ -1122,14 +1123,17 @@ def index_of_first_start(bool_array, _slice=slice(0,None), min_dur=1):
     '''
     if _slice.step and _slice.step < 0:
         raise ValueError("Reverse step not supported")
-    starts, e, d = runs_of_ones_array(bool_array[_slice], min_dur)
-    if any(starts):
-        return starts[0] + (_slice.start or 0) - 0.5  # interpolate offset
+    runs = runs_of_ones(bool_array[_slice])
+    if min_dur:
+        runs = filter_slices_duration(runs, min_dur, frequency=frequency)
+    if runs:
+        return runs[0].start + (_slice.start or 0) - 0.5  # interpolate offset
     else:
         return None
 
 
-def index_of_last_stop(bool_array, _slice=slice(0,None), min_dur=1):
+def index_of_last_stop(bool_array, _slice=slice(0, None), min_dur=1,
+                       frequency=1):
     '''
     Find the first stopping index of a state change.
 
@@ -1145,9 +1149,11 @@ def index_of_last_stop(bool_array, _slice=slice(0,None), min_dur=1):
     '''
     if _slice.step and _slice.step < 0:
         raise ValueError("Reverse step not supported")
-    s, ends, d = runs_of_ones_array(bool_array[_slice], min_dur)
-    if any(ends):
-        return ends[-1] + (_slice.start or 0) - 0.5
+    runs = runs_of_ones(bool_array[_slice])
+    if min_dur:
+        runs = filter_slices_duration(runs, min_dur, frequency=frequency)
+    if runs:
+        return runs[-1].stop + (_slice.start or 0) - 0.5
     else:
         return None
 
@@ -2437,6 +2443,21 @@ def is_index_within_slice(index, _slice):
     return _slice.start <= index < _slice.stop
 
 
+def filter_slices_duration(slices, duration, frequency=1):
+    '''
+    Q: Does this need to be updated to use Sections?
+    :param slices: List of slices to filter.
+    :type slices: [slice]
+    :param duration: Minimum duration of slices in seconds.
+    :type duration: int or float
+    :param frequency: Frequency of slice start and stop.
+    :type frequency: int or float
+    :returns: List of slices greater than duration.
+    :rtype: [slice]
+    '''
+    return [s for s in slices if (s.stop - s.start) >= (duration * frequency)]
+
+
 def find_slices_containing_index(index, slices):
     '''
     :type index: int or float
@@ -2663,7 +2684,7 @@ def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
 
     :returns: slice list.
     '''
-    sample_limit = time_limit*hz
+    sample_limit = time_limit * hz
     if slice_list is None or len(slice_list) < 2:
         return slice_list
     new_list = [slice_list[0]]
@@ -2673,7 +2694,7 @@ def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
         else:
             new_list.append(each_slice)
     return new_list
-
+            
 
 """
 def section_contains_kti(section, kti):
@@ -3760,17 +3781,17 @@ def rms_noise(array, ignore_pc=None):
     return sqrt(np.ma.mean(np.ma.power(to_rms,2))) # RMS in one line !
 
 
-def runs_of_ones_array(bits, min_len):
-    # make sure all runs of ones are well-bounded
-    bounded = np.hstack(([0], bits, [0]))
-    # get 1 at run starts and -1 at run ends
-    difs = np.diff(bounded)
-    run_starts, = np.where(difs > 0)
-    run_ends, = np.where(difs < 0)
-    run_dur = run_ends - run_starts
-    those_above = run_dur>=min_len
-    # return duration and starting locations
-    return run_starts[those_above], run_ends[those_above], run_dur[those_above]
+def runs_of_ones(bits):
+    '''
+    Q: This function used to have a min_len kwarg which was a result of its
+    implementation. If there is a use case for only returning sections greater
+    than a minimum length, would it be better to specify time based on a
+    frequency rather than samples?
+    TODO: Update to return Sections?
+    :returns: S
+    :rtype: [slice]
+    '''
+    return np.ma.clump_unmasked(np.ma.masked_not_equal(bits, 1))
 
 
 def shift_slice(this_slice, offset):

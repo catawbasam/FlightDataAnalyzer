@@ -1635,7 +1635,9 @@ class KeyPointValueNode(FormattedNameNode):
         index, value = function(array)
         self.create_kpv(index, value, **kwargs)
 
-    def create_kpvs_from_slice_durations(self, slices, min_duration=0.0, mark='midpoint', **kwargs):
+    def create_kpvs_from_slice_durations(self, slices, frequency,
+                                         min_duration=0.0, mark='midpoint',
+                                         **kwargs):
         '''
         Shortcut for creating KPVs from slices based only on the slice duration.
 
@@ -1650,18 +1652,21 @@ class KeyPointValueNode(FormattedNameNode):
         :param slices: Slices from which to create KPVs. Note: as the only
                        parameter they will default to 1Hz.
         :type slices: List of slices.
-        :param min_duration: Minimum duration for a KPV to be created.
-        :type min_duration: float (seconds)
+        :param frequency: Frequency of slices.
+        :type frequency: int or float
+        :param min_duration: Minimum duration for a KPV to be created in seconds.
+        :type min_duration: float
         :param mark: Optional field to select when to identify the KPV.
         :type mark: String from 'start', 'midpoint' or 'end'
-
+        :param slice_offset: Optional offset of slices.
+        :type slice_offset: int or float
         :returns: None
         :rtype: None
         '''
         slices = self._get_slices(slices)
         for slice_ in slices:
             if isinstance(slice_, Section): # Use slice within Section.
-                duration = slice_.stop_edge - slice_.start_edge
+                duration = (slice_.stop_edge - slice_.start_edge) * frequency
                 if duration > min_duration:
                     if mark == 'start':
                         index = slice_.start_edge
@@ -1675,7 +1680,7 @@ class KeyPointValueNode(FormattedNameNode):
                                          mark)
                     self.create_kpv(index, duration, **kwargs)
             else:
-                duration = slice_.stop - slice_.start
+                duration = (slice_.stop - slice_.start) * frequency
                 if duration > min_duration:
                     if mark == 'start':
                         index = slice_.start

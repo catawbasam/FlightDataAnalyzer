@@ -11,7 +11,8 @@ from utilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, KPV, KTI, P, KeyPointValue, KeyTimeInstance, Section, S
+    A, KPV, KTI, MultistateDerivedParameterNode, P, KeyPointValue,
+    KeyTimeInstance, Section, S
 )
 
 from analysis_engine.key_point_values import (
@@ -3674,9 +3675,19 @@ class TestFlapWithSpeedbrakesDeployedMax(unittest.TestCase, NodeTest):
         self.node_class = FlapWithSpeedbrakesDeployedMax
         self.operational_combinations = [('Flap', 'Speedbrake Selected', 'Airborne', 'Landing')]
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        spd_brk_loop = [0, 0, 1, 0, 0]
+        airborne = buildsection('Airborne', 5, 15)
+        landing = buildsection('Landing', 10, 15)
+        flap = P('Flap', array=np.arange(15))
+        values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
+        spd_brk = MultistateDerivedParameterNode(
+            'Speedbrake Selected', values_mapping=values_mapping, 
+            array=np.ma.array(spd_brk_loop * 3))
+        node = self.node_class()
+        node.derive(flap, spd_brk, airborne, landing)
+        self.assertEqual(
+            node, [KeyPointValue(7, 7, 'Flap With Speedbrakes Deployed Max')])
 
 
 class TestFlareDuration20FtToTouchdown(unittest.TestCase, NodeTest):
@@ -4550,31 +4561,19 @@ class TestSpeedbrakeDeployed1000To20FtDuration(unittest.TestCase, NodeTest):
         self.node_class = SpeedbrakeDeployed1000To20FtDuration
         self.operational_combinations = [('Speedbrake Selected', 'Altitude AAL For Flight Phases')]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestSpeedbrakeDeployedWithPowerOnDuration(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = SpeedbrakeDeployedWithPowerOnDuration
-        self.operational_combinations = [('Speedbrake Selected', 'Eng (*) N1 Avg', 'Airborne', 'Manufacturer')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestSpeedbrakeDeployedWithFlapDuration(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = SpeedbrakeDeployedWithFlapDuration
-        self.operational_combinations = [('Speedbrake Selected', 'Flap', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_basic(self):
+        alt_aal = P('Altitude AAL For Flight Phases',
+                    array=np.ma.arange(2000, 0, -10))
+        values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
+        spd_brk = MultistateDerivedParameterNode(
+            'Speedbrake Selected', values_mapping=values_mapping, 
+            array=np.ma.array(
+                [0] * 40 + [1] * 20 + [0] * 80 + [1] * 20 + [0] * 40))
+        node = self.node_class()
+        node.derive(spd_brk, alt_aal)
+        self.assertEqual(
+            node, [KeyPointValue(140, 20.0,
+                                 'Speedbrake Deployed 1000 To 20 Ft Duration')])
 
 
 class TestSpeedbrakeDeployedWithConfDuration(unittest.TestCase, NodeTest):
@@ -4583,9 +4582,61 @@ class TestSpeedbrakeDeployedWithConfDuration(unittest.TestCase, NodeTest):
         self.node_class = SpeedbrakeDeployedWithConfDuration
         self.operational_combinations = [('Speedbrake Selected', 'Configuration', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_basic(self):
+        spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
+        values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
+        spd_brk = MultistateDerivedParameterNode(
+            'Speedbrake Selected', values_mapping=values_mapping,
+            array=np.ma.array(spd_brk_loop * 3))
+        conf = P('Configuration', array=np.ma.array([0] * 10 + range(2, 22)))
+        airborne = buildsection('Airborne', 10, 20)
+        node = self.node_class()
+        node.derive(spd_brk, conf, airborne)
+        self.assertEqual(node, [
+            KeyPointValue(14, 2.0, 'Speedbrake Deployed With Conf Duration')])
+
+
+class TestSpeedbrakeDeployedWithFlapDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = SpeedbrakeDeployedWithFlapDuration
+        self.operational_combinations = [('Speedbrake Selected', 'Flap', 'Airborne')]
+    
+    def test_derive_basic(self):
+        spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
+        values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
+        spd_brk = MultistateDerivedParameterNode(
+            'Speedbrake Selected', values_mapping=values_mapping,
+            array=np.ma.array(spd_brk_loop * 3))
+        flap = P('Flap', array=np.ma.array([0] * 10 + range(1, 21)))
+        airborne = buildsection('Airborne', 10, 20)
+        node = self.node_class()
+        node.derive(spd_brk, flap, airborne)
+        self.assertEqual(node, [
+            KeyPointValue(14, 2.0, 'Speedbrake Deployed With Flap Duration')])
+
+
+class TestSpeedbrakeDeployedWithPowerOnDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = SpeedbrakeDeployedWithPowerOnDuration
+        self.operational_combinations = [('Speedbrake Selected', 'Eng (*) N1 Avg', 'Airborne', 'Manufacturer')]
+
+    def test_derive_basic(self):
+        spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
+        values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
+        spd_brk = MultistateDerivedParameterNode(
+            'Speedbrake Selected', values_mapping=values_mapping,
+            array=np.ma.array(spd_brk_loop * 3))
+        flap = P('Eng (*) N1 Avg',
+                 array=np.ma.array([40] * 10 + [60] * 10 + [50] * 10))
+        airborne = buildsection('Airborne', 10, 20)
+        manufacturer = A('Manufacturer', value='Airbus')
+        node = self.node_class()
+        node.derive(spd_brk, flap, airborne)
+        self.assertEqual(node, [
+            KeyPointValue(14, 2.0,
+                          'Speedbrake Deployed With Power On Duration')])
 
 
 class TestSpeedbrakeDeployedDuringGoAroundDuration(unittest.TestCase, NodeTest):
@@ -4594,9 +4645,18 @@ class TestSpeedbrakeDeployedDuringGoAroundDuration(unittest.TestCase, NodeTest):
         self.node_class = SpeedbrakeDeployedDuringGoAroundDuration
         self.operational_combinations = [('Speedbrake Selected', 'Go Around And Climbout')]
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
+        values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
+        spd_brk = MultistateDerivedParameterNode(
+            'Speedbrake Selected', values_mapping=values_mapping,
+            array=np.ma.array(spd_brk_loop * 3))
+        go_around = buildsection('Go Around And Climbout', 10, 20)
+        node = self.node_class()
+        node.derive(spd_brk, go_around)
+        self.assertEqual(node, [
+            KeyPointValue(14, 2.0,
+                          'Speedbrake Deployed During Go Around Duration')])
 
 
 ##############################################################################

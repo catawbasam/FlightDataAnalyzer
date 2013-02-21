@@ -45,7 +45,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
                                      rate_of_change,
-                                     runs_of_ones_array,
+                                     runs_of_ones,
                                      runway_deviation,
                                      runway_distance_from_end,
                                      shift_slice,
@@ -4472,19 +4472,12 @@ class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
     '''
     def derive(self, flap=P('Flap'), speedbrake=M('Speedbrake Selected'),
                airs=S('Airborne'), lands=S('Landing')):
+        deployed = speedbrake.array == 'Deployed/Cmd Up'
         # Mask all values where speedbrake isn't deployed:
-        deployed = speedbrake.array.state['Deployed/Cmd Up']
-        array = np.ma.masked_where(speedbrake.array.raw != deployed, flap.array, copy=True)
-        # Mask all values where the aircraft isn't airborne:
-        array = mask_outside_slices(array, airs.get_slices())
-        # Mask all values where the aircraft is landing (as we expect speedbrake to be deployed):
-        array = mask_inside_slices(array, lands.get_slices())
-        # Determine the maximum flap value when the speedbrake is deployed:
-        index, value = max_value(array)
-        # It is normal for flights to be flown without speedbrake and flap
-        # together, so trap this case to avoid nuisance warnings:
-        if index and value:
-            self.create_kpv(index, value)
+        deployed = mask_outside_slices(deployed, airs.get_slices())
+        deployed = mask_inside_slices(deployed, lands.get_slices())
+        deployed_slices = runs_of_ones(deployed)
+        self.create_kpv_from_slices(flap.array, deployed_slices, max_value)
 
 
 class FlareDuration20FtToTouchdown(KeyPointValueNode):
@@ -5688,27 +5681,9 @@ class SpeedbrakeDeployed1000To20FtDuration(KeyPointValueNode):
 
         for descent in alt_aal.slices_from_to(1000, 20):
             array = spd_brk.array[descent] == 'Deployed/Cmd Up'
-            for start, stop, duration in zip(*runs_of_ones_array(array, 1)):
-                self.create_kpv(descent.start + start, duration / spd_brk.hz)
-
-
-class SpeedbrakeDeployedWithFlapDuration(KeyPointValueNode):
-    '''
-    '''
-
-    units = 's'
-
-    def derive(self,
-               spd_brk=M('Speedbrake Selected'),
-               flap=P('Flap'),
-               airborne=S('Airborne')):
-
-        for air in airborne:
-            spd_brk_dep = spd_brk.array[air.slice] == 'Deployed/Cmd Up'
-            flap_extend = flap.array[air.slice] > 0
-            array = spd_brk_dep & flap_extend
-            for start, stop, duration in zip(*runs_of_ones_array(array, 1)):
-                self.create_kpv(air.slice.start + start, duration / spd_brk.hz)
+            slices = shift_slices(runs_of_ones(array), descent.start)
+            self.create_kpvs_from_slice_durations(slices, self.frequency,
+                                                  mark='start')
 
 
 # TODO: Properly test this and compare with flap version above!
@@ -5729,8 +5704,29 @@ class SpeedbrakeDeployedWithConfDuration(KeyPointValueNode):
             spd_brk_dep = spd_brk.array[air.slice] == 'Deployed/Cmd Up'
             conf_extend = conf.array[air.slice] >= 2.0
             array = spd_brk_dep & conf_extend
-            for start, stop, duration in zip(*runs_of_ones_array(array, 1)):
-                self.create_kpv(air.slice.start + start, duration / spd_brk.hz)
+            slices = shift_slices(runs_of_ones(array), air.slice.start)
+            self.create_kpvs_from_slice_durations(slices, self.frequency,
+                                                  mark='start')
+
+
+class SpeedbrakeDeployedWithFlapDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               spd_brk=M('Speedbrake Selected'),
+               flap=P('Flap'),
+               airborne=S('Airborne')):
+
+        for air in airborne:
+            spd_brk_dep = spd_brk.array[air.slice] == 'Deployed/Cmd Up'
+            flap_extend = flap.array[air.slice] > 0
+            array = spd_brk_dep & flap_extend
+            slices = shift_slices(runs_of_ones(array), air.slice.start)
+            self.create_kpvs_from_slice_durations(slices, self.frequency,
+                                                  mark='start')
 
 
 class SpeedbrakeDeployedWithPowerOnDuration(KeyPointValueNode):
@@ -5756,11 +5752,9 @@ class SpeedbrakeDeployedWithPowerOnDuration(KeyPointValueNode):
             spd_brk_dep = spd_brk.array[air.slice] == 'Deployed/Cmd Up'
             high_power = power.array[air.slice] >= percent
             array = spd_brk_dep & high_power
-            for start, stop, duration in zip(*runs_of_ones_array(array, 1)):
-                # TODO: Keep index at start of duration rather than max power?
-                index = air.slice.start + start
-                index += power.array[air.slice][start:stop].arg_max()
-                self.create_kpv(index, duration / spd_brk.hz)
+            slices = shift_slices(runs_of_ones(array), air.slice.start)
+            self.create_kpvs_from_slice_durations(slices, self.frequency,
+                                                  mark='start')
 
 
 class SpeedbrakeDeployedDuringGoAroundDuration(KeyPointValueNode):
@@ -5775,15 +5769,13 @@ class SpeedbrakeDeployedDuringGoAroundDuration(KeyPointValueNode):
                spd_brk=M('Speedbrake Selected'),
                go_arounds=S('Go Around And Climbout')):
 
-        deployed = spd_brk.array.state['Deployed/Cmd Up']
+        deployed = spd_brk.array == 'Deployed/Cmd Up'
         for go_around in go_arounds:
-            array = spd_brk.array.raw[go_around.slice]
-            event = np.ma.masked_not_equal(array, deployed)
-            value = np.ma.count(event) / spd_brk.frequency
-            if value:
-                # Probably open at start of go-around - when were they closed?
-                index = np.ma.clump_unmasked(event)[-1].stop
-                self.create_kpv(index, value)
+            array = deployed[go_around.slice]
+            slices = shift_slices(runs_of_ones(array),
+                                  go_around.slice.start)
+            self.create_kpvs_from_slice_durations(slices, self.frequency,
+                                                  mark='start')
 
 
 ##############################################################################
@@ -6337,7 +6329,7 @@ class TCASRAWarningDuration(KeyPointValueNode):
         '''
         for air in airs:
             ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
-            self.create_kpvs_from_slice_durations(ras_local)
+            self.create_kpvs_from_slice_durations(ras_local, self.frequency)
 
 
 class TCASRAReactionDelay(KeyPointValueNode):
@@ -6648,7 +6640,7 @@ class ThrustAsymmetryDuringApproachDuration(KeyPointValueNode):
             asymmetry = np.ma.masked_less(ta.array[approach.slice], 10.0)
             slices = np.ma.clump_unmasked(asymmetry)
             slices = shift_slices(slices, approach.slice.start)
-            self.create_kpvs_from_slice_durations(slices)
+            self.create_kpvs_from_slice_durations(slices, self.frequency)
 
 
 class ThrustAsymmetryWithThrustReversersDeployedDuration(KeyPointValueNode):
@@ -6674,7 +6666,7 @@ class ThrustAsymmetryWithThrustReversersDeployedDuration(KeyPointValueNode):
             asymmetry = np.ma.masked_less(ta.array[slice_], 10.0)
             slices = np.ma.clump_unmasked(asymmetry)
             slices = shift_slices(slices, slice_.start)
-            self.create_kpvs_from_slice_durations(slices)
+            self.create_kpvs_from_slice_durations(slices, self.frequency)
 
 
 ##############################################################################
