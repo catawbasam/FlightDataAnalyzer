@@ -94,6 +94,7 @@ from analysis_engine.derived_parameters import (
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
     RateOfTurn,
+    ThrustReversers,
     TAWSAlert,
     TrackDeviationFromRunway,
     TrackTrue,
@@ -3284,9 +3285,53 @@ class TestThrustReversers(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
 
-    @unittest.skip('Test Not Implemented')
+    def setUp(self):
+        eng_1_unlocked_array = [ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0]
+        eng_1_deployed_array = [ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0]
+        eng_2_unlocked_array = [ 1,  1,  1,  1,  0,  1,  0,  0,  0,  0]
+        eng_2_deployed_array = [ 1,  1,  1,  1,  1,  0,  0,  0,  0,  0]
+
+        self.eng_1_unlocked = M(name='Eng (1) Thrust Reverser Unlocked', array=np.ma.array(eng_1_unlocked_array), values_mapping={1:'Unlocked'})
+        self.eng_1_deployed = M(name='Eng (1) Thrust Reverser Deployed', array=np.ma.array(eng_1_deployed_array), values_mapping={1:'Deployed'})
+        self.eng_2_unlocked = M(name='Eng (2) Thrust Reverser Unlocked', array=np.ma.array(eng_2_unlocked_array), values_mapping={1:'Unlocked'})
+        self.eng_2_deployed = M(name='Eng (2) Thrust Reverser Deployed', array=np.ma.array(eng_2_deployed_array), values_mapping={1:'Deployed'})
+        self.thrust_reversers = ThrustReversers()
+
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        result = [ 2,  2,  2,  2,  1,  1,  0,  0,  0,  0]
+        self.thrust_reversers.get_derived((self.eng_1_deployed,
+                                None,
+                                None,
+                                self.eng_1_unlocked,
+                                None,
+                                None,
+                                self.eng_2_deployed,
+                                None,
+                                None,
+                                self.eng_2_unlocked))
+        np.testing.assert_equal(self.thrust_reversers.array.data, result)
+
+    def test_derive_masked_value(self):
+        self.eng_1_unlocked.array.mask = [ 0,  0,  0,  0,  0,  1,  0,  0,  1,  0]
+        self.eng_1_deployed.array.mask = [ 0,  0,  0,  1,  0,  1,  0,  0,  1,  0]
+        self.eng_2_unlocked.array.mask = [ 0,  0,  0,  1,  0,  0,  0,  1,  1,  0]
+        self.eng_2_deployed.array.mask = [ 0,  0,  0,  0,  0,  1,  0,  0,  1,  0]
+
+        result_array = [ 2,  2,  2,  2,  1,  2,  0,  0,  0,  0]
+        result_mask =  [ 0,  0,  0,  0,  0,  1,  0,  0,  1,  0]
+
+        self.thrust_reversers.get_derived((self.eng_1_deployed,
+                                None,
+                                None,
+                                self.eng_1_unlocked,
+                                None,
+                                None,
+                                self.eng_2_deployed,
+                                None,
+                                None,
+                                self.eng_2_unlocked))
+        np.testing.assert_equal(self.thrust_reversers.array.data, result_array)
+        np.testing.assert_equal(self.thrust_reversers.array.mask, result_mask)
 
 
 class TestTurbulence(unittest.TestCase):

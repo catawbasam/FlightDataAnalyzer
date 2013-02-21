@@ -3388,11 +3388,11 @@ class EngEPRDuringMaximumContinuousPowerMax(KeyPointValueNode):
         self.create_kpv_outside_slices(eng_epr_max.array, slices, max_value)
 
 
-class EngEPR500To20FtMax(KeyPointValueNode):
+class EngEPR500To50FtMax(KeyPointValueNode):
     '''
     '''
 
-    name = 'Eng EPR 500 To 20 Ft Max'
+    name = 'Eng EPR 500 To 50 Ft Max'
     units = '%'
 
     def derive(self,
@@ -3401,16 +3401,16 @@ class EngEPR500To20FtMax(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_epr_max.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             max_value,
         )
 
 
-class EngEPR500To20FtMin(KeyPointValueNode):
+class EngEPR500To50FtMin(KeyPointValueNode):
     '''
     '''
 
-    name = 'Eng EPR 500 To 20 Ft Min'
+    name = 'Eng EPR 500 To 50 Ft Min'
     units = '%'
 
     def derive(self,
@@ -3419,7 +3419,7 @@ class EngEPR500To20FtMin(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_epr_min.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             min_value,
         )
 
@@ -3662,11 +3662,11 @@ class EngN1CyclesDuringFinalApproach(KeyPointValueNode):
             ))
 
 
-class EngN1500To20FtMax(KeyPointValueNode):
+class EngN1500To50FtMax(KeyPointValueNode):
     '''
     '''
 
-    name = 'Eng N1 500 To 20 Ft Max'
+    name = 'Eng N1 500 To 50 Ft Max'
     units = '%'
 
     def derive(self,
@@ -3675,16 +3675,16 @@ class EngN1500To20FtMax(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_n1_max.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             max_value,
         )
 
 
-class EngN1500To20FtMin(KeyPointValueNode):
+class EngN1500To50FtMin(KeyPointValueNode):
     '''
     '''
 
-    name = 'Eng N1 500 To 20 Ft Min'
+    name = 'Eng N1 500 To 50 Ft Min'
     units = '%'
 
     def derive(self,
@@ -3693,7 +3693,7 @@ class EngN1500To20FtMin(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_n1_min.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             min_value,
         )
 
@@ -3930,10 +3930,10 @@ class EngN3DuringMaximumContinuousPowerMax(KeyPointValueNode):
 # Engine Throttles
 
 
-class ThrustReductionOnLanding(KeyPointValueNode):
+class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
     '''
-    This is a strange parameter with units of positive height and negative
-    time, designed to suit legacy events.
+    Records the duration from touchdown until Throttle leaver is reduced in
+    seconds, negative seconds indicates throttle reduced before touchdown.
 
     The original algorithm used reduction through 18deg throttle angle, but
     in cases where little power is being applied it was found that the
@@ -3948,40 +3948,25 @@ class ThrustReductionOnLanding(KeyPointValueNode):
     application of reverse thrust.
     '''
 
-    units=''
+    units = 's'
 
-    def derive(self, alt=P('Altitude AAL'), tla=P('Throttle Levers'),
-               lands=S('Landing'), tdwns=KTI('Touchdown')):
+    def derive(self,
+               tla=P('Throttle Levers'),
+               landings=S('Landing'),
+               touchdowns=KTI('Touchdown')):
 
-        for land in lands:
-            for tdwn in tdwns:
-                if not is_index_within_slice(tdwn.index, land.slice):
-                    continue
-
-                # Seek the throttle lowpoint before thrust reverse is applied.
-                retard_idx = index_at_value(tla.array, 0.0,
-                                            land.slice,
+        for landing in landings:
+            for touchdown in touchdowns.get(within_slice=landing.slice):
+                # Seek the throttle lowpoint before thrust reverse is applied:
+                retard_idx = index_at_value(tla.array, 0.0, landing.slice,
                                             endpoint='closing')
-
-                # the range of interest is therefore...
-                scan=slice(land.slice.start - 5/alt.hz,
-                           retard_idx)
-
-                # Now see where the power is reduced.
+                # The range of interest is therefore...
+                scan = slice(landing.slice.start - 5 / tla.hz, retard_idx)
+                # Now see where the power is reduced:
                 reduce_idx = peak_curvature(tla.array, scan,
-                                            curve_sense='Convex',
-                                            gap=1,ttp=3)
-
+                                            curve_sense='Convex', gap=1, ttp=3)
                 if reduce_idx:
-                    dt = (reduce_idx - tdwn.index) / alt.hz
-
-                    if dt<0:
-                        # If before touchdown, measure the height at this moment
-                        value = value_at_index(alt.array, reduce_idx)
-                    else:
-                        # If after, measure the time. Negative values allow the KPV to discriminate the two phases.
-                        value = -dt
-
+                    value = (reduce_idx - tdwn.index) / tla.hz
                     self.create_kpv(reduce_idx, value)
 
 
@@ -4144,7 +4129,7 @@ class EngTorqueDuringMaximumContinuousPowerMax(KeyPointValueNode):
         self.create_kpv_outside_slices(eng_trq_max.array, slices, max_value)
 
 
-class EngTorque500To20FtMax(KeyPointValueNode):
+class EngTorque500To50FtMax(KeyPointValueNode):
     '''
     '''
 
@@ -4156,12 +4141,12 @@ class EngTorque500To20FtMax(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_trq_max.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             max_value,
         )
 
 
-class EngTorque500To20FtMin(KeyPointValueNode):
+class EngTorque500To50FtMin(KeyPointValueNode):
     '''
     '''
 
@@ -4173,7 +4158,7 @@ class EngTorque500To20FtMin(KeyPointValueNode):
 
         self.create_kpvs_within_slices(
             eng_trq_min.array,
-            alt_aal.slices_from_to(500, 20),
+            alt_aal.slices_from_to(500, 50),
             min_value,
         )
 

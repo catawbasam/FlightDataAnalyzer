@@ -126,8 +126,8 @@ from analysis_engine.key_point_values import (
     EngEPRDuringTakeoff5MinRatingMax,
     EngEPRDuringGoAround5MinRatingMax,
     EngEPRDuringMaximumContinuousPowerMax,
-    EngEPR500To20FtMax,
-    EngEPR500To20FtMin,
+    EngEPR500To50FtMax,
+    EngEPR500To50FtMin,
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
     EngGasTempDuringMaximumContinuousPowerMax,
@@ -137,8 +137,8 @@ from analysis_engine.key_point_values import (
     EngN1DuringGoAround5MinRatingMax,
     EngN1DuringMaximumContinuousPowerMax,
     EngN1CyclesDuringFinalApproach,
-    EngN1500To20FtMax,
-    EngN1500To20FtMin,
+    EngN1500To50FtMax,
+    EngN1500To50FtMin,
     EngN1WithThrustReversersInTransitMax,
     EngN1Below60PercentAfterTouchdownDuration,
     EngN2DuringTaxiMax,
@@ -160,8 +160,8 @@ from analysis_engine.key_point_values import (
     EngTorqueDuringTakeoff5MinRatingMax,
     EngTorqueDuringGoAround5MinRatingMax,
     EngTorqueDuringMaximumContinuousPowerMax,
-    EngTorque500To20FtMax,
-    EngTorque500To20FtMin,
+    EngTorque500To50FtMax,
+    EngTorque500To50FtMin,
     EngVibN1Max,
     EngVibN2Max,
     FlapAtGearDownSelection,
@@ -288,6 +288,7 @@ from analysis_engine.key_point_values import (
     TCASRAToAPDisengagedDuration,
     TerrainClearanceAbove3000FtMin,
     ThrottleCyclesDuringFinalApproach,
+    ThrottleReductionToTouchdownDuration,
     ThrustAsymmetryDuringTakeoffMax,
     ThrustAsymmetryDuringFlightMax,
     ThrustAsymmetryDuringGoAroundMax,
@@ -2441,26 +2442,26 @@ class TestEngEPRMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngEPR500To20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestEngEPR500To50FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = EngEPR500To20FtMax
+        self.node_class = EngEPR500To50FtMax
         self.operational_combinations = [('Eng (*) EPR Max', 'Altitude AAL For Flight Phases')]
         self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+        self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngEPR500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestEngEPR500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = EngEPR500To20FtMin
+        self.node_class = EngEPR500To50FtMin
         self.operational_combinations = [('Eng (*) EPR Min', 'Altitude AAL For Flight Phases')]
         self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+        self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -2591,26 +2592,26 @@ class TestEngN1CyclesDuringFinalApproach(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN1500To20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestEngN1500To50FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = EngN1500To20FtMax
+        self.node_class = EngN1500To50FtMax
         self.operational_combinations = [('Eng (*) N1 Max', 'Altitude AAL For Flight Phases')]
         self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+        self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngN1500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestEngN1500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = EngN1500To20FtMin
+        self.node_class = EngN1500To50FtMin
         self.operational_combinations = [('Eng (*) N1 Min', 'Altitude AAL For Flight Phases')]
         self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+        self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -2770,6 +2771,21 @@ class TestEngN3MaximumContinuousPowerMax(unittest.TestCase, NodeTest):
 
 
 ##############################################################################
+# Engine Throttles
+
+
+class TestThrottleReductionToTouchdownDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = ThrottleReductionToTouchdownDuration
+        self.operational_combinations = [('Throttle Levers', 'Landing', 'Touchdown')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
 # Engine Oil Pressure
 
 
@@ -2909,26 +2925,26 @@ class TestEngTorqueMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngTorque500To20FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestEngTorque500To50FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = EngTorque500To20FtMax
+        self.node_class = EngTorque500To50FtMax
         self.operational_combinations = [('Eng (*) Torque Max', 'Altitude AAL For Flight Phases')]
         self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+        self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngTorque500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestEngTorque500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = EngTorque500To20FtMin
+        self.node_class = EngTorque500To50FtMin
         self.operational_combinations = [('Eng (*) Torque Min', 'Altitude AAL For Flight Phases')]
         self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+        self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
