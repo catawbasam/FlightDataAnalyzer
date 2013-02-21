@@ -3930,10 +3930,10 @@ class EngN3DuringMaximumContinuousPowerMax(KeyPointValueNode):
 # Engine Throttles
 
 
-class ThrustReductionOnLanding(KeyPointValueNode):
+class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
     '''
-    This is a strange parameter with units of positive height and negative
-    time, designed to suit legacy events.
+    Records the duration from touchdown until Throttle leaver is reduced in
+    seconds, negative seconds indicates throttle reduced before touchdown.
 
     The original algorithm used reduction through 18deg throttle angle, but
     in cases where little power is being applied it was found that the
@@ -3948,7 +3948,7 @@ class ThrustReductionOnLanding(KeyPointValueNode):
     application of reverse thrust.
     '''
 
-    units=''
+    units='s'
 
     def derive(self, alt=P('Altitude AAL'), tla=P('Throttle Levers'),
                lands=S('Landing'), tdwns=KTI('Touchdown')):
@@ -3973,15 +3973,7 @@ class ThrustReductionOnLanding(KeyPointValueNode):
                                             gap=1,ttp=3)
 
                 if reduce_idx:
-                    dt = (reduce_idx - tdwn.index) / alt.hz
-
-                    if dt<0:
-                        # If before touchdown, measure the height at this moment
-                        value = value_at_index(alt.array, reduce_idx)
-                    else:
-                        # If after, measure the time. Negative values allow the KPV to discriminate the two phases.
-                        value = -dt
-
+                    value = (reduce_idx - tdwn.index) / alt.hz
                     self.create_kpv(reduce_idx, value)
 
 

@@ -4277,7 +4277,6 @@ class TAT(DerivedParameterNode):
             blend_two_parameters(source_1, source_2)
 
 
-
 class TAWSAlert(MultistateDerivedParameterNode):
     '''
     Merging all available TAWS alert signals into a single parameter for
