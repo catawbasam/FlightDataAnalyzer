@@ -9,7 +9,8 @@ from analysis_engine.model_information import (get_conf_map,
 from analysis_engine.node import (
     A, App, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M,
     P, S)
-from analysis_engine.library import (air_track,
+from analysis_engine.library import (act_mismatch,
+                                     air_track,
                                      align,
                                      all_of,
                                      any_of,
@@ -5176,13 +5177,13 @@ class ElevatorActuatorMismatch(DerivedParameterNode):
     def derive(self, elevator=P('Elevator'), 
                ap=M('AP Engaged'), 
                fcc=M('FCC Local Limited Master'),
-               left=P('Elevator Actuator (L)'), 
-               right=P('Elevator Actuator (R)')):
+               left=P('Elevator (L) Actuator'), 
+               right=P('Elevator (R) Actuator')):
         
         scaling = 1/2.6 # 737 elevator specific at this time
         
-        fcc_l = np.ma.where(fcc=='FCC (L)',1,0)
-        fcc_r = np.ma.where(fcc=='FCC (R)',1,0)
+        fcc_l = np.ma.where(fcc.array == 'FCC (L)', 1, 0)
+        fcc_r = np.ma.where(fcc.array == 'FCC (R)', 1, 0)
         
         amm = act_mismatch(ap.array.raw, 
                            fcc_l,
@@ -5190,7 +5191,8 @@ class ElevatorActuatorMismatch(DerivedParameterNode):
                            left.array,
                            right.array,
                            elevator.array,
-                           scaling)
+                           scaling,
+                           self.frequency)
         
         self.array = amm
 

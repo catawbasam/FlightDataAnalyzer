@@ -29,7 +29,8 @@ Value = namedtuple('Value', 'index value')
 class InvalidDatetime(ValueError):
     pass
 
-def act_mismatch(ap, ap_l, ap_r, act_l, act_r, surf, scaling):
+
+def act_mismatch(ap, ap_l, ap_r, act_l, act_r, surf, scaling, frequency):
     '''
     Computes the mismatch between a control surface and the driving actuator
     during autopilot engaged phases of flight.
@@ -48,6 +49,8 @@ def act_mismatch(ap, ap_l, ap_r, act_l, act_r, surf, scaling):
     :type param: numpy masked array
     :param scaling: ratio of surface movement to actuator movement
     :type scaling: float
+    :param frequency: Frequency of parameters.
+    :type frequency: float
     
     :returns mismatch: degrees of mismatch between recorded actuator and surface positions
     :type mismatch: numpy masked array.
@@ -56,18 +59,19 @@ def act_mismatch(ap, ap_l, ap_r, act_l, act_r, surf, scaling):
     the engaged channel only.
     '''
     mismatch = np_ma_zeros_like(ap)
-    act = np.ma.where(ap_l==1, act_l, act_r) * scaling
+    act = np.ma.where(ap_l == 1, act_l, act_r) * scaling
     
     ap_engs = np.ma.clump_unmasked(np.ma.masked_equal(ap, 0))
-    for ap_eng in ap_engs:
-        
-        check = slice(ap_eng.start + 3, ap_eng.stop) # Allow the actuator two seconds to settle after engagement
+    for ap_eng in filter_slices_duration(ap_engs, 4, frequency):
+        # Allow the actuator two seconds to settle after engagement.
+        check = slice(ap_eng.start + (3 * frequency), ap_eng.stop)
 
         # We compute a transient mismatch to avoid long term scaling errors.
-        mismatch[check] = first_order_washout(surf[check] - act[check], 30.0, 1.0)
+        mismatch[check] = first_order_washout(surf[check] - act[check], 30.0,
+                                              1.0)
 
     # Square to ensure always positive, and take moving average to smooth.
-    mismatch = moving_average(mismatch**2.0)
+    mismatch = moving_average(mismatch ** 2.0)
     
     '''
     # This plot shows how the fitted straight sections match the recorded data.
@@ -79,14 +83,15 @@ def act_mismatch(ap, ap_l, ap_r, act_l, act_r, surf, scaling):
     '''
     
     return mismatch    
-    
-    
+
+
 def all_of(names, available):
     '''
     Returns True if all of the names are within the available list.
     i.e. names is a subset of available
     '''
     return all(name in available for name in names)
+
 
 def any_of(names, available):
     '''
@@ -132,7 +137,6 @@ def air_track(lat_start, lon_start, lat_end, lon_end, spd, hdg, frequency):
     :Invalid mode fails with ValueError
     :Mismatched array lengths fails with ValueError
     """
-
     # First check that the gspd/hdg arrays are sensible.
     if len(spd) != len(hdg):
         raise ValueError('Ground_track requires equi-length speed and '
