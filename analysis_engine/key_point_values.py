@@ -3966,7 +3966,7 @@ class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
                 reduce_idx = peak_curvature(tla.array, scan,
                                             curve_sense='Convex', gap=1, ttp=3)
                 if reduce_idx:
-                    value = (reduce_idx - tdwn.index) / tla.hz
+                    value = (reduce_idx - touchdown.index) / tla.hz
                     self.create_kpv(reduce_idx, value)
 
 
