@@ -6867,7 +6867,7 @@ class HoldingDuration(KeyPointValueNode):
     Identify time spent in the hold.
     """
     def derive(self, holds=S('Holding')):
-        self.create_kpvs_from_slice_durations(holds, mark='end')
+        self.create_kpvs_from_slice_durations(holds, self.frequency, mark='end')
 
 
 ##### TODO: Implement!
