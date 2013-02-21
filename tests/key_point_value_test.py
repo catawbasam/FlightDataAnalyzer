@@ -287,6 +287,7 @@ from analysis_engine.key_point_values import (
     TCASRAToAPDisengagedDuration,
     TerrainClearanceAbove3000FtMin,
     ThrottleCyclesDuringFinalApproach,
+    ThrottleReductionToTouchdownDuration,
     ThrustAsymmetryDuringTakeoffMax,
     ThrustAsymmetryDuringFlightMax,
     ThrustAsymmetryDuringGoAroundMax,
@@ -2762,6 +2763,21 @@ class TestEngN3MaximumContinuousPowerMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = EngN3DuringMaximumContinuousPowerMax
         self.operational_combinations = [('Eng (*) N3 Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
+# Engine Throttles
+
+
+class TestThrottleReductionToTouchdownDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = ThrottleReductionToTouchdownDuration
+        self.operational_combinations = [('Throttle Levers', 'Landing', 'Touchdown')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
