@@ -3966,7 +3966,7 @@ class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
                 reduce_idx = peak_curvature(tla.array, scan,
                                             curve_sense='Convex', gap=1, ttp=3)
                 if reduce_idx:
-                    value = (reduce_idx - tdwn.index) / tla.hz
+                    value = (reduce_idx - touchdown.index) / tla.hz
                     self.create_kpv(reduce_idx, value)
 
 
@@ -6867,7 +6867,7 @@ class HoldingDuration(KeyPointValueNode):
     Identify time spent in the hold.
     """
     def derive(self, holds=S('Holding')):
-        self.create_kpvs_from_slice_durations(holds, mark='end')
+        self.create_kpvs_from_slice_durations(holds, holds.frequency, mark='end')
 
 
 ##### TODO: Implement!
