@@ -66,6 +66,9 @@ def act_mismatch(ap, ap_l, ap_r, act_l, act_r, surf, scaling):
         # We compute a transient mismatch to avoid long term scaling errors.
         mismatch[check] = first_order_washout(surf[check] - act[check], 30.0, 1.0)
 
+    # Square to ensure always positive, and take moving average to smooth.
+    mismatch = moving_average(mismatch**2.0)
+    
     '''
     # This plot shows how the fitted straight sections match the recorded data.
     import matplotlib.pyplot as plt
