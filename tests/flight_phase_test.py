@@ -202,10 +202,10 @@ class TestApproachAndLanding(unittest.TestCase):
 class TestApproach(unittest.TestCase):
     def test_approach_basic(self):
         aal = buildsection('Approach And Landing', 5, 15)
-        land = buildsection('Landing', 10, 15)
+        land = buildsection('Landing', 9.5, 15)
         app = Approach()
         app.derive(aal, land)
-        expected = buildsection('Approach', 5, 10)
+        expected = buildsection('Approach', 5, 9)
         self.assertEqual(app, expected)
 
     def test_approach_complex(self):

@@ -250,6 +250,7 @@ class Approach(FlightPhaseNode):
                 end = max(end, _slice.stop)
         for land in lands:
             land_slices.append(land.slice)
+        
         self.create_phases(slices_and(app_slices,
                                       slices_not(land_slices,
                                                  begin_at=begin,

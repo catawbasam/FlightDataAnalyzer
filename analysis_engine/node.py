@@ -51,11 +51,39 @@ KeyTimeInstance = recordtype('KeyTimeInstance',
 
 @total_ordering
 class Section(object):
-    '''
+    u'''
     Section nodes start and stop are aligned. The start and stops are
     accurate positions (including interpolation) of indexes into the data.
     Note that these are more accurate than the slices the Section can create
     which are rounded appropriately to integer values.
+    
+    Sections are single intervals which allows us many options:
+      left-closed, right-open: [a, b)  ≡  a <= x < b  ≡  slice(a, b)
+      left-bounded, right-unbounded, left-closed: [a, inf)  ≡  x >= a  ≡  slice(a, None)
+      left-unbounded and right-bounded, right-open: (-inf, b)  ≡  x <= b  ≡  slice(None, b)
+    
+    Including the ability to do fully closed intervals which slices cannot afford us:
+      proper and bounded, closed: [a, b]  ≡  a <= x <= b
+    
+    To define a right-closed interval (inclusive of b) use endpoint=True 
+    (default) as used by numpy linspace example here:
+
+      http://docs.scipy.org/doc/numpy/reference/generated/numpy.linspace.html
+    
+    Python slicing uses half-open (left-closed, right-open) intervals to make
+    arithmetics easier (see comment in link). Slicing lists raises a
+    TypeError if floats are used as the slice start or stop, but in numpy the 
+    start and stop are floored to their lower integer.
+    
+      http://stackoverflow.com/questions/9421057/numpy-indexing-questions-on-odd-behavior-inconsistencies#answer-9421268
+    
+    It is difficult to define a flight phase as half-open as you often
+    determine the closed boundaries of the phase based on information from
+    the available data. In addition we often work on parameters at different
+    frequencies which means the start and stop positions must be easily
+    aligned to other frequencies and ofsets requiring that the start/stop
+    positions become decimal values.
+
     '''    
     __hash__ = None
     
@@ -97,6 +125,16 @@ class Section(object):
             return self.stop_pos < other.stop_pos
         else:
             return self.start_pos < other.start_pos
+        
+    def __contains__(self, position):
+        "position is between start_pos to stop_pos"
+        stop = position if self.stop_pos is None else self.stop_pos
+        return (self.start_pos) <= position <= stop
+    
+    def overlaps(self, other):
+        "other section overlaps with self"
+        return (self.start_pos < other.stop_pos or other.stop_pos is None) and\
+               (other.start_pos < self.stop_pos or self.stop_pos is None)
     
     @property
     def slice(self):
@@ -522,7 +560,7 @@ class ListNode(Node, list):
             super(ListNode, self).__init__(*args, **kwargs)
 
     def __repr__(self):
-        return "%s(name='%s', frequency=%s, offset=%s, items=%s)" % (
+        return "%s('%s', %s, %s, items=%s)" % (
             self.__class__.__name__,
             self.name,
             self.frequency,
@@ -854,7 +892,30 @@ class SectionNode(ListNode):
             self.extend(kwargs['items'])
             del kwargs['items']
         super(SectionNode, self).__init__(*args, **kwargs)
-
+        
+        
+    def __or__(self, other):
+        assert self.offset == other.offset
+        assert self.frequency == other.frequency
+    
+    def __xor__(self, other):
+        assert self.offset == other.offset
+        assert self.frequency == other.frequency
+    
+    def __and__(self, other):
+        assert self.offset == other.offset
+        assert self.frequency == other.frequency
+        
+        overlap = []
+        for mine in self:
+            for theirs in other:
+                if mine.overlaps(theirs):
+                    start = max(mine.start_pos, theirs.start_pos)
+                    stop = min(mine.stop_pos, theirs.stop_pos)
+                    overlap.append(Section(start, stop))
+        return overlap
+    
+        
     def create_section(self, start_pos, stop_pos, name=''):
         """
         Create a section between the start_pos and the stop_pos.

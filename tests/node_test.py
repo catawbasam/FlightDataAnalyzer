@@ -537,6 +537,23 @@ class TestSection(unittest.TestCase):
         # cannot use step different from 1 or None
         self.assertRaises(NotImplementedError, Section, _slice=slice(1, 10, -1))
         self.assertRaises(NotImplementedError, Section, _slice=slice(1, 10, 2))
+        
+    def test_position__in__(self):
+        self.assertTrue(12 in Section(None, 13))
+        self.assertTrue(12 in Section(10, 12))
+        self.assertTrue(12.2 in Section(10, None))
+        self.assertFalse(12.2 in Section(None, 12))
+        self.assertFalse(12 in Section(14, None))
+        
+    def test_section_overlaps(self):
+        self.assertTrue(Section(10, 12).overlaps(Section(11, 13)))
+        self.assertTrue(Section(None, 12).overlaps(Section(11, 13)))
+        self.assertTrue(Section(10, None).overlaps(Section(11, 13)))
+        self.assertTrue(Section(10, 12).overlaps(Section(None, 13)))
+        self.assertTrue(Section(10, 12).overlaps(Section(11, None)))
+        self.assertFalse(Section(10, 12).overlaps(Section(5, 6)))
+        self.assertFalse(Section(10, 12).overlaps(Section(None, 6)))
+        self.assertFalse(Section(10, 12).overlaps(Section(13, None)))
 
 
 class TestSectionNode(unittest.TestCase):
@@ -762,7 +779,47 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(node.get_surrounding(12), [sect_1, sect_2])
         self.assertEqual(node.get_surrounding(-3), [])
         self.assertEqual(node.get_surrounding(25), [sect_2])
-
+        
+    def test_logical_and(self):
+        ldg = SectionNode(items=[
+            Section(start_pos=9.5, stop_pos=15, name='Landing')])
+        app_ldg = SectionNode(items=[
+            Section(start_pos=None, stop_pos=15, name='Approach and Landing')])
+        
+        expected_app = SectionNode(items=[Section(start_pos=9.5, stop_pos=15)])
+        resulting_app = ldg & app_ldg
+        self.assertEqual(resulting_app, expected_app)
+        
+    def test_logical_or(self):
+        ldg = SectionNode(items=[
+            Section(start_pos=9.5, stop_pos=15, name='Landing')])
+        app_ldg = SectionNode(items=[
+            Section(start_pos=None, stop_pos=12, name='Approach and Landing'),
+            Section(start_pos=18, stop_pos=20, name='Approach and Landing'),
+        ])
+        
+        expected_app = SectionNode(items=[
+            Section(start_pos=None, stop_pos=15),
+            Section(start_pos=18, stop_pos=20),
+        ])
+        resulting_app = ldg | app_ldg
+        self.assertEqual(resulting_app, expected_app)
+    
+    def test_logical_xor(self):
+        ldg = SectionNode(items=[
+            Section(start_pos=9.5, stop_pos=15, name='Landing')])
+        app_ldg = SectionNode(items=[
+            Section(start_pos=None, stop_pos=12, name='Approach and Landing'),
+            Section(start_pos=18, stop_pos=20, name='Approach and Landing'),
+        ])
+        
+        expected_app = SectionNode(items=[
+            Section(start_pos=None, stop_pos=9.5),
+            Section(start_pos=12, stop_pos=15),
+            Section(start_pos=18, stop_pos=20),
+        ])
+        resulting_app = ldg ^ app_ldg
+        self.assertEqual(resulting_app, expected_app)
 
 
 class TestFormattedNameNode(unittest.TestCase):
