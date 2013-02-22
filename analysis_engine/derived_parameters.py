@@ -5163,3 +5163,34 @@ class StableApproach(MultistateDerivedParameterNode):
 
         #endfor
         return
+
+
+
+class ElevatorActuatorMismatch(DerivedParameterNode):
+    '''
+    An incident focused attention on mismatch between the elevator actuator
+    and surface. This parameter is designed to measure the mismatch which
+    should never be large, and from which we may be able to predict actuator
+    malfunctions.
+    '''
+    def derive(self, elevator=P('Elevator'), 
+               ap=M('AP Engaged'), 
+               fcc=M('FCC Local Limited Master'),
+               left=P('Elevator Actuator (L)'), 
+               right=P('Elevator Actuator (R)')):
+        
+        scaling = 1/2.6 # 737 elevator specific at this time
+        
+        fcc_l = np.ma.where(fcc=='FCC (L)',1,0)
+        fcc_r = np.ma.where(fcc=='FCC (R)',1,0)
+        
+        amm = act_mismatch(ap.array.raw, 
+                           fcc_l,
+                           fcc_r,
+                           left.array,
+                           right.array,
+                           elevator.array,
+                           scaling)
+        
+        self.array = amm
+

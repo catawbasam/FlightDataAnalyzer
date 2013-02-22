@@ -936,7 +936,57 @@ class TestClosestUnmaskedValue(unittest.TestCase):
         array[5:8] = np.ma.masked
         self.assertEqual(closest_unmasked_value(array, 7), Value(8, 8))
 
-
+class TestActuatorMismatch(unittest.TestCase):
+    '''
+    Originally written to monitor 737 elevator actuators, this may be
+    extended in future to cover different actuators on different aircraft.
+    '''
+    def setUp(self):
+        ap_list = []
+        fcc_l_list = []
+        fcc_r_list = []
+        act_l_list = []
+        act_r_list = []
+        surf_list = []
+        '''
+        This test data came from a known actuator failure case and includes
+        autopilot disengagement and selection of both left and right
+        actuators.
+        '''
+        duration_test_data_path = os.path.join(test_data_path,
+                                               'Elevator Actuator Mismatch Test Data.csv')
+        with open(duration_test_data_path, 'rb') as csvfile:
+            self.reader = csv.DictReader(csvfile)
+            for row in self.reader:
+                ap_list.append(float(row['Engaged']))
+                fcc_l_list.append(float(row['Left channel']))
+                fcc_r_list.append(float(row['Right channel']))
+                act_l_list.append(float(row['Elevator (L) Actuator']))
+                act_r_list.append(float(row['Elevator (R) Actuator']))
+                surf_list.append(float(row['Elevator']))
+        self.ap_array = np.ma.array(ap_list)
+        self.fcc_l_array = np.ma.array(fcc_l_list)
+        self.fcc_r_array = np.ma.array(fcc_r_list)
+        self.act_l_array = np.ma.array(act_l_list)
+        self.act_r_array = np.ma.array(act_r_list)
+        self.surf_array = np.ma.array(surf_list)
+        
+    def test_actuator_basic(self):
+        scaling = 1/2.6 # 737 elevator specific at this time
+        amm = act_mismatch(self.ap_array, 
+                           self.fcc_l_array, 
+                           self.fcc_r_array,
+                           self.act_l_array,
+                           self.act_r_array,
+                           self.surf_array,
+                           scaling)
+        peak_index = np.ma.argmax(amm)
+        peak_value = amm[peak_index]
+        self.assertGreater(peak_value,1.0)
+        self.assertGreater(peak_index,9530)
+        self.assertLess(peak_index,9540)
+        
+        
 class TestClip(unittest.TestCase):
     # Previously known as Duration
     def setUp(self):

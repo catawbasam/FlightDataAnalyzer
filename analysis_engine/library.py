@@ -29,7 +29,58 @@ Value = namedtuple('Value', 'index value')
 class InvalidDatetime(ValueError):
     pass
 
+def act_mismatch(ap, ap_l, ap_r, act_l, act_r, surf, scaling):
+    '''
+    Computes the mismatch between a control surface and the driving actuator
+    during autopilot engaged phases of flight.
+    
+    :param ap: autopilot engaged status, 1=engaged, 0=not engaged
+    :type ap: numpy masked array
+    :param ap_l: autopilot left channel engaged, 1=engaged, 0=not engaged
+    :type ap_l: numpy masked array 
+    :param ap_r: autopilot right channel engaged, 1=engaged, 0=not engaged
+    :type ap_r: numpy masked array
+    :param act_l: left channel actuator position, degrees actuator
+    :type act_l: numpy masked array
+    :param act_r: right channel actuator position, degrees actuator
+    :type act_r: numpy masked array
+    :param surf: control surface position, degrees surface movement
+    :type param: numpy masked array
+    :param scaling: ratio of surface movement to actuator movement
+    :type scaling: float
+    
+    :returns mismatch: degrees of mismatch between recorded actuator and surface positions
+    :type mismatch: numpy masked array.
+    
+    :Note: mismatch is zero for autopilot not engaged, and is computed for
+    the engaged channel only.
+    '''
+    mismatch = np_ma_zeros_like(ap)
+    act = np.ma.where(ap_l==1, act_l, act_r) * scaling
+    
+    ap_engs = np.ma.clump_unmasked(np.ma.masked_equal(ap, 0))
+    for ap_eng in ap_engs:
+        
+        check = slice(ap_eng.start + 3, ap_eng.stop) # Allow the actuator two seconds to settle after engagement
 
+        # We compute a transient mismatch to avoid long term scaling errors.
+        mismatch[check] = first_order_washout(surf[check] - act[check], 30.0, 1.0)
+
+    # Square to ensure always positive, and take moving average to smooth.
+    mismatch = moving_average(mismatch**2.0)
+    
+    '''
+    # This plot shows how the fitted straight sections match the recorded data.
+    import matplotlib.pyplot as plt
+    plt.plot(surf)
+    plt.plot(act)
+    plt.plot(mismatch)
+    plt.show()
+    '''
+    
+    return mismatch    
+    
+    
 def all_of(names, available):
     '''
     Returns True if all of the names are within the available list.
