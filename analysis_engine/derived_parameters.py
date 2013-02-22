@@ -4541,7 +4541,7 @@ class Speedbrake(DerivedParameterNode):
         '''
         frame_name = frame.value if frame else ''
 
-        if frame_name in ['737-3', '737-3A', '737-3B', '737-3C']:
+        if frame_name in ['737-3', '737-3A', '737-3B', '737-3C', '737-7']:
             self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
 
         elif frame_name in ['737-4', '737-5', '737-5_NON-EIS', '737-6',
@@ -4697,7 +4697,7 @@ class StickShaker(MultistateDerivedParameterNode):
                 shake_act.array, shake_act.frequency, shake_act.offset
 
         elif frame_name in ['737-1', '737-3', '737-3A', '737-3B', '737-3C', '737-4',
-                            '737-i', '737-2227000-335A', '757-DHL']:
+                            '737-7','737-i', '737-2227000-335A', '757-DHL']:
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset
 
