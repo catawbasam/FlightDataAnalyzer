@@ -3590,7 +3590,7 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                ):
         precision = bool(getattr(precise, 'value', False))
 
-        if hdg == None:
+        if hdg is None:
             hdg = head_mag
 
         lat_adj, lon_adj = self._adjust_track(
