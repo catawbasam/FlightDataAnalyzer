@@ -1,6 +1,7 @@
+# As per easy_install interval - but required Interval to inherit from object
 """Provides the Interval and IntervalSet classes
 
-The interval module provides the Interval and IntervalSet data types.   
+The interval module provides the Interval and IntervalSet data types.
 Intervals describe continuous ranges that can be open, closed, half-open,
 or infinite.  IntervalSets contain zero to many disjoint sets of 
 Intervals.
@@ -201,9 +202,9 @@ class Largest:
     
 
 Inf = Largest()
-# Use -Inf for the smallest value      
+# Use -Inf for the smallest value
 
-class Interval:
+class Interval(object):
     """Represents a continuous range of values
     
     An Interval is composed of the lower bound, a closed lower bound 
@@ -883,7 +884,7 @@ class Interval:
 class BaseIntervalSet(object):
     "Base class for IntervalSet and FrozenIntervalSet."
     
-    def __init__(self, items=[]):
+    def __init__(self, items=[], **kwargs):
         """Initializes a BaseIntervalSet
         
         This function initializes an IntervalSet.  It takes an iterable
@@ -921,6 +922,7 @@ class BaseIntervalSet(object):
         for i in items:
             self._add(i)
         self.intervals.sort()
+        super(BaseIntervalSet, self).__init__(**kwargs)
 
     def __len__(self):
         """Returns the number of intervals contained in the object
@@ -2060,9 +2062,10 @@ class IntervalSet(BaseIntervalSet):
         ...
     TypeError: unhashable instance
     """
-    def __init__(self, items=[]):
+    def __init__(self, items=[], **kwargs):
         "Initializes the IntervalSet"
-        BaseIntervalSet.__init__(self, items)
+        ##BaseIntervalSet.__init__(self, items)
+        super(IntervalSet, self).__init__(items=items, **kwargs)
 
     def __repr__(self):
         """Returns an evaluable representation of the object
@@ -2074,7 +2077,7 @@ class IntervalSet(BaseIntervalSet):
         >>> IntervalSet([2, 4])
         IntervalSet([Interval(2, 2, lower_closed=True, upper_closed=True), Interval(4, 4, lower_closed=True, upper_closed=True)])
         """
-        return "IntervalSet([%s])" % (
+        return "%s([%s])" % (self.__class__.__name__,
             ", ".join(repr(i) for i in self.intervals),)
 
     def __delitem__(self, index):
