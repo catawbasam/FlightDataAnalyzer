@@ -2471,7 +2471,31 @@ class TestBlendTwoParameters(unittest.TestCase):
         self.assertEqual(freq, 2.0)
         self.assertAlmostEqual(off, 0.4)
 
+class TestMostPointsCost(unittest.TestCase):
+    def test_mpc_assertion(self):
+        coefs=[0.0,0.0]
+        x = np.ma.array([0.0])
+        y = np.ma.array([0.0])
+        self.assertRaises(ValueError, most_points_cost, coefs, x, y)
 
+    def test_mpc_colinear_raises(self):
+        coefs=[-1.0,0.0]
+        x = np.ma.array([0.0, 1.0, 2.0])
+        y = np.ma.array([0.0, -1.0, -2.0])
+        self.assertRaises(ValueError, most_points_cost, coefs, x, y)
+
+    def test_mpc_imbalanced_raises(self):
+        coefs=[0.0,0.0]
+        x = np.ma.array([0.0, 2.0])
+        y = np.ma.array([0.0])
+        self.assertRaises(ValueError, most_points_cost, coefs, x, y)
+
+    def test_mpc_basic(self):
+        coefs=[0.0,1.0]
+        x = np.ma.array([0.0, 0.0, 0.0])
+        y = np.ma.array([0.0, 0.0, 0.0])
+        result = most_points_cost(coefs, x, y)
+        self.assertAlmostEqual(result, 0.003 * 3.0, places=3)
 
 class TestMovingAverage(unittest.TestCase):
     def test_basic_average(self):

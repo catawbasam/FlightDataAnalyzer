@@ -3231,6 +3231,62 @@ def blend_two_parameters(param_one, param_two):
         return array, frequency, offset
 
 
+def most_points_cost(coefs, x, y):
+    '''
+    This cost function computes a value which is minimal for points clost to
+    a "best fit" line. It differs from normal least squares optimisation in
+    that points a long way from the line have almost the same error as points
+    a little way off the line.
+    
+    The function is used as a form of correlation function where we are
+    looking to find the largest number of points on a certain line, with less
+    regard to points that lie off that line.
+    
+    :param coefs: line coefficients, m and c, to be adjusted to minimise this cost function.
+    :type coefs: list of floats, containing [m, c]
+    :param x: independent variable
+    :type x: numpy masked array
+    :param y: dependent variable
+    :type y: numpy masked array
+    
+    :returns: cost function; most negative value represents best fit.
+    :type: float
+    '''
+    # Wrote "assert len(x) == len(y)" but can't find how to test this, so verbose equivalent is...
+    if len(x) != len(y):
+        raise ValueError('most_points_cost called with x & y of unequal length')
+    if len(x) < 2:
+        raise ValueError('most_points_cost called with inadequate samples')
+    # Conventional y=mx+c equation for the "bet fit" line
+    m=coefs[0]
+    c=coefs[1]
+    
+    # We compute the distance of each point from the line
+    d = np.ma.sqrt((m*x+c-y)**2.0/(m**2.0+1))
+    # and work out the maximum distance
+    d_max = np.ma.max(d)
+    if d_max == 0.0:
+        raise ValueError('most_points_cost called with colinear data')
+    # The error for each point is computed as a nonlinear function of the
+    # distance, tailored to make points on the line give a small error, and
+    # those away from the line progressively greater, but reaching a limit
+    # value of 0 so that points at a great distance do not contribute more to
+    # the weighted error.
+    
+    # width sets the width of the channel created by this function. Larger
+    # values make the channel wider, but this opens up the function to
+    # settling on minima away from the optimal line. Too narrow a width and,
+    # again, the function can latch onto few points and determine a local
+    # minimum. The value of 0.003 was chosen from analysis of fuel flow vs
+    # altitude plots where periods of level flight in the climb create low
+    # fuel readings which are not part of the climb performance we are trying
+    # to detect. Values 3 times greater or smaller gave similar results,
+    # while values 10 times greater or smaller led to erroneous results.
+    width=0.003
+    e = 1.0 -1.0/((d/d_max)**2 + width)
+    return np.ma.sum(e)
+
+
 def moving_average(array, window=9, weightings=None, pad=True):
     """
     Moving average over an array with window of n samples. Weightings allows
