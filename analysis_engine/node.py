@@ -281,6 +281,7 @@ class Node(object):
         # cast frequency as a float to avoid integer division
         self.frequency = self.sample_rate = self.hz = float(frequency) # Hz
         self.offset = offset # secs
+        super(Node, self).__init__(**kwargs)
 
     def __repr__(self):
         '''
@@ -551,23 +552,19 @@ def can_operate(cls, available):
 
 
 class ListNode(Node, list):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, name='', frequency=1, offset=0, items=[], **kwargs):
         '''
-        If the there is not an 'items' kwarg and the first argument is a list
-        or a tuple, the first argument's items will be extended to the node.
+        Iterable node containing many objects. As it is an ordered list,
+        index order is generally assumed (i.e. ordered through the flight).
+        
+        Pre-populate with items if required (generally for testing).
 
         :param items: Optional keyword argument of initial items to be contained within self.
         :type items: list
         '''
-        if 'items' in kwargs:
-            self.extend(kwargs['items'])
-            del kwargs['items']
-            super(ListNode, self).__init__(*args, **kwargs)
-        elif args and any(isinstance(args[0], t) for t in (list, tuple)):
-            self.extend(args[0])
-            super(ListNode, self).__init__(*args[1:], **kwargs)
-        else:
-            super(ListNode, self).__init__(*args, **kwargs)
+        super(ListNode, self).__init__(name=name, frequency=frequency, 
+                                       offset=offset, **kwargs)
+        self.extend(items)
 
     def __repr__(self):
         return "%s('%s', %s, %s, items=%s)" % (
