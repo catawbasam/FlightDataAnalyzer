@@ -110,6 +110,14 @@ class Section(Interval):
             
     @property
     def slice(self):
+        """
+        Creates slices on the fly based on Interval period. Rounds
+        lower_bound and upper_bound to the appropriate integer value
+        depending on whether it is open or closed.
+        
+        :returns: Slice describing constrained range of data for array slicing.
+        :rtype: slice
+        """
         # cast slice start and stop to integer to reassure end-user that no
         # decimals are used here!
         is_integer = lambda x: not x % 1
