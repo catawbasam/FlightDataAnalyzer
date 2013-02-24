@@ -110,11 +110,26 @@ class Section(Interval):
             
     @property
     def slice(self):
-        # cast to integer to reassure end-user that no decimals used here!
-        # start is always the top end of the value to constrain results
-        start = int(math.ceil(self.lower_bound)) if self.lower_bound != -Inf else None
-        # stop is the bottom end of the value plus one to include the last value
-        stop = int(math.floor(self.upper_bound)) + 1 if self.upper_bound != Inf else None
+        # cast slice start and stop to integer to reassure end-user that no
+        # decimals are used here!
+        is_integer = lambda x: not x % 1
+        if self.lower_bound == -Inf:
+            start = None
+        elif self.lower_open and is_integer(self.lower_bound):
+            # be sure to exclude the whole value and go up to next integer
+            start = int(self.lower_bound) + 1
+        else:
+            # start is always the top end of the value to constrain results
+            start = int(math.ceil(self.lower_bound))
+
+        if self.upper_bound == Inf:
+            stop = None
+        elif self.upper_open and is_integer(self.upper_bound):
+            # do not include stopping point for whole value
+            stop = int(self.upper_bound)
+        else:
+            # stop is the bottom end of the value plus one to include the last value
+            stop = int(math.floor(self.upper_bound)) + 1
         return slice(start, stop)
 
 
