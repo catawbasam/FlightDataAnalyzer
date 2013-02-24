@@ -579,6 +579,28 @@ class Interval(object):
         [32...)
         """
         return cls(lower_bound=a, lower_closed=True)
+    
+    @property
+    def lower_open(self):
+        """Inverse of lower_closed
+        
+        >>> Interval(1, 2).lower_open
+        False
+        >>> Interval(1, 2, lower_closed=False).lower_open
+        True
+        """
+        return not self.lower_closed
+
+    @property
+    def upper_open(self):
+        """Inverse of upper_closed
+        
+        >>> Interval(1, 2).upper_open
+        False
+        >>> Interval(1, 2, upper_closed=False).upper_open
+        True
+        """
+        return not self.upper_closed
 
     def comes_before(self, other):
         """Tells whether an interval lies before the object
