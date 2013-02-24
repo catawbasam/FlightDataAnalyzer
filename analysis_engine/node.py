@@ -882,68 +882,33 @@ def derived_param_from_hdf(hdf_parameter):
         )
 
 
-class SectionNode(ListNode):
+class SectionNode(IntervalSet, Node):
     '''
-    Derives from list to implement iteration and list methods.
+    Derives from IntervalSet. Creates a set of intervals which describe the
+    Interval over the dataset.
     
-    Is a list container of Section objects.
+    TODO: Check whether frequency and offset are the same when comparing:
+    SectionNode1 in SectionNode2 either aligns or asserts equal.
     '''
-    def __init__(self, *args, **kwargs):
-        '''
-        List of slices where this phase is active. Has a frequency and offset.
-
-        :param items: Optional keyword argument of initial items to be contained within self.
-        :type items: list
-        '''
-        if 'items' in kwargs:
-            self.extend(kwargs['items'])
-            del kwargs['items']
-        super(SectionNode, self).__init__(*args, **kwargs)
         
-        
-    def __or__(self, other):
-        assert self.offset == other.offset
-        assert self.frequency == other.frequency
-    
-    def __xor__(self, other):
-        assert self.offset == other.offset
-        assert self.frequency == other.frequency
-    
-    def __and__(self, other):
-        assert self.offset == other.offset
-        assert self.frequency == other.frequency
-        
-        overlap = []
-        for mine in self:
-            for theirs in other:
-                if mine.overlaps(theirs):
-                    start = max(mine.start_pos, theirs.start_pos)
-                    stop = min(mine.stop_pos, theirs.stop_pos)
-                    overlap.append(Section(start, stop))
-        return overlap
-    
-        
-    def create_section(self, start_pos, stop_pos, name=''):
+    def create_section(self, lower_bound, upper_bound, name=''):
         """
-        Create a section between the start_pos and the stop_pos.
+        Create a section between the lower_bound and the upper_bound.
         
         NOTE: Sections with start/ends of None can cause errors later
         when creating KPV/KTIs from a slice. However, they are valid for
         slicing data arrays from.
         
-        :type start_pos: float (or None)
-        :type stop_pos: float (or None)
+        :type lower_bound: float (or None)
+        :type upper_bound: float (or None)
         :type name: str
         :type begin: int or float
         :type end: int or float
         :rtype: None
         """
-        section = Section(start_pos, stop_pos,
+        section = Section(lower_bound, upper_bound,
                           name=name or self.get_name())
-        self.append(section)
-        if start_pos is None or stop_pos is None:
-            logger.debug("Section %s created %s with None start or stop.", 
-                          self.get_name(), section)
+        self.add(section)
         return self
 
     def create_sections(self, slices, name=''):
@@ -975,184 +940,16 @@ class SectionNode(ListNode):
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
         for section in self:
-            if section.start_pos is None:
-                start = None
+            if section.lower_bound in (None, -Inf):
+                start = section.lower_bound
             else:
-                start = (section.start_pos * multiplier) + offset
-            if section.stop_pos is None:
-                stop = None
+                start = (section.lower_bound * multiplier) + offset
+            if section.upper_bound in (None, Inf):
+                stop = section.upper_bound
             else:
-                stop = (section.stop_pos * multiplier) + offset
+                stop = (section.upper_bound * multiplier) + offset
             aligned_node.create_section(start, stop, section.name)
         return aligned_node
-
-    slice_attrgetters = {'start': attrgetter('slice.start'),
-                         'stop': attrgetter('slice.stop')}
-
-    def _get_condition(self, name=None, containing_index=None,
-                       within_slice=None, within_use='slice', param=None):
-        '''
-        Returns a condition function which checks if the element is within
-        a slice or has a specified name if they are provided.
-
-        :param within_slice: Only return elements within this slice.
-        :type within_slice: slice
-        :param name: Only return elements with this name.
-        :type name: str
-        :param containing_index: Get sections which contain index.
-        :type containing_index: int or float
-        :param within_use: Which part of the slice to use when testing if it is within_slice. Either entire 'slice', the slice's 'start' or 'stop', or both combined - 'any'.
-        :type within_use: str
-        :param param: Param which index and within_slice are sourced from. Used when parameters are not aligned.
-        :type param: Node
-        :returns: Either a condition function or None.
-        :rtype: func or None
-        '''
-        # Function for testing if Section is within a slice depending on
-        # within_use.
-        if param is not None:
-            if within_slice:
-                # FIXME: This does not account for different offsets.
-                within_slice = slice_multiply(within_slice, param.hz)
-            if containing_index is not None:
-                containing_index = \
-                    containing_index * (self.hz / param.hz) + (self.hz * param.offset)
-        if within_slice:
-            within_func = lambda s, within: is_slice_within_slice(
-                s.slice, within, within_use=within_use)
-        else:
-            within_func = lambda s, within: True
-
-        name_func = lambda e: (e.name == name) if name else True
-
-        index_func = \
-            lambda e: (is_index_within_slice(containing_index, e.slice)
-                       if containing_index is not None else True)
-
-        return lambda e: (within_func(e, within_slice) and name_func(e) and
-                          index_func(e))
-
-    def get(self, **kwargs):
-        '''
-        Gets elements either within_slice or with name. Duplicated from
-        FormattedNameNode. TODO: Share implementation with NameFormattedNode,
-        slight differences between types make it difficult.
-
-        :param kwargs: Passed into _get_condition (see docstring).
-        :returns: An object of the same type as self containing matching elements.
-        :rtype: Section
-        '''
-        condition = self._get_condition(**kwargs)
-        matching = [s for s in self if condition(s)]
-        return self.__class__(name=self.name, frequency=self.frequency,
-                              offset=self.offset, items=matching)
-
-    def get_first(self, first_by='start', **kwargs):
-        '''
-        :param first_by: Get the first by either 'start' or 'stop' of slice.
-        :type first_by: str
-        :param kwargs: Passed into _get_condition (see docstring).
-        :returns: First Section matching conditions.
-        :rtype: Section
-        '''
-        matching = self.get(**kwargs)
-        if matching:
-            return min(matching, key=self.slice_attrgetters[first_by])
-        else:
-            return None
-
-    def get_last(self, last_by='start', **kwargs):
-        '''
-        :param last_by: Get the last by either 'start' or 'stop' of slice.
-        :type last_by: str
-        :param kwargs: Passed into _get_condition (see docstring).
-        :returns: Last Section matching conditions.
-        :rtype: Section
-        '''
-        matching = self.get(**kwargs)
-        if matching:
-            return max(matching, key=self.slice_attrgetters[last_by])
-        else:
-            return None
-
-    def get_ordered_by_index(self, order_by='start', **kwargs):
-        '''
-        :param order_by: Index of slice to use when ordering, either 'start' or 'stop'.
-        :type order_by: str
-        :param kwargs: Passed into _get_condition (see docstring).
-        :returns: An object of the same type as self containing elements ordered by index.
-        :rtype: Section
-        '''
-        matching = self.get(**kwargs)
-        ordered_by_start = sorted(matching,
-                                  key=self.slice_attrgetters[order_by])
-        return self.__class__(name=self.name, frequency=self.frequency,
-                              offset=self.offset, items=ordered_by_start)
-
-    def get_next(self, index, frequency=None, use='start', **kwargs):
-        '''
-        Gets the section with the next index optionally filter within_slice or
-        by name.
-
-        :param index: Index to get the next Section from.
-        :type index: int or float
-        :param frequency: Frequency of index argument.
-        :type frequency: int or float
-        :param use: Use either 'start' or 'stop' of slice.
-        :type use: str
-        :param kwargs: Passed into _get_condition (see docstring).
-        :returns: Section with the next index matching criteria.
-        :rtype: Section or None
-        '''
-        if frequency:
-            index = index * (self.frequency / frequency)
-        ordered = self.get_ordered_by_index(**kwargs)
-        for elem in ordered:
-            if getattr(elem.slice, use) > index:
-                return elem
-        return None
-
-    def get_previous(self, index, frequency=None, use='stop', **kwargs):
-        '''
-        Gets the element with the previous index optionally filter within_slice
-        or by name.
-
-        :param index: Index to get the previous Section from.
-        :type index: int or float
-        :param frequency: Frequency of index argument.
-        :type frequency: int or float
-        :param use: Use either 'start' or 'stop' of slice.
-        :type use: str
-        :param kwargs: Passed into _get_condition (see docstring).
-        :returns: Element with the previous index matching criteria.
-        :rtype: item within self or None
-        '''
-        if frequency:
-            index = index * (self.frequency / frequency)
-        ordered = self.get_ordered_by_index(**kwargs)
-        for elem in reversed(ordered):
-            if getattr(elem.slice, use) < index:
-                return elem
-        return None
-
-    def get_surrounding(self, index):
-        '''
-        Returns a list of sections where the index is surrounded by the
-        section's slice.
-
-        :param index: The index being inspected
-        :type index: float
-        :returns: List of surrounding sections
-        :rtype: List of sections
-        '''
-        surrounded = []
-        for section in self:
-            if section.slice.start <= index <= section.slice.stop or\
-               section.slice.start <= index and section.slice.stop is None or\
-               section.slice.start is None and index <= section.slice.stop:
-                surrounded.append(section)
-        return self.__class__(name=self.name, frequency=self.frequency,
-                              offset=self.offset, items=surrounded)
 
     def get_slices(self):
         '''

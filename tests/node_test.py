@@ -5,6 +5,7 @@ import unittest
 
 from random import shuffle
 from datetime import datetime
+from interval import Inf
 
 from analysis_engine.library import min_value
 from analysis_engine.node import (
@@ -513,19 +514,19 @@ class TestSection(unittest.TestCase):
         # ensures slices have the contraint values of start to stop+1
         self.assertEqual(Section(2, 4, name='sect').name, 'sect')
         self.assertEqual(Section(2, 4).slice, slice(2, 5)) 
-        self.assertEqual(Section(2.3, 4.2).start_pos, 2.3)
-        self.assertEqual(Section(2.3, 4.2).stop_pos, 4.2) 
+        self.assertEqual(Section(2.3, 4.2).lower_bound, 2.3)
+        self.assertEqual(Section(2.3, 4.2).upper_bound, 4.2) 
         self.assertEqual(Section(2.3, 4.2).slice, slice(3, 5)) 
         self.assertEqual(Section(2.9, 4.9).slice, slice(3, 5))
         self.assertEqual(Section(1.9, 4.2).slice, slice(2, 5))
         # ensure sections created from a slice have correct start/stop pos
         self.assertEqual(Section(_slice=slice(1, 3)).slice, slice(1, 3))
-        # note: 2.2 is actually a stop_pos of 1.2 rounded up to 2.
+        # note: 2.2 is actually a upper_bound of 1.2 rounded up to 2.
         self.assertEqual(Section(_slice=slice(0.9, 2.2)).slice, slice(1, 2))
-        self.assertEqual(Section(_slice=slice(0.9, 2.2)).start_pos, 0.9)
-        self.assertAlmostEqual(Section(_slice=slice(0.9, 2.2)).stop_pos, 1.2)
+        self.assertEqual(Section(_slice=slice(0.9, 2.2)).lower_bound, 0.9)
+        self.assertAlmostEqual(Section(_slice=slice(0.9, 2.2)).upper_bound, 1.2)
         
-        # can't define start_pos AND a slice
+        # can't define lower_bound AND a slice
         self.assertRaises(TypeError, Section, 2, _slice=slice(2, 3))
         
         # cannot create a section which stops before it starts!!
@@ -537,6 +538,17 @@ class TestSection(unittest.TestCase):
         # cannot use step different from 1 or None
         self.assertRaises(NotImplementedError, Section, _slice=slice(1, 10, -1))
         self.assertRaises(NotImplementedError, Section, _slice=slice(1, 10, 2))
+        
+    def test_slice_closed_and_open_ended(self):
+        # default is closed lower and upper, like so:
+        self.assertEqual(Section(2, 5, closed=True).slice, slice(2, 6))
+        # don't include the lower bound
+        self.assertEqual(Section(2, 5, lower_closed=False).slice, slice(3, 6))
+        # don't include the upper bound
+        self.assertEqual(Section(2, 5, upper_closed=False).slice, slice(2, 5))
+        # exclude 2 and 5 from slice
+        self.assertEqual(Section(2, 5, closed=False).slice, slice(3, 5))
+        self.assertEqual(Section(2, 3, lower_closed=False).slice, slice(3, 4))
         
     def test_position__in__(self):
         self.assertTrue(12 in Section(None, 13))
@@ -577,12 +589,12 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(aligned_node.frequency, param.frequency)
         self.assertEqual(aligned_node.offset, param.offset)
         self.assertEqual(len(aligned_node), 2)
-        self.assertEqual(aligned_node[0].start_pos, 1.2)
-        self.assertEqual(aligned_node[0].stop_pos, 2.2)
+        self.assertEqual(aligned_node[0].lower_bound, 1.2)
+        self.assertEqual(aligned_node[0].upper_bound, 2.2)
         self.assertEqual(aligned_node[0].slice, slice(2, 3, None))
         self.assertEqual(aligned_node[0].name, 'Example Section Node')
-        self.assertEqual(aligned_node[1].start_pos, 2.7)
-        self.assertEqual(aligned_node[1].stop_pos, 3.7)
+        self.assertEqual(aligned_node[1].lower_bound, 2.7)
+        self.assertEqual(aligned_node[1].upper_bound, 3.7)
         self.assertEqual(aligned_node[1].slice, slice(3, 4, None))
         self.assertEqual(aligned_node[1].name, 'Example Section Node')
 
@@ -592,12 +604,12 @@ class TestSectionNode(unittest.TestCase):
         section_node.create_section(5, None)
         param = Parameter('p', frequency=0.5, offset=0.1)
         aligned_node = section_node.get_aligned(param)
-        self.assertEqual(aligned_node[0].start_pos, None)
-        self.assertEqual(aligned_node[0].stop_pos, 2.2)
+        self.assertEqual(aligned_node[0].lower_bound, -Inf)  # WHY DOES THIS FAIL??
+        self.assertEqual(aligned_node[0].upper_bound, 2.2)
         self.assertEqual(aligned_node[0].slice, slice(None, 3, None))
         self.assertEqual(aligned_node[0].name, 'Example Section Node')
-        self.assertEqual(aligned_node[1].start_pos, 2.7)
-        self.assertEqual(aligned_node[1].stop_pos, None)
+        self.assertEqual(aligned_node[1].lower_bound, 2.7)
+        self.assertEqual(aligned_node[1].upper_bound, Inf)
         self.assertEqual(aligned_node[1].slice, slice(3, None, None))
         self.assertEqual(aligned_node[1].name, 'Example Section Node')
     
@@ -605,159 +617,7 @@ class TestSectionNode(unittest.TestCase):
         items = [Section(_slice=slice(0,10), name='a')]
         section_node = self.section_node_class(frequency=1, offset=0.5,
                                                items=items)
-        self.assertEqual(section_node, items)
-
-    def test_get(self):
-        items = [Section(4, 10, name='a'),
-                 Section(14, 23, name='b'),
-                 Section(19, 21, name='b'),
-                 Section(30, 34, name='c'),]
-        section_node_1 = self.section_node_class(frequency=1, offset=0.5,
-                                                 items=items)
-        sections = section_node_1.get()
-        self.assertEqual(items, sections)
-        sections = section_node_1.get(name='b')
-        self.assertEqual(items[1:3], sections)
-        sections = section_node_1.get(name='c')
-        self.assertEqual(items[-1:], sections)
-        sections = section_node_1.get(within_slice=slice(12, 25))
-        self.assertEqual(items[1:3], sections)
-        sections = section_node_1.get(within_slice=slice(15, 40), name='b')
-        self.assertEqual(items[2:3], sections)
-        sections = section_node_1.get(within_slice=slice(15, 40), name='b',
-                                      within_use='stop')
-        self.assertEqual(items[1:3], sections)
-        sections = section_node_1.get(containing_index=7)
-        self.assertEqual([items[0]], sections)
-        # Align to param.
-        section_node_2 = self.section_node_class(frequency=0.5, offset=0.5)
-        sections = section_node_1.get(containing_index=8, param=section_node_2)
-        self.assertEqual([items[1]], sections)
-        sections = section_node_1.get(containing_index=10, param=section_node_2)
-        self.assertEqual(items[1:3], sections)
-        sections = section_node_1.get(containing_index=20)
-        self.assertEqual(items[1:3], sections)
-
-    def test_get_first(self):
-        # First test empty node.
-        empty_section_node = self.section_node_class()
-        self.assertEqual(empty_section_node.get_first(), None)
-        items = [Section(4, 10, name='a'),
-                 Section(14, 23, name='b'),
-                 Section(19, 21, name='b'),
-                 Section(30, 34, name='c'),]
-        section_node = self.section_node_class(frequency=1, offset=0.5,
-                                               items=items)
-        first_section = section_node.get_first()
-        self.assertEqual(items[0], first_section)
-        first_b_section = section_node.get_first(name='b')
-        self.assertEqual(items[1], first_b_section)
-        first_c_section = section_node.get_first(name='c')
-        self.assertEqual(items[3], first_c_section)
-        first_section_within_slice = section_node.get_first(within_slice=
-                                                            slice(12, 25))
-        self.assertEqual(items[1], first_section_within_slice)
-        first_section_within_slice = section_node.get_first(within_slice=
-                                                            slice(12, 25),
-                                                            first_by='stop')
-        self.assertEqual(items[2], first_section_within_slice)
-        first_b_section_within_slice = section_node.get_first(within_slice=
-                                                              slice(15, 40),
-                                                              name='b')
-        self.assertEqual(items[2], first_b_section_within_slice)
-        first_b_section_within_slice = section_node.get_first(within_slice=
-                                                              slice(17, 40),
-                                                              name='b',
-                                                              within_use='start')
-        self.assertEqual(items[2], first_b_section_within_slice)
-        first_b_section_within_slice = section_node.get_first(within_slice=
-                                                              slice(17, 40),
-                                                              name='b',
-                                                              within_use='stop')
-        self.assertEqual(items[1], first_b_section_within_slice)
-
-    def test_get_last(self):
-        # First test empty node.
-        empty_section_node = self.section_node_class()
-        self.assertEqual(empty_section_node.get_last(), None)
-        items = [Section(4, 10, name='a'),
-                 Section(14, 23, name='b'),
-                 Section(19, 21, name='b'),
-                 Section(30, 34, name='c'),]
-        section_node = self.section_node_class(frequency=1, offset=0.5,
-                                               items=items)
-        last_section = section_node.get_last()
-        self.assertEqual(items[3], last_section)
-        last_section = section_node.get_last(within_slice=slice(13,24),
-                                             last_by='stop')
-        self.assertEqual(items[1], last_section)
-        last_b_section = section_node.get_last(name='b')
-        self.assertEqual(items[2], last_b_section)
-        last_c_section = section_node.get_last(name='c')
-        self.assertEqual(items[3], last_c_section)
-        last_section_within_slice = section_node.get_last(within_slice=
-                                                          slice(12, 25))
-        self.assertEqual(items[2], last_section_within_slice)
-        last_b_section_within_slice = section_node.get_last(within_slice=
-                                                            slice(15, 40),
-                                                            name='b')
-        self.assertEqual(items[2], last_b_section_within_slice)
-
-    def test_get_ordered_by_index(self):
-        items = [Section(4, 10, name='a'),
-                 Section(14, 23, name='b'),
-                 Section(19, 21, name='b'),
-                 Section(30, 34, name='c'),]
-        section_node = self.section_node_class(frequency=1, offset=0.5,
-                                               items=items)
-        sections = section_node.get_ordered_by_index()
-        self.assertEqual([items[0], items[1], items[2], items[3]], sections)
-        sections = section_node.get_ordered_by_index(order_by='stop')
-        self.assertEqual([items[0], items[2], items[1], items[3]], sections)
-        sections = section_node.get_ordered_by_index(name='b')
-        self.assertEqual([items[1], items[2]], sections)
-        sections = section_node.get_ordered_by_index(name='c')
-        self.assertEqual([items[-1]], sections)
-        sections = section_node.get_ordered_by_index(within_slice=slice(12, 25))
-        self.assertEqual([items[1], items[2]], sections)
-        sections = section_node.get_ordered_by_index(within_slice=slice(15, 40), name='b')
-        self.assertEqual([items[2]], sections)
-
-    def test_get_next(self):
-        items = [Section(4, 10, name='a'),
-                 Section(14, 23, name='b'),
-                 Section(19, 21, name='b'),
-                 Section(30, 34, name='c'),]
-        section_node = self.section_node_class(frequency=1, offset=0.5,
-                                               items=items)
-        section = section_node.get_next(16)
-        self.assertEqual(items[2], section)
-        section = section_node.get_next(16, use='stop')
-        self.assertEqual(items[1], section)
-        section = section_node.get_next(16, name='c')
-        self.assertEqual(items[3], section)
-        section = section_node.get_next(16, within_slice=slice(25, 40))
-        self.assertEqual(items[3], section)
-        section = section_node.get_next(3, frequency=0.5)
-        self.assertEqual(items[1], section)
-
-    def test_get_previous(self):
-        items = [Section(4, 10, name='a'),
-                 Section(14, 23, name='b'),
-                 Section(19, 21, name='b'),
-                 Section(30, 34, name='c'),]
-        section_node = self.section_node_class(frequency=1, offset=0.5,
-                                               items=items)
-        section = section_node.get_previous(16)
-        self.assertEqual(items[0], section)
-        section = section_node.get_previous(16, use='start')
-        self.assertEqual(items[1], section)
-        section = section_node.get_previous(30, name='a')
-        self.assertEqual(items[0], section)
-        section = section_node.get_previous(23, within_slice=slice(0, 12))
-        self.assertEqual(items[0], section)
-        section = section_node.get_previous(40, frequency=2)
-        self.assertEqual(items[0], section)
+        self.assertEqual(section_node, SectionNode(items))
 
     def test_get_slices(self):
         section_node = self.section_node_class(frequency=1, offset=0.5)
@@ -768,57 +628,53 @@ class TestSectionNode(unittest.TestCase):
         slices = section_node.get_slices()
         self.assertEqual(slices, [slice(2, 5), slice(5, 8)])
 
-    def test_get_surrounding(self):
-        node = SectionNode()
-        self.assertEqual(node.get_surrounding(12), [])
-        sect_1 = Section(2, 15, name='ThisSection')
-        node.append(sect_1)
-        self.assertEqual(node.get_surrounding(2), [sect_1])
-        sect_2 = Section(5, 25, name='ThisSection')
-        node.append(sect_2)
-        self.assertEqual(node.get_surrounding(12), [sect_1, sect_2])
-        self.assertEqual(node.get_surrounding(-3), [])
-        self.assertEqual(node.get_surrounding(25), [sect_2])
-        
     def test_logical_and(self):
         ldg = SectionNode(items=[
-            Section(start_pos=9.5, stop_pos=15, name='Landing')])
+            Section(lower_bound=9.5, upper_bound=15, name='Landing')])
         app_ldg = SectionNode(items=[
-            Section(start_pos=None, stop_pos=15, name='Approach and Landing')])
+            Section(lower_bound=None, upper_bound=15, name='Approach and Landing')])
         
-        expected_app = SectionNode(items=[Section(start_pos=9.5, stop_pos=15)])
+        expected_app = SectionNode(items=[Section(lower_bound=9.5, upper_bound=15)])
         resulting_app = ldg & app_ldg
         self.assertEqual(resulting_app, expected_app)
+        # check result is of Section type (therefore having a slice attribute)
+        self.assertIsInstance(resulting_app[0], Section)
+        self.assertTrue(hasattr(resulting_app[0], 'slice'))
+        
+        # test using SectionNode and Section in AND
+        res = SectionNode(items=[Section(5, 10)]) & Section(7, 12)
+        self.assertEqual(res, SectionNode(items=[Section(7, 10)]))
         
     def test_logical_or(self):
         ldg = SectionNode(items=[
-            Section(start_pos=9.5, stop_pos=15, name='Landing')])
+            Section(lower_bound=9.5, upper_bound=15, name='Landing')])
         app_ldg = SectionNode(items=[
-            Section(start_pos=None, stop_pos=12, name='Approach and Landing'),
-            Section(start_pos=18, stop_pos=20, name='Approach and Landing'),
+            Section(lower_bound=None, upper_bound=12, name='Approach and Landing'),
+            Section(lower_bound=18, upper_bound=20, name='Approach and Landing'),
         ])
         
         expected_app = SectionNode(items=[
-            Section(start_pos=None, stop_pos=15),
-            Section(start_pos=18, stop_pos=20),
+            Section(lower_bound=None, upper_bound=15),
+            Section(lower_bound=18, upper_bound=20),
         ])
         resulting_app = ldg | app_ldg
         self.assertEqual(resulting_app, expected_app)
     
     def test_logical_xor(self):
         ldg = SectionNode(items=[
-            Section(start_pos=9.5, stop_pos=15, name='Landing')])
+            Section(lower_bound=9.5, upper_bound=15, name='Landing')]) # 1st
         app_ldg = SectionNode(items=[
-            Section(start_pos=None, stop_pos=12, name='Approach and Landing'),
-            Section(start_pos=18, stop_pos=20, name='Approach and Landing'),
+            Section(lower_bound=None, upper_bound=12, name='Approach and Landing'), # 2nd
+            Section(lower_bound=18, upper_bound=20, name='Approach and Landing'), # 3rd
         ])
         
         expected_app = SectionNode(items=[
-            Section(start_pos=None, stop_pos=9.5),
-            Section(start_pos=12, stop_pos=15),
-            Section(start_pos=18, stop_pos=20),
+            Section(lower_bound=None, upper_bound=9.5, closed=False),  # Excluding -Inf and 9.5 from 2nd start
+            Section(lower_bound=12, upper_bound=15, lower_closed=False), # Excluding 12 from 2nd end
+            Section(lower_bound=18, upper_bound=20),
         ])
         resulting_app = ldg ^ app_ldg
+        self.assertEqual(str(resulting_app), str(expected_app))
         self.assertEqual(resulting_app, expected_app)
 
 
