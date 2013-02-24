@@ -86,9 +86,6 @@ class Section(Interval):
     positions become decimal values.
 
     '''
-    #__hash__ = None
-    
-    # TODO: immutable type so that you cannot add random attrs
     def __init__(self, lower_bound=None, upper_bound=None, _slice=None, name='', **kwargs):
         self.name = name
         if (lower_bound or upper_bound) and _slice:
@@ -141,10 +138,12 @@ class Section(Interval):
         return slice(start, stop)
 
 
-# Ref: django/db/models/options.py:20
-# Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
 def get_verbose_name(class_name):
     '''
+    Calculate the verbose_name by converting from InitialCaps to "lowercase with spaces".
+
+    Ref: django/db/models/options.py:20
+
     :type class_name: str
     :rtype: str
     '''
@@ -535,7 +534,7 @@ def can_operate(cls, available):
 
 
 class ListNode(Node, list):
-    def __init__(self, name='', frequency=1, offset=0, items=[], **kwargs):
+    def __init__(self, items=[], name='', frequency=1, offset=0, **kwargs):
         '''
         Iterable node containing many objects. As it is an ordered list,
         index order is generally assumed (i.e. ordered through the flight).
@@ -1300,8 +1299,9 @@ class KeyTimeInstanceNode(FormattedNameNode):
         '''
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
-        aligned_node = self.__class__(self.name, param.frequency,
-                                      param.offset)
+        aligned_node = self.__class__(name=self.name, 
+                                      frequency=param.frequency,
+                                      offset=param.offset)
         for kti in self:
             aligned_kti = copy.copy(kti)
             index_aligned = (kti.index * multiplier) + offset
@@ -1395,7 +1395,9 @@ class KeyPointValueNode(FormattedNameNode):
         '''
         multiplier = param.frequency / self.frequency
         offset = (self.offset - param.offset) * param.frequency
-        aligned_node = self.__class__(self.name, param.frequency, param.offset)
+        aligned_node = self.__class__(name=self.name,
+                                      frequency=param.frequency, 
+                                      offset=param.offset)
         for kpv in self:
             aligned_kpv = copy.copy(kpv)
             aligned_kpv.index = (aligned_kpv.index * multiplier) + offset
@@ -1797,8 +1799,9 @@ class ApproachNode(ListNode):
             condition = within_slice_func
         else:
             return self
-        return ApproachNode(self.name, self.frequency, self.offset,
-                            items=[a for a in self if condition(a)])
+        items = [a for a in self if condition(a)]
+        return ApproachNode(items=items, name=self.name,
+                            frequency=self.frequency, offset=self.offset)
 
     def get_first(self, **kwargs):
         '''
@@ -1846,8 +1849,8 @@ class ApproachNode(ListNode):
                 turnoff=(turnoff * multiplier) + offset if turnoff else None,
                 type=approach.type,
             ))
-        return ApproachNode(param.name, param.frequency, param.offset,
-                            items=approaches)
+        return ApproachNode(items=approaches, name=param.name, 
+                            frequency=param.frequency, offset=param.offset)
 
 
 App = ApproachNode

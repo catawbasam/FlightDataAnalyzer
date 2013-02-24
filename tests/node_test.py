@@ -480,7 +480,7 @@ class TestApproachNode(unittest.TestCase):
     def test_get_aligned(self):
         airport = {'id': 1}
         runway = {'id': 2}
-        approach = ApproachNode('One', frequency=2, offset=0.75, items=[
+        approach = ApproachNode(name='One', frequency=2, offset=0.75, items=[
             ApproachItem('GO_AROUND', slice(5, 15)),
             ApproachItem('TOUCH_AND_GO', slice(15, 25), airport=airport,
                          runway=runway, ils_freq=110, gs_est=slice(17, 22),
@@ -490,7 +490,7 @@ class TestApproachNode(unittest.TestCase):
         align_to = Node('Two', frequency=1, offset=0.25)
         aligned = approach.get_aligned(align_to)
         result = ApproachNode(
-            'One', frequency=align_to.frequency,
+            name='One', frequency=align_to.frequency,
             offset=align_to.offset, items=[
                 ApproachItem('GO_AROUND', slice(3, 8)),
                 ApproachItem('TOUCH_AND_GO', slice(8, 13), airport=airport,
@@ -983,7 +983,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         param = P('Param', np.ma.arange(10))
         # value_at_index will interpolate masked values.
         param.array[3:7] = np.ma.masked
-        ktis = KTI('KTI', items=[KeyTimeInstance(i, 'a') for i in range(0,10,2)])
+        ktis = KTI(items=[KeyTimeInstance(i, 'a') for i in range(0,10,2)])
         knode.create_kpvs_at_ktis(param.array, ktis)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=0, value=0, name='Kpv'),
@@ -995,7 +995,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         param = P('Param', np.ma.array([0]*5+[7]*5))
         # value_at_index will interpolate masked values.
         param.array[3:7] = np.ma.masked
-        ktis = KTI('KTI', items=[KeyTimeInstance(i, 'a') for i in range(0,10,2)])
+        ktis = KTI(items=[KeyTimeInstance(i, 'a') for i in range(0,10,2)])
         knode.create_kpvs_at_ktis(param.array, ktis, suppress_zeros=True)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=8, value=7, name='Kpv')])
