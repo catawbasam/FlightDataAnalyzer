@@ -417,7 +417,11 @@ class Interval(object):
         ...   print "Non-empty"
         Non-empty
         """
-        return self.lower_bound != self.upper_bound \
+        # Due to PEP 335 being rejected bool cannot be overidden so Numpy 
+        # returns a numpy.bool_ if comparing two numpy types. Hence having to 
+        # force to bool type:
+        # ref: http://www.python.org/dev/peps/pep-0335/
+        return bool(self.lower_bound != self.upper_bound) \
                or (self.upper_closed and self.lower_closed)
 
     def __cmp__(self, other):
