@@ -50,9 +50,7 @@ KeyPointValue = recordtype('KeyPointValue',
 KeyTimeInstance = recordtype('KeyTimeInstance',
                              'index name datetime latitude longitude',
                              default=None)
-##Section = namedtuple('Section', 'name slice start_edge stop_edge') #Q: rename mask -> slice/section
 
-#@total_ordering
 class Section(Interval):
     u'''
     Section nodes start and stop are aligned. The start and stops are
@@ -92,7 +90,6 @@ class Section(Interval):
     
     # TODO: immutable type so that you cannot add random attrs
     def __init__(self, lower_bound=None, upper_bound=None, _slice=None, name='', **kwargs):
-        # save a name
         self.name = name
         if (lower_bound or upper_bound) and _slice:
             raise TypeError("Section does not accept both lower_bound/upper_bound"\
@@ -103,11 +100,6 @@ class Section(Interval):
                                           _slice.step)
             lower_bound = _slice.start
             upper_bound = None if _slice.stop is None else _slice.stop - 1
-        #else:
-            #self.lower_bound = lower_bound
-            #self.upper_bound = upper_bound
-        #if lower_bound is not None and lower_bound > upper_bound:
-            #raise TypeError("Cannot create a Section which stops before it starts")
         
         # account for None == Inf
         lower_bound = -Inf if lower_bound is None else lower_bound
@@ -115,37 +107,7 @@ class Section(Interval):
         if lower_bound > upper_bound:
             raise TypeError("Cannot create a Section which stops before it starts")
         super(Section, self).__init__(lower_bound, upper_bound, **kwargs)
-        
-    #def __repr__(self):
-        #return "Section(lower_bound=%s, upper_bound=%s, name='%s')" % (
-            #self.lower_bound, self.upper_bound, self.name)
-        
-    #def __eq__(self, other):
-        #"Names do not have to be the same"
-        #return isinstance(other, Section) \
-               #and self.lower_bound == other.lower_bound \
-               #and self.upper_bound == other.upper_bound
-
-    #def __ne__(self, other):
-        #return not self == other
-
-    #def __lt__(self, other):
-        #"Start position ordering unless equal then use stop position"
-        #if self.lower_bound == other.lower_bound:
-            #return self.upper_bound < other.upper_bound
-        #else:
-            #return self.lower_bound < other.lower_bound
-        
-    #def __contains__(self, position):
-        #"position is between lower_bound to upper_bound"
-        #stop = position if self.upper_bound is None else self.upper_bound
-        #return (self.lower_bound) <= position <= stop
-    
-    #def overlaps(self, other):
-        #"other section overlaps with self"
-        #return (self.lower_bound < other.upper_bound or other.upper_bound is None) and\
-               #(other.lower_bound < self.upper_bound or self.upper_bound is None)
-    
+            
     @property
     def slice(self):
         # cast to integer to reassure end-user that no decimals used here!
@@ -154,8 +116,6 @@ class Section(Interval):
         # stop is the bottom end of the value plus one to include the last value
         stop = int(math.floor(self.upper_bound)) + 1 if self.upper_bound != Inf else None
         return slice(start, stop)
-
-
 
 
 # Ref: django/db/models/options.py:20
