@@ -13,6 +13,7 @@ import pprint
 from abc import ABCMeta
 from collections import namedtuple, Iterable
 from functools import total_ordering
+from interval import Inf, Interval, IntervalSet
 from itertools import product
 from operator import attrgetter
 
@@ -51,8 +52,8 @@ KeyTimeInstance = recordtype('KeyTimeInstance',
                              default=None)
 ##Section = namedtuple('Section', 'name slice start_edge stop_edge') #Q: rename mask -> slice/section
 
-@total_ordering
-class Section(object):
+#@total_ordering
+class Section(Interval):
     u'''
     Section nodes start and stop are aligned. The start and stops are
     accurate positions (including interpolation) of indexes into the data.
@@ -86,65 +87,72 @@ class Section(object):
     aligned to other frequencies and ofsets requiring that the start/stop
     positions become decimal values.
 
-    '''    
-    __hash__ = None
+    '''
+    #__hash__ = None
     
     # TODO: immutable type so that you cannot add random attrs
-    def __init__(self, start_pos=None, stop_pos=None, _slice=None, name=''):
+    def __init__(self, lower_bound=None, upper_bound=None, _slice=None, name='', **kwargs):
+        # save a name
         self.name = name
-        if (start_pos or stop_pos) and _slice:
-            raise TypeError("Section does not accept both start_pos/stop_pos"\
+        if (lower_bound or upper_bound) and _slice:
+            raise TypeError("Section does not accept both lower_bound/upper_bound"\
                             "and _slice arguments")
         elif _slice:
             if _slice.step not in (1, None):
                 raise NotImplementedError("Section does not support step %s" %\
                                           _slice.step)
-            self.start_pos = _slice.start
-            self.stop_pos = _slice.stop - 1
-        else:
-            self.start_pos = start_pos
-            self.stop_pos = stop_pos
-        if self.stop_pos is not None and self.start_pos > self.stop_pos:
+            lower_bound = _slice.start
+            upper_bound = None if _slice.stop is None else _slice.stop - 1
+        #else:
+            #self.lower_bound = lower_bound
+            #self.upper_bound = upper_bound
+        #if lower_bound is not None and lower_bound > upper_bound:
+            #raise TypeError("Cannot create a Section which stops before it starts")
+        
+        # account for None == Inf
+        lower_bound = -Inf if lower_bound is None else lower_bound
+        upper_bound = Inf if upper_bound is None else upper_bound
+        if lower_bound > upper_bound:
             raise TypeError("Cannot create a Section which stops before it starts")
-        ##self.frequency # (handy for those who set align=False)?
+        super(Section, self).__init__(lower_bound, upper_bound, **kwargs)
         
-    def __repr__(self):
-        return "Section(start_pos=%s, stop_pos=%s, name='%s')" % (
-            self.start_pos, self.stop_pos, self.name)
+    #def __repr__(self):
+        #return "Section(lower_bound=%s, upper_bound=%s, name='%s')" % (
+            #self.lower_bound, self.upper_bound, self.name)
         
-    def __eq__(self, other):
-        "Names do not have to be the same"
-        return isinstance(other, Section) \
-               and self.start_pos == other.start_pos \
-               and self.stop_pos == other.stop_pos
+    #def __eq__(self, other):
+        #"Names do not have to be the same"
+        #return isinstance(other, Section) \
+               #and self.lower_bound == other.lower_bound \
+               #and self.upper_bound == other.upper_bound
 
-    def __ne__(self, other):
-        return not self == other
+    #def __ne__(self, other):
+        #return not self == other
 
-    def __lt__(self, other):
-        "Start position ordering unless equal then use stop position"
-        if self.start_pos == other.start_pos:
-            return self.stop_pos < other.stop_pos
-        else:
-            return self.start_pos < other.start_pos
+    #def __lt__(self, other):
+        #"Start position ordering unless equal then use stop position"
+        #if self.lower_bound == other.lower_bound:
+            #return self.upper_bound < other.upper_bound
+        #else:
+            #return self.lower_bound < other.lower_bound
         
-    def __contains__(self, position):
-        "position is between start_pos to stop_pos"
-        stop = position if self.stop_pos is None else self.stop_pos
-        return (self.start_pos) <= position <= stop
+    #def __contains__(self, position):
+        #"position is between lower_bound to upper_bound"
+        #stop = position if self.upper_bound is None else self.upper_bound
+        #return (self.lower_bound) <= position <= stop
     
-    def overlaps(self, other):
-        "other section overlaps with self"
-        return (self.start_pos < other.stop_pos or other.stop_pos is None) and\
-               (other.start_pos < self.stop_pos or self.stop_pos is None)
+    #def overlaps(self, other):
+        #"other section overlaps with self"
+        #return (self.lower_bound < other.upper_bound or other.upper_bound is None) and\
+               #(other.lower_bound < self.upper_bound or self.upper_bound is None)
     
     @property
     def slice(self):
         # cast to integer to reassure end-user that no decimals used here!
         # start is always the top end of the value to constrain results
-        start = int(math.ceil(self.start_pos)) if self.start_pos else None
+        start = int(math.ceil(self.lower_bound)) if self.lower_bound != -Inf else None
         # stop is the bottom end of the value plus one to include the last value
-        stop = int(math.floor(self.stop_pos)) + 1 if self.stop_pos else None
+        stop = int(math.floor(self.upper_bound)) + 1 if self.upper_bound != Inf else None
         return slice(start, stop)
 
 
