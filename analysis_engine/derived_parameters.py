@@ -4669,7 +4669,7 @@ class StickShaker(MultistateDerivedParameterNode):
 
     align = False
     values_mapping = {
-        0: 'No_Shake',
+        0: '-',
         1: 'Shake',
     }
 
