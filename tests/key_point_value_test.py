@@ -286,6 +286,7 @@ from analysis_engine.key_point_values import (
     TCASRAReactionDelay,
     TCASRAInitialReactionStrength,
     TCASRAToAPDisengagedDuration,
+    TCASTAWarningDuration,
     TerrainClearanceAbove3000FtMin,
     ThrottleCyclesDuringFinalApproach,
     ThrottleReductionToTouchdownDuration,
@@ -5023,15 +5024,56 @@ class TestTAWSWindshearWarningBelow1500FtDuration(unittest.TestCase, NodeTest):
 # Warnings: Traffic Collision Avoidance System (TCAS)
 
 
+class TestTCASTAWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TCASTAWarningDuration
+        self.operational_combinations = [('TCAS Combined Control', 'Airborne')]
+
+    def test_derive(self):
+        values_mapping = {
+            0: 'A',
+            1: 'B',
+            2: 'C',
+            3: 'D',
+            4: 'E',
+            5: 'F',
+            6: 'Preventive',
+        }
+        tcas = MultistateDerivedParameterNode(
+            'TCAS Combined Control', array=np.ma.array([0,1,2,3,4,6,6,6,4,5]),
+            values_mapping=values_mapping)
+        airborne = buildsection('Airborne', 2, 7)
+        node = self.node_class()
+        node.derive(tcas, airborne)
+        self.assertEqual([KeyPointValue(6.0, 2.0, 'TCAS TA Warning Duration')],
+                         node)
+
+
 class TestTCASRAWarningDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = TCASRAWarningDuration
         self.operational_combinations = [('TCAS Combined Control', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        values_mapping = {
+            0: 'A',
+            1: 'B',
+            2: 'Drop Track',
+            3: 'Altitude Lost',
+            4: 'Up Advisory Corrective',
+            5: 'Down Advisory Corrective',
+            6: 'G',
+        }
+        tcas = MultistateDerivedParameterNode(
+            'TCAS Combined Control', array=np.ma.array([0,1,2,3,4,5,4,5,6]),
+            values_mapping=values_mapping)
+        airborne = buildsection('Airborne', 2, 7)
+        node = self.node_class()
+        node.derive(tcas, airborne)
+        self.assertEqual([KeyPointValue(2, 5.0, 'TCAS RA Warning Duration')],
+                         node)
 
 
 class TestTCASRAReactionDelay(unittest.TestCase, NodeTest):
@@ -5051,7 +5093,6 @@ class TestTCASRAInitialReactionStrength(unittest.TestCase, NodeTest):
         self.node_class = TCASRAInitialReactionStrength
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'TCAS Combined Control', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
@@ -5062,9 +5103,28 @@ class TestTCASRAToAPDisengagedDuration(unittest.TestCase, NodeTest):
         self.node_class = TCASRAToAPDisengagedDuration
         self.operational_combinations = [('AP Disengaged Selection', 'TCAS Combined Control', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        values_mapping = {
+            0: 'A',
+            1: 'B',
+            2: 'Drop Track',
+            3: 'Altitude Lost',
+            4: 'Up Advisory Corrective',
+            5: 'Down Advisory Corrective',
+            6: 'G',
+        }
+        kti_name = 'AP Disengaged Selection'
+        ap_offs = KTI(kti_name, items=[KeyTimeInstance(1, kti_name),
+                                       KeyTimeInstance(7, kti_name)])
+        tcas = MultistateDerivedParameterNode(
+            'TCAS Combined Control', array=np.ma.array([0,1,2,3,4,5,4,4,1,3,0]),
+            values_mapping=values_mapping)
+        airborne = buildsection('Airborne', 2, 9)
+        node = self.node_class()
+        node.derive(ap_offs, tcas, airborne)
+        self.assertEqual([KeyPointValue(7.0, 5.0,
+                                        'TCAS RA To AP Disengaged Duration')],
+                         node)
 
 
 ##############################################################################

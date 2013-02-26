@@ -6292,6 +6292,23 @@ class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
 # Warnings: Traffic Collision Avoidance System (TCAS)
 
 
+class TCASTAWarningDuration(KeyPointValueNode):
+    '''
+    This is simply the number of seconds during which the TCAS TA was set.
+    '''
+
+    name = 'TCAS TA Warning Duration'
+    units = 's'
+
+    def derive(self, tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+        
+        for air in airs:
+            ras_local = tcas.array[air.slice] == 'Preventive'
+            ras_slices = shift_slices(runs_of_ones(ras_local), air.slice.start)
+            self.create_kpvs_from_slice_durations(ras_slices, self.frequency,
+                                                  mark='start')
+
+
 class TCASRAWarningDuration(KeyPointValueNode):
     '''
     This is simply the number of seconds during which the TCAS RA was set.
@@ -6301,20 +6318,16 @@ class TCASRAWarningDuration(KeyPointValueNode):
     units = 's'
 
     def derive(self, tcas=M('TCAS Combined Control'), airs=S('Airborne')):
-        '''
-        **Note:** We would like to do this but numpy can't handle text strings::
-
-            ups = np.ma.masked_not_equal(tcas.array, 'Up Advisory Corrective')
-            ups = np.ma.clump_unmasked(ups)
-
-        hence the unweildy code below, used in all TCAS KPVs...
-
-        ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
-
-        '''
+        
         for air in airs:
-            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
-            self.create_kpvs_from_slice_durations(ras_local, self.frequency)
+            ras_local = tcas.array[air.slice].any_of('Drop Track',
+                                                     'Altitude Lost',
+                                                     'Up Advisory Corrective',
+                                                     'Down Advisory Corrective')
+            
+            ras_slices = shift_slices(runs_of_ones(ras_local), air.slice.start)
+            self.create_kpvs_from_slice_durations(ras_slices, self.frequency,
+                                                  mark='start')
 
 
 class TCASRAReactionDelay(KeyPointValueNode):
@@ -6327,10 +6340,14 @@ class TCASRAReactionDelay(KeyPointValueNode):
     units = 's'
 
     def derive(self, acc=P('Acceleration Normal Offset Removed'),
-            tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+               tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+        
         for air in airs:
-            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
-            ras = shift_slices(ras_local, air.slice.start)
+            ras_local = tcas.array[air.slice].any_of('Drop Track',
+                                                     'Altitude Lost',
+                                                     'Up Advisory Corrective',
+                                                     'Down Advisory Corrective')
+            ras = shift_slices(runs_of_ones(ras_local), air.slice.start)
             # Assume that the reaction takes place during the TCAS RA period:
             for ra in ras:
                 if np.ma.count(acc.array[ra]) == 0:
@@ -6365,10 +6382,14 @@ class TCASRAInitialReactionStrength(KeyPointValueNode):
     name = 'TCAS RA Initial Reaction Strength'
 
     def derive(self, acc=P('Acceleration Normal Offset Removed'),
-            tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+               tcas=M('TCAS Combined Control'), airs=S('Airborne')):
+        
         for air in airs:
-            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
-            ras = shift_slices(ras_local, air.slice.start)
+            ras_local = tcas.array[air.slice].any_of('Drop Track',
+                                                     'Altitude Lost',
+                                                     'Up Advisory Corrective',
+                                                     'Down Advisory Corrective')
+            ras = shift_slices(runs_of_ones(ras_local), air.slice.start)
             # We assume that the reaction takes place during the TCAS RA
             # period.
             for ra in ras:
@@ -6419,16 +6440,19 @@ class TCASRAToAPDisengagedDuration(KeyPointValueNode):
                airs=S('Airborne')):
 
         for air in airs:
-            ras_local = np.ma.clump_unmasked(np.ma.masked_outside(tcas.array, 4, 5))[air.slice]
-            ras = shift_slices(ras_local, air.slice.start)
+            ras_local = tcas.array[air.slice].any_of('Drop Track',
+                                                     'Altitude Lost',
+                                                     'Up Advisory Corrective',
+                                                     'Down Advisory Corrective')            
+            ras = shift_slices(runs_of_ones(ras_local), air.slice.start)
             # Assume that the reaction takes place during the TCAS RA period:
             for ra in ras:
-                for ap_off in ap_offs:
-                    if is_index_within_slice(ap_off.index, ra):
-                        index = ap_off.index
-                        onset = ra.slice.start
-                        duration = (index - onset) / ap_offs.frequency
-                        self.create_kpv(index, duration)
+                ap_off = ap_offs.get_next(ra.start, within_slice=ra)
+                if not ap_off:
+                    continue
+                index = ap_off.index
+                duration = (index - ra.start) / self.frequency
+                self.create_kpv(index, duration)
 
 
 ##############################################################################
@@ -6603,9 +6627,9 @@ class ThrustAsymmetryWithThrustReversersDeployedMax(KeyPointValueNode):
         # Note: Inclusion of the 'Mobile' phase ensures use of thrust reverse
         #       late on the landing run is included, but corrupt data at engine
         #       start etc. should be rejected.
-        slices = [s.slice for s in mobile]
         # Note: Use not 'Stowed' as 'In Transit' implies partially 'Deployed':
-        slices = clump_multistate(tr.array, 'Stowed', slices, condition=False)
+        slices = clump_multistate(tr.array, 'Stowed', mobile.get_slices(),
+                                  condition=False)
         self.create_kpvs_within_slices(ta.array, slices, max_value)
 
 
