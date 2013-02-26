@@ -5093,6 +5093,7 @@ class TestTCASRAInitialReactionStrength(unittest.TestCase, NodeTest):
         self.node_class = TCASRAInitialReactionStrength
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'TCAS Combined Control', 'Airborne')]
 
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
