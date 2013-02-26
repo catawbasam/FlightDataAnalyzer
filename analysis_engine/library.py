@@ -2788,7 +2788,7 @@ def latitudes_and_longitudes(bearings, distances, reference):
     """
     lat_ref = radians(reference['latitude'])
     lon_ref = radians(reference['longitude'])
-    brg = bearings*deg2rad
+    brg = bearings * deg2rad
     dist = distances.data / 6371000.0 # Scale to earth radius in metres
 
     lat = np.arcsin(sin(lat_ref)*np.ma.cos(dist) +

@@ -1204,7 +1204,7 @@ class FormattedNameNode(ListNode):
 
         :param index: Index to get the next item from.
         :type index: int or float
-        :param frequency: Frequency of index.
+        :param frequency: Frequency of index if it is not the same as the FormattedNameNode.
         :type frequency: int or float
         :param kwargs: Passed into _get_condition (see docstring).
         :returns: Element with the next index matching criteria.
@@ -1225,7 +1225,7 @@ class FormattedNameNode(ListNode):
 
         :param index: Index to get the previous item from.
         :type index: int or float
-        :param frequency: Frequency of index.
+        :param frequency: Frequency of index if it is not the same as the FormattedNameNode.
         :type frequency: int or float
         :param kwargs: Passed into _get_condition (see docstring).
         :returns: Element with the previous index matching criteria.
