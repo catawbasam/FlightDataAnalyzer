@@ -2871,8 +2871,8 @@ class FlapSurface(DerivedParameterNode):
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
             
         elif frame_name in ['747-200-GE']:
-            # Only the left inboard flap is instrumented.
-            self.array = flap_A.array
+            # Only the right inboard flap is instrumented.
+            self.array = flap_B.array
 
         else:
             raise DataFrameError(self.name, frame_name)
