@@ -94,7 +94,7 @@ from analysis_engine.key_point_values import (
     AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
     AltitudeAtFirstFlapChangeAfterLiftoff,
-    AltitudeAtGoAroundGearUpSelection,
+    AltitudeAtGearUpSelectionDuringGoAround,
     AltitudeAtGoAroundMin,
     AltitudeAtLastFlapChangeBeforeLanding,
     AltitudeAtLiftoff,
@@ -5451,10 +5451,10 @@ class TestAltitudeGoAroundFlapRetracted(unittest.TestCase, NodeTest):
         self.assertEqual(list(node), [])
 
 
-class TestAltitudeAtGoAroundGearUpSelection(unittest.TestCase, NodeTest):
+class TestAltitudeAtGearUpSelectionDuringGoAround(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = AltitudeAtGoAroundGearUpSelection
-        self.operational_combinations = [('Altitude AAL', 'Go Around And Climbout', 'Go Around Gear Selected Up')]
+        self.node_class = AltitudeAtGearUpSelectionDuringGoAround
+        self.operational_combinations = [('Altitude AAL', 'Go Around And Climbout', 'Gear Up Selection During Go Around')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

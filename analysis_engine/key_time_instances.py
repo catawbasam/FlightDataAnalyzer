@@ -290,12 +290,6 @@ class GoAroundFlapRetracted(KeyTimeInstanceNode):
                                   phase=gas)
 
 
-class GoAroundGearSelectedUp(KeyTimeInstanceNode):
-    def derive(self, gear=M('Gear Down'), gas=S('Go Around And Climbout')):
-        self.create_ktis_on_state_change('Up', gear.array, change='entering',
-                                         phase=gas)
-
-
 class TopOfClimb(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD Smoothed'),
                ccd=S('Climb Cruise Descent')):
@@ -354,34 +348,63 @@ class FlapSet(KeyTimeInstanceNode):
                                   name='flap')
 
 
+##############################################################################
+# Landing Gear
+
+
 class GearDownSelection(KeyTimeInstanceNode):
-    def derive(self, gear_sel_down=M('Gear Down Selected'),
-               phase=S('Airborne')):
-        self.create_ktis_on_state_change('Down', gear_sel_down.array,
-                                         change='entering', phase=phase)
+    '''
+    Instants at which gear down was selected while airborne.
+    '''
+
+    def derive(self,
+               gear_dn_sel=M('Gear Down Selected'),
+               airborne=S('Airborne')):
+
+        self.create_ktis_on_state_change('Down', gear_dn_sel.array,
+                                         change='entering', phase=airborne)
 
 
 class GearUpSelection(KeyTimeInstanceNode):
     '''
-    This covers normal gear up selections, not during a go-around.
-    See "Go Around Gear Retracted" for Go-Around case.
+    Instants at which gear up was selected while airborne excluding go-arounds.
     '''
-    def derive(self, gear_sel_up=M('Gear Up Selected'), airs=S('Airborne'),
-               gas=S('Go Around And Climbout')):
-        air_slices = airs.get_slices()
-        ga_slices = gas.get_slices()
+
+    def derive(self,
+               gear_up_sel=M('Gear Up Selected'),
+               airborne=S('Airborne'),
+               go_arounds=S('Go Around And Climbout')):
+
+        air_slices = airborne.get_slices()
+        ga_slices = go_arounds.get_slices()
         if not air_slices:
             return
         air_not_ga = slices_and(air_slices, slices_not(ga_slices,
             begin_at=air_slices[0].start,
             end_at=air_slices[-1].stop,
         ))
-        good_phases = S(name='Airborne but not in Go Arounds',
-                        frequency=gear_sel_up.frequency,
-                        offset=gear_sel_up.offset)
+        good_phases = S(name='Airborne Not During Go Around',
+                        frequency=gear_up_sel.frequency,
+                        offset=gear_up_sel.offset)
         good_phases.create_sections(air_not_ga)
-        self.create_ktis_on_state_change('Up', gear_sel_up.array,
+        self.create_ktis_on_state_change('Up', gear_up_sel.array,
                                          change='entering', phase=good_phases)
+
+
+class GearUpSelectionDuringGoAround(KeyTimeInstanceNode):
+    '''
+    Instants at which gear up was selected while airborne including go-arounds.
+    '''
+
+    def derive(self,
+               gear_up_sel=M('Gear Up Selected'),
+               go_arounds=S('Go Around And Climbout')):
+
+        self.create_ktis_on_state_change('Up', gear_up_sel.array,
+                                         change='entering', phase=go_arounds)
+
+
+##############################################################################
 
 
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):

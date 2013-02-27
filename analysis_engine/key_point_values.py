@@ -6953,7 +6953,7 @@ class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
                                 alt_aal.array[flap_retracted.index])
 
 
-class AltitudeAtGoAroundGearUpSelection(KeyPointValueNode):
+class AltitudeAtGearUpSelectionDuringGoAround(KeyPointValueNode):
     '''
     Finds the relative altitude at which gear up was selected from the point of
     minimum altitude in the go-around. If gear up was selected before that,
@@ -6963,7 +6963,7 @@ class AltitudeAtGoAroundGearUpSelection(KeyPointValueNode):
     def derive(self,
                alt_aal=P('Altitude AAL'),
                gas=S('Go Around And Climbout'),
-               gear_ups=KTI('Go Around Gear Selected Up')):
+               gear_ups=KTI('Gear Up Selection During Go Around')):
 
         for ga in gas:
             # Find the index and height at this go-around minimum:
