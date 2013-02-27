@@ -1247,6 +1247,29 @@ class KeyTimeInstanceNode(FormattedNameNode):
 
     from analysis_engine.node import KTI, KeyTimeInstance
     k = KTI(items=[KeyTimeInstance(12, 'Airspeed At 20ft'), KeyTimeInstance(15, 'Airspeed At 10ft')])
+
+    Note that when using NAME_FORMAT and NAME_VALUES, the general node name
+    should match NAME_FORMAT as closely as possible but exclude specifying name
+    values or using the marker ``(*)`` e.g.::
+
+        class EngStop(KeyTimeInstanceNode):
+            NAME_FORMAT = 'Eng (%(number)d) Stop'
+            NAME_VALUES = {'number': range(1, 5)}
+            # ...
+
+        class FlapSet(KeyTimeInstanceNode):
+            NAME_FORMAT = 'Flap (%(flap)d) Set'
+            NAME_VALUES = {'flap': (1, 2, 5, 10, 15, 25, 30, 40)}
+            # ...
+
+    The marker ``(*)`` is intended to imply **all** of something so the
+    following would imply the point in time that **all** engines were stopped
+    (equivalent to the last engine stopping)::
+
+        class Eng_Stop(KeyTimeInstanceNode):
+            name = 'Eng (*) Stop'
+            # ...
+
     '''
     def __init__(self, *args, **kwargs):
         # place holder

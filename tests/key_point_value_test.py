@@ -2620,13 +2620,13 @@ class TestEngN1Below60PercentAfterTouchdownDuration(unittest.TestCase):
 
     def test_can_operate(self):
         opts = EngN1Below60PercentAfterTouchdownDuration.get_operational_combinations()
-        self.assertEqual(('Eng (*) Stop', 'Eng (1) N1', 'Touchdown'), opts[0])
-        self.assertEqual(('Eng (*) Stop', 'Eng (2) N1', 'Touchdown'), opts[1])
-        self.assertEqual(('Eng (*) Stop', 'Eng (3) N1', 'Touchdown'), opts[2])
-        self.assertEqual(('Eng (*) Stop', 'Eng (4) N1', 'Touchdown'), opts[3])
-        self.assertTrue(('Eng (*) Stop', 'Eng (1) N1', 'Eng (2) N1', 'Touchdown') in opts)
+        self.assertEqual(('Eng Stop', 'Eng (1) N1', 'Touchdown'), opts[0])
+        self.assertEqual(('Eng Stop', 'Eng (2) N1', 'Touchdown'), opts[1])
+        self.assertEqual(('Eng Stop', 'Eng (3) N1', 'Touchdown'), opts[2])
+        self.assertEqual(('Eng Stop', 'Eng (4) N1', 'Touchdown'), opts[3])
+        self.assertTrue(('Eng Stop', 'Eng (1) N1', 'Eng (2) N1', 'Touchdown') in opts)
         self.assertTrue(all(['Touchdown' in avail for avail in opts]))
-        self.assertTrue(all(['Eng (*) Stop' in avail for avail in opts]))
+        self.assertTrue(all(['Eng Stop' in avail for avail in opts]))
 
     def test_derive_eng_n1_cooldown(self):
         #TODO: Add later if required

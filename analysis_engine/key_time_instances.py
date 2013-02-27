@@ -209,13 +209,12 @@ class ClimbStart(KeyTimeInstanceNode):
                 self.create_kti(initial_climb_index)
 
 
-class Eng_Stop(KeyTimeInstanceNode):
+class EngStop(KeyTimeInstanceNode):
     '''
     '''
 
     NAME_FORMAT = 'Eng (%(number)d) Stop'
     NAME_VALUES = NAME_VALUES_ENGINE
-    name = 'Eng (*) Stop'  # FIXME: Name conflict!?
 
     @classmethod
     def can_operate(cls, available):

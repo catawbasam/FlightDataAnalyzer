@@ -3465,7 +3465,7 @@ class EngGasTempDuringMaximumContinuousPowerMax(KeyPointValueNode):
         )
 
 
-# TODO: Extract out code to create 'Eng (*) Start' KTIs?
+# TODO: Extract out code to create 'Eng Start' KTIs?
 class EngGasTempDuringEngStartMax(KeyPointValueNode):
     '''
     One key point value for maximum engine gas temperature at engine start for
@@ -3731,12 +3731,12 @@ class EngN1Below60PercentAfterTouchdownDuration(KeyPointValueNode):
     def can_operate(cls, available):
         return all((
             any_of(('Eng (%d) N1' % n for n in range(1, 5)), available),
-            'Eng (*) Stop' in available,
+            'Eng Stop' in available,
             'Touchdown' in available,
         ))
 
     def derive(self,
-               engines_stop=KTI('Eng (*) Stop'),
+               engines_stop=KTI('Eng Stop'),
                eng1=P('Eng (1) N1'),
                eng2=P('Eng (2) N1'),
                eng3=P('Eng (3) N1'),

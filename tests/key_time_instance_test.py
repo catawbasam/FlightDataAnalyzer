@@ -17,7 +17,7 @@ from analysis_engine.key_time_instances import (
     ATEngagedSelection,
     BottomOfDescent,
     ClimbStart,
-    Eng_Stop,
+    EngStop,
     EnterHold,
     ExitHold,
     FlapStateChanges,
@@ -708,10 +708,10 @@ class TestATDisengagedSelection(unittest.TestCase, NodeTest):
 ##############################################################################
 
 
-class TestEng_Stop(unittest.TestCase):
+class TestEngStop(unittest.TestCase):
     
     def test_can_operate(self):
-        combinations = Eng_Stop.get_operational_combinations()
+        combinations = EngStop.get_operational_combinations()
         self.assertTrue(('Eng (1) N2',) in combinations)
         self.assertTrue(('Eng (2) N2',) in combinations)
         self.assertTrue(('Eng (3) N2',) in combinations)
