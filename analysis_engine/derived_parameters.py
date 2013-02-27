@@ -9,7 +9,7 @@ from analysis_engine.model_information import (get_conf_map,
 from analysis_engine.node import (
     A, App, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M,
     P, S)
-from analysis_engine.library import (act_mismatch,
+from analysis_engine.library import (actuator_mismatch,
                                      air_track,
                                      align,
                                      all_of,
@@ -5185,14 +5185,14 @@ class ElevatorActuatorMismatch(DerivedParameterNode):
         fcc_l = np.ma.where(fcc.array == 'FCC (L)', 1, 0)
         fcc_r = np.ma.where(fcc.array == 'FCC (R)', 1, 0)
         
-        amm = act_mismatch(ap.array.raw, 
-                           fcc_l,
-                           fcc_r,
-                           left.array,
-                           right.array,
-                           elevator.array,
-                           scaling,
-                           self.frequency)
+        amm = actuator_mismatch(ap.array.raw, 
+                                fcc_l,
+                                fcc_r,
+                                left.array,
+                                right.array,
+                                elevator.array,
+                                scaling,
+                                self.frequency)
         
         self.array = amm
 

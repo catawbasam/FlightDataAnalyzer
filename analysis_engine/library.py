@@ -30,7 +30,7 @@ class InvalidDatetime(ValueError):
     pass
 
 
-def act_mismatch(ap, ap_l, ap_r, act_l, act_r, surf, scaling, frequency):
+def actuator_mismatch(ap, ap_l, ap_r, act_l, act_r, surf, scaling, frequency):
     '''
     Computes the mismatch between a control surface and the driving actuator
     during autopilot engaged phases of flight.
