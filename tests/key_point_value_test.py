@@ -326,7 +326,7 @@ from analysis_engine.key_point_values import (
     TAWSDontSinkWarningDuration,
     TAWSWindshearWarningBelow1500FtDuration,
 )
-from analysis_engine.key_time_instances import Eng_Stop
+from analysis_engine.key_time_instances import EngStop
 from analysis_engine.library import (max_abs_value, max_value, min_value)
 from analysis_engine.flight_phase import Fast
 from flight_phase_test import buildsection
@@ -2631,7 +2631,7 @@ class TestEngN1Below60PercentAfterTouchdownDuration(unittest.TestCase):
     def test_derive_eng_n1_cooldown(self):
         #TODO: Add later if required
         #gnd = S(items=[Section('', slice(10,100))])
-        eng_stop = Eng_Stop(items=[KeyTimeInstance(90, 'Eng (1) Stop'),])
+        eng_stop = EngStop(items=[KeyTimeInstance(90, 'Eng (1) Stop'),])
         eng = P(array=np.ma.array([100] * 60 + [40] * 40)) # idle for 40
         tdwn = KTI(items=[KeyTimeInstance(30), KeyTimeInstance(50)])
         max_dur = EngN1Below60PercentAfterTouchdownDuration()
