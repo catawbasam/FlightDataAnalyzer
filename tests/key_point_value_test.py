@@ -145,7 +145,6 @@ from analysis_engine.key_point_values import (
     EngN2DuringTakeoff5MinRatingMax,
     EngN2DuringGoAround5MinRatingMax,
     EngN2DuringMaximumContinuousPowerMax,
-    EngN2CyclesDuringFinalApproach,
     EngN3DuringTaxiMax,
     EngN3DuringTakeoff5MinRatingMax,
     EngN3DuringGoAround5MinRatingMax,
@@ -2689,17 +2688,6 @@ class TestEngN2MaximumContinuousPowerMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = EngN2DuringMaximumContinuousPowerMax
         self.operational_combinations = [('Eng (*) N2 Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestEngN2CyclesDuringFinalApproach(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = EngN2CyclesDuringFinalApproach
-        self.operational_combinations = [('Eng (*) N2 Avg', 'Final Approach')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
