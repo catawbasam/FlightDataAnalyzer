@@ -1149,12 +1149,12 @@ class TurningOnGround(FlightPhaseNode):
                 self.create_phase(turn_slice, name="Turning On Ground")
 
 
+# NOTE: Python class name restriction: '2DegPitchTo35Ft' not permitted.
 class TwoDegPitchTo35Ft(FlightPhaseNode):
-    """
-    """
-    # NOTE: Python class name restriction: '2DegPitchTo35Ft' not permitted.
+    '''
+    '''
 
-    name='2 Deg Pitch To 35 Ft'
+    name = '2 Deg Pitch To 35 Ft'
 
     def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
         for takeoff in takeoffs:

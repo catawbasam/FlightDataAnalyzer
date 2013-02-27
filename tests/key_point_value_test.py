@@ -303,6 +303,7 @@ from analysis_engine.key_point_values import (
     TurbulenceDuringApproachMax,
     TurbulenceDuringCruiseMax,
     TurbulenceDuringFlightMax,
+    TwoDegPitchTo35FtDuration,
     WindAcrossLandingRunwayAt50Ft,
     WindDirectionAtAltitudeDuringDescent,
     WindSpeedAtAltitudeDuringDescent,
@@ -5484,3 +5485,16 @@ class TestAOAInGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTwoDegPitchTo35FtDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TwoDegPitchTo35FtDuration
+        self.operational_combinations = [('2 Deg Pitch To 35 Ft',)]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+

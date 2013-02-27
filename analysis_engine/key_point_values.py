@@ -6995,4 +6995,22 @@ class AOAInGoAroundMax(KeyPointValueNode):
         self.create_kpvs_within_slices(aoa.array, gas, max_value)
 
 
+# NOTE: Python class name restriction: '2 Deg Pitch To 35 Ft Duration'
+class TwoDegPitchTo35FtDuration(KeyPointValueNode):
+    '''
+    Time taken for aircraft to reach 35ft after rotating to 2 degrees pitch.
+    '''
+
+    name = '2 Deg Pitch To 35 Ft Duration'
+    units = 's'
+
+    def derive(self,
+               two_deg_pitch_to_35ft=S('2 Deg Pitch To 35 Ft')):
+
+        self.create_kpvs_from_slice_durations(
+            two_deg_pitch_to_35ft,
+            self.frequency,
+            mark='midpoint',
+        )
+
 
