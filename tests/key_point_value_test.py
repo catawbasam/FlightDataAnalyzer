@@ -55,7 +55,6 @@ from analysis_engine.key_point_values import (
     AirspeedAtGearUpSelection,
     AirspeedAtLiftoff,
     AirspeedAtTouchdown,
-    AirspeedBelowAltitudeMax,
     AirspeedDuringCruiseMax,
     AirspeedDuringCruiseMin,
     AirspeedGustsDuringFinalApproach,
@@ -1636,33 +1635,6 @@ class TestAirspeedDuringLevelFlightMax(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAirspeedBelowAltitudeMax(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = AirspeedBelowAltitudeMax
-        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
-
-    def test_derive(self):
-        airspeed = P(array=np.ma.arange(20))
-        alt_aal = P(array=np.ma.arange(0, 10000, 500))
-        param = AirspeedBelowAltitudeMax()
-        param.derive(airspeed, alt_aal)
-        self.assertEqual(param, [
-            KeyPointValue(index=19, value=19.0,
-                name='Airspeed Below 10000 Ft Max',
-                slice=slice(None, None, None), datetime=None),
-            KeyPointValue(index=15, value=15.0,
-                name='Airspeed Below 8000 Ft Max',
-                slice=slice(None, None, None), datetime=None),
-            KeyPointValue(index=9, value=9.0,
-                name='Airspeed Below 5000 Ft Max',
-                slice=slice(None, None, None), datetime=None),
-            KeyPointValue(index=5, value=5.0,
-                name='Airspeed Below 3000 Ft Max',
-                slice=slice(None, None, None), datetime=None),
-        ])
 
 
 ##############################################################################

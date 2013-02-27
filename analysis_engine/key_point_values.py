@@ -1564,27 +1564,6 @@ class AirspeedDuringLevelFlightMax(KeyPointValueNode):
             self.create_kpv(*max_value(air_spd.array, section.slice))
 
 
-class AirspeedBelowAltitudeMax(KeyPointValueNode):
-    '''
-    '''
-
-    NAME_FORMAT = 'Airspeed Below %(altitude)d Ft Max'
-    NAME_VALUES = {'altitude': [10000, 8000, 5000, 3000]}
-    units = 'kt'
-
-    def derive(self,
-               air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-
-        for altitude in self.NAME_VALUES['altitude']:
-            self.create_kpv_from_slices(
-                air_spd.array,
-                alt_aal.slices_between(0, altitude),
-                max_value,
-                altitude=altitude,
-            )
-
-
 ##############################################################################
 # Angle of Attack
 
