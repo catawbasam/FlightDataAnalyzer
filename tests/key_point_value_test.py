@@ -975,7 +975,7 @@ class TestAirspeed8000To10000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
     def setUp(self):
         self.node_class = Airspeed8000To10000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Airspeed', 'Altitude STD Smoothed')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (8000, 10000), {})]
 
@@ -992,7 +992,7 @@ class TestAirspeed10000To8000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
     def setUp(self):
         self.node_class = Airspeed10000To8000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Airspeed', 'Altitude STD Smoothed')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (10000, 8000), {})]
 
@@ -1005,7 +1005,7 @@ class TestAirspeed8000To5000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
     def setUp(self):
         self.node_class = Airspeed8000To5000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Airspeed', 'Altitude STD Smoothed')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (8000, 5000), {})]
 
@@ -4275,7 +4275,7 @@ class TestRateOfDescentTopOfDescentTo10000FtMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = RateOfDescentTopOfDescentTo10000FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Descent')]
+        self.operational_combinations = [('Vertical Speed', 'Altitude STD Smoothed', 'Descent')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -4299,7 +4299,7 @@ class TestRateOfDescent10000To5000FtMax(unittest.TestCase, CreateKPVsWithinSlice
 
     def setUp(self):
         self.node_class = RateOfDescent10000To5000FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Vertical Speed', 'Altitude STD Smoothed')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (10000, 5000), {})]
 

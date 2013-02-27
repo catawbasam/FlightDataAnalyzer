@@ -671,6 +671,7 @@ class Airspeed35To1000FtMin(KeyPointValueNode):
         )
 
 
+# XXX: Using 'Altitude AAL For Flight Phases' as 1000-5000 range > 5000-8000...
 class Airspeed1000To8000FtMax(KeyPointValueNode):
     '''
     '''
@@ -696,7 +697,7 @@ class Airspeed8000To10000FtMax(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude STD Smoothed')):
 
         self.create_kpv_from_slices(
             air_spd.array,
@@ -717,7 +718,7 @@ class Airspeed10000To8000FtMax(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude STD Smoothed')):
 
         self.create_kpv_from_slices(
             air_spd.array,
@@ -734,7 +735,7 @@ class Airspeed8000To5000FtMax(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude STD Smoothed')):
 
         self.create_kpv_from_slices(
             air_spd.array,
@@ -5153,6 +5154,7 @@ class RateOfClimb35To1000FtMin(KeyPointValueNode):
         )
 
 
+# XXX: Should use 'Altitude STD Smoothed'?
 class RateOfClimbBelow10000FtMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
@@ -5219,7 +5221,7 @@ class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases'),
+               alt_aal=P('Altitude STD Smoothed'),
                descents=S('Descent')):
 
         for descent in descents:
@@ -5228,6 +5230,7 @@ class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
             self.create_kpvs_within_slices(vrt_spd.array, drops, min_value)
 
 
+# XXX: Should use 'Altitude STD Smoothed'?
 class RateOfDescentBelow10000FtMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
@@ -5256,7 +5259,7 @@ class RateOfDescent10000To5000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude STD Smoothed')):
 
         self.create_kpvs_within_slices(
             vrt_spd.array,
