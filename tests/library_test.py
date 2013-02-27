@@ -979,7 +979,7 @@ class TestActuatorMismatch(unittest.TestCase):
                            self.act_l_array,
                            self.act_r_array,
                            self.surf_array,
-                           scaling)
+                           scaling, 1.0)
         peak_index = np.ma.argmax(amm)
         peak_value = amm[peak_index]
         self.assertGreater(peak_value,1.0)
