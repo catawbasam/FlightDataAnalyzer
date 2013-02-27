@@ -342,7 +342,7 @@ class TopOfDescent(KeyTimeInstanceNode):
             self.create_kti(n_tod)
 
 
-class FlapStateChanges(KeyTimeInstanceNode):
+class FlapSet(KeyTimeInstanceNode):
     NAME_FORMAT = 'Flap %(flap)d Set'
     NAME_VALUES = NAME_VALUES_FLAP
 

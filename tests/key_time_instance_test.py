@@ -20,7 +20,7 @@ from analysis_engine.key_time_instances import (
     EngStop,
     EnterHold,
     ExitHold,
-    FlapStateChanges,
+    FlapSet,
     GearDownSelection,
     GearUpSelection,
     GoAround,
@@ -750,16 +750,16 @@ class TestExitHold(unittest.TestCase):
         self.assertEqual(eh, expected)
 
 
-class TestFlapStateChanges(unittest.TestCase):
+class TestFlapSet(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Flap',)]
         self.assertEqual(
             expected,
-            FlapStateChanges.get_operational_combinations())
+            FlapSet.get_operational_combinations())
 
     def test_derive(self):
         f = P('Flap', [0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
-        fsc = FlapStateChanges()
+        fsc = FlapSet()
         expected = [
             KeyTimeInstance(index=1.5, name='Flap 5 Set'),
             KeyTimeInstance(index=3.5, name='Flap 10 Set'),
