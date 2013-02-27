@@ -267,7 +267,7 @@ from analysis_engine.key_point_values import (
     Roll20FtToTouchdownMax,
     RollCyclesDuringFinalApproach,
     RollCyclesNotDuringFinalApproach,
-    RudderExcursionDuringTakeoff,
+    RudderDuringTakeoffMax,
     RudderReversalAbove50Ft,
     SpeedbrakeDeployedDuringGoAroundDuration,
     SpeedbrakeDeployed1000To20FtDuration,
@@ -4532,11 +4532,11 @@ class TestRollCyclesNotDuringFinalApproach(unittest.TestCase, NodeTest):
 # Rudder
 
 
-class TestRudderExcursionDuringTakeoff(unittest.TestCase,
-                                       CreateKPVsWithinSlicesTest):
+class TestRudderDuringTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
     def setUp(self):
-        self.node_class = RudderExcursionDuringTakeoff
-        self.operational_combinations = [('Rudder', 'Takeoff Roll',)]
+        self.node_class = RudderDuringTakeoffMax
+        self.operational_combinations = [('Rudder', 'Takeoff Roll')]
         self.function = max_abs_value
 
     @unittest.skip('Test Not Implemented')
@@ -4545,6 +4545,7 @@ class TestRudderExcursionDuringTakeoff(unittest.TestCase,
 
 
 class TestRudderReversalAbove50Ft(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = RudderReversalAbove50Ft
         self.operational_combinations = [('Rudder', 'Altitude AAL For Flight Phases')]

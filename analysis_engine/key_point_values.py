@@ -5611,13 +5611,20 @@ class RollCyclesNotDuringFinalApproach(KeyPointValueNode):
 ##############################################################################
 # Rudder
 
-class RudderExcursionDuringTakeoff(KeyPointValueNode):
+
+class RudderDuringTakeoffMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Take-Off (Lateral) Rudder kick/oscillations. Difficult due
     gusts and effect of buildings."
     '''
-    def derive(self, rudder=P('Rudder'), to_rolls=S('Takeoff Roll')):
+
+    units = 'deg'
+
+    def derive(self,
+               rudder=P('Rudder'),
+               to_rolls=S('Takeoff Roll')):
+
         self.create_kpvs_within_slices(rudder.array, to_rolls, max_abs_value)
 
 
@@ -5631,18 +5638,24 @@ class RudderReversalAbove50Ft(KeyPointValueNode):
     Looks for sharp rudder reversal. Excludes operation below 50ft as this is
     normal use of the rudder to kick off drift. Uses the standard cycle
     counting process but looking for only one pair of half-cycles.
+
+    The threshold used to be 6.5 deg, derived from a manufacturer's document,
+    but this did not provide meaningful results in routine operations, so the
+    threshold was reduced to 2 deg over 2 seconds.
     '''
 
-    def derive(self, rudder=P('Rudder'),
+    units = 'cycles'  # FIXME
+
+    def derive(self,
+               rudder=P('Rudder'),
                alt_aal=P('Altitude AAL For Flight Phases')):
-        '''
-        The threshold used to be 6.5 deg, derived from a manufacturer's
-        document, but this did not provide meaningful results in routine
-        operations, so the threshold was reduced to 2 deg over 2 seconds.
-        '''
+
         for above_50 in alt_aal.slices_above(50.0):
-            self.create_kpv(*cycle_counter(rudder.array[above_50], 2.0, 2.0,
-                                           rudder.hz, above_50.start))
+            self.create_kpv(*cycle_counter(
+                rudder.array[above_50],
+                2.0, 2.0, rudder.hz,
+                above_50.start,
+            ))
 
 
 ##############################################################################
