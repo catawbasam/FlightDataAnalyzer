@@ -972,19 +972,19 @@ class TestActuatorMismatch(unittest.TestCase):
         self.surf_array = np.ma.array(surf_list)
         
     def test_actuator_basic(self):
-        scaling = 1/2.6 # 737 elevator specific at this time
-        amm = act_mismatch(self.ap_array, 
-                           self.fcc_l_array, 
-                           self.fcc_r_array,
-                           self.act_l_array,
-                           self.act_r_array,
-                           self.surf_array,
-                           scaling, 1.0)
+        scaling = 1 / 2.6  # 737 elevator specific at this time
+        amm = actuator_mismatch(self.ap_array, 
+                                self.fcc_l_array, 
+                                self.fcc_r_array,
+                                self.act_l_array,
+                                self.act_r_array,
+                                self.surf_array,
+                                scaling, 1.0)
         peak_index = np.ma.argmax(amm)
         peak_value = amm[peak_index]
-        self.assertGreater(peak_value,1.0)
-        self.assertGreater(peak_index,9530)
-        self.assertLess(peak_index,9540)
+        self.assertGreater(peak_value, 1.0)
+        self.assertGreater(peak_index, 9530)
+        self.assertLess(peak_index, 9540)
         
         
 class TestClip(unittest.TestCase):

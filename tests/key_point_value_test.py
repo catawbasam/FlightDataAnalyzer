@@ -133,6 +133,7 @@ from analysis_engine.key_point_values import (
     EngGasTempDuringMaximumContinuousPowerMax,
     EngGasTempDuringFlightMin,
     EngN1DuringTaxiMax,
+    EngN1DuringApproachMax,
     EngN1DuringTakeoff5MinRatingMax,
     EngN1DuringGoAround5MinRatingMax,
     EngN1DuringMaximumContinuousPowerMax,
@@ -2541,6 +2542,18 @@ class TestEngN1DuringTaxiMax(unittest.TestCase, CreateKPVFromSlicesTest):
     def setUp(self):
         self.node_class = EngN1DuringTaxiMax
         self.operational_combinations = [('Eng (*) N1 Max', 'Taxiing')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngN1DuringApproachMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN1DuringApproachMax
+        self.operational_combinations = [('Eng (*) N1 Max', 'Approach')]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
