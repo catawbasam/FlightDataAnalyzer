@@ -113,7 +113,7 @@ from analysis_engine.key_point_values import (
     AltitudeLastUnStableDuringApproach,
     AltitudeMax,
     AltitudeWithFlapsMax,
-    AOAInGoAroundMax,
+    AOADuringGoAroundMax,
     AOAWithFlapMax,
     APDisengagedDuringCruiseDuration,
     BrakePressureInTakeoffRollMax,
@@ -1645,6 +1645,18 @@ class TestAOAWithFlapMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AOAWithFlapMax
         self.operational_combinations = [('Flap', 'AOA', 'Fast')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAOADuringGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = AOADuringGoAroundMax
+        self.operational_combinations = [('AOA', 'Go Around And Climbout')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -5443,17 +5455,6 @@ class TestAltitudeAtGearUpSelectionDuringGoAround(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AltitudeAtGearUpSelectionDuringGoAround
         self.operational_combinations = [('Altitude AAL', 'Go Around And Climbout', 'Gear Up Selection During Go Around')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAOAInGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AOAInGoAroundMax
-        self.operational_combinations = [('AOA', 'Go Around And Climbout',)]
-        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

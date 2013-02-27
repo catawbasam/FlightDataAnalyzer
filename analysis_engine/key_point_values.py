@@ -1582,6 +1582,7 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
 
     NAME_FORMAT = 'AOA With Flap %(flap)d Max'
     NAME_VALUES = NAME_VALUES_FLAP
+    units = 'deg'
 
     def derive(self, flap=P('Flap'), aoa=P('AOA'), scope=S('Fast')):
         '''
@@ -1590,6 +1591,22 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
         # flaps before 80 kts on the landing run.
         self.flap_or_conf_max_or_min(flap, aoa, max_value,
                                      scope=scope, include_zero=True)
+
+
+class AOADuringGoAroundMax(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control Mis-handled G/A"
+    '''
+
+    name = 'AOA During Go Around Max'
+    units = 'deg'
+
+    def derive(self,
+               aoa=P('AOA'),
+               go_arounds=S('Go Around And Climbout')):
+
+        self.create_kpvs_within_slices(aoa.array, go_arounds, max_value)
 
 
 ##############################################################################
@@ -6961,16 +6978,6 @@ class AltitudeAtGearUpSelectionDuringGoAround(KeyPointValueNode):
                     # Use zero if gear up selected before minimum height:
                     gear_up_ht = 0.0
                 self.create_kpv(gear_up.index, gear_up_ht)
-
-
-class AOAInGoAroundMax(KeyPointValueNode):
-    '''
-    FDS developed this KPV to support the UK CAA Significant Seven programme.
-    "Loss of Control Mis-handled G/A"
-    '''
-    name = 'AOA In Go Around Max'
-    def derive(self, aoa=P('AOA'), gas=S('Go Around And Climbout')):
-        self.create_kpvs_within_slices(aoa.array, gas, max_value)
 
 
 # NOTE: Python class name restriction: '2 Deg Pitch To 35 Ft Duration'
