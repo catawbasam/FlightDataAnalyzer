@@ -37,7 +37,6 @@ from analysis_engine.key_time_instances import (
     SecsToTouchdown,
     TakeoffAccelerationStart,
     TakeoffPeakAcceleration,
-    TakeoffRotation,
     TakeoffTurnOntoRunway,
     TopOfClimb,
     TopOfDescent,
@@ -489,22 +488,6 @@ class TestTakeoffAccelerationStart(unittest.TestCase):
         instance = TakeoffAccelerationStart()
         instance.derive(aspd, takeoff,None)
         self.assertEqual(instance[0].index, 0.0)
-
-
-class TestTakeoffRotation(unittest.TestCase):
-    def setUp(self):
-        self.pitch = P(name='Pitch', array=np.ma.array([0] * 2 + range(0, 8)))
-        self.takeoff = buildsection('Takeoff', 1.7, 5.5)
-
-    def test_can_operate(self):
-        expected = [('Pitch', 'Takeoff')]
-        self.assertEqual(TakeoffRotation.get_operational_combinations(), expected)
-
-    def test_derive(self):
-        rotation = TakeoffRotation()
-        rotation.derive(self.pitch, self.takeoff)
-        expected = [KeyTimeInstance(name='Takeoff Rotation', index=4)]
-        self.assertEqual(rotation, expected)
 
 
 class TestTakeoffTurnOntoRunway(unittest.TestCase):
