@@ -5047,7 +5047,7 @@ class TestTCASTAWarningDuration(unittest.TestCase, NodeTest):
         airborne = buildsection('Airborne', 2, 7)
         node = self.node_class()
         node.derive(tcas, airborne)
-        self.assertEqual([KeyPointValue(6.0, 2.0, 'TCAS TA Warning Duration')],
+        self.assertEqual([KeyPointValue(5.0, 2.0, 'TCAS TA Warning Duration')],
                          node)
 
 
