@@ -3598,6 +3598,20 @@ class EngN1DuringTaxiMax(KeyPointValueNode):
         self.create_kpv_from_slices(eng_n1_max.array, taxiing, max_value)
 
 
+class EngN1DuringApproachMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng N1 During Approach Max'
+    units = '%'
+
+    def derive(self,
+               eng_n1_max=P('Eng (*) N1 Max'),
+               approaches=S('Approach')):
+
+        self.create_kpv_from_slices(eng_n1_max.array, approaches, max_value)
+
+
 class EngN1DuringTakeoff5MinRatingMax(KeyPointValueNode):
     '''
     '''
