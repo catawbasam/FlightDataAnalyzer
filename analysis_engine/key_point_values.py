@@ -1983,7 +1983,7 @@ class AltitudeAtFlapExtension(KeyPointValueNode):
         # Restricted to avoid triggering on flap extension for takeoff:
         for air in airborne:
             extends = find_edges(flap.array, air.slice)
-            if not extends:
+            if extends:
                 index = extends[0]
                 value = alt_aal.array[index]
                 self.create_kpv(index, value)
