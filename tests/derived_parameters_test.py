@@ -3299,16 +3299,17 @@ class TestThrustReversers(unittest.TestCase):
 
     def test_derive(self):
         result = [ 2,  2,  2,  2,  1,  1,  0,  0,  0,  0]
-        self.thrust_reversers.get_derived((self.eng_1_deployed,
+        self.thrust_reversers.get_derived([self.eng_1_deployed,
                                 None,
                                 None,
                                 self.eng_1_unlocked,
                                 None,
                                 None,
+                                None,
                                 self.eng_2_deployed,
                                 None,
                                 None,
-                                self.eng_2_unlocked))
+                                self.eng_2_unlocked] + [None] * 17)
         np.testing.assert_equal(self.thrust_reversers.array.data, result)
 
     def test_derive_masked_value(self):
@@ -3320,18 +3321,36 @@ class TestThrustReversers(unittest.TestCase):
         result_array = [ 2,  2,  2,  2,  1,  2,  0,  0,  0,  0]
         result_mask =  [ 0,  0,  0,  0,  0,  1,  0,  0,  1,  0]
 
-        self.thrust_reversers.get_derived((self.eng_1_deployed,
+        self.thrust_reversers.get_derived([self.eng_1_deployed,
                                 None,
                                 None,
                                 self.eng_1_unlocked,
                                 None,
                                 None,
+                                None,
                                 self.eng_2_deployed,
                                 None,
                                 None,
-                                self.eng_2_unlocked))
+                                self.eng_2_unlocked] + [None] * 17)
         np.testing.assert_equal(self.thrust_reversers.array.data, result_array)
         np.testing.assert_equal(self.thrust_reversers.array.mask, result_mask)
+
+    def test_derive_in_transit_avaliable(self):
+        result = [ 2,  2,  1,  1,  1,  1,  0,  0,  0,  0]
+        transit_array = [ 0,  0,  1,  1,  1,  1,  0,  0,  0,  0]
+        eng_1_in_transit = M(name='Eng (1) Thrust Reverser In Transit', array=np.ma.array(transit_array), values_mapping={1:'In Transit'})
+        self.thrust_reversers.get_derived([self.eng_1_deployed,
+                                None,
+                                None,
+                                self.eng_1_unlocked,
+                                None,
+                                None,
+                                eng_1_in_transit,
+                                self.eng_2_deployed,
+                                None,
+                                None,
+                                self.eng_2_unlocked] + [None] * 17)
+        np.testing.assert_equal(self.thrust_reversers.array.data, result)
 
 
 class TestTurbulence(unittest.TestCase):

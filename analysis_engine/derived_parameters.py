@@ -4139,24 +4139,28 @@ class ThrustReversers(MultistateDerivedParameterNode):
             e1_ulk_all=M('Eng (1) Thrust Reverser Unlocked'),
             e1_ulk_lft=M('Eng (1) Thrust Reverser (L) Unlocked'),
             e1_ulk_rgt=M('Eng (1) Thrust Reverser (R) Unlocked'),
+            e1_tst_all=M('Eng (1) Thrust Reverser In Transit'),
             e2_dep_all=M('Eng (2) Thrust Reverser Deployed'),
             e2_dep_lft=M('Eng (2) Thrust Reverser (L) Deployed'),
             e2_dep_rgt=M('Eng (2) Thrust Reverser (R) Deployed'),
             e2_ulk_all=M('Eng (2) Thrust Reverser Unlocked'),
             e2_ulk_lft=M('Eng (2) Thrust Reverser (L) Unlocked'),
             e2_ulk_rgt=M('Eng (2) Thrust Reverser (R) Unlocked'),
+            e2_tst_all=M('Eng (2) Thrust Reverser In Transit'),
             e3_dep_all=M('Eng (3) Thrust Reverser Deployed'),
             e3_dep_lft=M('Eng (3) Thrust Reverser (L) Deployed'),
             e3_dep_rgt=M('Eng (3) Thrust Reverser (R) Deployed'),
             e3_ulk_all=M('Eng (3) Thrust Reverser Unlocked'),
             e3_ulk_lft=M('Eng (3) Thrust Reverser (L) Unlocked'),
             e3_ulk_rgt=M('Eng (3) Thrust Reverser (R) Unlocked'),
+            e3_tst_all=M('Eng (3) Thrust Reverser In Transit'),
             e4_dep_all=M('Eng (4) Thrust Reverser Deployed'),
             e4_dep_lft=M('Eng (4) Thrust Reverser (L) Deployed'),
             e4_dep_rgt=M('Eng (4) Thrust Reverser (R) Deployed'),
             e4_ulk_all=M('Eng (4) Thrust Reverser Unlocked'),
             e4_ulk_lft=M('Eng (4) Thrust Reverser (L) Unlocked'),
-            e4_ulk_rgt=M('Eng (4) Thrust Reverser (R) Unlocked')):
+            e4_ulk_rgt=M('Eng (4) Thrust Reverser (R) Unlocked'),
+            e4_tst_all=M('Eng (4) Thrust Reverser In Transit'),):
 
         stack = vstack_params_where_state((
             (e1_dep_all, 'Deployed'), (e1_ulk_all, 'Unlocked'),
@@ -4176,6 +4180,14 @@ class ThrustReversers(MultistateDerivedParameterNode):
         array = np_ma_zeros_like(stack[0])
         array = np.ma.where(stack.any(axis=0), 1, array)
         array = np.ma.where(stack.all(axis=0), 2, array)
+        # update with any transit params
+        if any((e1_tst_all, e2_tst_all, e3_tst_all, e4_tst_all)):
+            transit_stack = vstack_params_where_state((
+                (e1_tst_all, 'In Transit'), (e2_tst_all, 'In Transit'),
+                (e3_tst_all, 'In Transit'), (e4_tst_all, 'In Transit'),
+            ))
+            array = np.ma.where(transit_stack.any(axis=0), 1, array)
+
         # mask indexes with greater than 50% masked values
         mask = np.ma.where(stack.mask.sum(axis=0).astype(float)/len(stack)*100 > 50, 1, 0)
         self.array = array
