@@ -595,36 +595,51 @@ class TestTopOfDescent(unittest.TestCase):
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
         opts = Touchdown.get_operational_combinations()
-        self.assertTrue(('Gear On Ground',) in opts)
-        self.assertTrue(('Vertical Speed Inertial',
-                         'Altitude AAL',
-                         'Airborne',
-                         'Landing',) in opts)
+        self.assertEqual(len(opts), 4)
+        # 1
+        self.assertTrue(('Altitude AAL', 'Landing') in opts)
+        # 2
+        self.assertTrue(('Gear On Ground', 'Altitude AAL', 'Landing') in opts)
+        # 3
+        self.assertTrue(('Vertical Speed Inertial', 'Altitude AAL', 'Landing') in opts)
+        # 4
+        self.assertTrue(('Gear On Ground', 'Vertical Speed Inertial', 'Altitude AAL', 'Landing') in opts)
 
-    def test_touchdown_basic(self):
-        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40 - 380.0)
+    def test_touchdown_with_vertical_speed(self):
+        # Test 3
+        vert_spd = Parameter('Vertical Speed Inertial',
+                             np.ma.arange(10)*40 - 380.0)
         altitude = Parameter('Altitude AAL',
                              np.ma.array(data=[28.0, 21, 15, 10, 6, 3, 1, 0, 0,  0],
                                          mask = False))
-        airs = buildsection('Airborne', 1, 8)
         lands = buildsection('Landing', 2, 9)
-        tdwn=Touchdown()
-        tdwn.derive(None, vert_spd, altitude, airs, lands)
+        tdwn = Touchdown()
+        tdwn.derive(None, vert_spd, altitude, lands)
         expected = [KeyTimeInstance(index=6.7490996398559435, name='Touchdown')]
         self.assertEqual(tdwn, expected)
 
-    def test_touchdown_doesnt_land(self):
-        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40)
+    def test_touchdown_with_minimum_requirements(self):
+        # Test 1
         altitude = Parameter('Altitude AAL',
                              np.ma.array(data=[28, 21, 15, 10, 6, 3, 1, 0, 0,  0],
                                          mask = False))
-        airs = buildsection('Airborne', 10, None)
         lands = buildsection('Landing', 2, 9)
-        tdwn=Touchdown()
-        tdwn.derive(None, vert_spd, altitude, airs, lands)
-        expected = []
+        tdwn = Touchdown()
+        tdwn.derive(None, None, altitude, lands)
+        expected = [KeyTimeInstance(index=7, name='Touchdown')]
         self.assertEqual(tdwn, expected)
 
+    def test_touchdown_doesnt_land_with_vertical_speed(self):
+        # Test 3
+        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40)
+        altitude = Parameter('Altitude AAL',
+                             np.ma.array(data=[28, 21, 15, 10, 10, 14, 20, 34, 50],
+                                         mask = False))
+        lands = buildsection('Landing', 2, 9)
+        tdwn = Touchdown()
+        tdwn.derive(None, vert_spd, altitude, lands)
+        expected = []
+        self.assertEqual(tdwn, expected)
 
 ##############################################################################
 # Automated Systems

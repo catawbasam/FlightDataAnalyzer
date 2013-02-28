@@ -838,8 +838,8 @@ def cycle_select(array, min_step, max_time, hz, offset=0):
     half_cycle_pairs = zip(half_cycle_times, half_cycle_diffs)
     for n, (half_cycle_time, value) in enumerate(half_cycle_pairs):
         # If we are within the max time and have max difference, keep it:
-        if half_cycle_time < max_time and abs(value) >= abs(max_value):
-            max_index, max_value = idxs[n + 1], value
+        if half_cycle_time < max_time and abs(value) >= max_value:
+            max_index, max_value = idxs[n + 1], abs(value)
 
     if max_index is None:
         return Value(None, None)

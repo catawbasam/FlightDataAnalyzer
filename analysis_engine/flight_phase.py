@@ -209,7 +209,8 @@ class ApproachAndLanding(FlightPhaseNode):
             self.warning('Flight with no valid approach or go-around phase. '
                          'Probably truncated data')
 
-        self.create_phases(all_apps)
+        else:
+            self.create_phases(all_apps)
 
 
 class Approach(FlightPhaseNode):
