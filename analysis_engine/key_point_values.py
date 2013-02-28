@@ -5628,7 +5628,7 @@ class RudderDuringTakeoffMax(KeyPointValueNode):
         self.create_kpvs_within_slices(rudder.array, to_rolls, max_abs_value)
 
 
-class RudderReversalAbove50Ft(KeyPointValueNode):
+class RudderCyclesAbove50Ft(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Excursions - Landing (Lateral) Rudder kick/oscillations Often there
@@ -5644,7 +5644,7 @@ class RudderReversalAbove50Ft(KeyPointValueNode):
     threshold was reduced to 2 deg over 2 seconds.
     '''
 
-    units = 'cycles'  # FIXME
+    units = 'cycles'
 
     def derive(self,
                rudder=P('Rudder'),
