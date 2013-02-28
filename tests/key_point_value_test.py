@@ -11,7 +11,7 @@ from utilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, KPV, KTI, MultistateDerivedParameterNode, P, KeyPointValue,
+    A, KPV, KTI, M, P, KeyPointValue,
     KeyTimeInstance, Section, S
 )
 
@@ -167,7 +167,7 @@ from analysis_engine.key_point_values import (
     FlapAtLiftoff,
     FlapAtTouchdown,
     FlapWithGearUpMax,
-    FlapWithSpeedbrakesDeployedMax,
+    FlapWithSpeedbrakeDeployedMax,
     FlareDistance20FtToTouchdown,
     FlareDuration20FtToTouchdown,
     FuelQtyAtLiftoff,
@@ -182,9 +182,9 @@ from analysis_engine.key_point_values import (
     GroundspeedVacatingRunway,
     GrossWeightAtLiftoff,
     GrossWeightAtTouchdown,
-    HeadingAtLanding,
-    HeadingAtLowestPointOnApproach,
-    HeadingAtTakeoff,
+    HeadingDuringLanding,
+    HeadingAtLowestAltitudeDuringApproach,
+    HeadingDuringTakeoff,
     HeadingDeviationFromRunwayAbove80KtsAirspeedDuringTakeoff,
     HeadingDeviationFromRunwayAtTOGADuringTakeoff,
     HeadingDeviationFromRunwayAt50FtDuringLanding,
@@ -205,14 +205,16 @@ from analysis_engine.key_point_values import (
     ILSLocalizerDeviation1000To500FtMax,
     ILSLocalizerDeviation500To200FtMax,
     ILSLocalizerDeviationAtTouchdown,
-    LatitudeAtLanding,
     LatitudeAtLiftoff,
-    LatitudeAtTakeoff,
     LatitudeAtTouchdown,
-    LongitudeAtLanding,
+    LatitudeSmoothedAtLiftoff,
+    LatitudeSmoothedAtTouchdown,
+    LatitudeAtLowestAltitudeDuringApproach,
     LongitudeAtLiftoff,
-    LongitudeAtTakeoff,
     LongitudeAtTouchdown,
+    LongitudeSmoothedAtLiftoff,
+    LongitudeSmoothedAtTouchdown,
+    LongitudeAtLowestAltitudeDuringApproach,
     MachWhileGearExtendingMax,
     MachWhileGearRetractingMax,
     MachMax,
@@ -2464,7 +2466,7 @@ class TestDecelerationFromTouchdownToStopOnRunway(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = DecelerationFromTouchdownToStopOnRunway
         self.operational_combinations = [('Groundspeed', 'Touchdown',
-            'Landing', 'Latitude At Touchdown', 'Longitude At Touchdown',
+            'Landing', 'Latitude Smoothed At Touchdown', 'Longitude Smoothed At Touchdown',
             'FDR Landing Runway', 'ILS Glideslope Established',
             'ILS Localizer Established', 'Precise Positioning')]
 
@@ -3233,9 +3235,10 @@ class TestIsolationValveOpenAtLiftoff(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestLatitudeAtLanding(unittest.TestCase, NodeTest):
+class TestLatitudeAtTouchdown(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = LatitudeAtLanding
+        self.node_class = LatitudeAtTouchdown
         self.operational_combinations = [
             ('Latitude', 'Touchdown'),
             ('Touchdown', 'AFR Landing Airport'),
@@ -3290,9 +3293,10 @@ class TestLatitudeAtLanding(unittest.TestCase, NodeTest):
         node.create_kpv.assert_called_once_with(tdwns[-1].index, 1)
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 
-class TestLatitudeAtTakeoff(unittest.TestCase, NodeTest):
+class TestLatitudeAtLiftoff(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = LatitudeAtTakeoff
+        self.node_class = LatitudeAtLiftoff
         self.operational_combinations = [
             ('Latitude', 'Liftoff'),
             ('Liftoff', 'AFR Takeoff Airport'),
@@ -3348,9 +3352,10 @@ class TestLatitudeAtTakeoff(unittest.TestCase, NodeTest):
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 
 
-class TestLatitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestLatitudeSmoothedAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = LatitudeAtTouchdown
+        self.node_class = LatitudeSmoothedAtTouchdown
         self.operational_combinations = [('Latitude Smoothed', 'Touchdown')]
 
     @unittest.skip('Test Not Implemented')
@@ -3358,9 +3363,10 @@ class TestLatitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestLatitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestLatitudeSmoothedAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = LatitudeAtLiftoff
+        self.node_class = LatitudeSmoothedAtLiftoff
         self.operational_combinations = [('Latitude Smoothed', 'Liftoff')]
 
     @unittest.skip('Test Not Implemented')
@@ -3368,19 +3374,21 @@ class TestLatitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestLatitudeAtLowestPointOnApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestLatitudeAtLowestAltitudeDuringApproach(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = LatitudeAtLowestAltitudeDuringApproach
+        self.operational_combinations = [('Latitude Prepared', 'Lowest Altitude During Approach')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestLongitudeAtLanding(unittest.TestCase, NodeTest):
+class TestLongitudeAtTouchdown(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = LongitudeAtLanding
+        self.node_class = LongitudeAtTouchdown
         self.operational_combinations = [
             ('Longitude', 'Touchdown'),
             ('Touchdown', 'AFR Landing Airport'),
@@ -3436,9 +3444,10 @@ class TestLongitudeAtLanding(unittest.TestCase, NodeTest):
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 
 
-class TestLongitudeAtTakeoff(unittest.TestCase, NodeTest):
+class TestLongitudeAtLiftoff(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = LongitudeAtTakeoff
+        self.node_class = LongitudeAtLiftoff
         self.operational_combinations = [
             ('Longitude', 'Liftoff'),
             ('Liftoff', 'AFR Takeoff Airport'),
@@ -3494,9 +3503,10 @@ class TestLongitudeAtTakeoff(unittest.TestCase, NodeTest):
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 
 
-class TestLongitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestLongitudeSmoothedAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = LongitudeAtTouchdown
+        self.node_class = LongitudeSmoothedAtTouchdown
         self.operational_combinations = [('Longitude Smoothed', 'Touchdown')]
 
     @unittest.skip('Test Not Implemented')
@@ -3504,9 +3514,10 @@ class TestLongitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestLongitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestLongitudeSmoothedAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
-        self.node_class = LongitudeAtLiftoff
+        self.node_class = LongitudeSmoothedAtLiftoff
         self.operational_combinations = [('Longitude Smoothed', 'Liftoff')]
 
     @unittest.skip('Test Not Implemented')
@@ -3514,10 +3525,11 @@ class TestLongitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestLongitudeAtLowestPointOnApproach(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestLongitudeAtLowestAltitudeDuringApproach(unittest.TestCase):
+
+    def setUp(self):
+        self.node_class = LongitudeAtLowestAltitudeDuringApproach
+        self.operational_combinations = [('Longitude Prepared', 'Lowest Altitude During Approach')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -3624,33 +3636,33 @@ class TestTakeoffRotation(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestHeadingAtTakeoff(unittest.TestCase, NodeTest):
+class TestHeadingDuringTakeoff(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = HeadingAtTakeoff
+        self.node_class = HeadingDuringTakeoff
         self.operational_combinations = [('Heading Continuous', 'Takeoff Roll')]
 
     def test_derive_basic(self):
         head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
         toff = buildsection('Takeoff', 2,6)
-        kpv = HeadingAtTakeoff()
+        kpv = HeadingDuringTakeoff()
         kpv.derive(head, toff)
         expected = [KeyPointValue(index=4, value=7.5,
-                                  name='Heading At Takeoff')]
+                                  name='Heading During Takeoff')]
         self.assertEqual(kpv, expected)
 
     def test_derive_modulus(self):
         head = P('Heading Continuous',np.ma.array([0,2,4,7,9,8,6,3])*-1.0)
         toff = buildsection('Takeoff', 2,6)
-        kpv = HeadingAtTakeoff()
+        kpv = HeadingDuringTakeoff()
         kpv.derive(head, toff)
         expected = [KeyPointValue(index=4, value=360-7.5,
-                                  name='Heading At Takeoff')]
+                                  name='Heading During Takeoff')]
         self.assertEqual(kpv, expected)
 
 
-class TestHeadingAtLanding(unittest.TestCase, NodeTest):
+class TestHeadingDuringLanding(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = HeadingAtLanding
+        self.node_class = HeadingDuringLanding
         self.operational_combinations = [('Heading Continuous', 'Landing Roll')]
 
     def test_derive_basic(self):
@@ -3658,15 +3670,19 @@ class TestHeadingAtLanding(unittest.TestCase, NodeTest):
                                                    7,-1,-1,-1,-1,-1,-1,-1,-10]))
         landing = buildsection('Landing',5,15)
         head.array[13] = np.ma.masked
-        kpv = HeadingAtLanding()
+        kpv = HeadingDuringLanding()
         kpv.derive(head, landing)
         expected = [KeyPointValue(index=10, value=6.0,
-                                  name='Heading At Landing')]
+                                  name='Heading During Landing')]
         self.assertEqual(kpv, expected)
 
 
-class TestHeadingAtLowestPointOnApproach(unittest.TestCase,
-                                         CreateKPVsAtKTIsTest):
+class TestHeadingAtLowestAltitudeDuringApproach(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = HeadingAtLowestAltitudeDuringApproach
+        self.operational_combinations = [('Heading Continuous', 'Lowest Altitude During Approach')]
+
     def test_derive_mocked(self):
         mock1, mock2 = Mock(), Mock()
         # derive() uses par1 % 360.0, so the par1 needs to be compatible with %
@@ -3676,11 +3692,6 @@ class TestHeadingAtLowestPointOnApproach(unittest.TestCase,
         node.create_kpvs_at_ktis = Mock()
         node.derive(mock1, mock2)
         node.create_kpvs_at_ktis.assert_called_once_with(mock1.array, mock2)
-
-    def setUp(self):
-        self.node_class = HeadingAtLowestPointOnApproach
-        self.operational_combinations = [('Heading Continuous',
-                                          'Lowest Point On Approach')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -3802,6 +3813,10 @@ class TestHeadingVacatingRunway(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+##############################################################################
+# Height
+
+
 class TestHeightMinsToTouchdown(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = HeightMinsToTouchdown
@@ -3812,7 +3827,34 @@ class TestHeightMinsToTouchdown(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+##############################################################################
+# Flap
+
+
+class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = FlapAtLiftoff
+        self.operational_combinations = [('Flap', 'Liftoff')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = FlapAtTouchdown
+        self.operational_combinations = [('Flap', 'Touchdown')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
 class TestFlapAtGearDownSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = FlapAtGearDownSelection
         self.operational_combinations = [('Flap', 'Gear Down Selection')]
@@ -3823,6 +3865,7 @@ class TestFlapAtGearDownSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
 
 
 class TestFlapWithGearUpMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = FlapWithGearUpMax
         self.operational_combinations = [('Flap', 'Gear Down')]
@@ -3832,44 +3875,36 @@ class TestFlapWithGearUpMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestFlapWithSpeedbrakeDeployedMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = FlapAtTouchdown
-        self.operational_combinations = [('Flap', 'Touchdown')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = FlapAtLiftoff
-        self.operational_combinations = [('Flap', 'Liftoff')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestFlapWithSpeedbrakesDeployedMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = FlapWithSpeedbrakesDeployedMax
+        self.node_class = FlapWithSpeedbrakeDeployedMax
         self.operational_combinations = [('Flap', 'Speedbrake Selected', 'Airborne', 'Landing')]
 
     def test_derive(self):
-        spd_brk_loop = [0, 0, 1, 0, 0]
+        flap = P(
+            name='Flap',
+            array=np.arange(15),
+        )
+        spd_brk = M(
+            name='Speedbrake Selected',
+            array=np.ma.array([0, 1, 2, 0, 0] * 3),
+            values_mapping={
+                0: 'Stowed',
+                1: 'Armed/Cmd Dn',
+                2: 'Deployed/Cmd Up',
+            },
+        )
         airborne = buildsection('Airborne', 5, 15)
-        landing = buildsection('Landing', 10, 15)
-        flap = P('Flap', array=np.arange(15))
-        values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
-            'Speedbrake Selected', values_mapping=values_mapping, 
-            array=np.ma.array(spd_brk_loop * 3))
+        landings = buildsection('Landing', 10, 15)
         node = self.node_class()
-        node.derive(flap, spd_brk, airborne, landing)
-        self.assertEqual(
-            node, [KeyPointValue(7, 7, 'Flap With Speedbrakes Deployed Max')])
+        node.derive(flap, spd_brk, airborne, landings)
+        self.assertEqual(node, [
+            KeyPointValue(7, 7, 'Flap With Speedbrake Deployed Max'),
+        ])
+
+
+##############################################################################
 
 
 class TestFlareDuration20FtToTouchdown(unittest.TestCase, NodeTest):
@@ -4693,7 +4728,7 @@ class TestSpeedbrakeDeployed1000To20FtDuration(unittest.TestCase, NodeTest):
         alt_aal = P('Altitude AAL For Flight Phases',
                     array=np.ma.arange(2000, 0, -10))
         values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
+        spd_brk = M(
             'Speedbrake Selected', values_mapping=values_mapping, 
             array=np.ma.array(
                 [0] * 40 + [1] * 20 + [0] * 80 + [1] * 20 + [0] * 40))
@@ -4713,7 +4748,7 @@ class TestSpeedbrakeDeployedWithConfDuration(unittest.TestCase, NodeTest):
     def test_derive_basic(self):
         spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
         values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
+        spd_brk = M(
             'Speedbrake Selected', values_mapping=values_mapping,
             array=np.ma.array(spd_brk_loop * 3))
         conf = P('Configuration', array=np.ma.array([0] * 10 + range(2, 22)))
@@ -4733,7 +4768,7 @@ class TestSpeedbrakeDeployedWithFlapDuration(unittest.TestCase, NodeTest):
     def test_derive_basic(self):
         spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
         values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
+        spd_brk = M(
             'Speedbrake Selected', values_mapping=values_mapping,
             array=np.ma.array(spd_brk_loop * 3))
         flap = P('Flap', array=np.ma.array([0] * 10 + range(1, 21)))
@@ -4753,7 +4788,7 @@ class TestSpeedbrakeDeployedWithPowerOnDuration(unittest.TestCase, NodeTest):
     def test_derive_basic(self):
         spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
         values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
+        spd_brk = M(
             'Speedbrake Selected', values_mapping=values_mapping,
             array=np.ma.array(spd_brk_loop * 3))
         flap = P('Eng (*) N1 Avg',
@@ -4776,7 +4811,7 @@ class TestSpeedbrakeDeployedDuringGoAroundDuration(unittest.TestCase, NodeTest):
     def test_derive(self):
         spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
         values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
+        spd_brk = M(
             'Speedbrake Selected', values_mapping=values_mapping,
             array=np.ma.array(spd_brk_loop * 3))
         go_around = buildsection('Go Around And Climbout', 10, 20)
@@ -5151,7 +5186,7 @@ class TestTCASTAWarningDuration(unittest.TestCase, NodeTest):
             5: 'F',
             6: 'Preventive',
         }
-        tcas = MultistateDerivedParameterNode(
+        tcas = M(
             'TCAS Combined Control', array=np.ma.array([0,1,2,3,4,6,6,6,4,5]),
             values_mapping=values_mapping)
         airborne = buildsection('Airborne', 2, 7)
@@ -5177,7 +5212,7 @@ class TestTCASRAWarningDuration(unittest.TestCase, NodeTest):
             5: 'Down Advisory Corrective',
             6: 'G',
         }
-        tcas = MultistateDerivedParameterNode(
+        tcas = M(
             'TCAS Combined Control', array=np.ma.array([0,1,2,3,4,5,4,5,6]),
             values_mapping=values_mapping)
         airborne = buildsection('Airborne', 2, 7)
@@ -5228,7 +5263,7 @@ class TestTCASRAToAPDisengagedDuration(unittest.TestCase, NodeTest):
         kti_name = 'AP Disengaged Selection'
         ap_offs = KTI(kti_name, items=[KeyTimeInstance(1, kti_name),
                                        KeyTimeInstance(7, kti_name)])
-        tcas = MultistateDerivedParameterNode(
+        tcas = M(
             'TCAS Combined Control', array=np.ma.array([0,1,2,3,4,5,4,4,1,3,0]),
             values_mapping=values_mapping)
         airborne = buildsection('Airborne', 2, 9)

@@ -33,7 +33,7 @@ from analysis_engine.key_time_instances import (
     Liftoff,
     LocalizerEstablishedEnd,
     LocalizerEstablishedStart,
-    LowestPointOnApproach,
+    LowestAltitudeDuringApproach,
     MinsToTouchdown,
     SecsToTouchdown,
     TakeoffAccelerationStart,
@@ -926,27 +926,27 @@ class TestLocalizerEstablishedStart(unittest.TestCase):
         self.assertEqual(les, expected)
 
 
-class TestLowestPointOnApproach(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Altitude AAL', 'Altitude Radio', 'Approach And Landing')]
-        self.assertEqual(
-            expected,
-            LowestPointOnApproach.get_operational_combinations())
+class TestLowestAltitudeDuringApproach(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = LowestAltitudeDuringApproach
+        self.operational_combinations = [('Altitude AAL', 'Altitude Radio', 'Approach And Landing')]
 
     def test_derive(self):
-        alt_aal = P(name='Altitude AAL', array=np.ma.array([
-            5, 5, 4, 4, 3, 3, 2, 2, 1, 1,
-            1, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-        ]))
-        alt_rad = P(name='Altitude Radio', array=np.ma.array([
-            5, 5, 4, 4, 3, 3, 2, 1, 1, 1,
-            1, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-        ]))
-        appr = buildsection('Approach', 2, 15)
-        lpa = LowestPointOnApproach()
-        lpa.derive(alt_aal, alt_rad, appr)
-        expected = [KeyTimeInstance(index=7, name='Lowest Point On Approach')]
-        self.assertEqual(lpa, expected)
+        alt_aal = P(
+            name='Altitude AAL',
+            array=np.ma.array([5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+        )
+        alt_rad = P(
+            name='Altitude Radio',
+            array=np.ma.array([5, 5, 4, 4, 3, 3, 2, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+        )
+        approaches = buildsection('Approach And Landing', 2, 15)
+        node = self.node_class()
+        node.derive(alt_aal, alt_rad, approaches)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=7, name='Lowest Altitude During Approach'),
+        ])
 
 
 class TestMinsToTouchdown(unittest.TestCase):
