@@ -1210,12 +1210,12 @@ class TestCycleSelect(unittest.TestCase):
     def test_cycle_select(self):
         index, value = cycle_select(self.array, 3.0, 10, 1.0, 0)
         self.assertEqual(index, 29)
-        self.assertAlmostEqual(value, -3.93586778133)
+        self.assertAlmostEqual(value, 3.93586778133)
 
     def test_cycle_select_with_offset(self):
         index, value = cycle_select(self.array, 3.0, 10, 1.0, 1234)
         self.assertEqual(index, 1234 + 29)
-        self.assertAlmostEqual(value, -3.93586778133)
+        self.assertAlmostEqual(value, 3.93586778133)
 
     def test_cycle_select_too_slow(self):
         index, value = cycle_select(self.array, 3.0, 1, 1.0, 0)
@@ -1227,6 +1227,12 @@ class TestCycleSelect(unittest.TestCase):
         index, value = cycle_select(array, 3.0, 10, 1.0, 0)
         self.assertEqual(index, None)
         self.assertEqual(value, None)
+
+    def test_cycle_select_negative_change(self):
+        array = np.ma.array([0.0,3.0,-4.0,-2.0,0.0])
+        index, value = cycle_select(array, 3.0, 10, 1.0, 0)
+        self.assertEqual(index, 2)
+        self.assertEqual(value, 7.0)
 
 
 class TestCycleFinder(unittest.TestCase):
