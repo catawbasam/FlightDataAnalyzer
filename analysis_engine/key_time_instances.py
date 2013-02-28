@@ -85,21 +85,6 @@ class AltitudePeak(KeyTimeInstanceNode):
         self.create_kti(np.ma.argmax(np.ma.abs(np.ma.diff(alt_aal.array))))
 
 
-'''
-Redundant, as either a go-around, or landing
-
-class ApproachLowestPoint(KeyTimeInstanceNode):
-    def derive(self, apps=S('Approach'), alt_aal=P('Altitude AAL')):
-        # In the case of descents without landing, this finds the minimum
-        # point of the dip.
-        for app in apps:
-            index = np.ma.argmin(alt_aal.array[app.slice]) + app.slice.start
-            value = alt_aal.array[index]
-            if value:
-                self.create_kti(index)
-                '''
-
-
 ##############################################################################
 # Automated Systems
 
@@ -545,7 +530,7 @@ class Liftoff(KeyTimeInstanceNode):
                 self.create_kti(t0)
 
 
-class LowestPointOnApproach(KeyTimeInstanceNode):
+class LowestAltitudeDuringApproach(KeyTimeInstanceNode):
     '''
     For any approach phase that did not result in a landing, the lowest point
     is taken as key, from which the position, heading and height will be
@@ -554,12 +539,16 @@ class LowestPointOnApproach(KeyTimeInstanceNode):
     This KTI is essential to collect the related KPVs which inform the
     approach attribute, and thereafter compute the smoothed track.
     '''
-    def derive(self, alt_aal=P('Altitude AAL'), alt_rad=P('Altitude Radio'),
-               apps=S('Approach And Landing')):
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               alt_rad=P('Altitude Radio'),
+               approaches=S('Approach And Landing')):
+
         height = minimum_unmasked(alt_aal.array, alt_rad.array)
-        for app in apps:
-            index = np.ma.argmin(height[app.slice])
-            self.create_kti(index + app.start_edge)
+        for approach in approaches:
+            index = np.ma.argmin(height[approach.slice])
+            self.create_kti(approach.start_edge + index)
 
 
 class InitialClimbStart(KeyTimeInstanceNode):

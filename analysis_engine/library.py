@@ -1613,9 +1613,9 @@ def runway_distance_from_end(runway, *args, **kwds):
 
     Note: If high accuracy is required, compute the latitude and longitude
     using the value_at_index function rather than just indexing into the
-    latitude and longitude array. Alternatively use KPVs 'Latitude At
-    Touchdown' and 'Longitude At Touchdown' which are the most accurate
-    locations we have available for touchdown.
+    latitude and longitude array. Alternatively use KPVs 'Latitude Smoothed At
+    Touchdown' and 'Longitude Smoothed At Touchdown' which are the most
+    accurate locations we have available for touchdown.
 
     :param runway: Runway location details dictionary.
     :type runway: Dictionary containing:

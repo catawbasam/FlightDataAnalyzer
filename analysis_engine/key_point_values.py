@@ -2336,8 +2336,8 @@ class DistanceFromLiftoffToRunwayEnd(KeyPointValueNode):
 
     units = 'm'
 
-    def derive(self, lat_lift=KPV('Latitude At Liftoff'),
-               lon_lift=KPV('Longitude At Liftoff'),
+    def derive(self, lat_lift=KPV('Latitude Smoothed At Liftoff'),
+               lon_lift=KPV('Longitude Smoothed At Liftoff'),
                rwy=A('FDR Takeoff Runway')):
         if ambiguous_runway(rwy) or not lat_lift:
             return
@@ -2440,8 +2440,8 @@ class DecelerationToAbortTakeoffBeforeV1(KeyPointValueNode):
 
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
     units = 'm'
-    def derive(self, lat_tdn=KPV('Latitude At Touchdown'),
-               lon_tdn=KPV('Longitude At Touchdown'),
+    def derive(self, lat_tdn=KPV('Latitude Smoothed At Touchdown'),
+               lon_tdn=KPV('Longitude Smoothed At Touchdown'),
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway'),
                ils_ldgs=S('ILS Localizer Established')):
 
@@ -2469,8 +2469,8 @@ class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
     not be recorded.
     '''
     units = 'm'
-    def derive(self, lat_tdn=KPV('Latitude At Touchdown'),
-               lon_tdn=KPV('Longitude At Touchdown'),
+    def derive(self, lat_tdn=KPV('Latitude Smoothed At Touchdown'),
+               lon_tdn=KPV('Longitude Smoothed At Touchdown'),
                tdwns=KTI('Touchdown'),
                rwy=A('FDR Landing Runway')):
 
@@ -2493,8 +2493,8 @@ class DistanceFromTouchdownToRunwayEnd(KeyPointValueNode):
     and goes will not be recorded.
     '''
     units = 'm'
-    def derive(self, lat_tdn=KPV('Latitude At Touchdown'),
-               lon_tdn=KPV('Longitude At Touchdown'),
+    def derive(self, lat_tdn=KPV('Latitude Smoothed At Touchdown'),
+               lon_tdn=KPV('Longitude Smoothed At Touchdown'),
                tdwns=KTI('Touchdown'),
                rwy=A('FDR Landing Runway')):
 
@@ -2525,8 +2525,8 @@ class DecelerationFromTouchdownToStopOnRunway(KeyPointValueNode):
     simplicity we just use the value at touchdown.
     '''
     def derive(self, gspd=P('Groundspeed'), tdwns=S('Touchdown'), landings=S('Landing'),
-               lat_tdn=KPV('Latitude At Touchdown'),
-               lon_tdn=KPV('Longitude At Touchdown'),
+               lat_tdn=KPV('Latitude Smoothed At Touchdown'),
+               lon_tdn=KPV('Longitude Smoothed At Touchdown'),
                rwy=A('FDR Landing Runway'),
                ils_gs_apps=S('ILS Glideslope Established'),
                ils_loc_apps=S('ILS Localizer Established'),
@@ -2576,8 +2576,8 @@ class RunwayOverrunWithoutSlowingDuration(KeyPointValueNode):
     def derive(self, gspd=P('Groundspeed'), tdwns=S('Touchdown'),
                landings=S('Landing'), lat = P('Latitude Smoothed'),
                lon = P('Longitude Smoothed'),
-               lat_tdn=KPV('Latitude At Touchdown'),
-               lon_tdn=KPV('Longitude At Touchdown'),
+               lat_tdn=KPV('Latitude Smoothed At Touchdown'),
+               lon_tdn=KPV('Longitude Smoothed At Touchdown'),
                rwy=A('FDR Landing Runway'),
                ils_gs_apps=S('ILS Glideslope Established'),
                ils_loc_apps=S('ILS Localizer Established'),
@@ -2648,45 +2648,60 @@ class DistanceOnLandingFrom60KtToRunwayEnd(KeyPointValueNode):
             self.create_kpv(idx_60, distance) # Metres
 
 
-class HeadingAtTakeoff(KeyPointValueNode):
-    """
+class HeadingDuringTakeoff(KeyPointValueNode):
+    '''
     We take the median heading during the takeoff roll only as this avoids
     problems when turning onto the runway or with drift just after liftoff.
     The value is "assigned" to a time midway through the takeoff roll.
-    """
-    def derive(self, head=P('Heading Continuous'),
-               toffs=S('Takeoff Roll')):
-        for toff in toffs:
-            toff_head = np.ma.median(head.array[toff.slice])
-            toff_index = (toff.slice.start + toff.slice.stop)/2.0
-            self.create_kpv(toff_index, toff_head%360.0)
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               hdg=P('Heading Continuous'),
+               takeoffs=S('Takeoff Roll')):
+
+        for takeoff in takeoffs:
+            if takeoff.slice.start and takeoff.slice.stop:
+                index = (takeoff.slice.start + takeoff.slice.stop) / 2.0
+                value = np.ma.median(hdg.array[takeoff.slice])
+                self.create_kpv(index, value % 360.0)
 
 
-class HeadingAtLanding(KeyPointValueNode):
-    """
-    We take the median heading during the landing roll as this avoids
-    problems with drift just before touchdown and heading changes when
-    turning off the runway. The value is "assigned" to a time midway through
-    the landing phase.
-    """
-    def derive(self, head=P('Heading Continuous'),
-               lands=S('Landing Roll')):
-        for land in lands:
+class HeadingDuringLanding(KeyPointValueNode):
+    '''
+    We take the median heading during the landing roll as this avoids problems
+    with drift just before touchdown and heading changes when turning off the
+    runway. The value is "assigned" to a time midway through the landing phase.
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               hdg=P('Heading Continuous'),
+               landings=S('Landing Roll')):
+
+        for landing in landings:
             # Check the slice is robust.
-            if land.slice.start and land.slice.stop:
-                land_head = np.ma.median(head.array[land.slice])
-                land_index = (land.slice.start + land.slice.stop) / 2.0
-                self.create_kpv(land_index, land_head % 360.0)
+            if landing.slice.start and landing.slice.stop:
+                index = (landing.slice.start + landing.slice.stop) / 2.0
+                value = np.ma.median(hdg.array[landing.slice])
+                self.create_kpv(index, value % 360.0)
 
 
-class HeadingAtLowestPointOnApproach(KeyPointValueNode):
-    """
-    The approach phase has been found already. Here we take the heading at
-    the lowest point reached in the approach.
-    """
-    def derive(self, head=P('Heading Continuous'),
-               low_points=KTI('Lowest Point On Approach')):
-        self.create_kpvs_at_ktis(head.array % 360.0, low_points)
+class HeadingAtLowestAltitudeDuringApproach(KeyPointValueNode):
+    '''
+    The approach phase has been found already. Here we take the heading at the
+    lowest point reached in the approach.
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               hdg=P('Heading Continuous'),
+               low_points=KTI('Lowest Altitude During Approach')):
+
+        self.create_kpvs_at_ktis(hdg.array % 360.0, low_points)
 
 
 ##############################################################################
@@ -3018,13 +3033,13 @@ def calculate_runway_midpoint(rwy):
 # Latitude/Longitude @ Takeoff/Landing
 
 
-class LatitudeAtLanding(KeyPointValueNode):
+class LatitudeAtTouchdown(KeyPointValueNode):
     '''
-    Latitude and Longitude at Landing and Touchdown.
+    Latitude and Longitude at Touchdown.
 
     The position of the landing is recorded in the form of KPVs as this is
     used in a number of places. From the touchdown moments, the raw latitude
-    and longitude data is used to create the *AtLanding parameters, and these
+    and longitude data is used to create the *AtTouchdown parameters, and these
     are in turn used to compute the landing attributes.
 
     Once the landing attributes (especially the runway details) are known,
@@ -3035,6 +3050,8 @@ class LatitudeAtLanding(KeyPointValueNode):
 
     Note: Cannot use smoothed position as this causes circular dependancy.
     '''
+
+    units = 'deg'
 
     @classmethod
     def can_operate(cls, available):
@@ -3074,16 +3091,16 @@ class LatitudeAtLanding(KeyPointValueNode):
             return
 
         # XXX: Is there something else we can do here other than fail?
-        raise Exception('Unable to determine a latitude at landing.')
+        raise Exception('Unable to determine a latitude at touchdown.')
 
 
-class LongitudeAtLanding(KeyPointValueNode):
+class LongitudeAtTouchdown(KeyPointValueNode):
     '''
-    Latitude and Longitude at Landing and Touchdown.
+    Latitude and Longitude at Touchdown.
 
     The position of the landing is recorded in the form of KPVs as this is
     used in a number of places. From the touchdown moments, the raw latitude
-    and longitude data is used to create the *AtLanding parameters, and these
+    and longitude data is used to create the *AtTouchdown parameters, and these
     are in turn used to compute the landing attributes.
 
     Once the landing attributes (especially the runway details) are known,
@@ -3094,6 +3111,8 @@ class LongitudeAtLanding(KeyPointValueNode):
 
     Note: Cannot use smoothed position as this causes circular dependancy.
     '''
+
+    units = 'deg'
 
     @classmethod
     def can_operate(cls, available):
@@ -3133,16 +3152,16 @@ class LongitudeAtLanding(KeyPointValueNode):
             return
 
         # XXX: Is there something else we can do here other than fail?
-        raise Exception('Unable to determine a longitude at landing.')
+        raise Exception('Unable to determine a longitude at touchdown.')
 
 
-class LatitudeAtTakeoff(KeyPointValueNode):
+class LatitudeAtLiftoff(KeyPointValueNode):
     '''
-    Latitude and Longitude at Takeoff and Liftoff.
+    Latitude and Longitude at Liftoff.
 
     The position of the takeoff is recorded in the form of KPVs as this is
     used in a number of places. From the liftoff moments, the raw latitude
-    and longitude data is used to create the *AtTakeoff parameters, and these
+    and longitude data is used to create the *AtLiftoff parameters, and these
     are in turn used to compute the takeoff attributes.
 
     Once the takeoff attributes (especially the runway details) are known,
@@ -3151,6 +3170,8 @@ class LatitudeAtTakeoff(KeyPointValueNode):
 
     Note: Cannot use smoothed position as this causes circular dependancy.
     '''
+
+    units = 'deg'
 
     @classmethod
     def can_operate(cls, available):
@@ -3190,16 +3211,16 @@ class LatitudeAtTakeoff(KeyPointValueNode):
             return
 
         # XXX: Is there something else we can do here other than fail?
-        raise Exception('Unable to determine a latitude at takeoff.')
+        raise Exception('Unable to determine a latitude at liftoff.')
 
 
-class LongitudeAtTakeoff(KeyPointValueNode):
+class LongitudeAtLiftoff(KeyPointValueNode):
     '''
-    Latitude and Longitude at Takeoff and Liftoff.
+    Latitude and Longitude at Liftoff.
 
     The position of the takeoff is recorded in the form of KPVs as this is
     used in a number of places. From the liftoff moments, the raw latitude
-    and longitude data is used to create the *AtTakeoff parameters, and these
+    and longitude data is used to create the *AtLiftoff parameters, and these
     are in turn used to compute the takeoff attributes.
 
     Once the takeoff attributes (especially the runway details) are known,
@@ -3208,6 +3229,8 @@ class LongitudeAtTakeoff(KeyPointValueNode):
 
     Note: Cannot use smoothed position as this causes circular dependancy.
     '''
+
+    units = 'deg'
 
     @classmethod
     def can_operate(cls, available):
@@ -3247,20 +3270,20 @@ class LongitudeAtTakeoff(KeyPointValueNode):
             return
 
         # XXX: Is there something else we can do here other than fail?
-        raise Exception('Unable to determine a longitude at takeoff.')
+        raise Exception('Unable to determine a longitude at liftoff.')
 
 
 ########################################
 # Latitude/Longitude @ Liftoff/Touchdown
 
 
-class LatitudeAtTouchdown(KeyPointValueNode):
+class LatitudeSmoothedAtTouchdown(KeyPointValueNode):
     '''
-    Latitude and Longitude at Landing and Touchdown.
+    Latitude and Longitude at Touchdown.
 
     The position of the landing is recorded in the form of KPVs as this is
     used in a number of places. From the touchdown moments, the raw latitude
-    and longitude data is used to create the *AtLanding parameters, and these
+    and longitude data is used to create the *AtTouchdown parameters, and these
     are in turn used to compute the landing attributes.
 
     Once the landing attributes (especially the runway details) are known,
@@ -3269,6 +3292,8 @@ class LatitudeAtTouchdown(KeyPointValueNode):
     accurate positional data the touchdown point can be computed more
     accurately.
     '''
+
+    units = 'deg'
 
     def derive(self, lat=P('Latitude Smoothed'), tdwns=KTI('Touchdown')):
         '''
@@ -3276,13 +3301,13 @@ class LatitudeAtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(lat.array, tdwns)
 
 
-class LongitudeAtTouchdown(KeyPointValueNode):
+class LongitudeSmoothedAtTouchdown(KeyPointValueNode):
     '''
-    Latitude and Longitude at Landing and Touchdown.
+    Latitude and Longitude at Touchdown.
 
     The position of the landing is recorded in the form of KPVs as this is
     used in a number of places. From the touchdown moments, the raw latitude
-    and longitude data is used to create the *AtLanding parameters, and these
+    and longitude data is used to create the *AtTouchdown parameters, and these
     are in turn used to compute the landing attributes.
 
     Once the landing attributes (especially the runway details) are known,
@@ -3292,25 +3317,29 @@ class LongitudeAtTouchdown(KeyPointValueNode):
     accurately.
     '''
 
+    units = 'deg'
+
     def derive(self, lon=P('Longitude Smoothed'), tdwns=KTI('Touchdown')):
         '''
         '''
         self.create_kpvs_at_ktis(lon.array, tdwns)
 
 
-class LatitudeAtLiftoff(KeyPointValueNode):
+class LatitudeSmoothedAtLiftoff(KeyPointValueNode):
     '''
-    Latitude and Longitude at Takeoff and Liftoff.
+    Latitude and Longitude at Liftoff.
 
     The position of the takeoff is recorded in the form of KPVs as this is
     used in a number of places. From the liftoff moments, the raw latitude
-    and longitude data is used to create the *AtTakeoff parameters, and these
+    and longitude data is used to create the *AtLiftoff parameters, and these
     are in turn used to compute the takeoff attributes.
 
     Once the takeoff attributes (especially the runway details) are known,
     the positional data can be smoothed the known liftoff point. With more
     accurate positional data the liftoff point can be computed more accurately.
     '''
+
+    units = 'deg'
 
     def derive(self, lat=P('Latitude Smoothed'), liftoffs=KTI('Liftoff')):
         '''
@@ -3318,19 +3347,21 @@ class LatitudeAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(lat.array, liftoffs)
 
 
-class LongitudeAtLiftoff(KeyPointValueNode):
+class LongitudeSmoothedAtLiftoff(KeyPointValueNode):
     '''
-    Latitude and Longitude at Takeoff and Liftoff.
+    Latitude and Longitude at Liftoff.
 
     The position of the takeoff is recorded in the form of KPVs as this is
     used in a number of places. From the liftoff moments, the raw latitude
-    and longitude data is used to create the *AtTakeoff parameters, and these
+    and longitude data is used to create the *AtLiftoff parameters, and these
     are in turn used to compute the takeoff attributes.
 
     Once the takeoff attributes (especially the runway details) are known,
     the positional data can be smoothed the known liftoff point. With more
     accurate positional data the liftoff point can be computed more accurately.
     '''
+
+    units = 'deg'
 
     def derive(self, lon=P('Longitude Smoothed'), liftoffs=KTI('Liftoff')):
         '''
@@ -3343,27 +3374,31 @@ class LongitudeAtLiftoff(KeyPointValueNode):
 # and runway, so that this works for both landings and aborted approaches /
 # go-arounds.
 
-class LatitudeAtLowestPointOnApproach(KeyPointValueNode):
+class LatitudeAtLowestAltitudeDuringApproach(KeyPointValueNode):
     '''
     Note: Cannot use smoothed position as this causes circular dependancy.
     '''
 
-    def derive(self, lat=P('Latitude Prepared'),
-            low_points=KTI('Lowest Point On Approach')):
-        '''
-        '''
+    units = 'deg'
+
+    def derive(self,
+               lat=P('Latitude Prepared'),
+               low_points=KTI('Lowest Altitude During Approach')):
+
         self.create_kpvs_at_ktis(lat.array, low_points)
 
 
-class LongitudeAtLowestPointOnApproach(KeyPointValueNode):
+class LongitudeAtLowestAltitudeDuringApproach(KeyPointValueNode):
     '''
     Note: Cannot use smoothed position as this causes circular dependancy.
     '''
 
-    def derive(self, lon=P('Longitude Prepared'),
-            low_points=KTI('Lowest Point On Approach')):
-        '''
-        '''
+    units = 'deg'
+
+    def derive(self,
+               lon=P('Longitude Prepared'),
+               low_points=KTI('Lowest Altitude During Approach')):
+
         self.create_kpvs_at_ktis(lon.array, low_points)
 
 

@@ -1991,18 +1991,18 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
                          'Longitude',
                          'Heading True',
                          'Airspeed True',
-                         'Latitude At Takeoff',
-                         'Longitude At Takeoff',
-                         'Latitude At Landing',
-                         'Longitude At Landing') in combinations)
+                         'Latitude At Liftoff',
+                         'Longitude At Liftoff',
+                         'Latitude At Touchdown',
+                         'Longitude At Touchdown') in combinations)
         
         # without lat long
         self.assertTrue(('Heading True',
                          'Airspeed True',
-                         'Latitude At Takeoff',
-                         'Longitude At Takeoff',
-                         'Latitude At Landing',
-                         'Longitude At Landing') in combinations)
+                         'Latitude At Liftoff',
+                         'Longitude At Liftoff',
+                         'Latitude At Touchdown',
+                         'Longitude At Touchdown') in combinations)
         
     def test_latitude_smoothing_basic(self):
         lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))

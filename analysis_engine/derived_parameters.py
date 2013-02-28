@@ -3684,8 +3684,8 @@ class MagneticVariation(DerivedParameterNode):
     units = 'deg'
 
     def derive(self, head=P('Heading Continuous'),
-               head_land = KPV('Heading At Landing'),
-               head_toff = KPV('Heading At Takeoff'),
+               head_land = KPV('Heading During Landing'),
+               head_toff = KPV('Heading During Takeoff'),
                toff_rwy = A('FDR Takeoff Runway'),
                land_rwy = A('FDR Landing Runway')):
 
@@ -3938,20 +3938,20 @@ class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
         return ('Longitude' in available and 'Latitude' in available) or\
                ('Airspeed True' in available and \
                 'Heading True' in available and \
-                'Latitude At Takeoff' in available and \
-                'Longitude At Takeoff' in available and \
-                'Latitude At Landing' in available and \
-                'Longitude At Landing' in available)
+                'Latitude At Liftoff' in available and \
+                'Longitude At Liftoff' in available and \
+                'Latitude At Touchdown' in available and \
+                'Longitude At Touchdown' in available)
 
     # Note hdg is alignment master to force 1Hz operation when latitude &
     # longitude are only recorded at 0.25Hz.
     def derive(self,
                lat=P('Latitude'), lon=P('Longitude'),
                hdg=P('Heading True'),tas=P('Airspeed True'),
-               lat_lift=KPV('Latitude At Takeoff'),
-               lon_lift=KPV('Longitude At Takeoff'),
-               lat_land=KPV('Latitude At Landing'),
-               lon_land=KPV('Longitude At Landing')):
+               lat_lift=KPV('Latitude At Liftoff'),
+               lon_lift=KPV('Longitude At Liftoff'),
+               lat_land=KPV('Latitude At Touchdown'),
+               lon_land=KPV('Longitude At Touchdown')):
 
         if lat and lon:
             """
@@ -3977,20 +3977,20 @@ class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
         return ('Latitude' in available and 'Longitude' in available) or\
                ('Airspeed True' in available and \
                 'Heading True' in available and \
-                'Latitude At Takeoff' in available and \
-                'Longitude At Takeoff' in available and \
-                'Latitude At Landing' in available and \
-                'Longitude At Landing' in available)
+                'Latitude At Liftoff' in available and \
+                'Longitude At Liftoff' in available and \
+                'Latitude At Touchdown' in available and \
+                'Longitude At Touchdown' in available)
 
     # Note hdg is alignment master to force 1Hz operation when latitude &
     # longitude are only recorded at 0.25Hz.
     def derive(self,
                lat=P('Latitude'),lon=P('Longitude'),
                hdg=P('Heading True'),tas=P('Airspeed True'),
-               lat_lift=KPV('Latitude At Takeoff'),
-               lon_lift=KPV('Longitude At Takeoff'),
-               lat_land=KPV('Latitude At Landing'),
-               lon_land=KPV('Longitude At Landing')):
+               lat_lift=KPV('Latitude At Liftoff'),
+               lon_lift=KPV('Longitude At Liftoff'),
+               lat_land=KPV('Latitude At Touchdown'),
+               lon_land=KPV('Longitude At Touchdown')):
 
         if lat and lon:
             self.array = self._smooth_coordinates(lat, lon)
