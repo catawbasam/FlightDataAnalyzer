@@ -5658,6 +5658,26 @@ class RudderCyclesAbove50Ft(KeyPointValueNode):
             ))
 
 
+class RudderReversalAbove50Ft(KeyPointValueNode):
+    '''
+    While Rudder Cycles Above 50 Ft looks for repeated cycles, this measures
+    the amplitude of a single worst case cycle within a 3 second period.
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               rudder=P('Rudder'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        for above_50 in alt_aal.slices_above(50.0):
+            self.create_kpv(*cycle_select(
+                rudder.array[above_50],
+                1.0, 3.0, rudder.hz,
+                above_50.start,
+            ))
+
+
 ##############################################################################
 # Speedbrake
 
