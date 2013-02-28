@@ -652,7 +652,7 @@ class Touchdown(KeyTimeInstanceNode):
             # no Gear On Ground or Intertial estimate, use altitude
             index = index_at_value(alt.array, 0.0, land.slice)
             if index:
-                self.create_kti()
+                self.create_kti(index)
             else:
                 # Altitude did not get to 0 ft!
                 continue

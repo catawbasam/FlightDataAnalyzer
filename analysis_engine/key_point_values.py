@@ -27,6 +27,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      coreg,
                                      cycle_counter,
                                      cycle_finder,
+                                     cycle_select,
                                      find_edges,
                                      find_edges_on_state_change,
                                      hysteresis,
@@ -5793,7 +5794,8 @@ class RudderCyclesAbove50Ft(KeyPointValueNode):
 class RudderReversalAbove50Ft(KeyPointValueNode):
     '''
     While Rudder Cycles Above 50 Ft looks for repeated cycles, this measures
-    the amplitude of a single worst case cycle within a 3 second period.
+    the amplitude of a single worst case cycle within a 3 second period. This
+    can be related to fin stress resulting from rapid reversal of loads.
     '''
 
     units = 'deg'
