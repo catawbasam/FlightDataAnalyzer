@@ -592,8 +592,10 @@ class AltitudeAAL(DerivedParameterNode):
         ralt_sections = np.ma.clump_unmasked(
             np.ma.masked_outside(alt_rad_aal, 0.0, 100.0))
 
-        if not ralt_sections:
-            # Altitude Radio did not drop below 100.
+        if len(ralt_sections)<2:
+            # Either Altitude Radio did not drop below 100, or did not get
+            # above 100. Either way, we are better off working with just the
+            # pressure altitude signal.
             return shift_alt_std()
 
         baro_sections = slices_not(ralt_sections, begin_at=0,
@@ -2870,7 +2872,7 @@ class FlapSurface(DerivedParameterNode):
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
             
-        elif frame_name in ['747-200-GE']:
+        elif frame_name in ['747-200-GE', '747-200-AP-BIB']:
             # Only the right inboard flap is instrumented.
             self.array = flap_B.array
 
@@ -3286,13 +3288,16 @@ class CoordinatesSmoothed(object):
         '''
         Compute a groundspeed and heading based taxi in track.
         '''
-        lat_in, lon_in = ground_track(lat_adj[0],
+        if len(speed):
+            lat_in, lon_in = ground_track(lat_adj[0],
                                       lon_adj[0],
                                       speed,
                                       hdg,
                                       freq,
                                       'landing')
-        return lat_in, lon_in
+            return lat_in, lon_in
+        else:
+            return [],[]
 
     def _adjust_track(self, lon, lat, ils_loc, app_range, hdg, gspd, tas,
                       toff, toff_rwy, tdwns, approaches, mobile, precise):
