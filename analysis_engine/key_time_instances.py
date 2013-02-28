@@ -1,6 +1,7 @@
 import numpy as np
 
-from analysis_engine.library import (any_of,
+from analysis_engine.library import (all_of,
+                                     any_of,
                                      coreg,
                                      find_edges_on_state_change,
                                      hysteresis,
@@ -585,46 +586,58 @@ class Touchdown(KeyTimeInstanceNode):
     @classmethod
     def can_operate(cls, available):
         # List the minimum required parameters.
-        return 'Gear On Ground' in available or \
-               all(x in available for x in ('Altitude AAL',
-                                            'Airborne',
-                                            'Landing',))
+        return all_of(('Altitude AAL', 'Landing'), available)
 
-    def derive(self, wow=M('Gear On Ground'), roc=P('Vertical Speed Inertial'),
-               alt=P('Altitude AAL'), airs=S('Airborne'), lands=S('Landing'),
-               frame=A('Frame')):
+    def derive(self, gog=M('Gear On Ground'), roc=P('Vertical Speed Inertial'),
+               alt=P('Altitude AAL'), lands=S('Landing')):
         # The preamble here checks that the landing we are looking at is
         # genuine, it's not just because the data stopped in mid-flight. We
         # reduce the scope of the search for touchdown to avoid triggering in
         # mid-cruise, and it avoids problems for aircraft where the gear
         # signal changes state on raising the gear (OK, if they do a gear-up
         # landing it won't work, but this will be the least of the problems).
-        for air in airs:
-            t0 = air.slice.stop
-            for land in (lands or []):
-                if t0 and is_index_within_slice(t0, land.slice):
-                    if frame and frame.value == 'Q-200':
-                        self.create_kti(index_at_value(alt.array, 0.0,
-                                                       land.slice))
-                        continue
-                    # If we have a wheel sensor, use this. It is often a derived
-                    # parameter created by ORing the left and right main gear
-                    # signals.
-                    if wow:
-                        edges = find_edges_on_state_change(
-                            'Ground', wow.array[land.slice])
-                        if edges != []:
-                            self.create_kti(edges[0] + (land.slice.start or 0))
-                            return
 
-                    if not wow or edges == []:
-                        if roc:
-                            index, _ = touchdown_inertial(land, roc, alt)
-                            if index:
-                                self.create_kti(index)
-                        else:
-                            self.create_kti(index_at_value(alt.array, 0.0,
-                                                           land.slice))
+        for land in lands:
+            if gog:
+                # try using Gear On Ground switch
+                edges = find_edges_on_state_change(
+                    'Ground', gog.array[land.slice])
+                if edges:
+                    # use the first contact with ground as touchdown point 
+                    # (ignore bounces)
+                    index = edges[0] + land.slice.start
+                    if not alt:
+                        self.create_kti(index)
+                        continue
+                    elif alt.array[index] < 5.0:
+                        # Check computation is OK - we've seen 747 "Gear On
+                        # Ground" at 21ft                        
+                        self.create_kti(index)
+                        continue
+                    else:
+                        # Did not find a realistic Gear On Ground trigger.
+                        pass
+                        # trigger at silly height > work it out from height only
+                else:
+                    # no gear on ground switch found > work it out from height only
+                    pass
+        
+            # no touchdown found by Gear On Ground or it was not available
+            if roc:
+                # Beware, Q-200 roc caused invalid touchdown results.
+                index, val = touchdown_inertial(land, roc, alt)
+                if index:
+                    # found an intertial touchdown point
+                    self.create_kti(index)
+                    continue
+            
+            # no Gear On Ground or Intertial estimate, use altitude
+            index = index_at_value(alt.array, 0.0, land.slice)
+            if index:
+                self.create_kti()
+            else:
+                # Altitude did not get to 0 ft!
+                continue
 
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
