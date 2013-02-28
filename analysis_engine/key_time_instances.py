@@ -6,7 +6,6 @@ from analysis_engine.library import (all_of,
                                      find_edges_on_state_change,
                                      hysteresis,
                                      index_at_value,
-                                     is_index_within_slice,
                                      max_value,
                                      minimum_unmasked,
                                      peak_curvature,
@@ -14,7 +13,7 @@ from analysis_engine.library import (all_of,
                                      slices_not,
                                      touchdown_inertial)
 
-from analysis_engine.node import (A, M, P, S, KTI, KeyTimeInstanceNode)
+from analysis_engine.node import M, P, S, KTI, KeyTimeInstanceNode
 
 from settings import (CLIMB_THRESHOLD,
                       NAME_VALUES_CLIMB,

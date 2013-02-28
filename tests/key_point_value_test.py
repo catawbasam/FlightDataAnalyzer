@@ -4761,7 +4761,7 @@ class TestSpeedbrakeDeployedWithPowerOnDuration(unittest.TestCase, NodeTest):
         airborne = buildsection('Airborne', 10, 20)
         manufacturer = A('Manufacturer', value='Airbus')
         node = self.node_class()
-        node.derive(spd_brk, flap, airborne)
+        node.derive(spd_brk, flap, airborne, manufacturer)
         self.assertEqual(node, [
             KeyPointValue(14, 2.0,
                           'Speedbrake Deployed With Power On Duration')])
