@@ -1829,28 +1829,177 @@ class DelayedBrakingAfterTouchdown(KeyPointValueNode):
 # Altitude
 
 
-class AltitudeAtTouchdown(KeyPointValueNode):
-    def derive(self, alt_std=P('Altitude STD Smoothed'), touchdowns=KTI('Touchdown')):
-        self.create_kpvs_at_ktis(alt_std.array, touchdowns)
+########################################
+# Altitude: General
+
+
+class AltitudeMax(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_std=P('Altitude STD Smoothed'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_within_slices(alt_std.array, airborne, max_value)
 
 
 class AltitudeAtLiftoff(KeyPointValueNode):
-    def derive(self, alt_std=P('Altitude STD Smoothed'), liftoffs=KTI('Liftoff')):
+    '''
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_std=P('Altitude STD Smoothed'),
+               liftoffs=KTI('Liftoff')):
+
         self.create_kpvs_at_ktis(alt_std.array, liftoffs)
+
+
+class AltitudeAtTouchdown(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_std=P('Altitude STD Smoothed'),
+               touchdowns=KTI('Touchdown')):
+
+        self.create_kpvs_at_ktis(alt_std.array, touchdowns)
+
+
+class AltitudeDuringGoAroundMin(KeyPointValueNode):
+    '''
+    The altitude above the local airfield level at the minimum altitude point
+    of the go-around.
+
+    Note: This may be less than the radio altimeter reading at this point if
+    there is higher ground in the area of the go-around minimum point.
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               go_arounds=KTI('Go Around')):
+
+        self.create_kpvs_at_ktis(alt_aal.array, go_arounds)
+
+
+class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
+    '''
+    FDS refined this KPV as part of the UK CAA Significant Seven programme.
+
+    "Airborne Conflict (Mid-Air Collision) Level Busts (>300ft from an
+    assigned level) It would be useful if this included overshoots of cleared
+    level, i.e. a reversal of more than 300ft".
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_std=P('Altitude STD Smoothed')):
+
+        bust = 300  # ft
+        bust_time = 3 * 60  # 3 mins
+        bust_length = bust_time * alt_std.frequency
+
+        idxs, peaks = cycle_finder(alt_std.array, min_step=bust)
+
+        if idxs is None:
+            return
+        for num, idx in enumerate(idxs[1: -1]):
+            begin = index_at_value(np.ma.abs(alt_std.array - peaks[num + 1]),
+                                   bust, _slice=slice(idx, None, -1))
+            end = index_at_value(np.ma.abs(alt_std.array - peaks[num + 1]), bust,
+                                 _slice=slice(idx, None))
+            if begin and end:
+                duration = (end - begin) / alt_std.frequency
+                if duration < bust_time:
+                    a = alt_std.array[idxs[num]]  # One before the peak of interest
+                    b = alt_std.array[idxs[num + 1]]  # The peak of interest
+                    # The next one (index reduced to avoid running beyond end of
+                    # data)
+                    c = alt_std.array[idxs[num + 2] - 1]
+                    idx_from = max(0, idxs[num + 1] - bust_length)
+                    idx_to = min(len(alt_std.array), idxs[num + 1] + bust_length)
+                    if b > (a + c) / 2:
+                        # Include a scan over the preceding and following
+                        # bust_time in case the preceding or following peaks
+                        # were outside this timespan.
+                        alt_a = np.ma.min(alt_std.array[idx_from:idxs[num + 1]])
+                        alt_c = np.ma.min(alt_std.array[idxs[num + 1]:idx_to])
+                        overshoot = min(b - a, b - alt_a, b - alt_c, b - c)
+                        if overshoot > 5000:
+                            # This happens normally on short sectors
+                            continue
+                        self.create_kpv(idx, overshoot)
+                    else:
+                        alt_a = np.ma.max(alt_std.array[idx_from:idxs[num + 1]])
+                        alt_c = np.ma.max(alt_std.array[idxs[num + 1]:idx_to])
+                        undershoot = max(b - a, b - alt_a, b - alt_c, b - c)
+                        self.create_kpv(idx, undershoot)
+
+
+########################################
+# Altitude: Flap
+
+
+class AltitudeWithFlapMax(KeyPointValueNode):
+    '''
+    The exceedance being detected here is the altitude reached with flaps not
+    stowed, hence any flap value greater than zero is applicable and we're not
+    really interested (for the purpose of identifying the event) what flap
+    setting was reached.
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               flap=P('Flap'),
+               alt_std=P('Altitude STD Smoothed'),
+               airborne=S('Airborne')):
+
+        alt_flap = alt_std.array * np.ma.minimum(flap.array, 1.0)
+        self.create_kpvs_within_slices(alt_flap, airborne, max_value)
+
+
+class AltitudeAtFlapExtension(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               flap=P('Flap'),
+               alt_aal=P('Altitude AAL'),
+               airborne=S('Airborne')):
+
+        # Restricted to avoid triggering on flap extension for takeoff:
+        for air in airborne:
+            extends = find_edges(flap.array, air.slice)
+            if not extends:
+                index = extends[0]
+                value = alt_aal.array[index]
+                self.create_kpv(index, value)
 
 
 class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
     '''
     '''
 
-    name = 'Altitude AAL At First Flap Change After Liftoff'
+    units = 'ft'
 
-    def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'),
-               airs=S('Airborne')):
-        '''
-        '''
-        for air in airs:
-            # Find where flap changes:
+    def derive(self,
+               flap=P('Flap'),
+               alt_aal=P('Altitude AAL'),
+               airborne=S('Airborne')):
+
+        for air in airborne:
             change_indexes = np.ma.where(np.ma.diff(flap.array[air.slice]))[0]
             if len(change_indexes):
                 # Create at first change:
@@ -1858,21 +2007,21 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
                 self.create_kpv(index, value_at_index(alt_aal.array, index))
 
 
-class AltitudeAtLastFlapChangeBeforeLanding(KeyPointValueNode):
+class AltitudeAtLastFlapChangeBeforeTouchdown(KeyPointValueNode):
     '''
     '''
 
-    name = 'Altitude AAL At Last Flap Change Before Landing'
+    units = 'ft'
 
-    def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'),
-               tdwns=KTI('Touchdown')):
-        '''
-        '''
-        for tdwn in tdwns:
-            land_flap = flap.array[tdwn.index]
+    def derive(self,
+               flap=P('Flap'),
+               alt_aal=P('Altitude AAL'),
+               touchdowns=KTI('Touchdown')):
+
+        for touchdown in touchdowns:
+            land_flap = flap.array[touchdown.index]
             flap_move = abs(flap.array-land_flap)
-            rough_index = index_at_value(flap_move, 0.5, slice(tdwn.index, 0,
-                                                               -1))
+            rough_index = index_at_value(flap_move, 0.5, slice(touchdown.index, 0, -1))
             # index_at_value tries to be precise, but in this case we really
             # just want the index at the new flap setting.
             if rough_index:
@@ -1881,76 +2030,87 @@ class AltitudeAtLastFlapChangeBeforeLanding(KeyPointValueNode):
                 self.create_kpv(last_index, alt_last)
 
 
-class AltitudeAtGearUpSelection(KeyPointValueNode):
+class AltitudeAtFirstFlapRetractionDuringGoAround(KeyPointValueNode):
     '''
+    Go Around Flap Retracted pinpoints the flap retraction instance within the
+    500ft go-around window. Create a single KPV for the first flap retraction
+    within a Go Around And Climbout phase.
     '''
 
-    name = 'Altitude AAL At Gear Up Selection'
+    units = 'ft'
 
-    def derive(self, alt_aal=P('Altitude AAL'),
-            gear_up_sel=KTI('Gear Up Selection')):
-        '''
-        Gear up selections after takeoff, not following a go-around (when it
-        is normal to retract gear at significant height).
-        '''
-        self.create_kpvs_at_ktis(alt_aal.array, gear_up_sel)
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               flap_rets=KTI('Flap Retraction During Go Around'),
+               go_arounds=S('Go Around And Climbout')):
 
+        for go_around in go_arounds:
+            flap_ret = flap_rets.get_first(within_slice=go_around.slice)
+            if flap_ret:
+                self.create_kpv(flap_ret.index, alt_aal.array[flap_ret.index])
+
+
+########################################
+# Altitude: Gear
 
 
 class AltitudeAtGearDownSelection(KeyPointValueNode):
     '''
     '''
 
-    name = 'Altitude AAL At Gear Down Selection'
+    units = 'ft'
 
-    def derive(self, alt_aal=P('Altitude AAL'),
-            gear_dn_sel=KTI('Gear Down Selection')):
-        '''
-        '''
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               gear_dn_sel=KTI('Gear Down Selection')):
+
         self.create_kpvs_at_ktis(alt_aal.array, gear_dn_sel)
 
 
-class AltitudeAtMachMax(KeyPointValueNode):
-    name = 'Altitude At Mach Max'
-    def derive(self, alt_std=P('Altitude STD Smoothed'), max_mach=KPV('Mach Max')):
-        # Aligns Altitude to Mach to ensure we have the most accurate
-        # altitude reading at the point of Maximum Mach
-        self.create_kpvs_at_kpvs(alt_std.array, max_mach)
+class AltitudeAtGearUpSelection(KeyPointValueNode):
+    '''
+    Gear up selections after takeoff, not following a go-around (when it is
+    normal to retract gear at significant height).
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               gear_up_sel=KTI('Gear Up Selection')):
+
+        self.create_kpvs_at_ktis(alt_aal.array, gear_up_sel)
 
 
-class AltitudeWithFlapsMax(KeyPointValueNode):
-    def derive(self, flap=P('Flap'), alt_std=P('Altitude STD Smoothed'),
-               airs=S('Airborne')):
-        '''
-        The exceedance being detected here is the altitude reached with flaps
-        not stowed, hence any flap value greater than zero is applicable and
-        we're not really interested (for the purpose of identifying the
-        event) what flap setting was reached.
-        '''
-        alt_flap = alt_std.array * np.ma.minimum(flap.array,1.0)
-        self.create_kpvs_within_slices(alt_flap, airs, max_value)
+class AltitudeAtGearUpSelectionDuringGoAround(KeyPointValueNode):
+    '''
+    Finds the relative altitude at which gear up was selected from the point of
+    minimum altitude in the go-around. If gear up was selected before that,
+    just set the value to zero.
+    '''
 
+    units = 'ft'
 
-class AltitudeFlapExtensionMax(KeyPointValueNode):
-    name = 'Altitude AAL Flap Extension Max'
-    def derive(self, flap=P('Flap'), alt_aal=P('Altitude AAL'),
-               airs=S('Airborne')):
-        # Restricted to avoid triggering on flap extension for takeoff.
-        for air in airs:
-            extends = find_edges(flap.array, air.slice)
-            if extends:
-                index=extends[0]
-                value=alt_aal.array[index]
-                self.create_kpv(index, value)
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               go_arounds=S('Go Around And Climbout'),
+               gear_up_sel=KTI('Gear Up Selection During Go Around')):
 
-
-class AltitudeMax(KeyPointValueNode):
-    def derive(self, alt_std=P('Altitude STD Smoothed'), airs=S('Airborne')):
-        self.create_kpvs_within_slices(alt_std.array, airs, max_value)
+        for go_around in go_arounds:
+            # Find the index and height at this go-around minimum:
+            pit_index, pit_value = min_value(alt_aal.array, go_around.slice)
+            for gear_up in gear_up_sel.get(within_slice=go_around.slice):
+                if gear_up.index > pit_index:
+                    # Use height between go around minimum and gear up:
+                    gear_up_ht = alt_aal.array[gear_up.index] - pit_value
+                else:
+                    # Use zero if gear up selected before minimum height:
+                    gear_up_ht = 0.0
+                self.create_kpv(gear_up.index, gear_up_ht)
 
 
 ########################################
-# Automated Systems
+# Altitude: Automated Systems
 
 
 class AltitudeAtAPEngagedSelection(KeyPointValueNode):
@@ -2012,6 +2172,25 @@ class AltitudeAtATDisengagedSelection(KeyPointValueNode):
 
 
 ########################################
+# Altitude: Mach
+
+
+class AltitudeAtMachMax(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_std=P('Altitude STD Smoothed'),
+               max_mach=KPV('Mach Max')):
+
+        # Aligns altitude to mach to ensure we have the most accurate altitude
+        # reading at the point of maximum mach:
+        self.create_kpvs_at_kpvs(alt_std.array, max_mach)
+
+
+########################################
 
 
 class AltitudeFirstStableDuringApproach(KeyPointValueNode):
@@ -2050,6 +2229,9 @@ class AltitudeLastUnStableDuringApproach(KeyPointValueNode):
                 self.create_kpv(index, value_at_index(alt.array, index))
             else:
                 continue
+
+
+##############################################################################
 
 
 class PercentApproachStableBelow(object):
@@ -4498,56 +4680,6 @@ class FlareDistance20FtToTouchdown(KeyPointValueNode):
                     self.create_kpv(tdown.index, dist)
 
 
-class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
-    '''
-    FDS refined this KPV as part of the UK CAA Significant Seven programme.
-
-    "Airborne Conflict (Mid-Air Collision) Level Busts (>300ft from an
-    assigned level) It would be useful if this included overshoots of cleared
-    level, i.e. a reversal of more than 300ft".
-    '''
-    def derive(self, alt_std=P('Altitude STD Smoothed')):
-        bust = 300 # ft
-        bust_time = 3 * 60 # 3 mins
-        bust_length = bust_time * alt_std.frequency
-
-        idxs, peaks = cycle_finder(alt_std.array, min_step=bust)
-
-        if idxs is None:
-            return
-        for num, idx in enumerate(idxs[1:-1]):
-            begin = index_at_value(np.ma.abs(alt_std.array - peaks[num + 1]),
-                                   bust, _slice=slice(idx, None, -1))
-            end = index_at_value(np.ma.abs(alt_std.array-peaks[num + 1]), bust,
-                                 _slice=slice(idx, None))
-            if begin and end:
-                duration = (end - begin) / alt_std.frequency
-                if duration < bust_time:
-                    a=alt_std.array[idxs[num]] # One before the peak of interest
-                    b=alt_std.array[idxs[num + 1]] # The peak of interest
-                    # The next one (index reduced to avoid running beyond end of
-                    # data)
-                    c=alt_std.array[idxs[num + 2] - 1]
-                    idx_from = max(0, idxs[num + 1]-bust_length)
-                    idx_to = min(len(alt_std.array), idxs[num + 1]+bust_length)
-                    if b>(a+c)/2:
-                        # Include a scan over the preceding and following
-                        # bust_time in case the preceding or following peaks
-                        # were outside this timespan.
-                        alt_a = np.ma.min(alt_std.array[idx_from:idxs[num + 1]])
-                        alt_c = np.ma.min(alt_std.array[idxs[num + 1]:idx_to])
-                        overshoot = min(b-a, b-alt_a, b-alt_c, b-c)
-                        if overshoot > 5000:
-                            # This happens normally on short sectors
-                            continue
-                        self.create_kpv(idx, overshoot)
-                    else:
-                        alt_a = np.ma.max(alt_std.array[idx_from:idxs[num + 1]])
-                        alt_c = np.ma.max(alt_std.array[idxs[num + 1]:idx_to])
-                        undershoot = max(b-a, b-alt_a, b-alt_c, b-c)
-                        self.create_kpv(idx, undershoot)
-
-
 class FuelQtyAtLiftoff(KeyPointValueNode):
     def derive(self, fuel_qty=P('Fuel Qty'), liftoffs=KTI('Liftoff')):
         self.create_kpvs_at_ktis(fuel_qty.array, liftoffs)
@@ -6953,64 +7085,6 @@ class TOGASelectedInGoAroundDuration(KeyPointValueNode):
                toga=M('Takeoff And Go Around'),
                gas=S('Go Around And Climbout')):
         self.create_kpvs_where_state('TOGA', toga.array, toga.hz, phase=gas)
-
-
-class AltitudeAtGoAroundMin(KeyPointValueNode):
-    '''
-    The altitude above the local airfield level at the minimum altitude point
-    of the go-around.
-
-    Note: This may be less than the radio altimeter reading at this point if
-    there is higher ground in the area of the go-around minimum point.
-    '''
-
-    def derive(self, alt_aal=P('Altitude AAL'), gas=KTI('Go Around')):
-        self.create_kpvs_at_ktis(alt_aal.array, gas)
-
-
-class AltitudeGoAroundFlapRetracted(KeyPointValueNode):
-    '''
-    Go Around Flap Retracted pinpoints the flap retraction instance within the
-    500ft go-around window. Create a single KPV for the first flap retraction
-    within a Go Around And Climbout phase.
-    '''
-    def derive(self, alt_aal=P('Altitude AAL'),
-               flap_retracteds=KTI('Go Around Flap Retracted'),
-               go_arounds=S('Go Around And Climbout')):
-        for go_around in go_arounds:
-            flap_retracted = flap_retracteds.get_first(
-                within_slice=go_around.slice)
-            if flap_retracted:
-                self.create_kpv(flap_retracted.index,
-                                alt_aal.array[flap_retracted.index])
-
-
-class AltitudeAtGearUpSelectionDuringGoAround(KeyPointValueNode):
-    '''
-    Finds the relative altitude at which gear up was selected from the point of
-    minimum altitude in the go-around. If gear up was selected before that,
-    just set the value to zero.
-    '''
-
-    def derive(self,
-               alt_aal=P('Altitude AAL'),
-               gas=S('Go Around And Climbout'),
-               gear_ups=KTI('Gear Up Selection During Go Around')):
-
-        for ga in gas:
-            # Find the index and height at this go-around minimum:
-            pit_index, pit_value = min_value(alt_aal.array, ga.slice)
-            for gear_up in gear_ups:
-                # Ensure gear up selected matches for this go-around:
-                if not is_index_within_slice(gear_up.index, ga.slice):
-                    continue
-                if gear_up.index > pit_index:
-                    # Use height between go around minimum and gear up:
-                    gear_up_ht = alt_aal.array[gear_up.index] - pit_value
-                else:
-                    # Use zero if gear up selected before minimum height:
-                    gear_up_ht = 0.0
-                self.create_kpv(gear_up.index, gear_up_ht)
 
 
 # NOTE: Python class name restriction: '2 Deg Pitch To 35 Ft Duration'
