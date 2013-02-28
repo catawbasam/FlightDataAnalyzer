@@ -1172,48 +1172,51 @@ class TestCreatePhaseOutside(unittest.TestCase):
 
 
 class TestCycleCounter(unittest.TestCase):
-    def test_cycle_counter(self):
-        array = np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
+
+    def setUp(self):
+        self.array = \
+            np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
             np.ma.sin(np.ma.arange(100) * 0.82)
-        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0, 0)
-        self.assertEqual(n_cycles, 3)
-        self.assertEqual(end_index, 91)
+
+    def test_cycle_counter(self):
+        index, count = cycle_counter(self.array, 3.0, 10, 1.0, 0)
+        self.assertEqual(index, 91)
+        self.assertEqual(count, 3)
 
     def test_cycle_counter_with_offset(self):
-        array = np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
-            np.ma.sin(np.ma.arange(100) * 0.82)
-        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0, 1234)
-        self.assertEqual(end_index, 1234 + 91)
+        index, count = cycle_counter(self.array, 3.0, 10, 1.0, 1234)
+        self.assertEqual(index, 1234 + 91)
+        self.assertEqual(count, 3)
 
     def test_cycle_counter_too_slow(self):
-        array = np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
-            np.ma.sin(np.ma.arange(100) * 0.82)
-        end_index, n_cycles = cycle_counter(array, 3.0, 1, 1.0, 0)
-        self.assertEqual(n_cycles, None)
-        self.assertEqual(end_index, None)
+        index, count = cycle_counter(self.array, 3.0, 1, 1.0, 0)
+        self.assertEqual(index, None)
+        self.assertEqual(count, None)
 
     def test_cycle_counter_empty(self):
-        end_index, n_cycles = cycle_counter(np.ma.array([]), 3.0, 10, 1.0, 0)
-        self.assertEqual(n_cycles, None)
-        self.assertEqual(end_index, None)
+        array = np.ma.array([])
+        index, count = cycle_counter(array, 3.0, 10, 1.0, 0)
+        self.assertEqual(index, None)
+        self.assertEqual(count, None)
 
 
 class TestCycleFinder(unittest.TestCase):
+
+    def setUp(self):
+        self.array = np.ma.array([0, 1, 3.8, 1, 0.3, 1, 2, 3, 2, 1, 2, 3, 4, 3, 2])
+
     def test_cycle_finder_basic(self):
-        array = np.ma.array([0,1,3.8,1,0.3,1,2,3,2,1,2,3,4,3,2])
-        idxs, vals = cycle_finder(array, min_step=2.1, include_ends=False)
+        idxs, vals = cycle_finder(self.array, min_step=2.1, include_ends=False)
         np.testing.assert_array_equal(idxs, [2, 4, 12])
-        np.testing.assert_array_equal(vals, [3.8,0.3,4])
+        np.testing.assert_array_equal(vals, [3.8, 0.3, 4])
 
     def test_cycle_finder_default(self):
-        array = np.ma.array([0,1,3.8,1,0.3,1,2,3,2,1,2,3,4,3,2])
-        idxs, vals = cycle_finder(array)
-        np.testing.assert_array_equal(idxs, [ 0, 2, 4, 7, 9,12,14])
-        np.testing.assert_array_equal(vals, [ 0., 3.8, 0.3, 3., 1., 4., 2.])
+        idxs, vals = cycle_finder(self.array)
+        np.testing.assert_array_equal(idxs, [0, 2, 4, 7, 9, 12, 14])
+        np.testing.assert_array_equal(vals, [0., 3.8, 0.3, 3., 1., 4., 2.])
 
     def test_cycle_finder_null(self):
-        array = np.ma.array([0,1,3.8,1,0.3,1,2,3,2,1,2,3,4,3,2])
-        idxs, vals = cycle_finder(array, min_step=15)
+        idxs, vals = cycle_finder(self.array, min_step=15)
         np.testing.assert_array_equal(idxs, None)
         np.testing.assert_array_equal(vals, None)
 
@@ -1224,10 +1227,10 @@ class TestCycleFinder(unittest.TestCase):
         np.testing.assert_array_equal(vals, None)
 
     def test_cycle_finder_removals(self):
-        array = np.ma.array([0,1,2,1,2,3,2,1,2,3,4,5,4,5,6])
+        array = np.ma.array([0, 1, 2, 1, 2, 3, 2, 1, 2, 3, 4, 5, 4, 5, 6])
         idxs, vals = cycle_finder(array, min_step=1.5)
-        np.testing.assert_array_equal(idxs, [0,5,7,14])
-        np.testing.assert_array_equal(vals, [0,3,1,6])
+        np.testing.assert_array_equal(idxs, [0, 5, 7, 14])
+        np.testing.assert_array_equal(vals, [0, 3, 1, 6])
 
 
 class TestDatetimeOfIndex(unittest.TestCase):
