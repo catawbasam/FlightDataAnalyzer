@@ -11,7 +11,7 @@ from utilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, KPV, KTI, MultistateDerivedParameterNode, P, KeyPointValue,
+    A, KPV, KTI, M, P, KeyPointValue,
     KeyTimeInstance, Section, S
 )
 
@@ -167,7 +167,7 @@ from analysis_engine.key_point_values import (
     FlapAtLiftoff,
     FlapAtTouchdown,
     FlapWithGearUpMax,
-    FlapWithSpeedbrakesDeployedMax,
+    FlapWithSpeedbrakeDeployedMax,
     FlareDistance20FtToTouchdown,
     FlareDuration20FtToTouchdown,
     FuelQtyAtLiftoff,
@@ -3802,6 +3802,10 @@ class TestHeadingVacatingRunway(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+##############################################################################
+# Height
+
+
 class TestHeightMinsToTouchdown(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = HeightMinsToTouchdown
@@ -3812,7 +3816,34 @@ class TestHeightMinsToTouchdown(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+##############################################################################
+# Flap
+
+
+class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = FlapAtLiftoff
+        self.operational_combinations = [('Flap', 'Liftoff')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = FlapAtTouchdown
+        self.operational_combinations = [('Flap', 'Touchdown')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
 class TestFlapAtGearDownSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = FlapAtGearDownSelection
         self.operational_combinations = [('Flap', 'Gear Down Selection')]
@@ -3823,6 +3854,7 @@ class TestFlapAtGearDownSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
 
 
 class TestFlapWithGearUpMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
         self.node_class = FlapWithGearUpMax
         self.operational_combinations = [('Flap', 'Gear Down')]
@@ -3832,44 +3864,36 @@ class TestFlapWithGearUpMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestFlapWithSpeedbrakeDeployedMax(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.node_class = FlapAtTouchdown
-        self.operational_combinations = [('Flap', 'Touchdown')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = FlapAtLiftoff
-        self.operational_combinations = [('Flap', 'Liftoff')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestFlapWithSpeedbrakesDeployedMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = FlapWithSpeedbrakesDeployedMax
+        self.node_class = FlapWithSpeedbrakeDeployedMax
         self.operational_combinations = [('Flap', 'Speedbrake Selected', 'Airborne', 'Landing')]
 
     def test_derive(self):
-        spd_brk_loop = [0, 0, 1, 0, 0]
+        flap = P(
+            name='Flap',
+            array=np.arange(15),
+        )
+        spd_brk = M(
+            name='Speedbrake Selected',
+            array=np.ma.array([0, 1, 2, 0, 0] * 3),
+            values_mapping={
+                0: 'Stowed',
+                1: 'Armed/Cmd Dn',
+                2: 'Deployed/Cmd Up',
+            },
+        )
         airborne = buildsection('Airborne', 5, 15)
-        landing = buildsection('Landing', 10, 15)
-        flap = P('Flap', array=np.arange(15))
-        values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
-            'Speedbrake Selected', values_mapping=values_mapping, 
-            array=np.ma.array(spd_brk_loop * 3))
+        landings = buildsection('Landing', 10, 15)
         node = self.node_class()
-        node.derive(flap, spd_brk, airborne, landing)
-        self.assertEqual(
-            node, [KeyPointValue(7, 7, 'Flap With Speedbrakes Deployed Max')])
+        node.derive(flap, spd_brk, airborne, landings)
+        self.assertEqual(node, [
+            KeyPointValue(7, 7, 'Flap With Speedbrake Deployed Max'),
+        ])
+
+
+##############################################################################
 
 
 class TestFlareDuration20FtToTouchdown(unittest.TestCase, NodeTest):
@@ -4693,7 +4717,7 @@ class TestSpeedbrakeDeployed1000To20FtDuration(unittest.TestCase, NodeTest):
         alt_aal = P('Altitude AAL For Flight Phases',
                     array=np.ma.arange(2000, 0, -10))
         values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
+        spd_brk = M(
             'Speedbrake Selected', values_mapping=values_mapping, 
             array=np.ma.array(
                 [0] * 40 + [1] * 20 + [0] * 80 + [1] * 20 + [0] * 40))
@@ -4713,7 +4737,7 @@ class TestSpeedbrakeDeployedWithConfDuration(unittest.TestCase, NodeTest):
     def test_derive_basic(self):
         spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
         values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
+        spd_brk = M(
             'Speedbrake Selected', values_mapping=values_mapping,
             array=np.ma.array(spd_brk_loop * 3))
         conf = P('Configuration', array=np.ma.array([0] * 10 + range(2, 22)))
@@ -4733,7 +4757,7 @@ class TestSpeedbrakeDeployedWithFlapDuration(unittest.TestCase, NodeTest):
     def test_derive_basic(self):
         spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
         values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
+        spd_brk = M(
             'Speedbrake Selected', values_mapping=values_mapping,
             array=np.ma.array(spd_brk_loop * 3))
         flap = P('Flap', array=np.ma.array([0] * 10 + range(1, 21)))
@@ -4753,7 +4777,7 @@ class TestSpeedbrakeDeployedWithPowerOnDuration(unittest.TestCase, NodeTest):
     def test_derive_basic(self):
         spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
         values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
+        spd_brk = M(
             'Speedbrake Selected', values_mapping=values_mapping,
             array=np.ma.array(spd_brk_loop * 3))
         flap = P('Eng (*) N1 Avg',
@@ -4776,7 +4800,7 @@ class TestSpeedbrakeDeployedDuringGoAroundDuration(unittest.TestCase, NodeTest):
     def test_derive(self):
         spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
         values_mapping = {0: 'Undeployed/Cmd Down', 1: 'Deployed/Cmd Up'}
-        spd_brk = MultistateDerivedParameterNode(
+        spd_brk = M(
             'Speedbrake Selected', values_mapping=values_mapping,
             array=np.ma.array(spd_brk_loop * 3))
         go_around = buildsection('Go Around And Climbout', 10, 20)
@@ -5151,7 +5175,7 @@ class TestTCASTAWarningDuration(unittest.TestCase, NodeTest):
             5: 'F',
             6: 'Preventive',
         }
-        tcas = MultistateDerivedParameterNode(
+        tcas = M(
             'TCAS Combined Control', array=np.ma.array([0,1,2,3,4,6,6,6,4,5]),
             values_mapping=values_mapping)
         airborne = buildsection('Airborne', 2, 7)
@@ -5177,7 +5201,7 @@ class TestTCASRAWarningDuration(unittest.TestCase, NodeTest):
             5: 'Down Advisory Corrective',
             6: 'G',
         }
-        tcas = MultistateDerivedParameterNode(
+        tcas = M(
             'TCAS Combined Control', array=np.ma.array([0,1,2,3,4,5,4,5,6]),
             values_mapping=values_mapping)
         airborne = buildsection('Airborne', 2, 7)
@@ -5228,7 +5252,7 @@ class TestTCASRAToAPDisengagedDuration(unittest.TestCase, NodeTest):
         kti_name = 'AP Disengaged Selection'
         ap_offs = KTI(kti_name, items=[KeyTimeInstance(1, kti_name),
                                        KeyTimeInstance(7, kti_name)])
-        tcas = MultistateDerivedParameterNode(
+        tcas = M(
             'TCAS Combined Control', array=np.ma.array([0,1,2,3,4,5,4,4,1,3,0]),
             values_mapping=values_mapping)
         airborne = buildsection('Airborne', 2, 9)

@@ -4582,6 +4582,7 @@ class HeadingVacatingRunway(KeyPointValueNode):
 
 
 ##############################################################################
+# Height
 
 
 class HeightMinsToTouchdown(KeyPointValueNode):
@@ -4593,6 +4594,7 @@ class HeightMinsToTouchdown(KeyPointValueNode):
 
     NAME_FORMAT = 'Height ' + MinsToTouchdown.NAME_FORMAT
     NAME_VALUES = MinsToTouchdown.NAME_VALUES
+    units = 'ft'
 
     def derive(self,
                alt_aal=P('Altitude AAL'),
@@ -4604,41 +4606,84 @@ class HeightMinsToTouchdown(KeyPointValueNode):
             self.create_kpv(mtt.index, alt_aal.array[mtt.index], time=time)
 
 
+##############################################################################
+# Flap
+
+
+class FlapAtLiftoff(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               flap=P('Flap'),
+               liftoffs=KTI('Liftoff')):
+
+        self.create_kpvs_at_ktis(flap.array, liftoffs)
+
+
+class FlapAtTouchdown(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               flap=P('Flap'),
+               touchdowns=KTI('Touchdown')):
+
+        self.create_kpvs_at_ktis(flap.array, touchdowns)
+
+
 class FlapAtGearDownSelection(KeyPointValueNode):
-    def derive(self, flap=P('Flap'), gear_sel_down=KTI('Gear Down Selection')):
-        self.create_kpvs_at_ktis(flap.array, gear_sel_down)
+    '''
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               flap=P('Flap'),
+               gear_dn_sel=KTI('Gear Down Selection')):
+
+        self.create_kpvs_at_ktis(flap.array, gear_dn_sel)
 
 
 class FlapWithGearUpMax(KeyPointValueNode):
-    def derive(self, flap=P('Flap'), gear=M('Gear Down')):
-        #TODO: use self.create_kpvs_where_state instead
-        state = gear.array.state['Down']
-        gear_up = np.ma.masked_equal(gear.array.raw, state)
+    '''
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               flap=P('Flap'),
+               gear=M('Gear Down')):
+
+        gear_up = np.ma.masked_equal(gear.array.raw, gear.array.state['Down'])
         gear_up_slices = np.ma.clump_unmasked(gear_up)
         self.create_kpvs_within_slices(flap.array, gear_up_slices, max_value)
 
 
-class FlapAtTouchdown(KeyPointValueNode):
-    def derive(self, flap=P('Flap'), touchdowns=KTI('Touchdown')):
-        self.create_kpvs_at_ktis(flap.array, touchdowns)
-
-
-class FlapAtLiftoff(KeyPointValueNode):
-    def derive(self, flap=P('Flap'), liftoffs=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(flap.array, liftoffs)
-
-
-class FlapWithSpeedbrakesDeployedMax(KeyPointValueNode):
+class FlapWithSpeedbrakeDeployedMax(KeyPointValueNode):
     '''
     '''
-    def derive(self, flap=P('Flap'), speedbrake=M('Speedbrake Selected'),
-               airs=S('Airborne'), lands=S('Landing')):
-        deployed = speedbrake.array == 'Deployed/Cmd Up'
-        # Mask all values where speedbrake isn't deployed:
-        deployed = mask_outside_slices(deployed, airs.get_slices())
-        deployed = mask_inside_slices(deployed, lands.get_slices())
+
+    units = 'deg'
+
+    def derive(self,
+               flap=P('Flap'),
+               spd_brk=M('Speedbrake Selected'),
+               airborne=S('Airborne'),
+               landings=S('Landing')):
+
+        deployed = spd_brk.array == 'Deployed/Cmd Up'
+        deployed = mask_outside_slices(deployed, airborne.get_slices())
+        deployed = mask_inside_slices(deployed, landings.get_slices())
         deployed_slices = runs_of_ones(deployed)
         self.create_kpv_from_slices(flap.array, deployed_slices, max_value)
+
+
+##############################################################################
 
 
 class FlareDuration20FtToTouchdown(KeyPointValueNode):
