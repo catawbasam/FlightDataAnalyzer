@@ -740,55 +740,111 @@ def _create_phase_mask(array, hz, offset, a, b, which_side):
     return np.ma.MaskedArray(array, mask = m)
 
 
-def cycle_counter(array, min_step, cycle_time, hz, array_offset):
+def cycle_counter(array, min_step, max_time, hz, offset=0):
     '''
-    Counts the number of consecutive cycles, each with a period not more than
-    cycle_time seconds, and with variation greater than min_step.
+    Counts the number of consecutive cycles.
 
-    :param array: time series data
-    :type array: Numpy masked array
-    :param min_step: Optional minimum step, below which fluctuations will be removed.
+    Each cycle must have a period of not more than ``cycle_time`` seconds, and
+    have a variation greater than ``min_step``.
+
+    Note: Where two events with the same cycle count arise in the same array,
+    the latter is recorded as it is normally the later in the flight that will
+    be most hazardous.
+
+    :param array: Array of data to count cycles within.
+    :type array: numpy.ma.core.MaskedArray
+    :param min_step: Minimum step, below which fluctuations will be removed.
     :type min_step: float
-    :param cycle_time: Maximum time for a complete valid cycle
-    :type cycle_time: float, seconds
-    :param hz: array sample rate
-    :type hz: float, Hz
-    :param array_offset: Index to start of array
-    :type array_offset: integer
-
-    :returns: A tuple containing the index of the array element at the end of the highest number of cycles and the highest number of cycles in the array.
-    :rtype: (integer, float (counts a half cycle for each change over min_step))
-
-    Note - Where two events with the same cycle count arise in the same
-    array, the latter is recorded as it is normally the later in the flight
-    that will be most hazardous.
+    :param max_time: Maximum time for a complete valid cycle in seconds.
+    :type max_time: float
+    :param hz: The sample rate of the array.
+    :type hz: float
+    :param offset: Index offset to start of the provided array.
+    :type offset: int
+    :returns: A tuple containing the index of the array element at the end of
+        the highest number of cycles and the highest number of cycles in the
+        array. Note that the value can be a float as we count a half cycle for
+        each change over the minimum step.
+    :rtype: (int, float)
     '''
-    if not np.ma.count(array):
-        return Value(None, None)
     idxs, vals = cycle_finder(array, min_step=min_step)
+
     if idxs is None:
         return Value(None, None)
 
+    index, half_cycles = None, 0
+    max_index, max_half_cycles = None, 0
+
+    # Determine the half cycle times and look for the most cycling:
     half_cycle_times = np.ediff1d(idxs) / hz
-    half_cycles = 0
-    max_half_cycles = 0
-    for num, half_cycle_time in enumerate(half_cycle_times):
-        if half_cycle_time < cycle_time:
+    for n, half_cycle_time in enumerate(half_cycle_times):
+        # If we are within the max time, keep track of the half cycle:
+        if half_cycle_time < max_time:
             half_cycles += 1
-            index = idxs[num+1]
-        else:
-            if 0 < half_cycles >= max_half_cycles:
-                max_half_cycles = half_cycles
-                max_index = index
-                half_cycles = 0
+            index = idxs[n + 1]
+        # Otherwise check if this is the most cycling and reset:
+        elif 0 < half_cycles >= max_half_cycles:
+            max_index, max_half_cycles = index, half_cycles
+            half_cycles = 0
+    else:
+        # Finally check whether the last loop had most cycling:
+        if 0 < half_cycles >= max_half_cycles:
+            max_index, max_half_cycles = index, half_cycles
 
-    if 0 < half_cycles >= max_half_cycles:
-        max_half_cycles = half_cycles
-        max_index = index
-
-    if max_half_cycles <= 1: # Ignore single direction movements.
+    # Ignore single direction movements (we only want full cycles):
+    if max_half_cycles < 2:
         return Value(None, None)
-    return Value(array_offset + max_index, max_half_cycles / 2.0)
+
+    return Value(offset + max_index, max_half_cycles / 2.0)
+
+
+def cycle_select(array, min_step, max_time, hz, offset=0):
+    '''
+    Selects the value difference in the array when cycling.
+
+    Each cycle must have a period of not more than ``cycle_time`` seconds, and
+    have a variation greater than ``min_step``.  The selected value is the
+    largest peak-to-peak value of the cycles.
+
+    Note: Where two events with the same cycle difference arise in the same
+    array, the latter is recorded as it is normally the later in the flight
+    that will be most hazardous.
+
+    :param array: Array of data to count cycles within.
+    :type array: numpy.ma.core.MaskedArray
+    :param min_step: Minimum step, below which fluctuations will be removed.
+    :type min_step: float
+    :param cycle_time: Maximum time for a complete valid cycle in seconds.
+    :type cycle_time: float
+    :param hz: The sample rate of the array.
+    :type hz: float
+    :param offset: Index offset to start of the provided array.
+    :type offset: int
+    :returns: A tuple containing the index of the array element at the end of
+        the highest difference and the highest difference between a peak and a
+        trough in the array while cycling.
+    :rtype: (int, float)
+    '''
+    idxs, vals = cycle_finder(array, min_step=min_step)
+
+    if idxs is None:
+        return Value(None, None)
+
+    max_index, max_value = None, 0
+
+    # Determine the half cycle times and ptp values for the half cycles:
+    half_cycle_times = np.ediff1d(idxs) / hz
+    half_cycle_diffs = np.ediff1d(vals)
+    half_cycle_pairs = zip(half_cycle_times, half_cycle_diffs)
+    for n, (half_cycle_time, value) in enumerate(half_cycle_pairs):
+        # If we are within the max time and have max difference, keep it:
+        if half_cycle_time < max_time and abs(value) >= max_value:
+            max_index, max_value = idxs[n + 1], abs(value)
+
+    if max_index is None:
+        return Value(None, None)
+
+    return Value(offset + max_index, max_value)
 
 
 def cycle_finder(array, min_step=0.0, include_ends=True):

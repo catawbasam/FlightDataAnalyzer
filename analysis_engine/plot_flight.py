@@ -130,7 +130,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, approach_list,
     one_hz = Parameter()
     kml = simplekml.Kml()
     with hdf_file(hdf_path) as hdf:
-        if 'Latitude' not in hdf:
+        if 'Latitude Smoothed' not in hdf:
             return        
         if plot_altitude not in hdf:
             logger.warning("Disabling altitude on KML plot as it is unavailable.")
@@ -177,6 +177,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, approach_list,
             kti_point_values['coords'] = ((kti.longitude, kti.latitude),)
         kml.newpoint(**kti_point_values)
         
+    
     for kpv in kpv_list:
 
         # Trap kpvs with invalid latitude or longitude data (normally happens
@@ -209,6 +210,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, approach_list,
                 draw_centreline(kml, app.runway)
             except:
                 pass
+                
 
     if not dest_path:
         dest_path = hdf_path + ".kml"

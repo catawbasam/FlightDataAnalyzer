@@ -95,8 +95,8 @@ from analysis_engine.key_point_values import (
     AirspeedWithGearDownMax,
     AltitudeAtFirstFlapChangeAfterLiftoff,
     AltitudeAtGearUpSelectionDuringGoAround,
-    AltitudeAtGoAroundMin,
-    AltitudeAtLastFlapChangeBeforeLanding,
+    AltitudeDuringGoAroundMin,
+    AltitudeAtLastFlapChangeBeforeTouchdown,
     AltitudeAtLiftoff,
     AltitudeAtMachMax,
     AltitudeOvershootAtSuspectedLevelBust,
@@ -108,11 +108,11 @@ from analysis_engine.key_point_values import (
     AltitudeAtATDisengagedSelection,
     AltitudeAtATEngagedSelection,
     AltitudeFirstStableDuringApproach,
-    AltitudeFlapExtensionMax,
-    AltitudeGoAroundFlapRetracted,
+    AltitudeAtFlapExtension,
+    AltitudeAtFirstFlapRetractionDuringGoAround,
     AltitudeLastUnStableDuringApproach,
     AltitudeMax,
-    AltitudeWithFlapsMax,
+    AltitudeWithFlapMax,
     AOADuringGoAroundMax,
     AOAWithFlapMax,
     APDisengagedDuringCruiseDuration,
@@ -268,6 +268,7 @@ from analysis_engine.key_point_values import (
     RollCyclesDuringFinalApproach,
     RollCyclesNotDuringFinalApproach,
     RudderDuringTakeoffMax,
+    RudderCyclesAbove50Ft,
     RudderReversalAbove50Ft,
     SpeedbrakeDeployedDuringGoAroundDuration,
     SpeedbrakeDeployed1000To20FtDuration,
@@ -1757,9 +1758,38 @@ class TestDelayedBrakingAfterTouchdown(unittest.TestCase, NodeTest):
 
 
 ##############################################################################
+# Altitude
+
+
+########################################
+# Altitude: General
+
+
+class TestAltitudeMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = AltitudeMax
+        self.operational_combinations = [('Altitude STD Smoothed', 'Airborne')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtLiftoff
+        self.operational_combinations = [('Altitude STD Smoothed', 'Liftoff')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
 class TestAltitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = AltitudeAtTouchdown
         self.operational_combinations = [('Altitude STD Smoothed', 'Touchdown')]
@@ -1769,7 +1799,284 @@ class TestAltitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
+class TestAltitudeDuringGoAroundMin(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeDuringGoAroundMin
+        self.operational_combinations = [('Altitude AAL', 'Go Around')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeOvershootAtSuspectedLevelBust
+        self.operational_combinations = [('Altitude STD Smoothed', )]
+
+    def test_derive_handling_no_data(self):
+        alt_std = P(
+            name='Altitude STD',
+            array=np.ma.array([0] + [1000] * 4),
+        )
+        node = AltitudeOvershootAtSuspectedLevelBust()
+        node.derive(alt_std)
+        self.assertEqual(node, [])
+
+    def test_derive_up_down_and_up(self):
+        alt_std = P(
+            name='Altitude STD',
+            array=np.ma.array(1.0 + np.sin(np.arange(0, 12.6, 0.1))) * 1000,
+        )
+        node = AltitudeOvershootAtSuspectedLevelBust()
+        node.derive(alt_std)
+        self.assertEqual(node, [
+            KeyPointValue(index=16, value=999.5736030415051,
+                name='Altitude Overshoot At Suspected Level Bust'),
+            KeyPointValue(index=47, value=-1998.4666029387058,
+                name='Altitude Overshoot At Suspected Level Bust'),
+            KeyPointValue(index=79, value=1994.3775951461494,
+                name='Altitude Overshoot At Suspected Level Bust'),
+            # XXX: Was -933.6683091995028, ask Dave if min value is correct:
+            KeyPointValue(index=110, value=-834.386031102394,
+                name='Altitude Overshoot At Suspected Level Bust'),
+        ])
+
+    def test_derive_too_slow(self):
+        alt_std = P(
+            name='Altitude STD',
+            array=np.ma.array(1.0 + np.sin(np.arange(0, 12.6, 0.1))) * 1000,
+            frequency=0.02,
+        )
+        node = AltitudeOvershootAtSuspectedLevelBust()
+        node.derive(alt_std)
+        self.assertEqual(node, [])
+
+    def test_derive_straight_up_and_down(self):
+        alt_std = P(
+            name='Altitude STD',
+            array=np.ma.array(range(0, 10000, 50) + range(10000, 0, -50)),
+            frequency=1,
+        )
+        node = AltitudeOvershootAtSuspectedLevelBust()
+        node.derive(alt_std)
+        self.assertEqual(node, [])
+
+    def test_derive_up_and_down_with_overshoot(self):
+        alt_std = P(
+            name='Altitude STD',
+            array=np.ma.array(range(0, 10000, 50) + range(10000, 9000, -50)
+                + [9000] * 200 + range(9000, 0, -50)),
+            frequency=1,
+        )
+        node = AltitudeOvershootAtSuspectedLevelBust()
+        node.derive(alt_std)
+        self.assertEqual(node, [
+            KeyPointValue(index=200, value=1000,
+                name='Altitude Overshoot At Suspected Level Bust'),
+        ])
+
+    def test_derive_up_and_down_with_undershoot(self):
+        alt_std = P(
+            name='Altitude STD',
+            array=np.ma.array(range(0, 10000, 50) + [10000] * 200
+                + range(10000, 9000, -50) + range(9000, 20000, 50)
+                + range(20000, 0, -50)),
+            frequency=1,
+        )
+        node = AltitudeOvershootAtSuspectedLevelBust()
+        node.derive(alt_std)
+        self.assertEqual(node, [
+            KeyPointValue(index=420, value=-1000,
+                name='Altitude Overshoot At Suspected Level Bust'),
+        ])
+
+
+########################################
+# Altitude: Flap
+
+
+class TestAltitudeWithFlapMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeWithFlapMax
+        self.operational_combinations = [('Flap', 'Altitude STD Smoothed', 'Airborne')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeAtFlapExtension(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtFlapExtension
+        self.operational_combinations = [('Flap', 'Altitude AAL', 'Airborne')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtFirstFlapChangeAfterLiftoff
+        self.operational_combinations = [('Flap', 'Altitude AAL', 'Airborne')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeAtLastFlapChangeBeforeTouchdown(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtLastFlapChangeBeforeTouchdown
+        self.operational_combinations = [('Flap', 'Altitude AAL', 'Touchdown')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeAtFirstFlapRetractionDuringGoAround(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtFirstFlapRetractionDuringGoAround
+        self.operational_combinations = [('Altitude AAL', 'Flap Retraction During Go Around', 'Go Around And Climbout')]
+        self.alt_aal = P(
+            name='Altitude AAL',
+            array=np.ma.concatenate([
+                np.ma.array([0] * 10),
+                np.ma.arange(40) * 1000,
+                np.ma.array([40000] * 10),
+                np.ma.arange(40, 0, -1) * 1000,
+                np.ma.arange(1, 3) * 1000,
+                np.ma.array([3000] * 10),
+                np.ma.arange(3, -1, -1) * 1000,
+                np.ma.array([0] * 10),
+            ]),
+        )
+        self.go_arounds = buildsection('Go Around And Climbout', 97, 112)
+
+    def test_derive_multiple_ktis(self):
+        '''
+        Create a single KPV within the Go Around And Climbout section.
+        '''
+        flap_rets = KTI('Go Around Flap Retracted', items=[
+            KeyTimeInstance(100, 'Go Around Flap Retracted'),
+            KeyTimeInstance(104, 'Go Around Flap Retracted'),
+        ])
+        node = AltitudeAtFirstFlapRetractionDuringGoAround()
+        node.derive(self.alt_aal, flap_rets, self.go_arounds)
+        self.assertEqual(node, [
+            KeyPointValue(100, 1000, 'Altitude At First Flap Retraction During Go Around'),
+        ])
+
+    def test_derive_no_ktis(self):
+        '''
+        Create no KPVs without a Go Around Flap Retracted KTI.
+        '''
+        flap_rets = KTI('Go Around Flap Retracted', items=[])
+        node = AltitudeAtFirstFlapRetractionDuringGoAround()
+        node.derive(self.alt_aal, flap_rets, self.go_arounds)
+        self.assertEqual(node, [])
+
+
+########################################
+# Altitude: Gear
+
+
+class TestAltitudeAtGearDownSelection(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtGearDownSelection
+        self.operational_combinations = [('Altitude AAL', 'Gear Down Selection')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeAtGearUpSelection(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtGearUpSelection
+        self.operational_combinations = [('Altitude AAL', 'Gear Up Selection')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeAtGearUpSelectionDuringGoAround(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtGearUpSelectionDuringGoAround
+        self.operational_combinations = [('Altitude AAL', 'Go Around And Climbout', 'Gear Up Selection During Go Around')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+########################################
+# Altitude: Automated Systems
+
+
+class TestAltitudeAtAPEngagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtAPEngagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AP Engaged Selection')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAltitudeAtAPDisengagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtAPDisengagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AP Disengaged Selection')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAltitudeAtATEngagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtATEngagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AT Engaged Selection')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAltitudeAtATDisengagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtATDisengagedSelection
+        self.operational_combinations = [('Altitude AAL', 'AT Disengaged Selection')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+########################################
+# Altitude: Mach
+
+
 class TestAltitudeAtMachMax(unittest.TestCase, CreateKPVsAtKPVsTest):
+
     def setUp(self):
         self.node_class = AltitudeAtMachMax
         self.operational_combinations = [('Altitude STD Smoothed', 'Mach Max')]
@@ -1779,15 +2086,7 @@ class TestAltitudeAtMachMax(unittest.TestCase, CreateKPVsAtKPVsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    def setUp(self):
-        self.node_class = AltitudeMax
-        self.operational_combinations = [('Altitude STD Smoothed', 'Airborne')]
-        self.function = max_value
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
+##############################################################################
 
 
 class TestControlColumnStiffness(unittest.TestCase, NodeTest):
@@ -2050,107 +2349,6 @@ class TestMachWhileGearExtendingMax(unittest.TestCase, CreateKPVsWithinSlicesTes
 
 
 ##############################################################################
-
-
-class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AltitudeAtFirstFlapChangeAfterLiftoff
-        self.operational_combinations = [('Flap', 'Altitude AAL', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAltitudeAtGearDownSelection(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AltitudeAtGearDownSelection
-        self.operational_combinations = [('Altitude AAL', 'Gear Down Selection')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAltitudeAtGearUpSelection(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AltitudeAtGearUpSelection
-        self.operational_combinations = [('Altitude AAL', 'Gear Up Selection')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAltitudeAtLastFlapChangeBeforeLanding(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AltitudeAtLastFlapChangeBeforeLanding
-        self.operational_combinations = [('Flap', 'Altitude AAL', 'Touchdown')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAltitudeAtLiftoff(unittest.TestCase,
-                            CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = AltitudeAtLiftoff
-        self.operational_combinations = [('Altitude STD Smoothed', 'Liftoff',)]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-########################################
-# Automated Systems
-
-
-class TestAltitudeAtAPEngagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
-
-    def setUp(self):
-        self.node_class = AltitudeAtAPEngagedSelection
-        self.operational_combinations = [('Altitude AAL', 'AP Engaged Selection')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestAltitudeAtAPDisengagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
-
-    def setUp(self):
-        self.node_class = AltitudeAtAPDisengagedSelection
-        self.operational_combinations = [('Altitude AAL', 'AP Disengaged Selection')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestAltitudeAtATEngagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
-
-    def setUp(self):
-        self.node_class = AltitudeAtATEngagedSelection
-        self.operational_combinations = [('Altitude AAL', 'AT Engaged Selection')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestAltitudeAtATDisengagedSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
-
-    def setUp(self):
-        self.node_class = AltitudeAtATDisengagedSelection
-        self.operational_combinations = [('Altitude AAL', 'AT Disengaged Selection')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
 ########################################
 
 
@@ -2251,25 +2449,6 @@ class TestPercentApproachStableBelow500(unittest.TestCase):
 
         # TEST For No stability == 0%
 
-
-class TestAltitudeFlapExtensionMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AltitudeFlapExtensionMax
-        self.operational_combinations = [('Flap', 'Altitude AAL', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAltitudeWithFlapsMax(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AltitudeWithFlapsMax
-        self.operational_combinations = [('Flap', 'Altitude STD Smoothed', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
 class TestDecelerateToStopOnRunwayDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
@@ -3713,72 +3892,6 @@ class TestFlareDistance20FtToTouchdown(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AltitudeOvershootAtSuspectedLevelBust
-        self.operational_combinations = [('Altitude STD Smoothed',)]
-
-    def test_derive_handling_no_data(self):
-        alt=P('Altitude STD',np.ma.array([0,1000,1000,1000,1000]))
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[]
-        self.assertEqual(kpv,expected)
-
-    def test_derive_up_down_and_up(self):
-        testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
-        alt=P('Altitude STD',testwave)
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[KeyPointValue(index=16, value=999.5736030415051,
-                                name='Altitude Overshoot At Suspected Level Bust'),
-                  KeyPointValue(index=47, value=-1998.4666029387058,
-                                name='Altitude Overshoot At Suspected Level Bust'),
-                  KeyPointValue(index=79, value=1994.3775951461494,
-                                name='Altitude Overshoot At Suspected Level Bust'),
-                  KeyPointValue(index=110, value=-834.386031102394,  #-933.6683091995028, XXX: Ask Dave if the minimum value is correct.
-                                name='Altitude Overshoot At Suspected Level Bust')]
-        self.assertEqual(kpv,expected)
-
-    def test_derive_too_slow(self):
-        testwave = np.ma.array(1.0+np.sin(np.arange(0,12.6,0.1)))*1000
-        alt=P('Altitude STD',testwave,0.02)
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[]
-        self.assertEqual(kpv,expected)
-
-    def test_derive_straight_up_and_down(self):
-        testwave = np.ma.array(range(0,10000,50)+range(10000,0,-50))
-        alt=P('Altitude STD',testwave,1)
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[]
-        self.assertEqual(kpv,expected)
-
-    def test_derive_up_and_down_with_overshoot(self):
-        testwave = np.ma.array(range(0,10000,50)+range(10000,9000,-50)+[9000]*200+range(9000,0,-50))
-        alt=P('Altitude STD',testwave,1)
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[KeyPointValue(index=200, value=1000,
-                                name='Altitude Overshoot At Suspected Level Bust')]
-        self.assertEqual(kpv,expected)
-
-    def test_derive_up_and_down_with_undershoot(self):
-        testwave = np.ma.array(range(0,10000,50)+
-                               [10000]*200+
-                               range(10000,9000,-50)+
-                               range(9000,20000,50)+
-                               range(20000,0,-50))
-        alt=P('Altitude STD',testwave,1)
-        kpv=AltitudeOvershootAtSuspectedLevelBust()
-        kpv.derive(alt)
-        expected=[KeyPointValue(index=420, value=-1000,
-                                name='Altitude Overshoot At Suspected Level Bust')]
-        self.assertEqual(kpv,expected)
-
-
 class TestFuelQtyAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = FuelQtyAtLiftoff
@@ -4544,6 +4657,17 @@ class TestRudderDuringTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestRudderCyclesAbove50Ft(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = RudderCyclesAbove50Ft
+        self.operational_combinations = [('Rudder', 'Altitude AAL For Flight Phases')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestRudderReversalAbove50Ft(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -4637,7 +4761,7 @@ class TestSpeedbrakeDeployedWithPowerOnDuration(unittest.TestCase, NodeTest):
         airborne = buildsection('Airborne', 10, 20)
         manufacturer = A('Manufacturer', value='Airbus')
         node = self.node_class()
-        node.derive(spd_brk, flap, airborne)
+        node.derive(spd_brk, flap, airborne, manufacturer)
         self.assertEqual(node, [
             KeyPointValue(14, 2.0,
                           'Speedbrake Deployed With Power On Duration')])
@@ -5385,77 +5509,6 @@ class TestTOGASelectedInGoAroundDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAltitudeAtGoAroundMin(unittest.TestCase, CreateKPVsAtKTIsTest):
-    def setUp(self):
-        self.node_class = AltitudeAtGoAroundMin
-        self.operational_combinations = [('Altitude AAL', 'Go Around',)]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAltitudeGoAroundFlapRetracted(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AltitudeGoAroundFlapRetracted
-        self.operational_combinations = [('Altitude AAL', 'Go Around Flap Retracted', 'Go Around And Climbout')]
-
-    def test_derive_multiple_ktis(self):
-        '''
-        Create a single KPV within the Go Around And Climbout section.
-        '''
-        # Go Around at 1000 feet.
-        alt_aal = P('Altitude AAL',
-                    array=np.ma.concatenate([np.ma.array([0] * 10),
-                                             np.ma.arange(40) * 1000,
-                                             np.ma.array([40000] * 10),
-                                             np.ma.arange(40, 0, -1) * 1000,
-                                             np.ma.arange(1, 3) * 1000,
-                                             np.ma.array([3000] * 10),
-                                             np.ma.arange(3, -1, -1) * 1000,
-                                             np.ma.array([0] * 10)]))
-        kti_name = 'Go Around Flap Retracted'
-        flap_retracteds = KTI(kti_name, items=[KeyTimeInstance(100, kti_name),
-                                               KeyTimeInstance(104, kti_name),])
-        go_arounds = buildsection('Go Around And Climbout', 97, 112)
-        node = AltitudeGoAroundFlapRetracted()
-        node.derive(alt_aal, flap_retracteds, go_arounds)
-        self.assertEqual(list(node),
-                         [KeyPointValue(100, 1000,
-                                        'Altitude Go Around Flap Retracted')])
-
-    def test_derive_no_ktis(self):
-        '''
-        Create no KPVs without a Go Around Flap Retracted KTI.
-        '''
-        # Go Around at 1000 feet.
-        alt_aal = P('Altitude AAL',
-                    array=np.ma.concatenate([np.ma.array([0] * 10),
-                                             np.ma.arange(40) * 1000,
-                                             np.ma.array([40000] * 10),
-                                             np.ma.arange(40, 0, -1) * 1000,
-                                             np.ma.arange(1, 3) * 1000,
-                                             np.ma.array([3000] * 10),
-                                             np.ma.arange(3, -1, -1) * 1000,
-                                             np.ma.array([0] * 10)]))
-        kti_name = 'Go Around Flap Retracted'
-        flap_retracteds = KTI(kti_name, items=[])
-        go_arounds = buildsection('Go Around And Climbout', 97, 112)
-        node = AltitudeGoAroundFlapRetracted()
-        node.derive(alt_aal, flap_retracteds, go_arounds)
-        self.assertEqual(list(node), [])
-
-
-class TestAltitudeAtGearUpSelectionDuringGoAround(unittest.TestCase, NodeTest):
-    def setUp(self):
-        self.node_class = AltitudeAtGearUpSelectionDuringGoAround
-        self.operational_combinations = [('Altitude AAL', 'Go Around And Climbout', 'Gear Up Selection During Go Around')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

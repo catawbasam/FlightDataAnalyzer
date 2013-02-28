@@ -25,7 +25,7 @@ from analysis_engine.key_time_instances import (
     GearUpSelection,
     GearUpSelectionDuringGoAround,
     GoAround,
-    GoAroundFlapRetracted,
+    FlapRetractionDuringGoAround,
     InitialClimbStart,
     LandingDecelerationEnd,
     LandingStart,
@@ -595,36 +595,51 @@ class TestTopOfDescent(unittest.TestCase):
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
         opts = Touchdown.get_operational_combinations()
-        self.assertTrue(('Gear On Ground',) in opts)
-        self.assertTrue(('Vertical Speed Inertial',
-                         'Altitude AAL',
-                         'Airborne',
-                         'Landing',) in opts)
+        self.assertEqual(len(opts), 4)
+        # 1
+        self.assertTrue(('Altitude AAL', 'Landing') in opts)
+        # 2
+        self.assertTrue(('Gear On Ground', 'Altitude AAL', 'Landing') in opts)
+        # 3
+        self.assertTrue(('Vertical Speed Inertial', 'Altitude AAL', 'Landing') in opts)
+        # 4
+        self.assertTrue(('Gear On Ground', 'Vertical Speed Inertial', 'Altitude AAL', 'Landing') in opts)
 
-    def test_touchdown_basic(self):
-        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40 - 380.0)
+    def test_touchdown_with_vertical_speed(self):
+        # Test 3
+        vert_spd = Parameter('Vertical Speed Inertial',
+                             np.ma.arange(10)*40 - 380.0)
         altitude = Parameter('Altitude AAL',
                              np.ma.array(data=[28.0, 21, 15, 10, 6, 3, 1, 0, 0,  0],
                                          mask = False))
-        airs = buildsection('Airborne', 1, 8)
         lands = buildsection('Landing', 2, 9)
-        tdwn=Touchdown()
-        tdwn.derive(None, vert_spd, altitude, airs, lands)
+        tdwn = Touchdown()
+        tdwn.derive(None, vert_spd, altitude, lands)
         expected = [KeyTimeInstance(index=6.7490996398559435, name='Touchdown')]
         self.assertEqual(tdwn, expected)
 
-    def test_touchdown_doesnt_land(self):
-        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40)
+    def test_touchdown_with_minimum_requirements(self):
+        # Test 1
         altitude = Parameter('Altitude AAL',
                              np.ma.array(data=[28, 21, 15, 10, 6, 3, 1, 0, 0,  0],
                                          mask = False))
-        airs = buildsection('Airborne', 10, None)
         lands = buildsection('Landing', 2, 9)
-        tdwn=Touchdown()
-        tdwn.derive(None, vert_spd, altitude, airs, lands)
-        expected = []
+        tdwn = Touchdown()
+        tdwn.derive(None, None, altitude, lands)
+        expected = [KeyTimeInstance(index=7, name='Touchdown')]
         self.assertEqual(tdwn, expected)
 
+    def test_touchdown_doesnt_land_with_vertical_speed(self):
+        # Test 3
+        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40)
+        altitude = Parameter('Altitude AAL',
+                             np.ma.array(data=[28, 21, 15, 10, 10, 14, 20, 34, 50],
+                                         mask = False))
+        lands = buildsection('Landing', 2, 9)
+        tdwn = Touchdown()
+        tdwn.derive(None, vert_spd, altitude, lands)
+        expected = []
+        self.assertEqual(tdwn, expected)
 
 ##############################################################################
 # Automated Systems
@@ -751,30 +766,56 @@ class TestExitHold(unittest.TestCase):
         self.assertEqual(eh, expected)
 
 
-class TestFlapSet(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Flap',)]
-        self.assertEqual(
-            expected,
-            FlapSet.get_operational_combinations())
+##############################################################################
+# Flap
+
+
+class TestFlapSet(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = FlapSet
+        self.operational_combinations = [('Flap', )]
+        self.flap = P(
+            name='Flap',
+            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
+        )
 
     def test_derive(self):
-        f = P('Flap', [0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
-        fsc = FlapSet()
-        expected = [
+        node = FlapSet()
+        node.derive(self.flap)
+        self.assertEqual(node, [
             KeyTimeInstance(index=1.5, name='Flap 5 Set'),
             KeyTimeInstance(index=3.5, name='Flap 10 Set'),
             KeyTimeInstance(index=5.5, name='Flap 15 Set'),
             KeyTimeInstance(index=6.5, name='Flap 10 Set'),
             KeyTimeInstance(index=8.5, name='Flap 5 Set'),
             KeyTimeInstance(index=10.5, name='Flap 0 Set'),
-        ]
-        fsc.derive(f)
-        self.assertEqual(fsc, expected)
+        ])
+
+
+class TestFlapRetractionDuringGoAround(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = FlapRetractionDuringGoAround
+        self.operational_combinations = [('Flap', 'Go Around And Climbout')]
+        self.flap = P(
+            name='Flap',
+            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
+        )
+
+    def test_derive(self):
+        go_arounds = buildsection('Go Around', 2, 12)
+        node = FlapRetractionDuringGoAround()
+        node.derive(self.flap, go_arounds)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=6.5, name='Flap Retraction During Go Around'),
+            KeyTimeInstance(index=8.5, name='Flap Retraction During Go Around'),
+            KeyTimeInstance(index=10.5, name='Flap Retraction During Go Around'),
+        ])
 
 
 ##############################################################################
-# Landing Gear
+# Gear
 
 
 class TestGearDownSelection(unittest.TestCase, NodeTest):
@@ -782,17 +823,19 @@ class TestGearDownSelection(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = GearDownSelection
         self.operational_combinations = [('Gear Down Selected', 'Airborne')]
-
-    def test_derive(self):
-        gear_dn_sel = M(
+        self.gear_dn_sel = M(
             name='Gear Down Selected',
             array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
             values_mapping={0: 'Up', 1: 'Down'},
         )
-        airborne = buildsection('Airborne', 0, 7)
-        node = GearUpSelection()
-        node.derive(gear_dn_sel, airborne)
-        self.assertTrue(node[0].index, 4.5)
+        self.airborne = buildsection('Airborne', 0, 7)
+
+    def test_derive(self):
+        node = GearDownSelection()
+        node.derive(self.gear_dn_sel, self.airborne)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=4.5, name='Gear Down Selection'),
+        ])
 
 
 class TestGearUpSelection(unittest.TestCase, NodeTest):
@@ -800,33 +843,26 @@ class TestGearUpSelection(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = GearUpSelection
         self.operational_combinations = [('Gear Up Selected', 'Airborne', 'Go Around And Climbout')]
+        self.gear_up_sel = M(
+            name='Gear Up Selected',
+            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
+            values_mapping={0: 'Down', 1: 'Up'},
+        )
+        self.airborne = buildsection('Airborne', 0, 7)
 
     def test_normal_operation(self):
-        gear_up_sel = M(
-            name='Gear Up Selected',
-            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
-            values_mapping={0: 'Down', 1: 'Up'},
-        )
-        airborne = buildsection('Airborne', 0, 7)
-        go_arounds = buildsection('Go Around', 6, 7)
+        go_arounds = buildsection('Go Around And Climbout', 6, 7)
         node = GearUpSelection()
-        node.derive(gear_up_sel, airborne, go_arounds)
-        self.assertTrue(node[0].index, 2.5)
+        node.derive(self.gear_up_sel, self.airborne, go_arounds)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=2.5, name='Gear Up Selection'),
+        ])
 
-    def test_during_ga(self):
-        gear_up_sel = M(
-            name='Gear Up Selected',
-            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
-            values_mapping={0: 'Down', 1: 'Up'},
-        )
-        airborne = buildsection('Airborne', 0, 7)
-        go_arounds = buildsection('Go Around', 2, 4)
+    def test_during_go_around(self):
+        go_arounds = buildsection('Go Around And Climbout', 2, 4)
         node = GearUpSelection()
-        node.derive(gear_up_sel, airborne, go_arounds)
-        if node == []:
-            self.assertTrue(True)
-        else:
-            self.assertTrue(False)
+        node.derive(self.gear_up_sel, self.airborne, go_arounds)
+        self.assertEqual(node, [])
 
 
 class TestGearUpSelectionDuringGoAround(unittest.TestCase, NodeTest):
@@ -834,56 +870,28 @@ class TestGearUpSelectionDuringGoAround(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = GearUpSelectionDuringGoAround
         self.operational_combinations = [('Gear Up Selected', 'Go Around And Climbout')]
+        self.gear_up_sel = M(
+            name='Gear Up Selected',
+            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
+            values_mapping={0: 'Down', 1: 'Up'},
+        )
 
     def test_normal_operation(self):
-        gear_up_sel = M(
-            name='Gear Up Selected',
-            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
-            values_mapping={0: 'Down', 1: 'Up'},
-        )
-        airborne = buildsection('Airborne', 0, 7)
-        go_arounds = buildsection('Go Around', 6, 7)
-        node = GearUpSelection()
-        node.derive(gear_up_sel, airborne, go_arounds)
-        self.assertTrue(node[0].index, 2.5)
+        go_arounds = buildsection('Go Around And Climbout', 6, 7)
+        node = GearUpSelectionDuringGoAround()
+        node.derive(self.gear_up_sel, go_arounds)
+        self.assertEqual(node, [])
 
-    def test_during_ga(self):
-        gear_up_sel = M(
-            name='Gear Up Selected',
-            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
-            values_mapping={0: 'Down', 1: 'Up'},
-        )
-        airborne = buildsection('Airborne', 0, 7)
-        go_arounds = buildsection('Go Around', 2, 4)
-        node = GearUpSelection()
-        node.derive(gear_up_sel, airborne, go_arounds)
-        if node == []:
-            self.assertTrue(True)
-        else:
-            self.assertTrue(False)
+    def test_during_go_around(self):
+        go_arounds = buildsection('Go Around And Climbout', 2, 4)
+        node = GearUpSelectionDuringGoAround()
+        node.derive(self.gear_up_sel, go_arounds)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=2.5, name='Gear Up Selection During Go Around'),
+        ])
 
 
 ##############################################################################
-
-
-class TestGoAroundFlapRetracted(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Flap', 'Go Around And Climbout')]
-        self.assertEqual(
-            expected,
-            GoAroundFlapRetracted.get_operational_combinations())
-
-    def test_derive(self):
-        f = P('Flap', [0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
-        goaround = buildsection('Go Around', 2, 12)
-        fsc = GoAroundFlapRetracted()
-        expected = [
-            KeyTimeInstance(index=6.5, name='Go Around Flap Retracted'),
-            KeyTimeInstance(index=8.5, name='Go Around Flap Retracted'),
-            KeyTimeInstance(index=10.5, name='Go Around Flap Retracted'),
-        ]
-        fsc.derive(f, goaround)
-        self.assertEqual(fsc, expected)
 
 
 class TestLocalizerEstablishedEnd(unittest.TestCase):
