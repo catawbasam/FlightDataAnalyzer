@@ -284,12 +284,6 @@ class GoAround(KeyTimeInstanceNode):
             self.create_kti(pit + dlc.start_edge)
 
 
-class GoAroundFlapRetracted(KeyTimeInstanceNode):
-    def derive(self, flap=P('Flap'), gas=S('Go Around And Climbout')):
-        self.create_ktis_at_edges(flap.array, direction='falling_edges',
-                                  phase=gas)
-
-
 class TopOfClimb(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD Smoothed'),
                ccd=S('Climb Cruise Descent')):
@@ -336,11 +330,20 @@ class TopOfDescent(KeyTimeInstanceNode):
             self.create_kti(n_tod)
 
 
+##############################################################################
+# Flap
+
+
 class FlapSet(KeyTimeInstanceNode):
+    '''
+    '''
+
     NAME_FORMAT = 'Flap %(flap)d Set'
     NAME_VALUES = NAME_VALUES_FLAP
 
-    def derive(self, flap=P('Flap')):
+    def derive(self,
+               flap=P('Flap')):
+
         # Mark all flap changes, and annotate with the new flap position.
         # Could include "phase=airborne" if we want to eliminate ground flap
         # changes.
@@ -348,8 +351,23 @@ class FlapSet(KeyTimeInstanceNode):
                                   name='flap')
 
 
+class FlapRetractionDuringGoAround(KeyTimeInstanceNode):
+    '''
+    '''
+
+    def derive(self,
+               flap=P('Flap'),
+               go_arounds=S('Go Around And Climbout')):
+
+        self.create_ktis_at_edges(
+            flap.array,
+            direction='falling_edges',
+            phase=go_arounds,
+        )
+
+
 ##############################################################################
-# Landing Gear
+# Gear
 
 
 class GearDownSelection(KeyTimeInstanceNode):

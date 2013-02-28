@@ -25,7 +25,7 @@ from analysis_engine.key_time_instances import (
     GearUpSelection,
     GearUpSelectionDuringGoAround,
     GoAround,
-    GoAroundFlapRetracted,
+    FlapRetractionDuringGoAround,
     InitialClimbStart,
     LandingDecelerationEnd,
     LandingStart,
@@ -751,26 +751,52 @@ class TestExitHold(unittest.TestCase):
         self.assertEqual(eh, expected)
 
 
-class TestFlapSet(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Flap',)]
-        self.assertEqual(
-            expected,
-            FlapSet.get_operational_combinations())
+##############################################################################
+# Flap
+
+
+class TestFlapSet(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = FlapSet
+        self.operational_combinations = [('Flap', )]
+        self.flap = P(
+            name='Flap',
+            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
+        )
 
     def test_derive(self):
-        f = P('Flap', [0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
-        fsc = FlapSet()
-        expected = [
+        node = FlapSet()
+        node.derive(self.flap)
+        self.assertEqual(node, [
             KeyTimeInstance(index=1.5, name='Flap 5 Set'),
             KeyTimeInstance(index=3.5, name='Flap 10 Set'),
             KeyTimeInstance(index=5.5, name='Flap 15 Set'),
             KeyTimeInstance(index=6.5, name='Flap 10 Set'),
             KeyTimeInstance(index=8.5, name='Flap 5 Set'),
             KeyTimeInstance(index=10.5, name='Flap 0 Set'),
-        ]
-        fsc.derive(f)
-        self.assertEqual(fsc, expected)
+        ])
+
+
+class TestFlapRetractionDuringGoAround(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = FlapRetractionDuringGoAround
+        self.operational_combinations = [('Flap', 'Go Around And Climbout')]
+        self.flap = P(
+            name='Flap',
+            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
+        )
+
+    def test_derive(self):
+        go_arounds = buildsection('Go Around', 2, 12)
+        node = FlapRetractionDuringGoAround()
+        node.derive(self.flap, go_arounds)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=6.5, name='Flap Retraction During Go Around'),
+            KeyTimeInstance(index=8.5, name='Flap Retraction During Go Around'),
+            KeyTimeInstance(index=10.5, name='Flap Retraction During Go Around'),
+        ])
 
 
 ##############################################################################
@@ -851,26 +877,6 @@ class TestGearUpSelectionDuringGoAround(unittest.TestCase, NodeTest):
 
 
 ##############################################################################
-
-
-class TestGoAroundFlapRetracted(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Flap', 'Go Around And Climbout')]
-        self.assertEqual(
-            expected,
-            GoAroundFlapRetracted.get_operational_combinations())
-
-    def test_derive(self):
-        f = P('Flap', [0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
-        goaround = buildsection('Go Around', 2, 12)
-        fsc = GoAroundFlapRetracted()
-        expected = [
-            KeyTimeInstance(index=6.5, name='Go Around Flap Retracted'),
-            KeyTimeInstance(index=8.5, name='Go Around Flap Retracted'),
-            KeyTimeInstance(index=10.5, name='Go Around Flap Retracted'),
-        ]
-        fsc.derive(f, goaround)
-        self.assertEqual(fsc, expected)
 
 
 class TestLocalizerEstablishedEnd(unittest.TestCase):
