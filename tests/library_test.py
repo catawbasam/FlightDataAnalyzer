@@ -1200,6 +1200,35 @@ class TestCycleCounter(unittest.TestCase):
         self.assertEqual(count, None)
 
 
+class TestCycleSelect(unittest.TestCase):
+
+    def setUp(self):
+        self.array = \
+            np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
+            np.ma.sin(np.ma.arange(100) * 0.82)
+
+    def test_cycle_select(self):
+        index, value = cycle_select(self.array, 3.0, 10, 1.0, 0)
+        self.assertEqual(index, 29)
+        self.assertAlmostEqual(value, -3.93586778133)
+
+    def test_cycle_select_with_offset(self):
+        index, value = cycle_select(self.array, 3.0, 10, 1.0, 1234)
+        self.assertEqual(index, 1234 + 29)
+        self.assertAlmostEqual(value, -3.93586778133)
+
+    def test_cycle_select_too_slow(self):
+        index, value = cycle_select(self.array, 3.0, 1, 1.0, 0)
+        self.assertEqual(index, None)
+        self.assertEqual(value, None)
+
+    def test_cycle_select_empty(self):
+        array = np.ma.array([])
+        index, value = cycle_select(array, 3.0, 10, 1.0, 0)
+        self.assertEqual(index, None)
+        self.assertEqual(value, None)
+
+
 class TestCycleFinder(unittest.TestCase):
 
     def setUp(self):

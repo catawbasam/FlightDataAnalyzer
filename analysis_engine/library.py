@@ -798,6 +798,55 @@ def cycle_counter(array, min_step, max_time, hz, offset=0):
     return Value(offset + max_index, max_half_cycles / 2.0)
 
 
+def cycle_select(array, min_step, max_time, hz, offset=0):
+    '''
+    Selects the value difference in the array when cycling.
+
+    Each cycle must have a period of not more than ``cycle_time`` seconds, and
+    have a variation greater than ``min_step``.  The selected value is the
+    largest peak-to-peak value of the cycles.
+
+    Note: Where two events with the same cycle difference arise in the same
+    array, the latter is recorded as it is normally the later in the flight
+    that will be most hazardous.
+
+    :param array: Array of data to count cycles within.
+    :type array: numpy.ma.core.MaskedArray
+    :param min_step: Minimum step, below which fluctuations will be removed.
+    :type min_step: float
+    :param cycle_time: Maximum time for a complete valid cycle in seconds.
+    :type cycle_time: float
+    :param hz: The sample rate of the array.
+    :type hz: float
+    :param offset: Index offset to start of the provided array.
+    :type offset: int
+    :returns: A tuple containing the index of the array element at the end of
+        the highest difference and the highest difference between a peak and a
+        trough in the array while cycling.
+    :rtype: (int, float)
+    '''
+    idxs, vals = cycle_finder(array, min_step=min_step)
+
+    if idxs is None:
+        return Value(None, None)
+
+    max_index, max_value = None, 0
+
+    # Determine the half cycle times and ptp values for the half cycles:
+    half_cycle_times = np.ediff1d(idxs) / hz
+    half_cycle_diffs = np.ediff1d(vals)
+    half_cycle_pairs = zip(half_cycle_times, half_cycle_diffs)
+    for n, (half_cycle_time, value) in enumerate(half_cycle_pairs):
+        # If we are within the max time and have max difference, keep it:
+        if half_cycle_time < max_time and abs(value) >= abs(max_value):
+            max_index, max_value = idxs[n + 1], value
+
+    if max_index is None:
+        return Value(None, None)
+
+    return Value(offset + max_index, max_value)
+
+
 def cycle_finder(array, min_step=0.0, include_ends=True):
     '''
     Simple implementation of a peak detection algorithm with small cycle
