@@ -774,7 +774,7 @@ class TestFlapSet(unittest.TestCase):
 
 
 ##############################################################################
-# Landing Gear
+# Gear
 
 
 class TestGearDownSelection(unittest.TestCase, NodeTest):
@@ -782,17 +782,19 @@ class TestGearDownSelection(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = GearDownSelection
         self.operational_combinations = [('Gear Down Selected', 'Airborne')]
-
-    def test_derive(self):
-        gear_dn_sel = M(
+        self.gear_dn_sel = M(
             name='Gear Down Selected',
             array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
             values_mapping={0: 'Up', 1: 'Down'},
         )
-        airborne = buildsection('Airborne', 0, 7)
-        node = GearUpSelection()
-        node.derive(gear_dn_sel, airborne)
-        self.assertTrue(node[0].index, 4.5)
+        self.airborne = buildsection('Airborne', 0, 7)
+
+    def test_derive(self):
+        node = GearDownSelection()
+        node.derive(self.gear_dn_sel, self.airborne)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=4.5, name='Gear Down Selection'),
+        ])
 
 
 class TestGearUpSelection(unittest.TestCase, NodeTest):
@@ -800,33 +802,26 @@ class TestGearUpSelection(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = GearUpSelection
         self.operational_combinations = [('Gear Up Selected', 'Airborne', 'Go Around And Climbout')]
+        self.gear_up_sel = M(
+            name='Gear Up Selected',
+            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
+            values_mapping={0: 'Down', 1: 'Up'},
+        )
+        self.airborne = buildsection('Airborne', 0, 7)
 
     def test_normal_operation(self):
-        gear_up_sel = M(
-            name='Gear Up Selected',
-            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
-            values_mapping={0: 'Down', 1: 'Up'},
-        )
-        airborne = buildsection('Airborne', 0, 7)
-        go_arounds = buildsection('Go Around', 6, 7)
+        go_arounds = buildsection('Go Around And Climbout', 6, 7)
         node = GearUpSelection()
-        node.derive(gear_up_sel, airborne, go_arounds)
-        self.assertTrue(node[0].index, 2.5)
+        node.derive(self.gear_up_sel, self.airborne, go_arounds)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=2.5, name='Gear Up Selection'),
+        ])
 
-    def test_during_ga(self):
-        gear_up_sel = M(
-            name='Gear Up Selected',
-            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
-            values_mapping={0: 'Down', 1: 'Up'},
-        )
-        airborne = buildsection('Airborne', 0, 7)
-        go_arounds = buildsection('Go Around', 2, 4)
+    def test_during_go_around(self):
+        go_arounds = buildsection('Go Around And Climbout', 2, 4)
         node = GearUpSelection()
-        node.derive(gear_up_sel, airborne, go_arounds)
-        if node == []:
-            self.assertTrue(True)
-        else:
-            self.assertTrue(False)
+        node.derive(self.gear_up_sel, self.airborne, go_arounds)
+        self.assertEqual(node, [])
 
 
 class TestGearUpSelectionDuringGoAround(unittest.TestCase, NodeTest):
@@ -834,33 +829,25 @@ class TestGearUpSelectionDuringGoAround(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = GearUpSelectionDuringGoAround
         self.operational_combinations = [('Gear Up Selected', 'Go Around And Climbout')]
+        self.gear_up_sel = M(
+            name='Gear Up Selected',
+            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
+            values_mapping={0: 'Down', 1: 'Up'},
+        )
 
     def test_normal_operation(self):
-        gear_up_sel = M(
-            name='Gear Up Selected',
-            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
-            values_mapping={0: 'Down', 1: 'Up'},
-        )
-        airborne = buildsection('Airborne', 0, 7)
-        go_arounds = buildsection('Go Around', 6, 7)
-        node = GearUpSelection()
-        node.derive(gear_up_sel, airborne, go_arounds)
-        self.assertTrue(node[0].index, 2.5)
+        go_arounds = buildsection('Go Around And Climbout', 6, 7)
+        node = GearUpSelectionDuringGoAround()
+        node.derive(self.gear_up_sel, go_arounds)
+        self.assertEqual(node, [])
 
-    def test_during_ga(self):
-        gear_up_sel = M(
-            name='Gear Up Selected',
-            array=np.ma.array(['Down'] * 3 + ['Up'] * 2 + ['Down'] * 2),
-            values_mapping={0: 'Down', 1: 'Up'},
-        )
-        airborne = buildsection('Airborne', 0, 7)
-        go_arounds = buildsection('Go Around', 2, 4)
-        node = GearUpSelection()
-        node.derive(gear_up_sel, airborne, go_arounds)
-        if node == []:
-            self.assertTrue(True)
-        else:
-            self.assertTrue(False)
+    def test_during_go_around(self):
+        go_arounds = buildsection('Go Around And Climbout', 2, 4)
+        node = GearUpSelectionDuringGoAround()
+        node.derive(self.gear_up_sel, go_arounds)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=2.5, name='Gear Up Selection During Go Around'),
+        ])
 
 
 ##############################################################################
