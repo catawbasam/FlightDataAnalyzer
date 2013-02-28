@@ -219,6 +219,8 @@ from analysis_engine.key_point_values import (
     MachWhileGearRetractingMax,
     MachMax,
     MachWithGearDownMax,
+    MagneticVariationAtTakeoffTurnOntoRunway,
+    MagneticVariationAtLandingTurnOffRunway,
     PercentApproachStableBelow1000Ft,
     PercentApproachStableBelow500Ft,
     Pitch1000To500FtMax,
@@ -289,6 +291,8 @@ from analysis_engine.key_point_values import (
     TCASRAInitialReactionStrength,
     TCASRAToAPDisengagedDuration,
     TCASTAWarningDuration,
+    TOGASelectedDuringFlightDuration,
+    TOGASelectedDuringGoAroundDuration,
     TerrainClearanceAbove3000FtMin,
     ThrottleCyclesDuringFinalApproach,
     ThrottleReductionToTouchdownDuration,
@@ -327,6 +331,8 @@ from analysis_engine.key_point_values import (
     TAWSPullUpWarningDuration,
     TAWSDontSinkWarningDuration,
     TAWSWindshearWarningBelow1500FtDuration,
+    PackValvesOpenAtLiftoff,
+    IsolationValveOpenAtLiftoff,
 )
 from analysis_engine.key_time_instances import EngStop
 from analysis_engine.library import (max_abs_value, max_value, min_value)
@@ -1699,24 +1705,39 @@ class TouchdownToSpoilersDeployedDuration(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
+
+    @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
 ##############################################################################
-# Takeoff and Use of TOGA
+# TOGA Usage
 
 
-class TestTOGASelectedInFlightNotGoAroundDuration(unittest.TestCase):
+class TestTOGASelectedDuringFlightDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TOGASelectedDuringFlightDuration
+        self.operational_combinations = [('Takeoff And Go Around', 'Go Around And Climbout', 'Airborne')]
+
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-    
-    @unittest.skip('Test Not Implemented')    
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTOGASelectedDuringGoAroundDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TOGASelectedDuringGoAroundDuration
+        self.operational_combinations = [('Takeoff And Go Around', 'Go Around And Climbout')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
 
 
 class TestLiftoffToClimbPitchDuration(unittest.TestCase):
@@ -3225,16 +3246,6 @@ class TestHeightOfBouncedLanding(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestIsolationValveOpenAtLiftoff(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestLatitudeAtTouchdown(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -3525,7 +3536,7 @@ class TestLongitudeSmoothedAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestLongitudeAtLowestAltitudeDuringApproach(unittest.TestCase):
+class TestLongitudeAtLowestAltitudeDuringApproach(unittest.TestCase, CreateKPVsAtKTIsTest):
 
     def setUp(self):
         self.node_class = LongitudeAtLowestAltitudeDuringApproach
@@ -3536,30 +3547,44 @@ class TestLongitudeAtLowestAltitudeDuringApproach(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestMagneticVariationAtLanding(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestMagneticVariationAtTakeoffTurnOntoRunway(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = MagneticVariationAtTakeoffTurnOntoRunway
+        self.operational_combinations = [('Magnetic Variation', 'Takeoff Turn Onto Runway')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestMagneticVariationAtTakeoff(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestMagneticVariationAtLandingTurnOffRunway(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = MagneticVariationAtLandingTurnOffRunway
+        self.operational_combinations = [('Magnetic Variation', 'Landing Turn Off Runway')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestPackValvesOpenAtLiftoff(unittest.TestCase):
+class TestIsolationValveOpenAtLiftoff(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = IsolationValveOpenAtLiftoff
+        self.operational_combinations = [('Isolation Valve Open', 'Liftoff')]
+
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
+    def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPackValvesOpenAtLiftoff(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = PackValvesOpenAtLiftoff
+        self.operational_combinations = [('Pack Valves Open', 'Liftoff')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -3927,7 +3952,12 @@ class TestFlareDistance20FtToTouchdown(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+##############################################################################
+# Fuel Quantity
+
+
 class TestFuelQtyAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = FuelQtyAtLiftoff
         self.operational_combinations = [('Fuel Qty', 'Liftoff')]
@@ -3938,6 +3968,7 @@ class TestFuelQtyAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
 
 
 class TestFuelQtyAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
     def setUp(self):
         self.node_class = FuelQtyAtTouchdown
         self.operational_combinations = [('Fuel Qty', 'Touchdown')]
@@ -5533,21 +5564,6 @@ class TestHoldingDuration(unittest.TestCase):
 
 
 ##############################################################################
-# Go Around Related KPVs 
-        
-#See also: EngGasTempGoAroundMax, EngN1GoAroundMax, EngN2GoAroundMax,
-#EngN3GoAroundMax, EngTorqueGoAroundMax
-
-
-class TestTOGASelectedInGoAroundDuration(unittest.TestCase):
-    # TODO: CreateKPVsWhereState test superclass.
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestTwoDegPitchTo35FtDuration(unittest.TestCase, NodeTest):

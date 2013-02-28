@@ -1715,32 +1715,35 @@ class TrackDeviationFromRunway300FtToTouchdown(KeyPointValueNode):
             alt_bands,
             max_abs_value,
         )
-        
-        
+
+
 ##############################################################################
-# Takeoff and Use of TOGA
+# TOGA Usage
 
 
-class TOGASelectedInFlightNotGoAroundDuration(KeyPointValueNode):
+class TOGASelectedDuringFlightDuration(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
     "Loss of Control - Unexpected TOGA power selection in flight (except for
     a go-around)"
+
+    Note: This covers the entire airborne phase excluding go-arounds.
     '''
 
-    name = 'TOGA Selected In Flight Not Go Around Duration'
+    name = 'TOGA Selected During Flight Not Go Around Duration'
+    units = 's'
 
     def derive(self,
                toga=M('Takeoff And Go Around'),
-               gas=S('Go Around And Climbout'),
-               airs=S('Airborne')):
+               go_arounds=S('Go Around And Climbout'),
+               airborne=S('Airborne')):
 
         to_scan = slices_and(
-            [s.slice for s in airs],
+            [s.slice for s in airborne],
             slices_not(
-                [s.slice for s in gas],
-                begin_at=airs[0].slice.start,
-                end_at=airs[-1].slice.stop,
+                [s.slice for s in go_arounds],
+                begin_at=airborne[0].slice.start,
+                end_at=airborne[-1].slice.stop,
             ),
         )
 
@@ -1752,6 +1755,27 @@ class TOGASelectedInFlightNotGoAroundDuration(KeyPointValueNode):
 
         self.create_kpvs_where_state('TOGA', toga.array, toga.hz,
                                      phase=not_ga, exclude_leading_edge=True)
+
+
+class TOGASelectedDuringGoAroundDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Loss of Control - TOGA power selection in flight (Go-arounds need to be
+    kept as a separate case)."
+    '''
+
+    name = 'TOGA Selected During Go Around Duration'
+    units = 's'
+
+    def derive(self,
+               toga=M('Takeoff And Go Around'),
+               go_arounds=S('Go Around And Climbout')):
+
+        self.create_kpvs_where_state('TOGA', toga.array, toga.hz,
+                                     phase=go_arounds)
+
+
+##############################################################################
 
 
 class LiftoffToClimbPitchDuration(KeyPointValueNode):
@@ -2991,13 +3015,29 @@ class ILSLocalizerDeviationAtTouchdown(KeyPointValueNode):
 
 
 class IsolationValveOpenAtLiftoff(KeyPointValueNode):
-    def derive(self, isol=P('Isolation Valve Open'), lifts=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(isol.array, lifts, suppress_zeros=True)
+    '''
+    '''
+
+    units = ''
+
+    def derive(self,
+               isol=M('Isolation Valve Open'),
+               liftoffs=KTI('Liftoff')):
+
+        self.create_kpvs_at_ktis(isol.array.raw, liftoffs, suppress_zeros=True)
 
 
 class PackValvesOpenAtLiftoff(KeyPointValueNode):
-    def derive(self, pack=M('Pack Valves Open'), lifts=KTI('Liftoff')):
-        self.create_kpvs_at_ktis(pack.array.raw, lifts, suppress_zeros=True)
+    '''
+    '''
+
+    units = ''
+
+    def derive(self,
+               pack=M('Pack Valves Open'),
+               liftoffs=KTI('Liftoff')):
+
+        self.create_kpvs_at_ktis(pack.array.raw, liftoffs, suppress_zeros=True)
 
 
 ##############################################################################
@@ -3480,26 +3520,30 @@ class MachWhileGearExtendingMax(KeyPointValueNode):
 # Magnetic Variation
 
 
-class MagneticVariationAtTakeoff(KeyPointValueNode):
+class MagneticVariationAtTakeoffTurnOntoRunway(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, var=P('Magnetic Variation'),
-            toff=KTI('Takeoff Turn Onto Runway')):
-        '''
-        '''
-        self.create_kpvs_at_ktis(var.array, toff)
+    units = 'deg'
+
+    def derive(self,
+               mag_var=P('Magnetic Variation'),
+               takeoff_turn_on_rwy=KTI('Takeoff Turn Onto Runway')):
+
+        self.create_kpvs_at_ktis(mag_var.array, takeoff_turn_on_rwy)
 
 
-class MagneticVariationAtLanding(KeyPointValueNode):
+class MagneticVariationAtLandingTurnOffRunway(KeyPointValueNode):
     '''
     '''
 
-    def derive(self, var=P('Magnetic Variation'),
-            land=KTI('Landing Turn Off Runway')):
-        '''
-        '''
-        self.create_kpvs_at_ktis(var.array, land)
+    units = 'deg'
+
+    def derive(self,
+               mag_var=P('Magnetic Variation'),
+               landing_turn_off_rwy=KTI('Landing Turn Off Runway')):
+
+        self.create_kpvs_at_ktis(mag_var.array, landing_turn_off_rwy)
 
 
 ##############################################################################
@@ -4761,13 +4805,33 @@ class FlareDistance20FtToTouchdown(KeyPointValueNode):
                     self.create_kpv(tdown.index, dist)
 
 
+##############################################################################
+# Fuel Quantity
+
+
 class FuelQtyAtLiftoff(KeyPointValueNode):
-    def derive(self, fuel_qty=P('Fuel Qty'), liftoffs=KTI('Liftoff')):
+    '''
+    '''
+
+    units = 'kg'
+
+    def derive(self,
+               fuel_qty=P('Fuel Qty'),
+               liftoffs=KTI('Liftoff')):
+
         self.create_kpvs_at_ktis(fuel_qty.array, liftoffs)
 
 
 class FuelQtyAtTouchdown(KeyPointValueNode):
-    def derive(self, fuel_qty=P('Fuel Qty'), touchdowns=KTI('Touchdown')):
+    '''
+    '''
+
+    units = 'kg'
+
+    def derive(self,
+               fuel_qty=P('Fuel Qty'),
+               touchdowns=KTI('Touchdown')):
+
         self.create_kpvs_at_ktis(fuel_qty.array, touchdowns)
 
 
@@ -7148,25 +7212,6 @@ class HoldingDuration(KeyPointValueNode):
 ####        return NotImplemented
 
 ##############################################################################
-# Go Around Related KPVs 
-
-#See also: EngGasTempGoAroundMax, EngN1GoAroundMax, EngN2GoAroundMax,
-#EngN3GoAroundMax, EngTorqueGoAroundMax
-
-
-class TOGASelectedInGoAroundDuration(KeyPointValueNode):
-    '''
-    FDS developed this KPV to support the UK CAA Significant Seven programme.
-    "Loss of Control - TOGA power selection in flight (Go-arounds need to be
-    kept as a separate case)."
-    '''
-
-    name = 'TOGA Selected In Go Around Duration'
-
-    def derive(self,
-               toga=M('Takeoff And Go Around'),
-               gas=S('Go Around And Climbout')):
-        self.create_kpvs_where_state('TOGA', toga.array, toga.hz, phase=gas)
 
 
 # NOTE: Python class name restriction: '2 Deg Pitch To 35 Ft Duration'
