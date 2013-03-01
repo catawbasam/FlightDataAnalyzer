@@ -101,7 +101,8 @@ class GoAroundAndClimbout(FlightPhaseNode):
     and 2000ft after.
     '''
 
-    def derive(self, alt_aal=P('Altitude AAL'), gas=KTI('Go Around')):
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'), 
+               gas=KTI('Go Around')):
         # Prepare a home for multiple go-arounds. (Not a good day, eh?)
         ga_slice = []
 
@@ -246,7 +247,8 @@ class BouncedLanding(FlightPhaseNode):
 
     Q: Should Airborne be first so we align to its offset?
     '''
-    def derive(self, alt_aal=P('Altitude AAL'), airs=S('Airborne'),
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'), 
+               airs=S('Airborne'),
                fast=S('Fast')):
         for speedy in fast:
             for air in airs:
@@ -710,7 +712,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
     """
     def derive(self, ils_gs = P('ILS Glideslope'),
                ils_loc_ests = S('ILS Localizer Established'),
-               alt_aal=P('Altitude AAL')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         # We don't accept glideslope approaches without localizer established
         # first, so this only works within that context. If you want to
         # follow a glidepath without a localizer, seek flight safety guidance
@@ -881,7 +883,7 @@ class Landing(FlightPhaseNode):
     flight conditions, and thereby make sure the 50ft startpoint is exact.
     '''
     def derive(self, head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL'), fast=S('Fast')):
+               alt_aal=P('Altitude AAL For Flight Phases'), fast=S('Fast')):
 
         for speedy in fast:
             # See takeoff phase for comments on how the algorithm works.
@@ -958,7 +960,7 @@ class Takeoff(FlightPhaseNode):
     flight conditions, and make sure the 35ft endpoint is exact.
     """
     def derive(self, head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
                fast=S('Fast')):
 
         # Note: This algorithm works across the entire data array, and
