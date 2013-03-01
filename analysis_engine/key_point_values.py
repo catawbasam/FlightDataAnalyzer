@@ -3217,22 +3217,32 @@ class LatitudeAtLiftoff(KeyPointValueNode):
     def can_operate(cls, available):
         '''
         '''
-        one_of = lambda *names: any(name in available for name in names)
-        return 'Liftoff' in available and any((
-            'Latitude' in available,
-            one_of('AFR Takeoff Runway', 'AFR Takeoff Airport'),
-        ))
+        return 'Liftoff' in available and any_of(('Latitude',
+                                                  'Latitude Coarse',
+                                                  'AFR Takeoff Runway', 
+                                                  'AFR Takeoff Airport'),
+                                                 available)
 
     def derive(self,
             lat=P('Latitude'),
             liftoffs=KTI('Liftoff'),
             toff_afr_apt=A('AFR Takeoff Airport'),
-            toff_afr_rwy=A('AFR Takeoff Runway')):
+            toff_afr_rwy=A('AFR Takeoff Runway'),
+            lat_c=P('Latitude Coarse')):
         '''
+        Note that Latitude Coarse is a superframe parameter with poor
+        resolution recorded on some FDAUs. Keeping it at the end of the list
+        of parameters means that it will be aligned to a higher sample rate
+        rather than dragging other parameters down to its sample rate. See
+        767 Delta data frame.
         '''
         # 1. Attempt to use latitude parameter if available:
         if lat:
             self.create_kpvs_at_ktis(lat.array, liftoffs)
+            return
+        
+        if lat_c:
+            self.create_kpvs_at_ktis(lat_c.array, liftoffs)
             return
 
         value = None
@@ -3276,24 +3286,30 @@ class LongitudeAtLiftoff(KeyPointValueNode):
     def can_operate(cls, available):
         '''
         '''
-        one_of = lambda *names: any(name in available for name in names)
-        return 'Liftoff' in available and any((
-            'Longitude' in available,
-            one_of('AFR Takeoff Runway', 'AFR Takeoff Airport'),
-        ))
-
+        return 'Liftoff' in available and any_of(('Longitude',
+                                                  'Longitude Coarse',
+                                                  'AFR Takeoff Runway',
+                                                  'AFR Takeoff Airport'),
+                                                 available)
+    
     def derive(self,
             lon=P('Longitude'),
             liftoffs=KTI('Liftoff'),
             toff_afr_apt=A('AFR Takeoff Airport'),
-            toff_afr_rwy=A('AFR Takeoff Runway')):
+            toff_afr_rwy=A('AFR Takeoff Runway'),
+            lon_c=P('Longitude Coarse')):
         '''
+        See note relating to coarse latitude and longitude under Latitude At Takeoff
         '''
         # 1. Attempt to use longitude parameter if available:
         if lon:
             self.create_kpvs_at_ktis(lon.array, liftoffs)
             return
 
+        if lon_c:
+            self.create_kpvs_at_ktis(lon_c.array, liftoffs)
+            return
+            
         value = None
 
         # 2a. Attempt to use longitude of runway midpoint:
@@ -3767,7 +3783,7 @@ class EngGasTempDuringEngStartMax(KeyPointValueNode):
             return None, None
         # Ideally we'd use a shorter timebase, e.g. 2 seconds, but N2 is only
         # sampled at 1/4Hz on some aircraft:
-        n2_rate = rate_of_change(n2, 4)
+        n2_rate = rate_of_change(n2, 8)
         # The engine only accelerates through 30% when starting. Let's find the
         # last time it did this before taking off:
         passing_30 = index_at_value(n2.array, 30.0, slice(idx, 0, -1))
