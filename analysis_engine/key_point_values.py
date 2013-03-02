@@ -1,7 +1,7 @@
 import numpy as np
 
 from operator import itemgetter
-
+from math import ceil
 from utilities.geometry import midpoint
 
 from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
@@ -4803,6 +4803,8 @@ class FlareDuration20FtToTouchdown(KeyPointValueNode):
 
 class FlareDistance20FtToTouchdown(KeyPointValueNode):
     '''
+    TODO: Write a test for this function with less than one second between 20ft and touchdown, using interval arithmetic.
+    NAX_1_LN-DYC_20120104234127_22_L3UQAR___dev__sdb.001.hdf5
     '''
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                tdowns=KTI('Touchdown'), lands=S('Landing'),
@@ -4812,11 +4814,11 @@ class FlareDistance20FtToTouchdown(KeyPointValueNode):
             if this_landing:
                 idx_20 = index_at_value(
                     alt_aal.array, 20.0,
-                    _slice=slice(tdown.index, this_landing[0].slice.start - 1, -1))
+                    _slice=slice(ceil(tdown.index), this_landing[0].slice.start - 1, -1))
                 # Integrate returns an array, so we need to take the max
                 # value to yield the KTP value.
                 if idx_20:
-                    dist = max(integrate(gspd.array[idx_20:tdown.index],
+                    dist = max(integrate(gspd.array[idx_20:tdown.index+1],
                                          gspd.hz))
                     self.create_kpv(tdown.index, dist)
 
