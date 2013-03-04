@@ -7,6 +7,7 @@ from analysis_engine import settings
 from analysis_engine.exceptions import DataFrameError
 
 from analysis_engine.library import (
+    all_of,
     bearing_and_distance,
     closest_unmasked_value,
     cycle_finder,
@@ -935,6 +936,10 @@ class LandingRoll(FlightPhaseNode):
     roll, and the landing roll starts as the aircraft passes 2 deg the last
     time, i.e. as the nosewheel comes down and not as the flare starts.
     '''
+    @classmethod
+    def can_operate(cls, available):
+        return all_of(['Pitch', 'Airspeed True', 'Landing'], available)
+
     def derive(self, pitch=P('Pitch'), gspd=P('Groundspeed'),
                aspd=P('Airspeed True'), lands=S('Landing')):
         if gspd:

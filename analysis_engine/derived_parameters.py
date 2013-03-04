@@ -2880,7 +2880,7 @@ class FlapSurface(DerivedParameterNode):
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
             
-        elif frame_name in ['747-200-GE', '747-200-AP-BIB']:
+        elif frame_name in ['747-200-GE', '747-200-PW', '747-200-AP-BIB']:
             # Only the right inboard flap is instrumented.
             self.array = flap_B.array
 
@@ -3144,10 +3144,12 @@ class ILSFrequency(DerivedParameterNode):
 
     def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
                f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency')):
-               ##frame = A('Frame')):
+               
+               
 
-        ##frame_name = frame.value if frame else ''
-
+        #TODO: Extend to allow for three-receiver installations
+        
+        
         # On some frames only one ILS frequency recording works
         if False:
             pass
