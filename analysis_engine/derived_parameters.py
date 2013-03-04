@@ -334,7 +334,8 @@ class AirspeedReference(DerivedParameterNode):
                afr_vref=A('AFR Vref'),
                apps=S('Approach And Landing'),
                series=A('Series'),
-               family=A('Family')):
+               family=A('Family'),
+               engine=A('Engine Series')):
         # docstring no longer accurate?
         ##'''
         ##Currently a work in progress. We should use a recorded parameter if
@@ -369,7 +370,8 @@ class AirspeedReference(DerivedParameterNode):
             # Better:
             self.array = np_ma_masked_zeros_like(spd.array)
 
-            vspeed_class = get_vspeed_map(series.value, family.value)
+            x = map(lambda x: x.value if x else None, (series, family, engine))
+            vspeed_class = get_vspeed_map(*x)
 
             if vspeed_class:
                 vspeed_table = vspeed_class() # instansiate VelocitySpeed object
@@ -387,7 +389,7 @@ class AirspeedReference(DerivedParameterNode):
                     index = np.ma.argmax(setting_param.array[_slice])
                     weight = repaired_gw[_slice][index]
                     setting = setting_param.array[_slice][index]
-                    vspeed = vspeed_table.airspeed_reference(weight, setting)
+                    vspeed = vspeed_table.vref(weight, setting)
                     self.array[_slice] = vspeed
             else:
                 # aircraft does not use vspeeds
@@ -4400,7 +4402,8 @@ class V2(DerivedParameterNode):
                afr_v2=A('AFR V2'),
                weight_liftoff=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
-               family=A('Family')):
+               family=A('Family'),
+               engine=A('Engine Series')):
 
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(spd.array)
@@ -4411,7 +4414,8 @@ class V2(DerivedParameterNode):
             afr_v2_array = np.ones_like(spd.array)
             self.array = afr_v2_array * afr_v2.value
         elif weight_liftoff:
-            vspeed_class = get_vspeed_map(series.value, family.value)
+            x = map(lambda x: x.value if x else None, (series, family, engine))
+            vspeed_class = get_vspeed_map(*x)
             setting_param = flap or conf
             if vspeed_class:
                 vspeed_table = vspeed_class()
