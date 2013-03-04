@@ -597,11 +597,6 @@ def scan_ils(beam, ils_dots, height, scan_slice):
     if beam not in ['localizer', 'glideslope']:
         raise ValueError('Unrecognised beam type in scan_ils')
 
-    # Let's check to see if we have something sensible to work with...
-    if np.ma.count(ils_dots[scan_slice]) < 5 or \
-       np.ma.count(ils_dots)/float(len(ils_dots)) < 0.8:
-        return None
-
     # Find where we first see the ILS indication. We will start from 200ft to
     # avoid getting spurious glideslope readings (hence this code is the same
     # for glide and localizer).
@@ -623,6 +618,11 @@ def scan_ils(beam, ils_dots, height, scan_slice):
                              slice(idx_200, scan_slice.start, -1))
     if dots_25 is None:
         dots_25 = scan_slice.start
+        
+    # Let's check to see if we have something sensible to work with...
+    if np.ma.count(ils_dots[scan_slice]) < 5 or \
+       np.ma.count(ils_dots[scan_slice])/float(len(ils_dots[scan_slice])) < 0.7:
+        return None
 
     # And now work forwards to the point of "Capture", defined as the first
     # time the ILS goes below 1 dot.

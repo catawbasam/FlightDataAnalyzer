@@ -83,7 +83,7 @@ def add_track(kml, track_name, lat, lon, colour, alt_param=None, alt_mode=None):
         else:
             coords = (_lon, _lat)
             
-        if not all(coords):
+        if not all(coords) or any(np.isnan(coords)):
             continue
         track_coords.append(coords)
                 

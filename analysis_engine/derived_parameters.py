@@ -3400,8 +3400,17 @@ class CoordinatesSmoothed(object):
                                          start_locn)
 
             lat_out, lon_out = self.taxi_out_track(toff_slice, lat_adj, lon_adj, speed, hdg, freq)
-            lat_adj[:toff_slice.start] = lat_out
-            lon_adj[:toff_slice.start] = lon_out
+            
+            # If we have a track, use it, otherwise hold at the startpoint.
+            if lat_out:
+                lat_adj[:toff_slice.start] = lat_out
+            else:
+                lat_adj[:toff_slice.start] = lat_adj[toff_slice.start]
+                
+            if lon_out:
+                lon_adj[:toff_slice.start] = lon_out
+            else:
+                lon_adj[:toff_slice.start] = lon_adj[toff_slice.start] 
 
         else:
             print 'Cannot smooth taxi out'
@@ -3467,7 +3476,7 @@ class CoordinatesSmoothed(object):
                     # Remember where we lost the ILS, in preparation for the taxi in.
                     ils_join, _ = last_valid_sample(lat_adj[this_loc_slice])
                     if ils_join:
-                        ils_join_offset = this_loc_slice.start + ils_join
+                        ils_join_offset = this_loc_slice.start + ils_join - 1
 
             else:
                 # No localizer in this approach
@@ -3543,6 +3552,16 @@ class CoordinatesSmoothed(object):
 
                     lat_adj[join_idx:end] = lat_in
                     lon_adj[join_idx:end] = lon_in
+                    
+                    # If we have a track, use it, otherwise hold at the end of the landing.
+                    if lat_in:
+                        lat_adj[join_idx:end] = lat_in
+                    else:
+                        lat_adj[join_idx:end] = lat_adj[join_idx]
+                    if lon_in:
+                        lon_adj[join_idx:end] = lon_in
+                    else:
+                        lon_adj[join_idx:end] = lon_adj[join_idx] 
 
         return lat_adj, lon_adj
 
