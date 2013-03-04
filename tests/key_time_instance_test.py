@@ -1,9 +1,10 @@
 import mock
 import numpy as np
+import os
 import sys
 import unittest
 
-from analysis_engine.node import (KeyTimeInstance, Parameter, P, Section, S, M)
+from analysis_engine.node import (KeyTimeInstance, load, Parameter, P, Section, S, M)
 
 from analysis_engine.flight_phase import Climbing
 
@@ -50,6 +51,8 @@ from flight_phase_test import buildsection, buildsections
 
 debug = sys.gettrace() is not None
 
+test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              'test_data')
 
 ##############################################################################
 # Superclasses
@@ -640,6 +643,25 @@ class TestTouchdown(unittest.TestCase):
         tdwn.derive(None, vert_spd, altitude, lands)
         expected = []
         self.assertEqual(tdwn, expected)
+
+    def test_touchdown_using_alt(self):
+        '''
+        test to check index where altitude becomes 0 is used instead of
+        inertial landing index. Gear on Ground index indicates height at 21
+        feet.
+        '''
+        alt = load(os.path.join(test_data_path,
+                                    'TestTouchdown-alt.nod'))
+        gog = load(os.path.join(test_data_path,
+                                    'TestTouchdown-gog.nod'))
+        #FIXME: MappedArray should take values_mapping and apply it itself
+        gog.array.values_mapping = gog.values_mapping
+        roc = load(os.path.join(test_data_path,
+                                    'TestTouchdown-roc.nod'))
+        lands = buildsection('Landing', 23279, 23361)
+        tdwn = Touchdown()
+        tdwn.derive(gog, roc, alt, lands)
+        self.assertEqual(tdwn.get_first().index, 23292.0)
 
 ##############################################################################
 # Automated Systems

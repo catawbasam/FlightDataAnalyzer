@@ -617,7 +617,7 @@ class Touchdown(KeyTimeInstanceNode):
                         continue
                     elif alt.array[index] < 5.0:
                         # Check computation is OK - we've seen 747 "Gear On
-                        # Ground" at 21ft                        
+                        # Ground" at 21ft
                         self.create_kti(index)
                         continue
                     else:
@@ -627,18 +627,20 @@ class Touchdown(KeyTimeInstanceNode):
                 else:
                     # no gear on ground switch found > work it out from height only
                     pass
-        
+
+            alt_index = index_at_value(alt.array, 0.0, land.slice)
             # no touchdown found by Gear On Ground or it was not available
             if roc:
                 # Beware, Q-200 roc caused invalid touchdown results.
-                index, val = touchdown_inertial(land, roc, alt)
+                inertial_index, val = touchdown_inertial(land, roc, alt)
+                index = min(alt_index, inertial_index)
                 if index:
                     # found an intertial touchdown point
                     self.create_kti(index)
                     continue
-            
+
             # no Gear On Ground or Intertial estimate, use altitude
-            index = index_at_value(alt.array, 0.0, land.slice)
+            index = alt_index
             if index:
                 self.create_kti(index)
             else:

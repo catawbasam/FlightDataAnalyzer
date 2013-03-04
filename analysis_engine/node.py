@@ -70,6 +70,8 @@ def load(path):
     Load a Node module from a file path.
 
     Convention is to use the .nod file extension.
+    
+    FIXME: MappedArray should take values_mapping and apply it itself
     '''
     with gzip.open(path) as file_obj:
         try:
@@ -658,7 +660,7 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
         super(MultistateDerivedParameterNode, self).__init__(
                 name, array, frequency, offset, data_type, *args,
                 **kwargs)
-
+        
     def __setattr__(self, name, value):
         '''
         Prepare self.array
