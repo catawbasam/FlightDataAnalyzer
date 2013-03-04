@@ -3220,7 +3220,7 @@ class AimingPointRange(DerivedParameterNode):
     unit = 'nm'
 
     def derive(self, app_rng=P('Approach Range'),
-               approaches=App('ApproachInformation'),
+               approaches=App('Approach Information'),
                ):
         self.array = np_ma_masked_zeros_like(app_rng.array)
 
