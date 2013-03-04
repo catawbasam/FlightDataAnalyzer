@@ -12,9 +12,7 @@ import numpy as np
 from bisect import bisect_left
 import scipy.interpolate as interp
 
-from settings import (
-    KG_TO_LB
-)
+from flightdatautilities import units
 
 logger = logging.getLogger(__name__)
 
@@ -73,17 +71,8 @@ class VelocitySpeed(object):
         '''
         
         '''
-        if self.weight_unit == 'lb':
-            # Convert to tonnes
-            weight = aircraft_weight / KG_TO_LB / 1000.0
-        elif self.weight_unit == 'kg':
-            # Convert to tonnes
-            weight = aircraft_weight / 1000.0
-        elif self.weight_unit == 't':
-            weight = aircraft_weight
-        else:
-            raise ValueError("Unrecognised weight units '%s'" %
-                             self.weight_unit)
+        # Convert to tonnes:
+        weight = units.convert(aircraft_weight, self.weight_unit, 't')
 
         if setting not in lookup:
             msg = "Vspeed table '%s' does not have v_speed entry for '%s' flap." % (
