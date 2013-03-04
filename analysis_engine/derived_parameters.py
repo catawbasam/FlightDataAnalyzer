@@ -4681,31 +4681,32 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
 
 
     def derive(self,
-            deployed=M('Speedbrake Deployed'),
-            armed=M('Speedbrake Armed'),
-            handle=P('Speedbrake Handle'),
-            spdbrk=P('Speedbrake'),
-            frame=A('Frame')):
-        frame_name = frame.value if frame else ''
+               deployed=M('Speedbrake Deployed'),
+               armed=M('Speedbrake Armed'),
+               handle=P('Speedbrake Handle'),
+               spdbrk=P('Speedbrake'),
+               family=A('Family')):
+
+        family_name = family.value if family else ''
+
         if deployed:
-            # Speedbrake Deployed available, use this
-            # set initial state to 'Stowed'
+            # We have a speedbrake deployed discrete. Set initial state to
+            # stowed, then set armed states if available, and finally set
+            # deployed state:
             array = np.ma.zeros(len(deployed.array))
             if armed:
-                # If we have Armed, set this first
                 array[armed.array == 'Armed'] = 1
-            # deployed will overide some armed states
             array[deployed.array == 'Deployed'] = 2
-            self.array = array # (only call __set_attr__ once)
+            self.array = array
 
-        elif spdbrk and handle:
+        elif family_name == 'B737':
             self.array = self.b737_speedbrake(spdbrk, handle)
 
-        elif handle:
+        elif family_name == 'B767':
             self.array = self.b767_speedbrake(handle)
+
         else:
-            # Not implemented for this frame
-            raise DataFrameError(self.name, frame_name)
+            raise NotImplementedError
 
 
 ################################################################################
