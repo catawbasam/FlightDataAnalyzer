@@ -1,7 +1,7 @@
 import numpy as np
 
 from operator import itemgetter
-
+from math import ceil
 from utilities.geometry import midpoint
 
 from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
@@ -3217,22 +3217,32 @@ class LatitudeAtLiftoff(KeyPointValueNode):
     def can_operate(cls, available):
         '''
         '''
-        one_of = lambda *names: any(name in available for name in names)
-        return 'Liftoff' in available and any((
-            'Latitude' in available,
-            one_of('AFR Takeoff Runway', 'AFR Takeoff Airport'),
-        ))
+        return 'Liftoff' in available and any_of(('Latitude',
+                                                  'Latitude Coarse',
+                                                  'AFR Takeoff Runway', 
+                                                  'AFR Takeoff Airport'),
+                                                 available)
 
     def derive(self,
             lat=P('Latitude'),
             liftoffs=KTI('Liftoff'),
             toff_afr_apt=A('AFR Takeoff Airport'),
-            toff_afr_rwy=A('AFR Takeoff Runway')):
+            toff_afr_rwy=A('AFR Takeoff Runway'),
+            lat_c=P('Latitude Coarse')):
         '''
+        Note that Latitude Coarse is a superframe parameter with poor
+        resolution recorded on some FDAUs. Keeping it at the end of the list
+        of parameters means that it will be aligned to a higher sample rate
+        rather than dragging other parameters down to its sample rate. See
+        767 Delta data frame.
         '''
         # 1. Attempt to use latitude parameter if available:
         if lat:
             self.create_kpvs_at_ktis(lat.array, liftoffs)
+            return
+        
+        if lat_c:
+            self.create_kpvs_at_ktis(lat_c.array, liftoffs)
             return
 
         value = None
@@ -3276,24 +3286,30 @@ class LongitudeAtLiftoff(KeyPointValueNode):
     def can_operate(cls, available):
         '''
         '''
-        one_of = lambda *names: any(name in available for name in names)
-        return 'Liftoff' in available and any((
-            'Longitude' in available,
-            one_of('AFR Takeoff Runway', 'AFR Takeoff Airport'),
-        ))
-
+        return 'Liftoff' in available and any_of(('Longitude',
+                                                  'Longitude Coarse',
+                                                  'AFR Takeoff Runway',
+                                                  'AFR Takeoff Airport'),
+                                                 available)
+    
     def derive(self,
             lon=P('Longitude'),
             liftoffs=KTI('Liftoff'),
             toff_afr_apt=A('AFR Takeoff Airport'),
-            toff_afr_rwy=A('AFR Takeoff Runway')):
+            toff_afr_rwy=A('AFR Takeoff Runway'),
+            lon_c=P('Longitude Coarse')):
         '''
+        See note relating to coarse latitude and longitude under Latitude At Takeoff
         '''
         # 1. Attempt to use longitude parameter if available:
         if lon:
             self.create_kpvs_at_ktis(lon.array, liftoffs)
             return
 
+        if lon_c:
+            self.create_kpvs_at_ktis(lon_c.array, liftoffs)
+            return
+            
         value = None
 
         # 2a. Attempt to use longitude of runway midpoint:
@@ -3767,7 +3783,7 @@ class EngGasTempDuringEngStartMax(KeyPointValueNode):
             return None, None
         # Ideally we'd use a shorter timebase, e.g. 2 seconds, but N2 is only
         # sampled at 1/4Hz on some aircraft:
-        n2_rate = rate_of_change(n2, 4)
+        n2_rate = rate_of_change(n2, 8)
         # The engine only accelerates through 30% when starting. Let's find the
         # last time it did this before taking off:
         passing_30 = index_at_value(n2.array, 30.0, slice(idx, 0, -1))
@@ -4787,6 +4803,8 @@ class FlareDuration20FtToTouchdown(KeyPointValueNode):
 
 class FlareDistance20FtToTouchdown(KeyPointValueNode):
     '''
+    TODO: Write a test for this function with less than one second between 20ft and touchdown, using interval arithmetic.
+    NAX_1_LN-DYC_20120104234127_22_L3UQAR___dev__sdb.001.hdf5
     '''
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                tdowns=KTI('Touchdown'), lands=S('Landing'),
@@ -4796,11 +4814,11 @@ class FlareDistance20FtToTouchdown(KeyPointValueNode):
             if this_landing:
                 idx_20 = index_at_value(
                     alt_aal.array, 20.0,
-                    _slice=slice(tdown.index, this_landing[0].slice.start - 1, -1))
+                    _slice=slice(ceil(tdown.index), this_landing[0].slice.start - 1, -1))
                 # Integrate returns an array, so we need to take the max
                 # value to yield the KTP value.
                 if idx_20:
-                    dist = max(integrate(gspd.array[idx_20:tdown.index],
+                    dist = max(integrate(gspd.array[idx_20:tdown.index+1],
                                          gspd.hz))
                     self.create_kpv(tdown.index, dist)
 

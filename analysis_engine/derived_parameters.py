@@ -46,6 +46,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      machtat2sat,
                                      mask_inside_slices,
                                      mask_outside_slices,
+                                     merge_sources,
                                      merge_two_parameters,
                                      moving_average,
                                      np_ma_ones_like,
@@ -333,7 +334,8 @@ class AirspeedReference(DerivedParameterNode):
                afr_vref=A('AFR Vref'),
                apps=S('Approach And Landing'),
                series=A('Series'),
-               family=A('Family')):
+               family=A('Family'),
+               engine=A('Engine Series')):
         # docstring no longer accurate?
         ##'''
         ##Currently a work in progress. We should use a recorded parameter if
@@ -368,7 +370,8 @@ class AirspeedReference(DerivedParameterNode):
             # Better:
             self.array = np_ma_masked_zeros_like(spd.array)
 
-            vspeed_class = get_vspeed_map(series.value, family.value)
+            x = map(lambda x: x.value if x else None, (series, family, engine))
+            vspeed_class = get_vspeed_map(*x)
 
             if vspeed_class:
                 vspeed_table = vspeed_class() # instansiate VelocitySpeed object
@@ -386,7 +389,7 @@ class AirspeedReference(DerivedParameterNode):
                     index = np.ma.argmax(setting_param.array[_slice])
                     weight = repaired_gw[_slice][index]
                     setting = setting_param.array[_slice][index]
-                    vspeed = vspeed_table.airspeed_reference(weight, setting)
+                    vspeed = vspeed_table.vref(weight, setting)
                     self.array[_slice] = vspeed
             else:
                 # aircraft does not use vspeeds
@@ -852,6 +855,7 @@ class AltitudeRadio(DerivedParameterNode):
                source_A = P('Altitude Radio (A)'),
                source_B = P('Altitude Radio (B)'),
                source_C = P('Altitude Radio (C)'),
+               source_E = P('Altitude Radio EFIS'),
                source_L = P('Altitude Radio EFIS (L)'),
                source_R = P('Altitude Radio EFIS (R)')):
 
@@ -900,6 +904,17 @@ class AltitudeRadio(DerivedParameterNode):
         elif frame_name in ['CRJ-700-900', 'E135-145']:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
+        
+        elif frame_name in ['2227000-59B']:
+            # The four sources, Left, Centre, EFIS and Right are sampled in every frame.
+            self.array = repair_mask(merge_sources(source_A.array, 
+                                                   source_B.array, 
+                                                   source_E.array, 
+                                                   source_C.array)
+                                     )
+            self.frequency = source_A.frequency * 4.0
+            self.offset = source_A.offset
+            
         else:
             raise DataFrameError(self.name, frame_name)
 
@@ -1423,22 +1438,15 @@ class BrakePressure(DerivedParameterNode):
     This node allows for expansion for different types, and possibly
     operation in primary and standby modes.
     """
-    align_to_first_dependency = False
+    #align_to_first_dependency = False
 
-    @classmethod
-    def can_operate(cls, available):
-        return ('Brake (L) Press' in available and \
-                'Brake (R) Press' in available)
+    #@classmethod
+    #def can_operate(cls, available):
+        #return ('Brake (L) Press' in available and \
+                #'Brake (R) Press' in available)
 
-    def derive(self, brake_L=P('Brake (L) Press'), brake_R=P('Brake (R) Press'),
-               frame=A('Frame')):
-        frame_name = frame.value if frame else ''
-
-        if frame_name.startswith('737-'):
-            self.array, self.frequency, self.offset = blend_two_parameters(brake_L, brake_R)
-
-        else:
-            raise DataFrameError(self.name, frame_name)
+    def derive(self, brake_L=P('Brake (L) Press'), brake_R=P('Brake (R) Press')):
+        self.array, self.frequency, self.offset = blend_two_parameters(brake_L, brake_R)
 
 ################################################################################
 # Pack Valves
@@ -2855,7 +2863,7 @@ class FlapSurface(DerivedParameterNode):
                frame=A('Frame'), apps=S('Approach'), alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else ''
 
-        if frame_name.startswith('737-') or frame_name in ['757-DHL']:
+        if frame_name.startswith('737-') or frame_name in ['757-DHL', '767-232F_Delta-85']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
@@ -3722,6 +3730,9 @@ class MagneticVariation(DerivedParameterNode):
 class VerticalSpeedInertial(DerivedParameterNode):
     '''
     See 'Vertical Speed' for pressure altitude based derived parameter.
+    
+    If the aircraft records an inertial vertical speed, rename this "Vertical
+    Speed Inertial - Recorded" to avoid conflict
 
     This routine derives the vertical speed from the vertical acceleration, the
     Pressure altitude and the Radio altitude.
@@ -4391,7 +4402,8 @@ class V2(DerivedParameterNode):
                afr_v2=A('AFR V2'),
                weight_liftoff=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
-               family=A('Family')):
+               family=A('Family'),
+               engine=A('Engine Series')):
 
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(spd.array)
@@ -4402,7 +4414,8 @@ class V2(DerivedParameterNode):
             afr_v2_array = np.ones_like(spd.array)
             self.array = afr_v2_array * afr_v2.value
         elif weight_liftoff:
-            vspeed_class = get_vspeed_map(series.value, family.value)
+            x = map(lambda x: x.value if x else None, (series, family, engine))
+            vspeed_class = get_vspeed_map(*x)
             setting_param = flap or conf
             if vspeed_class:
                 vspeed_table = vspeed_class()
@@ -4474,6 +4487,10 @@ class Aileron(DerivedParameterNode):
             self.array = al.array if al else ar.array
             self.frequency = al.frequency if al else ar.frequency
             self.offset = al.offset if al else ar.offset
+        elif ali and alo and ari and aro:
+            self.array = merge_sources(ali.array, ari.array, alo.array,aro.array)
+            self.frequency = ali.frequency * 4.0
+            self.offset = ali.offset
         else:
             return NotImplemented
 
@@ -4647,30 +4664,53 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             raise ValueError("Can't work without either Speedbrake or Handle")
         return array
 
+    def b767_speedbrake(self, handle):
+        '''
+        Speedbrake Handle Positions for 767:
+
+            ========    ============
+              %           Notes
+            ========    ============
+               0.0        Full Forward
+              15.0        Armed
+             100.0        Full Up
+            ========    ============
+        '''
+        # Speedbrake Handle only
+        armed = np.ma.where((12.0 < handle.array) & (handle.array < 25.0),
+                            'Armed/Cmd Dn', 'Stowed')
+        array = np.ma.where(handle.array >= 25.0,
+                            'Deployed/Cmd Up', armed)
+        return array
+
+
     def derive(self,
-            deployed=M('Speedbrake Deployed'),
-            armed=M('Speedbrake Armed'),
-            handle=P('Speedbrake Handle'),
-            spdbrk=P('Speedbrake'),
-            frame=A('Frame')):
-        frame_name = frame.value if frame else ''
+               deployed=M('Speedbrake Deployed'),
+               armed=M('Speedbrake Armed'),
+               handle=P('Speedbrake Handle'),
+               spdbrk=P('Speedbrake'),
+               family=A('Family')):
+
+        family_name = family.value if family else ''
+
         if deployed:
-            # Speedbrake Deployed available, use this
-            # set initial state to 'Stowed'
+            # We have a speedbrake deployed discrete. Set initial state to
+            # stowed, then set armed states if available, and finally set
+            # deployed state:
             array = np.ma.zeros(len(deployed.array))
             if armed:
-                # If we have Armed, set this first
                 array[armed.array == 'Armed'] = 1
-            # deployed will overide some armed states
             array[deployed.array == 'Deployed'] = 2
-            self.array = array # (only call __set_attr__ once)
+            self.array = array
 
-        elif frame_name.startswith('737-'):
+        elif family_name == 'B737':
             self.array = self.b737_speedbrake(spdbrk, handle)
 
+        elif family_name == 'B767':
+            self.array = self.b767_speedbrake(handle)
+
         else:
-            # Not implemented for this frame
-            raise DataFrameError(self.name, frame_name)
+            raise NotImplementedError
 
 
 ################################################################################
@@ -4695,38 +4735,30 @@ class StickShaker(MultistateDerivedParameterNode):
     def can_operate(cls, available):
         '''
         '''
-        # NOTE: Does not take into account which parameter for which frame!
-        return 'Frame' in available and (
-            'Stick Shaker (L)' in available or \
-            'Stick Shaker (R)' in available or \
-            'Shaker Activation' in available \
-        )
+        return ('Stick Shaker (L)' in available or \
+                'Shaker Activation' in available
+                )
 
-    def derive(self, frame=A('Frame'),
-            shake_l=M('Stick Shaker (L)'),
+    def derive(self, shake_l=M('Stick Shaker (L)'),
             shake_r=M('Stick Shaker (R)'),
             shake_act=M('Shaker Activation')):
         '''
         '''
-        frame_name = frame.value if frame else ''
-
-        if frame_name in ['CRJ-700-900'] and shake_act:
-            self.array, self.frequency, self.offset = \
-                shake_act.array, shake_act.frequency, shake_act.offset
-
-        elif frame_name in ['737-1', '737-3', '737-3A', '737-3B', '737-3C', '737-4',
-                            '737-7','737-i', '737-2227000-335A', '757-DHL']:
+        if shake_l and shake_r:
             self.array = np.ma.logical_or(shake_l.array, shake_r.array)
             self.frequency , self.offset = shake_l.frequency, shake_l.offset
-
-        elif frame_name in ['737-5', '737-5_NON-EIS'] and shake_l:
+        
+        elif shake_l:
             # Named (L) but in fact (L) and (R) are or'd together at the DAU.
             self.array, self.frequency, self.offset = \
                 shake_l.array, shake_l.frequency, shake_l.offset
+        
+        elif shake_act:
+            self.array, self.frequency, self.offset = \
+                shake_act.array, shake_act.frequency, shake_act.offset
 
-        # Stick shaker not found in 737-6 frame.
         else:
-            raise DataFrameError(self.name, frame_name)
+            raise NotImplementedError
 
 
 class ApproachRange(DerivedParameterNode):

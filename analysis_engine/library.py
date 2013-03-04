@@ -1965,6 +1965,12 @@ def gtp_compute_error(weights, *args):
     frequency = args[6]
     mode = args[7]
     return_arg_set = args[8]
+    
+    if len(speed)==0:
+        if return_arg_set == 'iterate':
+            return 0.0
+        else:
+            return lat, lon, 0.0
 
     speed_weighting  = gtp_weighting_vector(speed, straight_ends, weights)
     if mode == 'takeoff':

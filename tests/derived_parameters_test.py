@@ -483,7 +483,6 @@ class TestAirspeedReference(unittest.TestCase):
         expected[self.approach_slice] = 120
         np.testing.assert_array_equal(param.array, expected)
 
-
     def test_airspeed_reference__recorded_vapp(self):
         kwargs = self.default_kwargs.copy()
         kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
@@ -509,7 +508,7 @@ class TestAirspeedReference(unittest.TestCase):
     @patch('analysis_engine.derived_parameters.get_vspeed_map')
     def test_airspeed_reference__boeing_lookup(self, vspeed_map):
         vspeed_table = Mock
-        vspeed_table.airspeed_reference = Mock(side_effect = [135, 130])
+        vspeed_table.vref = Mock(side_effect = [135, 130])
         vspeed_map.return_value = vspeed_table
         test_hdf = copy_file(os.path.join(test_data_path, 'airspeed_reference.hdf5'))
         with hdf_file(test_hdf) as hdf:
@@ -527,6 +526,7 @@ class TestAirspeedReference(unittest.TestCase):
                 App('Approach Information', items=approaches),
                 A('Series', value='B737-300'),
                 A('Family', value='B737 Classic'),
+                None,
             ]
             param = AirspeedReference()
             param.get_derived(args)
@@ -554,6 +554,7 @@ class TestAirspeedReference(unittest.TestCase):
                 #S('Approach', items=approaches),
                 #A('Series', value='B737-300'),
                 #A('Family', value='B737 Classic'),
+                #None,
             #]
             #param = AirspeedReference()
             #param.get_derived(args)
@@ -2292,6 +2293,7 @@ class TestV2(unittest.TestCase):
                 gw,
                 A('Series', value='B737-300'),
                 A('Family', value='B737 Classic'),
+                None,
             ]
             param = V2()
             param.get_derived(args)
@@ -2315,6 +2317,7 @@ class TestV2(unittest.TestCase):
                 #KPV('Gross Weight At Liftoff'),
                 #A('Series', value='B737-300'),
                 #A('Family', value='B737 Classic'),
+                #None,
             #]
             #param = V2()
             #param.get_derived(args)
