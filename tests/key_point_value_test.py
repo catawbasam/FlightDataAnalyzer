@@ -3312,10 +3312,18 @@ class TestLatitudeAtLiftoff(unittest.TestCase, NodeTest):
             ('Latitude', 'Liftoff'),
             ('Liftoff', 'AFR Takeoff Airport'),
             ('Liftoff', 'AFR Takeoff Runway'),
+            ('Liftoff', 'Latitude Coarse'),
             ('Latitude', 'Liftoff', 'AFR Takeoff Airport'),
             ('Latitude', 'Liftoff', 'AFR Takeoff Runway'),
+            ('Latitude', 'Liftoff', 'Latitude Coarse'),
             ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+            ('Liftoff', 'AFR Takeoff Airport', 'Latitude Coarse'),
+            ('Liftoff', 'AFR Takeoff Runway', 'Latitude Coarse'),
             ('Latitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Airport', 'Latitude Coarse'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Runway', 'Latitude Coarse'),
+            ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude Coarse'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude Coarse'),
         ]
 
     def test_derive_with_latitude(self):
@@ -3327,7 +3335,7 @@ class TestLatitudeAtLiftoff(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lat, liftoffs, afr_toff_rwy, afr_toff_apt)
+        node.derive(lat, liftoffs, afr_toff_rwy, afr_toff_apt, None)
         node.create_kpvs_at_ktis.assert_called_once_with(lat.array, liftoffs)
         assert not node.create_kpv.called, 'method should not have been called'
 
@@ -3342,7 +3350,7 @@ class TestLatitudeAtLiftoff(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lat, liftoffs, afr_toff_apt, afr_toff_rwy)
+        node.derive(lat, liftoffs, afr_toff_apt, afr_toff_rwy, None)
         lat_m, lon_m = midpoint(0, 0, 1, 1)
         node.create_kpv.assert_called_once_with(liftoffs[0].index, lat_m)
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
@@ -3358,7 +3366,7 @@ class TestLatitudeAtLiftoff(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lat, liftoffs, afr_toff_apt, afr_toff_rwy)
+        node.derive(lat, liftoffs, afr_toff_apt, afr_toff_rwy, None)
         node.create_kpv.assert_called_once_with(liftoffs[0].index, 1)
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 
@@ -3463,10 +3471,18 @@ class TestLongitudeAtLiftoff(unittest.TestCase, NodeTest):
             ('Longitude', 'Liftoff'),
             ('Liftoff', 'AFR Takeoff Airport'),
             ('Liftoff', 'AFR Takeoff Runway'),
+            ('Liftoff', 'Longitude Coarse'),
             ('Longitude', 'Liftoff', 'AFR Takeoff Airport'),
             ('Longitude', 'Liftoff', 'AFR Takeoff Runway'),
+            ('Longitude', 'Liftoff', 'Longitude Coarse'),
             ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+            ('Liftoff', 'AFR Takeoff Airport', 'Longitude Coarse'),
+            ('Liftoff', 'AFR Takeoff Runway', 'Longitude Coarse'),
             ('Longitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Airport', 'Longitude Coarse'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Runway', 'Longitude Coarse'),
+            ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Longitude Coarse'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Longitude Coarse'),
         ]
 
     def test_derive_with_longitude(self):
@@ -3478,7 +3494,7 @@ class TestLongitudeAtLiftoff(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lon, liftoffs, afr_toff_rwy, afr_toff_apt)
+        node.derive(lon, liftoffs, afr_toff_rwy, afr_toff_apt, None)
         node.create_kpvs_at_ktis.assert_called_once_with(lon.array, liftoffs)
         assert not node.create_kpv.called, 'method should not have been called'
 
@@ -3493,7 +3509,7 @@ class TestLongitudeAtLiftoff(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lon, liftoffs, afr_toff_apt, afr_toff_rwy)
+        node.derive(lon, liftoffs, afr_toff_apt, afr_toff_rwy, None)
         lat_m, lon_m = midpoint(0, 0, 1, 1)
         node.create_kpv.assert_called_once_with(liftoffs[0].index, lon_m)
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
@@ -3509,7 +3525,7 @@ class TestLongitudeAtLiftoff(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lon, liftoffs, afr_toff_apt, afr_toff_rwy)
+        node.derive(lon, liftoffs, afr_toff_apt, afr_toff_rwy, None)
         node.create_kpv.assert_called_once_with(liftoffs[0].index, 1)
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 
