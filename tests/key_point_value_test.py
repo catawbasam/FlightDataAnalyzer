@@ -6,7 +6,7 @@ import unittest
 
 from mock import Mock, call, patch
 
-from utilities.geometry import midpoint
+from flightdatautilities.geometry import midpoint
 
 from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align

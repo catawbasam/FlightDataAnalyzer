@@ -378,7 +378,7 @@ if __name__ == '__main__':
     print '  - http://www.flightdatacommunity.com'
     print ''
     import argparse, os
-    from utilities.filesystem_tools import copy_file
+    from flightdatautilities.filesystem_tools import copy_file
     from analysis_engine.plot_flight import csv_flight_details, track_to_kml
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)

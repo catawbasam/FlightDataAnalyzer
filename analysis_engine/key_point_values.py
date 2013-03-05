@@ -2,7 +2,7 @@ import numpy as np
 
 from operator import itemgetter
 from math import ceil
-from utilities.geometry import midpoint
+from flightdatautilities.geometry import midpoint
 
 from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
                                       ACCEL_NORM_OFFSET_LIMIT,

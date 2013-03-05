@@ -524,7 +524,7 @@ if __name__ == '__main__':
     print ''
     import argparse
     import pprint
-    from utilities.filesystem_tools import copy_file
+    from flightdatautilities.filesystem_tools import copy_file
     logger = logging.getLogger()
     logger.setLevel(logging.WARN)    
     

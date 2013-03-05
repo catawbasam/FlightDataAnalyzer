@@ -10,7 +10,7 @@ from analysis_engine.split_hdf_to_segments import (
 from analysis_engine.node import P,  Parameter
 
 from hdfaccess.file import hdf_file
-from utilities.filesystem_tools import copy_file
+from flightdatautilities.filesystem_tools import copy_file
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
