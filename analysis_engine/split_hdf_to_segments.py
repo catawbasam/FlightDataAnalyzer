@@ -15,7 +15,7 @@ from analysis_engine.library import (align, calculate_timebase, hash_array,
 from hdfaccess.file import hdf_file
 from hdfaccess.utils import write_segment
 
-from utilities.filesystem_tools import sha_hash_file
+from flightdatautilities.filesystem_tools import sha_hash_file
 
 
 logger = logging.getLogger(name=__name__)
