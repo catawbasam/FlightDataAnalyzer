@@ -3402,12 +3402,12 @@ class CoordinatesSmoothed(object):
             lat_out, lon_out = self.taxi_out_track(toff_slice, lat_adj, lon_adj, speed, hdg, freq)
 
             # If we have a track, use it, otherwise hold at the startpoint.
-            if len(lat_out) > 0:
+            if lat_out is not None and lat_out.size:
                 lat_adj[:toff_slice.start] = lat_out[-1]
             else:
                 lat_adj[:toff_slice.start] = lat_adj[toff_slice.start]
 
-            if len(lon_out) > 0:
+            if lon_out is not None and lon_out.size:
                 lon_adj[:toff_slice.start] = lon_out[-1]
             else:
                 lon_adj[:toff_slice.start] = lon_adj[toff_slice.start]
