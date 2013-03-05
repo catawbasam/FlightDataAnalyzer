@@ -3400,17 +3400,17 @@ class CoordinatesSmoothed(object):
                                          start_locn)
 
             lat_out, lon_out = self.taxi_out_track(toff_slice, lat_adj, lon_adj, speed, hdg, freq)
-            
+
             # If we have a track, use it, otherwise hold at the startpoint.
-            if lat_out:
-                lat_adj[:toff_slice.start] = lat_out
+            if len(lat_out) > 0:
+                lat_adj[:toff_slice.start] = lat_out[-1]
             else:
                 lat_adj[:toff_slice.start] = lat_adj[toff_slice.start]
-                
-            if lon_out:
-                lon_adj[:toff_slice.start] = lon_out
+
+            if len(lon_out) > 0:
+                lon_adj[:toff_slice.start] = lon_out[-1]
             else:
-                lon_adj[:toff_slice.start] = lon_adj[toff_slice.start] 
+                lon_adj[:toff_slice.start] = lon_adj[toff_slice.start]
 
         else:
             print 'Cannot smooth taxi out'
