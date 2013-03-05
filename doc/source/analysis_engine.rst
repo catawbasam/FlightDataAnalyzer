@@ -105,14 +105,6 @@ analysis_engine Package
     :undoc-members:
     :show-inheritance:
 
-:mod:`model_information` Module
--------------------------------
-
-.. automodule:: analysis_engine.model_information
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 :mod:`node` Module
 ------------------
 

@@ -316,7 +316,7 @@ NAME_VALUES_ENGINE = {
     'number': [1, 2, 3, 4],
 }
 
-from analysis_engine.model_information import get_flap_detents
+from flightdatautilities.model_information import get_flap_detents
 NAME_VALUES_FLAP = {
     'flap': get_flap_detents()
 }

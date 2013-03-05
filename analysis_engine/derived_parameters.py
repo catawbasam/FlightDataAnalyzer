@@ -3,9 +3,9 @@ from math import ceil, floor, radians
 
 from analysis_engine.exceptions import DataFrameError
 
-from analysis_engine.model_information import (get_conf_map,
-                                               get_flap_map,
-                                               get_slat_map)
+from flightdatautilities.model_information import (get_conf_map,
+                                                   get_flap_map,
+                                                   get_slat_map)
 from analysis_engine.node import (
     A, App, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M,
     P, S)
