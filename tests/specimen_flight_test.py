@@ -24,7 +24,7 @@ from analysis_engine.node import (
 )
 from analysis_engine.process_flight import process_flight
 
-from utilities.filesystem_tools import copy_file
+from flightdatautilities.filesystem_tools import copy_file
 
 
 ##############################################################################

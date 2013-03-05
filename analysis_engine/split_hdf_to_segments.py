@@ -15,7 +15,7 @@ from analysis_engine.library import (align, calculate_timebase, hash_array,
 from hdfaccess.file import hdf_file
 from hdfaccess.utils import write_segment
 
-from utilities.filesystem_tools import sha_hash_file
+from flightdatautilities.filesystem_tools import sha_hash_file
 
 
 logger = logging.getLogger(name=__name__)
@@ -524,7 +524,7 @@ if __name__ == '__main__':
     print ''
     import argparse
     import pprint
-    from utilities.filesystem_tools import copy_file
+    from flightdatautilities.filesystem_tools import copy_file
     logger = logging.getLogger()
     logger.setLevel(logging.WARN)    
     

@@ -1604,7 +1604,7 @@ class TestDerivedParameterNode(unittest.TestCase):
         # check large file size
         node.array = np.ma.arange(5000)
         node.dump(dest)
-        from utilities.filesystem_tools import pretty_size
+        from flightdatautilities.filesystem_tools import pretty_size
         print pretty_size(os.path.getsize(dest))
         self.assertLess(os.path.getsize(dest), 10000)
         os.remove(dest)

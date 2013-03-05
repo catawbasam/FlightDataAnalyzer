@@ -11,7 +11,7 @@ from mock import Mock, call, patch
 
 from hdfaccess.file import hdf_file
 from flightdatautilities import masked_array_testutils as ma_test
-from utilities.filesystem_tools import copy_file
+from flightdatautilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
 from analysis_engine.library import (align, max_value, np_ma_masked_zeros_like)
