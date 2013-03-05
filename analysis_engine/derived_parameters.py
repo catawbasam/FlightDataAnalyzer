@@ -3401,14 +3401,15 @@ class CoordinatesSmoothed(object):
 
             lat_out, lon_out = self.taxi_out_track(toff_slice, lat_adj, lon_adj, speed, hdg, freq)
 
-            # If we have a track, use it, otherwise hold at the startpoint.
+            # If we have an array holding the taxi out track, then we use
+            # this, otherwise we hold at the startpoint.
             if lat_out is not None and lat_out.size:
-                lat_adj[:toff_slice.start] = lat_out[-1]
+                lat_adj[:toff_slice.start] = lat_out
             else:
                 lat_adj[:toff_slice.start] = lat_adj[toff_slice.start]
 
             if lon_out is not None and lon_out.size:
-                lon_adj[:toff_slice.start] = lon_out[-1]
+                lon_adj[:toff_slice.start] = lon_out
             else:
                 lon_adj[:toff_slice.start] = lon_adj[toff_slice.start]
 
@@ -3553,13 +3554,15 @@ class CoordinatesSmoothed(object):
                     lat_adj[join_idx:end] = lat_in
                     lon_adj[join_idx:end] = lon_in
                     
-                    # If we have a track, use it, otherwise hold at the end of the landing.
+                    # If we have an array of taxi in track values, we use
+                    # this, otherwise we hold at the end of the landing.
                     if lat_in is not None and lat_in.size:
-                        lat_adj[join_idx:end] = lat_in[-1]
+                        lat_adj[join_idx:end] = lat_in
                     else:
                         lat_adj[join_idx:end] = lat_adj[join_idx]
+                        
                     if lon_in is not None and lon_in.size:
-                        lon_adj[join_idx:end] = lon_in[-1]
+                        lon_adj[join_idx:end] = lon_in
                     else:
                         lon_adj[join_idx:end] = lon_adj[join_idx] 
 
