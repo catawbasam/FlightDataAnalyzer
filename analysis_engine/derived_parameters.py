@@ -3554,12 +3554,12 @@ class CoordinatesSmoothed(object):
                     lon_adj[join_idx:end] = lon_in
                     
                     # If we have a track, use it, otherwise hold at the end of the landing.
-                    if lat_in:
-                        lat_adj[join_idx:end] = lat_in
+                    if lat_in is not None and lat_in.size:
+                        lat_adj[join_idx:end] = lat_in[-1]
                     else:
                         lat_adj[join_idx:end] = lat_adj[join_idx]
-                    if lon_in:
-                        lon_adj[join_idx:end] = lon_in
+                    if lon_in is not None and lon_in.size:
+                        lon_adj[join_idx:end] = lon_in[-1]
                     else:
                         lon_adj[join_idx:end] = lon_adj[join_idx] 
 
