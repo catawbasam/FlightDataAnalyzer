@@ -868,7 +868,7 @@ class AltitudeRadio(DerivedParameterNode):
             # Select the source without abnormal latency.
             self.array = source_B.array
 
-        elif frame_name in ['737-3A', '737-3B', '737-3C', '757-DHL']:
+        elif frame_name in ['737-3A', '737-3B', '737-3C', '757-DHL', '767-3A']:
             # 737-3* comment:
             # Alternate samples (A) for this frame have latency of over 1
             # second, so do not contribute to the height measurements
@@ -881,6 +881,13 @@ class AltitudeRadio(DerivedParameterNode):
             # the Centre altimeter, is sample in word 104. Altitude Radio (A)
             # comes from the EFIS system, and includes excessive latency so
             # is not used.
+            
+            #767-3A frame comment:
+            # The normal operation is to use the altitude radio signal from
+            # all four sensors, extracted directly by the lfl. This routine
+            # is only called upon if that fails and a second attempt to
+            # provide valid data is required. It may not, of course, be
+            # susccesful.
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_B, source_C)
 
