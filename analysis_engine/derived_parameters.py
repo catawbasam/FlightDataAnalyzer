@@ -463,6 +463,7 @@ class AirspeedTrue(DerivedParameterNode):
                tat_p = P('TAT'), toffs=S('Takeoff'), lands=S('Landing'),
                gspd=P('Groundspeed'), acc_fwd=P('Acceleration Forwards')):
 
+        ###tas_from_airspeed = np_ma_masked_zeros_like(cas)
         cas = cas_p.array
         alt_std = alt_std_p.array
         if tat_p:
@@ -3456,8 +3457,12 @@ class CoordinatesSmoothed(object):
                     # Adjust distance units
                     distances = app_range.array[this_loc_slice]
 
-                    if np.ma.count(distances)/float(len(distances)) < 0.8:
-                        continue # Insufficient range data to make this worth computing.
+                    ## This test was introduced as a  precaution against poor 
+                    ## quality data, but in fact for landings where only airspeed 
+                    ## data is available, none of the data below 60kt will be valid, 
+                    ## hence this test was removed.
+                    ##if np.ma.count(distances)/float(len(distances)) < 0.8:
+                        ##continue # Insufficient range data to make this worth computing.
 
                     # Tweek the localizer position to be on the start:end centreline
                     localizer_on_cl = ils_localizer_align(runway)
@@ -3477,7 +3482,7 @@ class CoordinatesSmoothed(object):
                     # Remember where we lost the ILS, in preparation for the taxi in.
                     ils_join, _ = last_valid_sample(lat_adj[this_loc_slice])
                     if ils_join:
-                        ils_join_offset = this_loc_slice.start + ils_join - 1
+                        ils_join_offset = this_loc_slice.start + ils_join
 
             else:
                 # No localizer in this approach
@@ -3551,9 +3556,6 @@ class CoordinatesSmoothed(object):
                                                                 hdg.array[join_idx:end],
                                                                 freq)
 
-                    lat_adj[join_idx:end] = lat_in
-                    lon_adj[join_idx:end] = lon_in
-                    
                     # If we have an array of taxi in track values, we use
                     # this, otherwise we hold at the end of the landing.
                     if lat_in is not None and lat_in.size:
@@ -3564,7 +3566,7 @@ class CoordinatesSmoothed(object):
                     if lon_in is not None and lon_in.size:
                         lon_adj[join_idx:end] = lon_in
                     else:
-                        lon_adj[join_idx:end] = lon_adj[join_idx] 
+                        lon_adj[join_idx:end] = lon_adj[join_idx]
 
         return lat_adj, lon_adj
 
@@ -3887,8 +3889,9 @@ class VerticalSpeed(DerivedParameterNode):
     def derive(self, alt_std=P('Altitude STD Smoothed'), frame=A('Frame')):
         frame_name = frame.value if frame else ''
 
-        if frame_name in ['Hercules', '146', '747-200-GE']:
-            timebase = 8.0
+        if frame_name in ['Hercules', '146'] or \
+           frame_name.startswith('747-200'):
+            timebase = 12.0
         else:
             timebase = 4.0
         self.array = rate_of_change(alt_std, timebase) * 60.0
@@ -4838,15 +4841,15 @@ class ApproachRange(DerivedParameterNode):
             # either case the speed is referenced to the runway heading
             # in case of large deviations on the approach or runway.
             if gspd and drift:
-                speed = gspd.array.data[this_app_slice] * \
+                speed = gspd.array[this_app_slice] * \
                     np.cos(np.radians(off_cl + drift.array[this_app_slice]))
                 freq = gspd.frequency
             elif gspd:
-                speed = gspd.array.data[this_app_slice] * \
+                speed = gspd.array[this_app_slice] * \
                     np.cos(np.radians(off_cl))
                 freq = gspd.frequency
             else:
-                speed = tas.array.data[this_app_slice] * \
+                speed = tas.array[this_app_slice] * \
                     np.cos(np.radians(off_cl))
                 freq = tas.frequency
 
@@ -4896,15 +4899,15 @@ class ApproachRange(DerivedParameterNode):
             ## This plot code allows the actual flightpath and regression line
             ## to be viewed in case of concern about the performance of the
             ## algorithm.
-            #import matplotlib.pyplot as plt
-            #x1=app_range[reg_slice.start:this_app_slice.stop]
-            #y1=alt_aal.array[reg_slice.start:this_app_slice.stop]
-            #x2=app_range[reg_slice]
-            #y2=alt_aal.array[reg_slice] * (1-0.13*glide.array[reg_slice])
-            #xnew = np.linspace(np.min(x2),np.max(x2),num=2)
-            #ynew = (xnew - offset)/slope
-            #plt.plot(x1,y1,'-',x2,y2,'-',xnew,ynew,'-')
-            #plt.show()
+            ##import matplotlib.pyplot as plt
+            ##x1=app_range[gs_est.start:this_app_slice.stop]
+            ##y1=alt_aal.array[gs_est.start:this_app_slice.stop]
+            ##x2=app_range[gs_est]
+            ##y2=alt_aal.array[gs_est] * (1-0.13*glide.array[gs_est])
+            ##xnew = np.linspace(np.min(x2),np.max(x2),num=2)
+            ##ynew = (xnew - offset)/slope
+            ##plt.plot(x1,y1,'-',x2,y2,'-',xnew,ynew,'-')
+            ##plt.show()
 
             # Touchdown point nominally 1000ft from start of runway but
             # use glideslope antenna position if we know it.
