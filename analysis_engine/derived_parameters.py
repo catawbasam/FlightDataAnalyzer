@@ -1280,7 +1280,7 @@ class Daylight(MultistateDerivedParameterNode):
 
     '''
     align = True
-    align_frequency = 1/64.0
+    align_frequency = 0.25
     align_offset = 0.0
 
     values_mapping = {
@@ -1296,7 +1296,7 @@ class Daylight(MultistateDerivedParameterNode):
         # Set default to 'Day'
         array_len = duration.value * self.frequency
         self.array = np.ma.ones(array_len)
-        for step in xrange(0, int(array_len)):
+        for step in xrange(int(array_len)):
             curr_dt = datetime_of_index(start_datetime.value, step, 1)
             lat = latitude.array[step]
             lon = longitude.array[step]

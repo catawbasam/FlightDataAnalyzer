@@ -1114,9 +1114,10 @@ class TaxiOut(FlightPhaseNode):
             toff = toffs[0]
             for gnd in gnds:
                 if slices_overlap(gnd.slice, toff.slice):
-                    taxi_start = gnd.slice.start+1
-                    taxi_stop = toff.slice.start-1
-                    self.create_phase(slice(taxi_start, taxi_stop), name="Taxi Out")
+                    taxi_start = gnd.slice.start + 1
+                    taxi_stop = toff.slice.start - 1
+                    self.create_phase(slice(taxi_start, taxi_stop),
+                                      name="Taxi Out")
 
 
 class Taxiing(FlightPhaseNode):
