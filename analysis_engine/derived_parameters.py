@@ -596,7 +596,7 @@ class AltitudeAAL(DerivedParameterNode):
         ralt_sections = np.ma.clump_unmasked(
             np.ma.masked_outside(alt_rad_aal, 0.0, 100.0))
 
-        if len(ralt_sections)<2:
+        if len(ralt_sections)==0:
             # Either Altitude Radio did not drop below 100, or did not get
             # above 100. Either way, we are better off working with just the
             # pressure altitude signal.
@@ -4859,39 +4859,45 @@ class ApproachRange(DerivedParameterNode):
             app_range[this_app_slice] = integrate(spd_repaired, freq,
                                                   scale=KTS_TO_MPS,
                                                   direction='reverse')
+           
+            _, app_slices = slices_between(alt_aal.array[this_app_slice],
+                                           100, 500)
+            # Computed locally, so app_slices do not need rescaling.
+            if len(app_slices) != 1:
+                self.info(
+                    'Altitude AAL is not between 100-500 ft during an '
+                    'approach slice. %s will not be calculated for this '
+                    'section.', self.name)
+                continue
 
+            # reg_slice is the slice of data over which we will apply a
+            # regression process to identify the touchdown point from the
+            # height and distance arrays.
+            reg_slice = shift_slice(app_slices[0], this_app_slice.start)
+            
             gs_est = approach.gs_est
             if gs_est:
-                # gs_est is the slice of data over which we will apply a
-                # regression process to identify the touchdown point from the
-                # height and distance arrays.
                 # Compute best fit glidepath. The term (1-0.13 x glideslope
                 # deviation) caters for the aircraft deviating from the
                 # planned flightpath. 1 dot low is about 7% of a 3 degree
                 # glidepath. Not precise, but adequate accuracy for the small
                 # error we are correcting for here, and empyrically checked.
-                corr, slope, offset = coreg(app_range[gs_est],
-                    alt_aal.array[gs_est] * (1 - 0.13 * glide.array[gs_est]))
+                corr, slope, offset = coreg(app_range[reg_slice],
+                    alt_aal.array[reg_slice] * (1 - 0.13 * glide.array[reg_slice]))
                 # This should correlate very well, and any drop in this is a
                 # sign of problems elsewhere.
                 if corr < 0.995:
                     self.warning('Low convergence in computing ILS '
                                  'glideslope offset.')
             else:
-                _, app_slices = slices_between(alt_aal.array[this_app_slice],
-                                               100, 500)
-                # Computed locally, so app_slices do not need rescaling.
-                if len(app_slices) != 1:
-                    self.info(
-                        'Altitude AAL is not between 100-500 ft during an '
-                        'approach slice. %s will not be calculated for this '
-                        'section.', self.name)
-                    continue
-                reg_slice = shift_slice(app_slices[0], this_app_slice.start)
-
+                # Just work off the height data assuming the pilot was aiming
+                # to touchdown close to the glideslope antenna (for a visual
+                # approach to an ILS-equipped runway) or at the touchdown
+                # zone if no ILS glidepath is installed.
                 corr, slope, offset = coreg(app_range[reg_slice],
                                             alt_aal.array[reg_slice])
-                # This should still correlate pretty well.
+                # This should still correlate pretty well, though not quite
+                # as well as for a directed approach.
                 if corr < 0.990:
                     self.warning('Low convergence in computing visual '
                                  'approach path offset.')
