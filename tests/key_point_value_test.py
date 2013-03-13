@@ -163,6 +163,7 @@ from analysis_engine.key_point_values import (
     EngTorque500To50FtMin,
     EngVibN1Max,
     EngVibN2Max,
+    EngVibN3Max,
     FlapAtGearDownSelection,
     FlapAtLiftoff,
     FlapAtTouchdown,
@@ -3161,6 +3162,18 @@ class TestEngVibN2Max(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = EngVibN2Max
         self.operational_combinations = [('Eng (*) Vib N2 Max', 'Airborne')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngVibN3Max(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngVibN3Max
+        self.operational_combinations = [('Eng (*) Vib N3 Max', 'Airborne')]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')
