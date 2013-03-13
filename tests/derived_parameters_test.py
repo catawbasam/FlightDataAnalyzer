@@ -66,6 +66,9 @@ from analysis_engine.derived_parameters import (
     Eng_N3Avg,
     Eng_N3Max,
     Eng_N3Min,
+    Eng_VibN1Max,
+    Eng_VibN2Max,
+    Eng_VibN3Max,
     Eng_1_FuelBurn,
     Eng_2_FuelBurn,
     Eng_3_FuelBurn,
@@ -2746,31 +2749,37 @@ class TestEng_TorqueMin(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEng_VibN1Max(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
+class TestEng_VibN1Max(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_VibN1Max
+        self.operational_combination_length = 255
+        self.check_operational_combination_length_only = True
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEng_VibN2Max(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
+class TestEng_VibN2Max(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_VibN2Max
+        self.operational_combination_length = 255
+        self.check_operational_combination_length_only = True
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEng_VibN3Max(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
+class TestEng_VibN3Max(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_VibN3Max
+        self.operational_combination_length = 15
+        self.check_operational_combination_length_only = True
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
