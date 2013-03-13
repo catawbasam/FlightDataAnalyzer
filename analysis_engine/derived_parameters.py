@@ -4644,8 +4644,8 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         '''
         x = available
         return 'Speedbrake Deployed' in x \
-            or ('Frame' in x and 'Speedbrake Handle' in x)\
-            or ('Frame' in x and 'Speedbrake' in x)
+            or ('Family' in x and 'Speedbrake Handle' in x)\
+            or ('Family' in x and 'Speedbrake' in x)
 
     def b737_speedbrake(self, spdbrk, handle):
         '''

@@ -3103,12 +3103,13 @@ class TestSpeedbrake(unittest.TestCase):
 
 
 class TestSpeedbrakeSelected(unittest.TestCase):
+
     def test_can_operate(self):
         opts = SpeedbrakeSelected.get_operational_combinations()
         self.assertTrue(('Speedbrake Deployed',) in opts)
-        self.assertTrue(('Speedbrake', 'Frame') in opts)
-        self.assertTrue(('Speedbrake Handle', 'Frame') in opts)
-        self.assertTrue(('Speedbrake Handle', 'Speedbrake', 'Frame') in opts)        
+        self.assertTrue(('Speedbrake', 'Family') in opts)
+        self.assertTrue(('Speedbrake Handle', 'Family') in opts)
+        self.assertTrue(('Speedbrake Handle', 'Speedbrake', 'Family') in opts)
         
     def test_derive(self):
         # test with deployed
