@@ -2776,7 +2776,7 @@ class TestEng_VibN3Max(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapLeverDetens(unittest.TestCase):
+class TestFlapLeverDetent(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
