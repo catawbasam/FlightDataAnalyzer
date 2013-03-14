@@ -4724,7 +4724,7 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             array[deployed.array == 'Deployed'] = 2
             self.array = array
 
-        elif family_name == 'B737':
+        elif 'B737' in family_name:
             self.array = self.b737_speedbrake(spdbrk, handle)
 
         elif family_name == 'B767':
