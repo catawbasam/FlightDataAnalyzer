@@ -4466,6 +4466,20 @@ class EngVibN2Max(KeyPointValueNode):
         self.create_kpvs_within_slices(eng_vib_n2.array, airborne, max_value)
 
 
+class EngVibN3Max(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Vib N3 Max'
+    units = ''
+
+    def derive(self,
+               eng_vib_n3=P('Eng (*) Vib N3 Max'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_within_slices(eng_vib_n3.array, airborne, max_value)
+
+
 ##############################################################################
 
 

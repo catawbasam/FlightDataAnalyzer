@@ -2358,7 +2358,6 @@ class Eng_TorqueMin(DerivedParameterNode):
 # Engine Vibration (N1)
 
 
-# TODO: Write some unit tests!
 class Eng_VibN1Max(DerivedParameterNode):
     '''
     This derived parameter condenses all the available first shaft order
@@ -2366,13 +2365,10 @@ class Eng_VibN1Max(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Vib N1 Max'
-
     align = False
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -2385,8 +2381,7 @@ class Eng_VibN1Max(DerivedParameterNode):
                fan2=P('Eng (2) Vib N1 Fan'),
                lpt1=P('Eng (1) Vib N1 Turbine'),
                lpt2=P('Eng (2) Vib N1 Turbine')):
-        '''
-        '''
+
         engines = vstack_params(eng1, eng2, eng3, eng4, fan1, fan2, lpt1, lpt2)
         self.array = np.ma.max(engines, axis=0)
         self.offset = offset_select('mean', [eng1, eng2, eng3, eng4, fan1, fan2, lpt1, lpt2])
@@ -2404,13 +2399,10 @@ class Eng_VibN2Max(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Vib N2 Max'
-
     align = False
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -2423,8 +2415,7 @@ class Eng_VibN2Max(DerivedParameterNode):
                hpc2=P('Eng (2) Vib N2 Compressor'),
                hpt1=P('Eng (1) Vib N2 Turbine'),
                hpt2=P('Eng (2) Vib N2 Turbine')):
-        '''
-        '''
+
         engines = vstack_params(eng1, eng2, eng3, eng4, hpc1, hpc2, hpt1, hpt2)
         self.array = np.ma.max(engines, axis=0)
         self.offset = offset_select('mean', [eng1, eng2, eng3, eng4, hpc1, hpc2, hpt1, hpt2])
@@ -2434,7 +2425,6 @@ class Eng_VibN2Max(DerivedParameterNode):
 # Engine Vibration (N3)
 
 
-# TODO: Write some unit tests!
 class Eng_VibN3Max(DerivedParameterNode):
     '''
     This derived parameter condenses all the available third shaft order
@@ -2442,13 +2432,10 @@ class Eng_VibN3Max(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Vib N3 Max'
-
     align = False
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -2457,11 +2444,11 @@ class Eng_VibN3Max(DerivedParameterNode):
                eng2=P('Eng (2) Vib N3'),
                eng3=P('Eng (3) Vib N3'),
                eng4=P('Eng (4) Vib N3')):
-        '''
-        '''
+
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
         self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+
 
 ################################################################################
 
@@ -4644,8 +4631,8 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         '''
         x = available
         return 'Speedbrake Deployed' in x \
-            or ('Frame' in x and 'Speedbrake Handle' in x)\
-            or ('Frame' in x and 'Speedbrake' in x)
+            or ('Family' in x and 'Speedbrake Handle' in x)\
+            or ('Family' in x and 'Speedbrake' in x)
 
     def b737_speedbrake(self, spdbrk, handle):
         '''
