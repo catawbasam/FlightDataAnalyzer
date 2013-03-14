@@ -2409,9 +2409,9 @@ class DecelerationToAbortTakeoffAtRotation(KeyPointValueNode):
         if ambiguous_runway(rwy):
             return
         if gspd:
-            speed=gspd.array
+            speed = repair_mask(gspd.array, gspd.frequency)
         else:
-            speed=aspd.array
+            speed = repair_mask(aspd.array, aspd.frequency)
         for roll in toff_rolls:
             rot_idx = roll.stop_edge
             rot_end = runway_distance_from_end(rwy.value,
