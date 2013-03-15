@@ -913,7 +913,7 @@ class AltitudeRadio(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_A, source_B)
         
-        elif frame_name in ['2227000-59B']:
+        elif frame_name in ['767-2227000-59B']:
             # The four sources, Left, Centre, EFIS and Right are sampled in every frame.
             self.array = repair_mask(merge_sources(source_A.array, 
                                                    source_B.array, 
