@@ -3222,7 +3222,7 @@ class AimingPointRange(DerivedParameterNode):
     the nominal threshold position where there is no ILS installation.
     """
 
-    unit = 'nm'
+    units = 'nm'
 
     def derive(self, app_rng=P('Approach Range'),
                approaches=App('Approach Information'),
@@ -4802,7 +4802,7 @@ class ApproachRange(DerivedParameterNode):
     an approach.
     """
 
-    unit = 'm'
+    units = 'm'
 
     @classmethod
     def can_operate(cls, available):
