@@ -581,20 +581,20 @@ class AirspeedGustsDuringFinalApproach(KeyPointValueNode):
             # We'd like to use groundspeed to compute the wind gust, but
             # variations in airspeed are a suitable backstop.
             if gnd_spd:
-                speed = air_spd.array[scope] - gnd_spd.array[scope]
+                headwind = air_spd.array[scope] - gnd_spd.array[scope]
             else:
-                speed = air_spd.array[scope] - air_spd.array[scope][0]
+                headwind = air_spd.array[scope] - air_spd.array[scope][0]
             # Precise indexing is used as this is only a short segment. Note
             # that the _idx values are floating point interpolations of the
-            # radio altimeter signal, and the speed array is also
+            # radio altimeter signal, and the headwind array is also
             # interpolated.
             idx_start = index_at_value(alt_rad.array, 30.0, scope)
             idx_stop = index_at_value(alt_rad.array, 10.0, scope)
             new_app = shift_slice(descent, -scope.start)
-            peak = max_value(speed, new_app,
+            peak = max_value(headwind, new_app,
                     start_edge=idx_start - scope.start,
                     stop_edge=idx_stop - scope.start)
-            trough = min_value(speed, new_app,
+            trough = min_value(headwind, new_app,
                     start_edge=idx_start - scope.start,
                     stop_edge=idx_stop - scope.start)
             if peak.value and trough.value:

@@ -891,7 +891,7 @@ class AltitudeRadio(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(source_B, source_C)
 
-        elif frame_name in ['737-4', '737-4_Analogue']:
+        elif frame_name in ['737-4', '737-4_Analogue', 'A320_SFIM_ED45_CFM']:
             if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier:
                 self.array, self.frequency, self.offset = \
                     blend_two_parameters(source_L, source_R)
