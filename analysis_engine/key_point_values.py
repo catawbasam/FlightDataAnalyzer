@@ -590,6 +590,12 @@ class AirspeedGustsDuringFinalApproach(KeyPointValueNode):
             # interpolated.
             idx_start = index_at_value(alt_rad.array, 30.0, scope)
             idx_stop = index_at_value(alt_rad.array, 10.0, scope)
+            
+            # This condition can arise in some corrupt data cases, or for a
+            # go-around with a minimum between 30ft and 10ft.
+            if idx_start is None or idx_stop is None:
+                continue
+
             new_app = shift_slice(descent, -scope.start)
             peak = max_value(headwind, new_app,
                     start_edge=idx_start - scope.start,

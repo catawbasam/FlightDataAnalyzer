@@ -3372,6 +3372,9 @@ def moving_average(array, window=9, weightings=None, pad=True):
 
     Ref: http://argandgahandapandpa.wordpress.com/2011/02/24/python-numpy-moving-average-for-data/
     """
+    if len(array)==0:
+        return None
+    
     if weightings is None:
         weightings = np.repeat(1.0, window) / window
     elif len(weightings) != window:
