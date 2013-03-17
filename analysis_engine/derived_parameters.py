@@ -1241,12 +1241,17 @@ class APEngaged(MultistateDerivedParameterNode):
 
         if ap3 == None:
             # Only got a duplex autopilot.
-            self.array = np.ma.max(ap1.array.raw, ap2.array.raw)
+            self.array = np.ma.max(np.ma.hstack(ap1.array.raw,
+                                                ap2.array.raw),
+                                   axis=0)
             self.offset = offset_select('mean', [ap1, ap2])
         else:
-            #self.array = np.ma.max(ap1.array.raw, ap2.array.raw, ap3.array.raw)
-            #self.offset = offset_select('mean', [ap1, ap2, ap3])
-            self.array = ap1.array.raw # TEMPORARY FIX FOR 747-200
+            self.array = np.ma.max(np.ma.hstack(ap1.array.raw, 
+                                                ap2.array.raw, 
+                                                ap3.array.raw),
+                                   axis=0)
+            self.offset = offset_select('mean', [ap1, ap2, ap3])
+            ##self.array = ap1.array.raw # TEMPORARY FIX FOR 747-200
 
         self.frequency = ap1.frequency
 
@@ -4583,7 +4588,7 @@ class Speedbrake(DerivedParameterNode):
         return ('Frame' in x and 'Spoiler (2)' in x and 'Spoiler (7)' in x) \
             or ('Frame' in x and 'Spoiler (4)' in x and 'Spoiler (9)' in x)
 
-    def spoiler_737(self, spoiler_a, spoiler_b):
+    def merge_spoiler(self, spoiler_a, spoiler_b):
         '''
         We indicate the angle of the lower of the two raised spoilers, as
         this represents the drag element. Differential deployment is used to
@@ -4606,11 +4611,12 @@ class Speedbrake(DerivedParameterNode):
         frame_name = frame.value if frame else ''
 
         if frame_name in ['737-3', '737-3A', '737-3B', '737-3C', '737-7']:
-            self.array, self.offset = self.spoiler_737(spoiler_4, spoiler_9)
+            self.array, self.offset = self.merge_spoiler(spoiler_4, spoiler_9)
 
         elif frame_name in ['737-4', '737-5', '737-5_NON-EIS', '737-6',
-                            '737-6_NON-EIS', '737-2227000-335A']:
-            self.array, self.offset = self.spoiler_737(spoiler_2, spoiler_7)
+                            '737-6_NON-EIS', '737-2227000-335A',
+                            'A320_SFIM_ED45_CFM']:
+            self.array, self.offset = self.merge_spoiler(spoiler_2, spoiler_7)
 
         else:
             raise DataFrameError(self.name, frame_name)
@@ -4642,6 +4648,15 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             or ('Family' in x and 'Speedbrake Handle' in x)\
             or ('Family' in x and 'Speedbrake' in x)
 
+    def a320_speedbrake(self, armed, spdbrk):
+        '''
+        Speedbrake operation for A320 family.
+        '''
+        array = np.ma.where(spdbrk.array > 1.0,
+                            'Deployed/Cmd Up', armed.array)
+        return array
+        
+        
     def b737_speedbrake(self, spdbrk, handle):
         '''
         Speedbrake Handle Positions for 737-x:
@@ -4737,6 +4752,9 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
 
         elif family_name == 'B767':
             self.array = self.b767_speedbrake(handle)
+
+        elif family_name == 'A320':
+            self.array = self.a320_speedbrake(armed, spdbrk)
 
         else:
             raise NotImplementedError
