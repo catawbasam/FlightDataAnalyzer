@@ -108,7 +108,7 @@ def alt_radio_overflow(array, dh):
     :param dh: height step change (ft)
     :type dh: float
     '''
-    delta = dh*0.6
+    delta = dh*0.75
     jump = np.ma.array(data=np.ma.ediff1d(array.data, to_begin=0.0),
                        mask=False)
     steps = np_ma_zeros_like(array)
@@ -121,11 +121,14 @@ def alt_radio_overflow(array, dh):
     
     result = array.data + correction
 
+    '''
+    # Plot option for inspection while testing.
     import matplotlib.pyplot as plt
     plt.plot(result)
     plt.plot(array)
     plt.plot(correction)
     plt.show()
+    '''
     
     return result
 
