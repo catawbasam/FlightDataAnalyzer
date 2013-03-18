@@ -93,6 +93,44 @@ def all_of(names, available):
     return all(name in available for name in names)
 
 
+def alt_radio_overflow(array, dh):
+    '''
+    Corrects radio altimeter data for overflows where possible. These
+    typically occur with ARINC 429 signals where the most significant bits
+    have not been stored, and one or two overflow bits are lost.
+    
+    Note that the normal data validity checks will have masked the step changes.
+
+    :param array: Single radio altimeter array, with "invalid" data masked.
+    This is expected to have been reduced to a single Fast flight phase
+    slice.
+    :type array: numpy masked array
+    :param dh: height step change (ft)
+    :type dh: float
+    '''
+    delta = dh*0.6
+    jump = np.ma.array(data=np.ma.ediff1d(array.data, to_begin=0.0),
+                       mask=False)
+    steps = np_ma_zeros_like(array)
+    steps = np.ma.where(np.ma.abs(jump) > delta,
+                        -jump/np.ma.abs(jump)*dh,
+                        0)
+    correction = np.ma.cumsum(steps)
+    if correction[-1] != 0.0:
+        raise ValueError('Radio altimeter data has uneven jumps.')
+    
+    result = array.data + correction
+
+    import matplotlib.pyplot as plt
+    plt.plot(result)
+    plt.plot(array)
+    plt.plot(correction)
+    plt.show()
+    
+    return result
+
+
+
 def any_of(names, available):
     '''
     Returns True if any of the names are within the available list.
@@ -3372,6 +3410,9 @@ def moving_average(array, window=9, weightings=None, pad=True):
 
     Ref: http://argandgahandapandpa.wordpress.com/2011/02/24/python-numpy-moving-average-for-data/
     """
+    if len(array)==0:
+        return None
+    
     if weightings is None:
         weightings = np.repeat(1.0, window) / window
     elif len(weightings) != window:
@@ -3807,7 +3848,6 @@ def rate_of_change_array(to_diff, hz, width=2.0):
     slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
-
 
 def rate_of_change(diff_param, width):
     '''
