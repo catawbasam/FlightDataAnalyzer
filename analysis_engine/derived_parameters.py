@@ -14,7 +14,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      align,
                                      all_of,
                                      any_of,
-                                     alt_radio_overflow,
                                      alt2press,
                                      alt2sat,
                                      bearing_and_distance,
@@ -923,13 +922,10 @@ class AltitudeRadio(DerivedParameterNode):
                                      )
             self.frequency = source_A.frequency * 4.0
             self.offset = source_A.offset
-            
+
         elif frame_name in ['A320_SFIM_ED45_CFM']:
-            # These rad alts exhibit overflow characteristics.
-            source_A.array = alt_radio_overflow(source_A.array, 4096)
-            source_B.array = alt_radio_overflow(source_B.array, 4096)
             self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_A, source_B)            
+                blend_two_parameters(source_A, source_B)
 
         else:
             raise DataFrameError(self.name, frame_name)
