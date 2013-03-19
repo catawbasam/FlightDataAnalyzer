@@ -872,6 +872,7 @@ class SectionNode(IntervalSet, Node):
     TODO: Check whether frequency and offset are the same when comparing:
     SectionNode1 in SectionNode2 either aligns or asserts equal.
     '''
+    _interval = Section
         
     def create_section(self, lower_bound, upper_bound, name=''):
         """
