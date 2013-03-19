@@ -217,6 +217,9 @@ class Interval(object):
     are called lower_bound, lower_closed, upper_bound, and upper_closed,
     respectively.  For an infinite interval, the bound is set to inf or 
     -inf.  IntervalSets are composed of zero to many Intervals.
+    
+    TODO: Implement size and creation from strings:
+    ref: http://code.google.com/p/python-interval/source/browse/trunk/interval.py
     """
 
     def __init__(self, lower_bound=-Inf, upper_bound=Inf, **kwargs):
@@ -465,7 +468,7 @@ class Interval(object):
         (3..10)
         """
         if self == other:
-            result = Interval()
+            result = self.__class__()
             result.lower_bound = self.lower_bound
             result.upper_bound = self.upper_bound
             result.lower_closed = self.lower_closed
@@ -492,11 +495,11 @@ class Interval(object):
                     upper = other.upper_bound
                     upper_closed = other.upper_closed
 
-                result = Interval(
+                result = self.__class__(
                     lower, upper, 
                     lower_closed=lower_closed, upper_closed=upper_closed)
             else:
-                result = Interval.none()
+                result = self.__class__.none()
         else:
             result = other & self
         return result
@@ -717,7 +720,7 @@ class Interval(object):
             else:
                 ubound = other.upper_bound
                 uinc = other.upper_closed
-            return Interval(
+            return self.__class__(
                 lbound, ubound, upper_closed=uinc, lower_closed=linc)
         else:
             raise ArithmeticError("The Intervals are disjoint.")    
@@ -915,7 +918,9 @@ class Interval(object):
 
 class BaseIntervalSet(object):
     "Base class for IntervalSet and FrozenIntervalSet."
-
+    # Class to create intervals from (allows subclassing)
+    _interval = Interval
+    
     def __init__(self, items=[], **kwargs):
         """Initializes a BaseIntervalSet
 
@@ -1046,7 +1051,7 @@ class BaseIntervalSet(object):
         except IndexError:
             raise IndexError("Index is out of range")
 
-    def __iter__(self):
+    def __iter__(self):  #FIXME: Duplicate of the other__iter__?
         """Returns an iterator to iterate through the intervals
 
         Unlike sets, which do not have ordering, BaseIntervalSets do.  Therefore,
@@ -1148,9 +1153,9 @@ class BaseIntervalSet(object):
         (...)
         """
         if len(self.intervals) == 0:
-            result = Interval.none()
+            result = self._interval.none()
         else:
-            result =  Interval(
+            result =  self._interval(
                 self.lower_bound(), self.upper_bound(), 
                 lower_closed=self.lower_closed(), 
                 upper_closed=self.upper_closed())
@@ -1256,7 +1261,7 @@ class BaseIntervalSet(object):
                 return True
         return False
 
-    def __iter__(self):
+    def __iter__(self):  #FIXME: Duplicate of the other__iter__?
         """Returns an iterator over the intervals in the set
 
         >>> s = IntervalSet(
@@ -1363,22 +1368,22 @@ class BaseIntervalSet(object):
                         pass
                     elif j in i:
                         if j.lower_bound != None:
-                            temp.add(Interval(
+                            temp.add(self._interval(
                                 i.lower_bound, j.lower_bound, 
                                 lower_closed=i.lower_closed, 
                                 upper_closed=not j.lower_closed))
                         if j.upper_bound != None:
-                            temp.add(Interval(
+                            temp.add(self._interval(
                                 j.upper_bound, i.upper_bound, 
                                 lower_closed=not j.upper_closed, 
                                 upper_closed=i.upper_closed))
                     elif j.comes_before(i):
-                        temp.add(Interval(
+                        temp.add(self._interval(
                             j.upper_bound, i.upper_bound, 
                             lower_closed=not j.upper_closed, 
                             upper_closed=i.upper_closed))
                     else:
-                        temp.add(Interval(
+                        temp.add(self._interval(
                             i.lower_bound, j.lower_bound, 
                             lower_closed=i.lower_closed, 
                             upper_closed=not j.lower_closed))
@@ -1455,12 +1460,12 @@ class BaseIntervalSet(object):
                     elif j in i:
                         result.add(copy.deepcopy(j))
                     elif j.comes_before(i):
-                        result.add(Interval(
+                        result.add(j.__class__(
                             i.lower_bound, j.upper_bound, 
                             lower_closed=i.lower_closed, 
                             upper_closed=j.upper_closed))
                     else:
-                        result.add(Interval(
+                        result.add(j.__class__(
                             j.lower_bound, i.upper_bound, 
                             lower_closed=j.lower_closed, 
                             upper_closed=i.upper_closed))
@@ -1894,7 +1899,7 @@ class BaseIntervalSet(object):
         if isinstance(obj, Interval):
             r = obj
         else:
-            r = Interval.equal_to(obj)
+            r = self._interval.equal_to(obj)
 
         if r:   # Don't bother appending an empty Interval
             # If r continuously joins with any of the other
@@ -1933,7 +1938,7 @@ class BaseIntervalSet(object):
         >>> print IntervalSet.less_than(-23)
         (...-23)
         """
-        return cls([Interval.less_than(n)])
+        return cls([cls._interval.less_than(n)])
 
     @classmethod
     def less_than_or_equal_to(cls, n, closed=False):
@@ -1945,7 +1950,7 @@ class BaseIntervalSet(object):
         >>> print IntervalSet.less_than_or_equal_to(-23)
         (...-23]
         """
-        return cls([Interval.less_than_or_equal_to(n)])
+        return cls([cls._interval.less_than_or_equal_to(n)])
 
     @classmethod
     def greater_than(cls, n):
@@ -1956,7 +1961,7 @@ class BaseIntervalSet(object):
         >>> print IntervalSet.greater_than(-23)
         (-23...)
         """
-        return cls([Interval.greater_than(n)])
+        return cls([cls._interval.greater_than(n)])
 
     @classmethod
     def greater_than_or_equal_to(cls, n):
@@ -1968,7 +1973,7 @@ class BaseIntervalSet(object):
         >>> print IntervalSet.greater_than_or_equal_to(-23)
         [-23...)
         """
-        return cls([Interval.greater_than_or_equal_to(n)])
+        return cls([cls._interval.greater_than_or_equal_to(n)])
 
     @classmethod
     def not_equal_to(cls, n):
@@ -1979,7 +1984,7 @@ class BaseIntervalSet(object):
         >>> print IntervalSet.not_equal_to(-23)
         (...-23),(-23...)
         """
-        return cls([Interval.less_than(n), Interval.greater_than(n)])
+        return cls([cls._interval.less_than(n), cls._interval.greater_than(n)])
 
     @classmethod
     def between(cls, a, b, closed=True):
@@ -1993,7 +1998,7 @@ class BaseIntervalSet(object):
         >>> print IntervalSet.between(-1, 1)
         [-1..1]
         """
-        return cls([Interval.between(a, b, closed)])
+        return cls([cls._interval.between(a, b, closed)])
 
     @classmethod
     def all(cls):
@@ -2002,7 +2007,7 @@ class BaseIntervalSet(object):
         >>> print IntervalSet.all()
         (...)
         """
-        return cls([Interval.all()])
+        return cls([cls._interval.all()])
 
     @classmethod
     def empty(cls):
