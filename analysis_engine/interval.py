@@ -232,9 +232,9 @@ class Interval(object):
         - closed: Boolean telling whether both ends of the interval are closed
           (default True).  Setting this sets both lower_closed and upper_closed
         - lower_closed: Boolean telling whether the lower end of the interval
-          is closed (default True)
+          is inclusive of the value, i.e. closed (default True)
         - upper_closed: Boolean telling whether the upper end of the interval
-          is closed (default True)
+          is inclusive of the value, i.e. closed (default True)
 
         An Interval can represent an infinite set.
 
@@ -608,6 +608,31 @@ class Interval(object):
         True
         """
         return not self.upper_closed
+    
+    @classmethod
+    def from_string(cls, interval_repr):
+        """Takes a unicode string representing a mathematical interval, and
+        uses it to initialize the Interval
+        
+        Ref: http://code.google.com/p/python-interval/source/browse/trunk/interval.py#124
+        
+        >>> print Interval.from_string(u'[0, 20)')
+        [0.0..20.0)
+        """
+        import re
+        assert re.compile('[[(]([0-9]+|inf?|-inf?), *([0-9]+|inf?|-inf?)[)\]]').match(interval_repr), 'Invalid formatting'
+       
+        representation = ''.join(unicode(interval_repr).split())
+       
+        start_bracket, end_bracket = representation[0], representation[-1]
+        inclusive_table = {'(': False, ')': False, '[': True, ']':True}
+        # FIXME: Must catch error when occurs, it's ugly/unsemantic. Raise something more appropriate.
+        inclusive_start, inclusive_end = inclusive_table[start_bracket], inclusive_table[end_bracket]
+       
+        startstr, endstr = representation[1:-1].split(',') # FIXME: can error here, may be confusing-- should I catch it?
+        start, end = float(startstr), float(endstr) # TODO: Add infinity explicitly? I must handle the inf case, as it can be gotten using this.
+       
+        return cls(start, end, lower_closed=inclusive_start, upper_closed=inclusive_end)
 
     def comes_before(self, other):
         """Tells whether an interval lies before the object
@@ -914,7 +939,7 @@ class Interval(object):
                    and self.upper_bound == other.upper_bound \
                    and self.lower_closed == other.lower_closed \
                    and self.upper_closed == other.upper_closed)
-
+    
 
 class BaseIntervalSet(object):
     "Base class for IntervalSet and FrozenIntervalSet."
