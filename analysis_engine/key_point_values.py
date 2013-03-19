@@ -3102,19 +3102,19 @@ class LatitudeAtTouchdown(KeyPointValueNode):
     @classmethod
     def can_operate(cls, available):
         return 'Touchdown' in available and any_of(('Latitude',
-                                                  'Latitude Coarse',
-                                                  'AFR Landing Runway',
-                                                  'AFR Landing Airport'),
-                                                 available)
+                                                    'Latitude (Coarse)',
+                                                    'AFR Landing Runway',
+                                                    'AFR Landing Airport'),
+                                                   available)
 
     def derive(self,
             lat=P('Latitude'),
             tdwns=KTI('Touchdown'),
             land_afr_apt=A('AFR Landing Airport'),
             land_afr_rwy=A('AFR Landing Runway'),
-            lat_c=P('Latitude Coarse')):
+            lat_c=P('Latitude (Coarse)')):
         '''
-        Note that Latitude Coarse is a superframe parameter with poor
+        Note that Latitude (Coarse) is a superframe parameter with poor
         resolution recorded on some FDAUs. Keeping it at the end of the list
         of parameters means that it will be aligned to a higher sample rate
         rather than dragging other parameters down to its sample rate. See
@@ -3171,17 +3171,17 @@ class LongitudeAtTouchdown(KeyPointValueNode):
     @classmethod
     def can_operate(cls, available):
         return 'Touchdown' in available and any_of(('Longitude',
-                                                  'Longitude Coarse',
-                                                  'AFR Touchdown Runway',
-                                                  'AFR Touchdown Airport'),
-                                                 available)
+                                                    'Longitude (Coarse)',
+                                                    'AFR Touchdown Runway',
+                                                    'AFR Touchdown Airport'),
+                                                   available)
 
     def derive(self,
             lon=P('Longitude'),
             tdwns=KTI('Touchdown'),
             land_afr_apt=A('AFR Landing Airport'),
             land_afr_rwy=A('AFR Landing Runway'),
-            lon_c=P('Longitude Coarse')):
+            lon_c=P('Longitude (Coarse)')):
         '''
         See note relating to coarse latitude and longitude under Latitude At Touchdown
         '''
@@ -3236,7 +3236,7 @@ class LatitudeAtLiftoff(KeyPointValueNode):
         '''
         '''
         return 'Liftoff' in available and any_of(('Latitude',
-                                                  'Latitude Coarse',
+                                                  'Latitude (Coarse)',
                                                   'AFR Takeoff Runway', 
                                                   'AFR Takeoff Airport'),
                                                  available)
@@ -3246,7 +3246,7 @@ class LatitudeAtLiftoff(KeyPointValueNode):
             liftoffs=KTI('Liftoff'),
             toff_afr_apt=A('AFR Takeoff Airport'),
             toff_afr_rwy=A('AFR Takeoff Runway'),
-            lat_c=P('Latitude Coarse')):
+            lat_c=P('Latitude (Coarse)')):
         '''
         Note that Latitude Coarse is a superframe parameter with poor
         resolution recorded on some FDAUs. Keeping it at the end of the list
@@ -3305,7 +3305,7 @@ class LongitudeAtLiftoff(KeyPointValueNode):
         '''
         '''
         return 'Liftoff' in available and any_of(('Longitude',
-                                                  'Longitude Coarse',
+                                                  'Longitude (Coarse)',
                                                   'AFR Takeoff Runway',
                                                   'AFR Takeoff Airport'),
                                                  available)
@@ -3315,7 +3315,7 @@ class LongitudeAtLiftoff(KeyPointValueNode):
             liftoffs=KTI('Liftoff'),
             toff_afr_apt=A('AFR Takeoff Airport'),
             toff_afr_rwy=A('AFR Takeoff Runway'),
-            lon_c=P('Longitude Coarse')):
+            lon_c=P('Longitude (Coarse)')):
         '''
         See note relating to coarse latitude and longitude under Latitude At Takeoff
         '''
