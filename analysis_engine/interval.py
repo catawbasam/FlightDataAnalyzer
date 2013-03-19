@@ -39,10 +39,10 @@ False
 True
 >>> inOffice = officeHours & myHours
 >>> print inOffice
-['08:30'..'11:30'),('12:30'..'17:00']
+['08:30', '11:30'),('12:30', '17:00']
 >>> overtime = myHours - officeHours
 >>> print overtime
-('17:00'..'19:30']
+('17:00', '19:30']
 """
 
 import copy
@@ -375,39 +375,52 @@ class Interval(object):
         5
         >>> print Interval.none()
         <Empty>
+        
+        Real numbers or Floats use a comma notation for between
+        >>> print Interval(12.3, 32.5)
+        [12.3, 32.5]
+        >>> assert Interval.from_string('(1.3, 4.2]').__str__() == '(1.3, 4.2]'
+        >>> assert Interval.from_string('[3..4]').__str__() == '[3..4]'
         """
         if self.lower_bound == self.upper_bound:
             if self.lower_closed or self.upper_closed:
-                retval = repr(self.lower_bound)
+                return repr(self.lower_bound)
             else:
-                retval = "<Empty>"
-        else:
+                return "<Empty>"
+        elif self.lower_bound == -Inf and self.upper_bound == Inf:
+            return '(...)'
+
+        if (isinstance(self.lower_bound, int) or isinstance(self.lower_bound, Smallest)) and \
+           (isinstance(self.upper_bound, int) or isinstance(self.upper_bound, Largest)):
+            use_int_repr = True
             between = ".."
+        else:
+            use_int_repr = False
+            between = ', '
 
-            if self.lower_closed:
-                lbchar = '['
-            else:
-                lbchar = '('
+        if self.lower_closed:
+            lbchar = '['
+        else:
+            lbchar = '('
 
-            if self.lower_bound == -Inf:
-                lstr = ""
-                between = "..."
-            else:
-                lstr = repr(self.lower_bound)
+        if self.lower_bound == -Inf:
+            lstr = ".."
+            between = "." if use_int_repr else ', '
+        else:
+            lstr = repr(self.lower_bound)
 
-            if self.upper_closed:
-                ubchar = ']'
-            else:
-                ubchar = ')'
+        if self.upper_closed:
+            ubchar = ']'
+        else:
+            ubchar = ')'
 
-            if self.upper_bound == Inf:
-                ustr = ""
-                between = "..."
-            else:
-                ustr = repr(self.upper_bound)
+        if self.upper_bound == Inf:
+            ustr = ".."
+            between = "." if use_int_repr else ', '
+        else:
+            ustr = repr(self.upper_bound)
 
-            retval = "".join([lbchar, lstr, between, ustr, ubchar])
-        return retval
+        return "".join([lbchar, lstr, between, ustr, ubchar])
 
     def __nonzero__(self):
         """Tells whether the interval is empty
@@ -617,22 +630,42 @@ class Interval(object):
         Ref: http://code.google.com/p/python-interval/source/browse/trunk/interval.py#124
         
         >>> print Interval.from_string(u'[0, 20)')
-        [0.0..20.0)
+        [0.0, 20.0)
+        >>> print Interval.from_string('(1.3, 4.2]')
+        (1.3, 4.2]
+        >>> print Interval.from_string('[3..4]')
+        [3..4]
+        >>> print Interval.from_string('(...4]')
+        (...4]
+        >>> print Interval.from_string('(.., 4.2]')
+        (.., 4.2]
+        >>> print Interval.from_string('(...)')
+        (...)
         """
         import re
-        assert re.compile('[[(]([0-9]+|inf?|-inf?), *([0-9]+|inf?|-inf?)[)\]]').match(interval_repr), 'Invalid formatting'
-       
-        representation = ''.join(unicode(interval_repr).split())
-       
-        start_bracket, end_bracket = representation[0], representation[-1]
+        if interval_repr == '(...)':
+            return cls.all()
+        int_pattern = '(?P<start_bracket>[[(])(?P<start>[+-]?\d+|\.)(\.\.) *(?P<end>[+-]?\d+?|\.)(?P<end_bracket>[)\]])'
+        float_pattern = '(?P<start_bracket>[[(])(?P<start>[+-]?\d+(\.\d+)?|\.\.)(,) *(?P<end>[+-]?\d+(\.\d+)?|\.\.)(?P<end_bracket>[)\]])'
+        int_match = re.compile(int_pattern).match(interval_repr)
+        float_match = re.compile(float_pattern).match(interval_repr)
+        if int_match:
+            cast = int
+            g = int_match.groupdict()
+        elif float_match:
+            cast = float
+            g = float_match.groupdict()
+        else:
+            raise ValueError('Invalid Interval Format %s' % interval_repr)
         inclusive_table = {'(': False, ')': False, '[': True, ']':True}
         # FIXME: Must catch error when occurs, it's ugly/unsemantic. Raise something more appropriate.
-        inclusive_start, inclusive_end = inclusive_table[start_bracket], inclusive_table[end_bracket]
-       
-        startstr, endstr = representation[1:-1].split(',') # FIXME: can error here, may be confusing-- should I catch it?
-        start, end = float(startstr), float(endstr) # TODO: Add infinity explicitly? I must handle the inf case, as it can be gotten using this.
-       
-        return cls(start, end, lower_closed=inclusive_start, upper_closed=inclusive_end)
+        include_start = inclusive_table[g['start_bracket']]
+        include_end = inclusive_table[g['end_bracket']]
+        
+        # integer notation
+        start = -Inf if g['start'] in ('.', '..') else cast(g['start'])
+        end = -Inf if g['end'] in ('.', '..') else cast(g['end'])
+        return cls(start, end, lower_closed=include_start, upper_closed=include_end)
 
     def comes_before(self, other):
         """Tells whether an interval lies before the object
