@@ -903,7 +903,7 @@ class SectionNode(IntervalSet, Node):
         for _slice in slices:
             section = Section(_slice=_slice,
                               name=name or self.get_name())
-            self.append(section)
+            self.add(section)
         return self
 
     #TODO: Accessor for 1Hz slice, 8Hz slice etc.
