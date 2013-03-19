@@ -222,7 +222,8 @@ class Interval(object):
     ref: http://code.google.com/p/python-interval/source/browse/trunk/interval.py
     """
 
-    def __init__(self, lower_bound=-Inf, upper_bound=Inf, **kwargs):
+    def __init__(self, lower_bound=-Inf, upper_bound=Inf,
+                 use_comma_notation=False, **kwargs):
         """Initializes an interval
 
         Parameters
@@ -235,6 +236,8 @@ class Interval(object):
           is inclusive of the value, i.e. closed (default True)
         - upper_closed: Boolean telling whether the upper end of the interval
           is inclusive of the value, i.e. closed (default True)
+        - use_comma_notation: Boolean as to which representations to use when
+          printing the output (3, 4) if True, else (3..4). (default False)
 
         An Interval can represent an infinite set.
 
@@ -313,6 +316,7 @@ class Interval(object):
         self.lower_closed = lower_closed
         self.upper_bound  = upper_bound
         self.upper_closed = upper_closed
+        self.use_comma_notation = use_comma_notation
 
     def __hash__(self):
         """Returns a hashed value of the object
@@ -376,11 +380,13 @@ class Interval(object):
         >>> print Interval.none()
         <Empty>
         
-        Real numbers or Floats use a comma notation for between
-        >>> print Interval(12.3, 32.5)
+        Real numbers or Floats often use a comma notation
+        >>> print Interval(12.3, 32.5, use_comma_notation=True)
         [12.3, 32.5]
-        >>> assert Interval.from_string('(1.3, 4.2]').__str__() == '(1.3, 4.2]'
-        >>> assert Interval.from_string('[3..4]').__str__() == '[3..4]'
+        >>> print Interval.from_string('(1.3, 4.2]', True)
+        (1.3, 4.2]
+        >>> print Interval.from_string('[3..4]', False)
+        [3..4]
         """
         if self.lower_bound == self.upper_bound:
             if self.lower_closed or self.upper_closed:
@@ -390,13 +396,10 @@ class Interval(object):
         elif self.lower_bound == -Inf and self.upper_bound == Inf:
             return '(...)'
 
-        if (isinstance(self.lower_bound, int) or isinstance(self.lower_bound, Smallest)) and \
-           (isinstance(self.upper_bound, int) or isinstance(self.upper_bound, Largest)):
-            use_int_repr = True
-            between = ".."
-        else:
-            use_int_repr = False
+        if self.use_comma_notation:
             between = ', '
+        else:
+            between = ".."
 
         if self.lower_closed:
             lbchar = '['
@@ -405,7 +408,7 @@ class Interval(object):
 
         if self.lower_bound == -Inf:
             lstr = ".."
-            between = "." if use_int_repr else ', '
+            between = ", " if self.use_comma_notation else '.'
         else:
             lstr = repr(self.lower_bound)
 
@@ -416,7 +419,7 @@ class Interval(object):
 
         if self.upper_bound == Inf:
             ustr = ".."
-            between = "." if use_int_repr else ', '
+            between = ", " if self.use_comma_notation else '.'
         else:
             ustr = repr(self.upper_bound)
 
@@ -623,21 +626,26 @@ class Interval(object):
         return not self.upper_closed
     
     @classmethod
-    def from_string(cls, interval_repr):
+    def from_string(cls, interval_repr, use_comma_notation=False):
         """Takes a unicode string representing a mathematical interval, and
-        uses it to initialize the Interval
+        uses it to initialize the Interval.
         
+        use_comma_notation will allow the use of comma notation for floats.
+        
+        Inspired by code here:
         Ref: http://code.google.com/p/python-interval/source/browse/trunk/interval.py#124
         
-        >>> print Interval.from_string(u'[0, 20)')
-        [0.0, 20.0)
-        >>> print Interval.from_string('(1.3, 4.2]')
+        >>> print Interval.from_string(u'[0, 20)', True)
+        [0, 20)
+        >>> print Interval.from_string('(1.3, 4.2]', True)
         (1.3, 4.2]
-        >>> print Interval.from_string('[3..4]')
-        [3..4]
+        >>> print Interval.from_string('(1.3, 4.2]', False)
+        (1.3..4.2]
+        >>> print Interval.from_string('[-3..4]')
+        [-3..4]
         >>> print Interval.from_string('(...4]')
         (...4]
-        >>> print Interval.from_string('(.., 4.2]')
+        >>> print Interval.from_string('(.., 4.2]', True)
         (.., 4.2]
         >>> print Interval.from_string('(...)')
         (...)
@@ -645,27 +653,34 @@ class Interval(object):
         import re
         if interval_repr == '(...)':
             return cls.all()
-        int_pattern = '(?P<start_bracket>[[(])(?P<start>[+-]?\d+|\.)(\.\.) *(?P<end>[+-]?\d+?|\.)(?P<end_bracket>[)\]])'
-        float_pattern = '(?P<start_bracket>[[(])(?P<start>[+-]?\d+(\.\d+)?|\.\.)(,) *(?P<end>[+-]?\d+(\.\d+)?|\.\.)(?P<end_bracket>[)\]])'
-        int_match = re.compile(int_pattern).match(interval_repr)
-        float_match = re.compile(float_pattern).match(interval_repr)
-        if int_match:
-            cast = int
-            g = int_match.groupdict()
-        elif float_match:
-            cast = float
-            g = float_match.groupdict()
+        float_pattern_comma = '(?P<start_bracket>[[(])(?P<start>[+-]?\d+(\.\d+)?|\.\.)(,) *(?P<end>[+-]?\d+(\.\d+)?|\.\.)(?P<end_bracket>[)\]])'
+        float_pattern_period = '(?P<start_bracket>[[(])(?P<start>[+-]?\d+(\.\d+)?|\.)(\.\.|\.) *(?P<end>[+-]?\d+(\.\d+)?|\.)(?P<end_bracket>[)\]])'
+        def cast(s):
+            try:
+                return int(s)
+            except ValueError:
+                return float(s)
+            
+        if ',' in interval_repr:
+            match = re.compile(float_pattern_comma).match(interval_repr)
+        else:
+            match = re.compile(float_pattern_period).match(interval_repr)
+        if match:
+            g = match.groupdict()
         else:
             raise ValueError('Invalid Interval Format %s' % interval_repr)
+            
         inclusive_table = {'(': False, ')': False, '[': True, ']':True}
-        # FIXME: Must catch error when occurs, it's ugly/unsemantic. Raise something more appropriate.
         include_start = inclusive_table[g['start_bracket']]
         include_end = inclusive_table[g['end_bracket']]
         
-        # integer notation
+        # cast to int or float or set to Inf if starting with '..'
         start = -Inf if g['start'] in ('.', '..') else cast(g['start'])
-        end = -Inf if g['end'] in ('.', '..') else cast(g['end'])
-        return cls(start, end, lower_closed=include_start, upper_closed=include_end)
+        end = Inf if g['end'] in ('.', '..') else cast(g['end'])
+        return cls(start, end, 
+                   lower_closed=include_start,
+                   upper_closed=include_end,
+                   use_comma_notation=use_comma_notation)
 
     def comes_before(self, other):
         """Tells whether an interval lies before the object
