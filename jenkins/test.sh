@@ -113,7 +113,7 @@ fi
 rm coverage.xml nosetests.xml cpd.xml 2>/dev/null
 
 # Run the tests suite and generate coverage reports
-nosetests --with-xunit --with-coverage --cover-package=${PACKAGE} --traverse-namespace --cover-erase
+nosetests --with-xunit --with-coverage --cover-package=${PACKAGE} --traverse-namespace --cover-erase --with-doctest
 python -m coverage xml --include=${PACKAGE}*
 
 # Pyflakes code quality metric, in Pylint format
