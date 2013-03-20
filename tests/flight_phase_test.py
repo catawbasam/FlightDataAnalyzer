@@ -87,10 +87,10 @@ def buildsection(name, begin, end):
     Example: land = buildsection('Landing', 100, 120)
     '''
     result = builditem(name, begin, end)
-    return SectionNode(name, items=[result])
+    return SectionNode(items=[result], name=name)
 
 
-def buildsections(*args):
+def buildsections(name, *slice_periods):
     '''
     Like buildsection, this is used to build SectionNodes for test purposes.
 
@@ -100,12 +100,18 @@ def buildsections(*args):
     approach = buildsections('Approach', [80,90], [100,110])
     '''
     built_list=[]
-    name = args[0]
-    for a in args[1:]:
-        new_section = builditem(name, a[0], a[1])
+    for (start, stop) in slice_periods:
+        new_section = builditem(name, start, stop)
         built_list.append(new_section)
-    return SectionNode(name, items=built_list)
+    return SectionNode(items=built_list, name=name)
 
+
+
+def phase(interval_notation):
+    '''
+    e.g. phase('[2..5],(6..8]')
+    '''
+    return FlightPhaseNode.from_string(interval_notation)
 
 ##############################################################################
 # Superclasses
@@ -201,20 +207,15 @@ class TestApproachAndLanding(unittest.TestCase):
 
 class TestApproach(unittest.TestCase):
     def test_approach_basic(self):
-        aal = buildsection('Approach And Landing', 5, 15)
-        land = buildsection('Landing', 9.5, 15)
         app = Approach()
-        app.derive(aal, land)
-        expected = buildsection('Approach', 5, 9)
-        self.assertEqual(app, expected)
+        app.derive(apps=phase('[5..15]'), lands=phase('[9.5..15]'))
+        self.assertEqual(app, '[5..9.5)')
 
     def test_approach_complex(self):
-        aal = buildsections('Approach And Landing', [25, 35], [5,15])
-        land = buildsection('Landing', 12, 27)
         app = Approach()
-        app.derive(aal, land)
-        expected = buildsection('Approach', 27, 35)
-        self.assertEqual(app[0], expected[0])
+        app.derive(apps=phase('[25..35),[5..15],(3..4)'), lands=phase('[12..27]'))
+        self.assertEqual(app, '(3..4),[5..12),(27..35)')
+        
 
 
 class TestBouncedLanding(unittest.TestCase):

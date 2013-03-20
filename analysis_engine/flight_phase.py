@@ -235,26 +235,27 @@ class Approach(FlightPhaseNode):
     This separates out the approach phase excluding the landing.
     """
     def derive(self, apps=S('Approach And Landing'), lands=S('Landing')):
-        app_slices = []
-        begin = None
-        end = None
-        land_slices = []
-        for app in apps:
-            _slice = app.slice
-            app_slices.append(_slice)
-            if begin is None:
-                begin = _slice.start
-                end = _slice.stop
-            else:
-                begin = min(begin, _slice.start)
-                end = max(end, _slice.stop)
-        for land in lands:
-            land_slices.append(land.slice)
+        self.intervals = apps  - lands
+        ##app_slices = []
+        ##begin = None
+        ##end = None
+        ##land_slices = []
+        ##for app in apps:
+            ##_slice = app.slice
+            ##app_slices.append(_slice)
+            ##if begin is None:
+                ##begin = _slice.start
+                ##end = _slice.stop
+            ##else:
+                ##begin = min(begin, _slice.start)
+                ##end = max(end, _slice.stop)
+        ##for land in lands:
+            ##land_slices.append(land.slice)
         
-        self.create_phases(slices_and(app_slices,
-                                      slices_not(land_slices,
-                                                 begin_at=begin,
-                                                 end_at=end)))
+        ##self.create_phases(slices_and(app_slices,
+                                      ##slices_not(land_slices,
+                                                 ##begin_at=begin,
+                                                 ##end_at=end)))
 
 
 class BouncedLanding(FlightPhaseNode):
