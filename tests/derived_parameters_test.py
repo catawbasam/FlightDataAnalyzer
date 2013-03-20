@@ -1434,7 +1434,7 @@ class TestEng_N1Max(unittest.TestCase):
         eng = Eng_N1Max()
         eng.derive(P('Eng (1)',a,offset=0.25), P('Eng (2)',b, offset=0.75), None, None)
         ma_test.assert_array_equal(eng.array,np.ma.array([54.2, 53.2, 52.2, 53, 54]))
-        self.assertEqual(eng.offset, 0.5)
+        self.assertEqual(eng.offset, 0)
         
         
 class TestEng_N1Min(unittest.TestCase):

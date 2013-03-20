@@ -1730,17 +1730,21 @@ class Eng_GasTempMin(DerivedParameterNode):
 
 class Eng_N1Avg(DerivedParameterNode):
     '''
+    This returns the avaerage N1 in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
     '''
 
     name = 'Eng (*) N1 Avg'
     units = '%'
 
-    align = False
+    align_frequency = 4
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
+
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -1749,28 +1753,26 @@ class Eng_N1Avg(DerivedParameterNode):
                eng2=P('Eng (2) N1'),
                eng3=P('Eng (3) N1'),
                eng4=P('Eng (4) N1')):
-        '''
-        '''
+
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
 class Eng_N1Max(DerivedParameterNode):
     '''
     This returns the highest N1 in any sample period for up to four engines.
-    The offset is returned as the mean of the operating samples, to represent
-    the overall period irrespective of the timing of the samples.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
     '''
 
     name = 'Eng (*) N1 Max'
     units = '%'
-    align = False
+    align_frequency = 4
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -1779,28 +1781,25 @@ class Eng_N1Max(DerivedParameterNode):
                eng2=P('Eng (2) N1'),
                eng3=P('Eng (3) N1'),
                eng4=P('Eng (4) N1')):
-        '''
-        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
 class Eng_N1Min(DerivedParameterNode):
     '''
     This returns the lowest N1 in any sample period for up to four engines.
-    The offset is returned as the mean of the operating samples, to represent
-    the overall period irrespective of the timing of the samples.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
     '''
 
     name = 'Eng (*) N1 Min'
     units = '%'
-    align = False
+    align_frequency = 4
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -1809,11 +1808,8 @@ class Eng_N1Min(DerivedParameterNode):
                eng2=P('Eng (2) N1'),
                eng3=P('Eng (3) N1'),
                eng4=P('Eng (4) N1')):
-        '''
-        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
 ################################################################################
@@ -1822,17 +1818,20 @@ class Eng_N1Min(DerivedParameterNode):
 
 class Eng_N2Avg(DerivedParameterNode):
     '''
+    This returns the avaerage N2 in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
     '''
 
     name = 'Eng (*) N2 Avg'
     units = '%'
 
-    align = False
+    align_frequency = 4
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -1841,26 +1840,26 @@ class Eng_N2Avg(DerivedParameterNode):
                eng2=P('Eng (2) N2'),
                eng3=P('Eng (3) N2'),
                eng4=P('Eng (4) N2')):
-        '''
-        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
 class Eng_N2Max(DerivedParameterNode):
     '''
+    This returns the highest N2 in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
     '''
 
     name = 'Eng (*) N2 Max'
     units = '%'
 
-    align = False
+    align_frequency = 4
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -1869,26 +1868,26 @@ class Eng_N2Max(DerivedParameterNode):
                eng2=P('Eng (2) N2'),
                eng3=P('Eng (3) N2'),
                eng4=P('Eng (4) N2')):
-        '''
-        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
 class Eng_N2Min(DerivedParameterNode):
     '''
+    This returns the lowest N2 in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
     '''
 
     name = 'Eng (*) N2 Min'
     units = '%'
 
-    align = False
+    align_frequency = 4
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -1897,11 +1896,8 @@ class Eng_N2Min(DerivedParameterNode):
                eng2=P('Eng (2) N2'),
                eng3=P('Eng (3) N2'),
                eng4=P('Eng (4) N2')):
-        '''
-        '''
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
 ################################################################################
@@ -1910,17 +1906,21 @@ class Eng_N2Min(DerivedParameterNode):
 
 class Eng_N3Avg(DerivedParameterNode):
     '''
+    This returns the average N3 in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
     '''
 
     name = 'Eng (*) N3 Avg'
     units = '%'
 
-    align = False
+    align_frequency = 4
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
+
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -1929,26 +1929,28 @@ class Eng_N3Avg(DerivedParameterNode):
                eng2=P('Eng (2) N3'),
                eng3=P('Eng (3) N3'),
                eng4=P('Eng (4) N3')):
-        '''
-        '''
+
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.average(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
 class Eng_N3Max(DerivedParameterNode):
     '''
+    This returns the highest N3 in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
     '''
 
     name = 'Eng (*) N3 Max'
     units = '%'
 
-    align = False
+    align_frequency = 4
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
+
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -1957,26 +1959,28 @@ class Eng_N3Max(DerivedParameterNode):
                eng2=P('Eng (2) N3'),
                eng3=P('Eng (3) N3'),
                eng4=P('Eng (4) N3')):
-        '''
-        '''
+
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
 class Eng_N3Min(DerivedParameterNode):
     '''
+    This returns the lowest N3 in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
     '''
 
     name = 'Eng (*) N3 Min'
     units = '%'
 
-    align = False
+    align_frequency = 4
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
+
         # Works with any combination of parameters available:
         return any(d in available for d in cls.get_dependency_names())
 
@@ -1985,11 +1989,9 @@ class Eng_N3Min(DerivedParameterNode):
                eng2=P('Eng (2) N3'),
                eng3=P('Eng (3) N3'),
                eng4=P('Eng (4) N3')):
-        '''
-        '''
+
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
-        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
 ################################################################################
