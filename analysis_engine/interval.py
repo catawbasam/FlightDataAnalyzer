@@ -1001,7 +1001,13 @@ class Interval(object):
         True
         >>> Interval(2, 2, closed=False) == Interval(0, 0, closed=False)
         True
+        >>> Interval(2, 4, upper_closed=False) == '[2, 4)'
+        True
+        >>> Interval(2, 4, closed=False) == '[2, 4]'
+        False
         """
+        if isinstance(other, basestring):
+            other = Interval.from_string(other)
         return (\
             self.lower_bound == self.upper_bound and (\
                 not self.lower_closed or not self.upper_closed)\
@@ -1782,7 +1788,14 @@ class BaseIntervalSet(object):
         False
         >>> IntervalSet(Interval(3, 4)) == Interval(3, 4)  # Controversial?!
         True
+        
+        Support string comparisons
+        >>> IntervalSet([Interval(2, 5), Interval(6, 8, lower_closed=False)]) == '[2..5],(6..8]'
+        True
+        
         """
+        if isinstance(other, basestring):
+            other = BaseIntervalSet.from_string(other)
         if isinstance(other, Interval):
             other = BaseIntervalSet(other)
         if isinstance(other, BaseIntervalSet):
