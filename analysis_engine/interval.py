@@ -46,6 +46,18 @@ True
 """
 
 import copy
+import re
+
+def convert_to(value, default, *types):
+    """Try casting a value using the provided types, else return a default.
+    """
+    for t in types:
+        try:
+            return t(value)
+        except ValueError, TypeError:
+            continue
+    return default
+
 
 class Smallest(object):
     """Represents the smallest value
@@ -375,10 +387,8 @@ class Interval(object):
         [237..278)
         >>> print Interval.between(723, 2378)
         [723..2378]
-        
-        Changed from printing a single integer 5 to the closed range [5..5]
         >>> print Interval.equal_to(5)
-        [5..5]
+        5
         >>> print Interval.none()
         <Empty>
         
@@ -390,12 +400,11 @@ class Interval(object):
         >>> print Interval.from_string('[3..4]', False)
         [3..4]
         """
-        if self.lower_bound == self.upper_bound \
-           and not self.lower_closed and not self.upper_closed:
-            ##if self.lower_closed or self.upper_closed:
-                ##return repr(self.lower_bound)
-            ##else:
-            return "<Empty>"
+        if self.lower_bound == self.upper_bound:
+            if self.lower_closed or self.upper_closed:
+                return repr(self.lower_bound)
+            else:
+                return "<Empty>"
         elif self.lower_bound == -Inf and self.upper_bound == Inf:
             return '(...)'
 
@@ -480,7 +489,7 @@ class Interval(object):
         >>> print Interval.greater_than(3) & Interval.equal_to(3)
         <Empty>
         >>> print Interval.greater_than_or_equal_to(3) & Interval.equal_to(3)
-        [3..3]
+        3
         >>> print Interval.all() & Interval.all()
         (...)
         >>> print Interval.greater_than(3) & Interval.less_than(10)
@@ -563,7 +572,7 @@ class Interval(object):
         Returns an interval containing only a.
 
         >>> print Interval.equal_to(32)
-        [32..32]
+        32
         """
         return cls(a, a)
 
@@ -635,12 +644,13 @@ class Interval(object):
         
         use_comma_notation will allow the use of comma notation for floats.
         
-        Inspired by code here:
+        Originally inspired by code here:
         Ref: http://code.google.com/p/python-interval/source/browse/trunk/interval.py#124
-        
-        TODO: Loosen the regexp to allow strings as per docstring at top of module
-        # Interval.from_string("['today'..'tomorrow']")
-        
+                
+        >>> print Interval.from_string('blah')
+        'blah'
+        >>> print Interval.from_string('12.2')
+        12.2
         >>> print Interval.from_string(u'[0, 20)', True)
         [0, 20)
         >>> print Interval.from_string('(1.3, 4.2]', True)
@@ -655,17 +665,26 @@ class Interval(object):
         (.., 4.2]
         >>> print Interval.from_string('(...)')
         (...)
+        >>> print Interval.from_string('<Empty>')
+        <Empty>
+        >>> print Interval.from_string("['today'..'tomorrow']")
+        ['today'..'tomorrow']
+        >>> Interval.from_string("['blah'..'fish']")
+        Interval('blah', 'fish', lower_closed=True, upper_closed=True)
         """
-        import re
-        def cast(s):
-            try:
-                return int(s)
-            except ValueError:
-                return float(s)
-        if interval_repr == '(...)':
+        cast = lambda s: convert_to(s.replace('\'', '').replace('\"', ''), s, int, float, str)
+        if interval_repr == '<Empty>':
+            return cls.none()
+        elif interval_repr == '(...)':
             return cls.all()
-        float_pattern_comma = '(?P<start_bracket>[[(])(?P<start>[+-]?\d+(\.\d+)?|\.\.)(,) *(?P<end>[+-]?\d+(\.\d+)?|\.\.)(?P<end_bracket>[)\]])'
-        float_pattern_period = '(?P<start_bracket>[[(])(?P<start>[+-]?\d+(\.\d+)?|\.)(\.\.|\.) *(?P<end>[+-]?\d+(\.\d+)?|\.)(?P<end_bracket>[)\]])'
+        elif '..' not in interval_repr and ',' not in interval_repr:
+            # assumed only a single value within - try to convert
+            val = cast(interval_repr)
+            return cls.equal_to(val)
+        else:
+            pass  # carry on
+        float_pattern_comma = r'(?P<start_bracket>[[(])(?P<start>[+-]?\d+(\.\d+)?|[\'\"](.+?)[\'\"]|\.\.)(,) *(?P<end>[+-]?\d+(\.\d+)?|[\'\"](.+?)[\'\"]|\.\.)(?P<end_bracket>[)\]])'
+        float_pattern_period = r'(?P<start_bracket>[[(])(?P<start>[+-]?\d+(\.\d+)?|[\'\"](.+?)[\'\"]|\.)(\.\.|\.) *(?P<end>[+-]?\d+(\.\d+)?|[\'\"](.+?)[\'\"]|\.)(?P<end_bracket>[)\]])'
             
         if ',' in interval_repr:
             match = re.compile(float_pattern_comma).match(interval_repr)
@@ -1025,11 +1044,11 @@ class BaseIntervalSet(object):
         value.
 
         >>> print IntervalSet(set([3, 7, 2, 1]))
-        [1..1],[2..2],[3..3],[7..7]
+        1,2,3,7
         >>> print IntervalSet(["Bob", "Fred", "Mary"])
         'Bob','Fred','Mary'
-        >>> print IntervalSet(range(3))
-        [1..1],[2..2],[3..3]
+        >>> print IntervalSet(range(10))
+        0,1,2,3,4,5,6,7,8,9
         >>> print IntervalSet(
         ...   Interval.between(l, u) for l, u in [(10, 20), (30, 40)])
         [10..20],[30..40]
@@ -1071,11 +1090,11 @@ class BaseIntervalSet(object):
         >>> print IntervalSet()
         <Empty>
         >>> print IntervalSet([62])
-        [62..62]
+        62
         >>> print IntervalSet([62, 56])
-        [56..56],[62..62]
+        56,62
         >>> print IntervalSet([23, Interval(26, 32, upper_closed=False)])
-        [23..23],[26..32)
+        23,[26..32)
         >>> print IntervalSet.less_than(3) + IntervalSet.greater_than(3)
         (...3),(3...)
         >>> print IntervalSet([Interval.less_than_or_equal_to(6)])
@@ -1117,9 +1136,9 @@ class BaseIntervalSet(object):
         (5...)
         >>> interval = IntervalSet([3, 6])
         >>> print interval[1]
-        [6..6]
+        6
         >>> print interval[0]
-        [3..3]
+        3
         >>> print interval[2]
         Traceback (most recent call last):
             ...
@@ -1395,7 +1414,7 @@ class BaseIntervalSet(object):
         >>> nonzero   = IntervalSet.not_equal_to(0)
         >>> empty     = IntervalSet.empty()
         >>> print evens + positives
-        [-8..-8],[-6..-6],[-4..-4],[-2..-2],[0...)
+        -8,-6,-4,-2,[0...)
         >>> print negatives + zero
         (...0]
         >>> print empty + negatives
@@ -1420,7 +1439,7 @@ class BaseIntervalSet(object):
         >>> empty     = IntervalSet.empty()
         >>> all       = IntervalSet.all()
         >>> print evens - nonzero
-        [0..0]
+        0
         >>> print empty - naturals
         <Empty>
         >>> print zero - naturals
@@ -1487,7 +1506,7 @@ class BaseIntervalSet(object):
         >>> empty     = IntervalSet.empty()
         >>> all       = IntervalSet.all()
         >>> print evens.difference(nonzero)
-        [0..0]
+        0
         >>> print empty.difference(naturals)
         <Empty>
         >>> print zero.difference(naturals)
@@ -1518,7 +1537,7 @@ class BaseIntervalSet(object):
         >>> print naturals and naturals
         [0...)
         >>> print evens & zero
-        [0..0]
+        0
         >>> print negatives & zero
         <Empty>
         >>> print nonzero & positives
@@ -1570,7 +1589,7 @@ class BaseIntervalSet(object):
         >>> print naturals.intersection(naturals)
         [0...)
         >>> print evens.intersection(zero)
-        [0..0]
+        0
         >>> print negatives.intersection(zero)
         <Empty>
         >>> print nonzero.intersection(positives)
@@ -1592,7 +1611,7 @@ class BaseIntervalSet(object):
         >>> empty     = IntervalSet.empty()
         >>> all       = IntervalSet.all()
         >>> print evens | positives
-        [-8..-8],[-6..-6],[-4..-4],[-2..-2],[0...)
+        -8,-6,-4,-2,[0...)
         >>> print negatives | zero
         (...0]
         >>> print empty | negatives
@@ -1602,7 +1621,7 @@ class BaseIntervalSet(object):
         >>> print nonzero | evens
         (...)
         >>> print negatives | range(5)
-        (...0],[1..1],[2..2],[3..3],[4..4]
+        (...0],1,2,3,4
         """
         if not isinstance(other, BaseIntervalSet):
             other = self.__class__(other)
@@ -1628,7 +1647,7 @@ class BaseIntervalSet(object):
         >>> empty     = IntervalSet.empty()
         >>> all       = IntervalSet.all()
         >>> print evens.union(positives)
-        [-8..-8],[-6..-6],[-4..-4],[-2..-2],[0...)
+        -8,-6,-4,-2,[0...)
         >>> print negatives.union(zero)
         (...0]
         >>> print empty.union(negatives)
@@ -1638,7 +1657,7 @@ class BaseIntervalSet(object):
         >>> print nonzero.union(evens)
         (...)
         >>> print negatives.union(range(5))
-        (...0],[1..1],[2..2],[3..3],[4..4]
+        (...0],1,2,3,4
         """
         return self | other
 
@@ -1686,9 +1705,9 @@ class BaseIntervalSet(object):
         >>> print positives.symmetric_difference(empty)
         (0...)
         >>> print evens.symmetric_difference(zero)
-        [-8..-8],[-6..-6],[-4..-4],[-2..-2],[2..2],[4..4],[6..6],[8..8]
+        -8,-6,-4,-2,2,4,6,8
         >>> print evens.symmetric_difference(range(0, 9, 2))
-        [-8..-8],[-6..-6],[-4..-4],[-2..-2]
+        -8,-6,-4,-2
         """
         return self ^ other
 
@@ -2102,8 +2121,8 @@ class BaseIntervalSet(object):
         """Only supports multiple intervals using the '..' notation. If using
         comma notation on the intervals this will split incorrectly.
         
-        >>> print BaseIntervalSet.from_string('[12..12], (13.4..32],[321...)')
-        [12..12],(13.4..32],[321...)
+        >>> print BaseIntervalSet.from_string('12, 13.4,[321...)')
+        12,13.4,[321...)
         >>> print BaseIntervalSet.from_string('(...3),(3...)')
         (...3),(3...)
         """
