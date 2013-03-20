@@ -2090,6 +2090,25 @@ class BaseIntervalSet(object):
         <Empty>
         """
         return cls()
+    
+    @classmethod
+    def from_string(cls, interval_set_repr):
+        """Only supports multiple intervals using the '..' notation. If using
+        comma notation on the intervals this will split incorrectly.
+        
+        >>> print BaseIntervalSet.from_string('[12..12], (13.4..32],[321...)')
+        [12..12],(13.4..32],[321...)
+        >>> print BaseIntervalSet.from_string('(...3),(3...)')
+        (...3),(3...)
+        """
+        c = cls()
+        for interval_repr in interval_set_repr.split(','):
+            i = Interval.from_string(interval_repr.strip())
+            c._add(i)
+        return c
+    
+    #TODO: Implement __eq__ for string and ._add() to allow string intervals!
+    
 
 class IntervalSet(BaseIntervalSet):
     """The mutable version of BaseIntervalSet
