@@ -3267,10 +3267,18 @@ class TestLatitudeAtTouchdown(unittest.TestCase, NodeTest):
             ('Latitude', 'Touchdown'),
             ('Touchdown', 'AFR Landing Airport'),
             ('Touchdown', 'AFR Landing Runway'),
+            ('Touchdown', 'Latitude Coarse'),
             ('Latitude', 'Touchdown', 'AFR Landing Airport'),
             ('Latitude', 'Touchdown', 'AFR Landing Runway'),
+            ('Latitude', 'Touchdown', 'Latitude Coarse'),
             ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+            ('Touchdown', 'AFR Landing Airport', 'Latitude Coarse'),
+            ('Touchdown', 'AFR Landing Runway', 'Latitude Coarse'),
             ('Latitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+            ('Latitude', 'Touchdown', 'AFR Landing Airport', 'Latitude Coarse'),
+            ('Latitude', 'Touchdown', 'AFR Landing Runway', 'Latitude Coarse'),
+            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Latitude Coarse'),
+            ('Latitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Latitude Coarse')
         ]
 
     def test_derive_with_latitude(self):
@@ -3279,10 +3287,11 @@ class TestLatitudeAtTouchdown(unittest.TestCase, NodeTest):
         tdwns = KTI(name='Touchdown')
         afr_land_rwy = None
         afr_land_apt = None
+        lat_c = None
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lat, tdwns, afr_land_rwy, afr_land_apt)
+        node.derive(lat, tdwns, afr_land_rwy, afr_land_apt, lat_c)
         node.create_kpvs_at_ktis.assert_called_once_with(lat.array, tdwns)
         assert not node.create_kpv.called, 'method should not have been called'
 
@@ -3294,10 +3303,11 @@ class TestLatitudeAtTouchdown(unittest.TestCase, NodeTest):
             'end': {'latitude': 1, 'longitude': 1},
         })
         afr_land_apt = None
+        lat_c = None
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lat, tdwns, afr_land_apt, afr_land_rwy)
+        node.derive(lat, tdwns, afr_land_apt, afr_land_rwy, lat_c)
         lat_m, lon_m = midpoint(0, 0, 1, 1)
         node.create_kpv.assert_called_once_with(tdwns[-1].index, lat_m)
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
@@ -3310,10 +3320,11 @@ class TestLatitudeAtTouchdown(unittest.TestCase, NodeTest):
             'latitude': 1,
             'longitude': 1,
         })
+        lat_c = None
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lat, tdwns, afr_land_apt, afr_land_rwy)
+        node.derive(lat, tdwns, afr_land_apt, afr_land_rwy, lat_c)
         node.create_kpv.assert_called_once_with(tdwns[-1].index, 1)
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 
@@ -3423,12 +3434,17 @@ class TestLongitudeAtTouchdown(unittest.TestCase, NodeTest):
         self.node_class = LongitudeAtTouchdown
         self.operational_combinations = [
             ('Longitude', 'Touchdown'),
-            ('Touchdown', 'AFR Landing Airport'),
-            ('Touchdown', 'AFR Landing Runway'),
+            ('Touchdown', 'Longitude Coarse'),
             ('Longitude', 'Touchdown', 'AFR Landing Airport'),
             ('Longitude', 'Touchdown', 'AFR Landing Runway'),
-            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+            ('Longitude', 'Touchdown', 'Longitude Coarse'),
+            ('Touchdown', 'AFR Landing Airport', 'Longitude Coarse'),
+            ('Touchdown', 'AFR Landing Runway', 'Longitude Coarse'),
             ('Longitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
+            ('Longitude', 'Touchdown', 'AFR Landing Airport', 'Longitude Coarse'),
+            ('Longitude', 'Touchdown', 'AFR Landing Runway', 'Longitude Coarse'),
+            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Longitude Coarse'),
+            ('Longitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Longitude Coarse')
         ]
 
     def test_derive_with_longitude(self):
@@ -3437,10 +3453,11 @@ class TestLongitudeAtTouchdown(unittest.TestCase, NodeTest):
         tdwns = KTI(name='Touchdown')
         afr_land_rwy = None
         afr_land_apt = None
+        lat_c = None
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lon, tdwns, afr_land_rwy, afr_land_apt)
+        node.derive(lon, tdwns, afr_land_rwy, afr_land_apt, lat_c)
         node.create_kpvs_at_ktis.assert_called_once_with(lon.array, tdwns)
         assert not node.create_kpv.called, 'method should not have been called'
 
@@ -3452,10 +3469,11 @@ class TestLongitudeAtTouchdown(unittest.TestCase, NodeTest):
             'end': {'latitude': 1, 'longitude': 1},
         })
         afr_land_apt = None
+        lat_c = None
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lon, tdwns, afr_land_apt, afr_land_rwy)
+        node.derive(lon, tdwns, afr_land_apt, afr_land_rwy, lat_c)
         lat_m, lon_m = midpoint(0, 0, 1, 1)
         node.create_kpv.assert_called_once_with(tdwns[-1].index, lon_m)
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
@@ -3468,10 +3486,11 @@ class TestLongitudeAtTouchdown(unittest.TestCase, NodeTest):
             'latitude': 1,
             'longitude': 1,
         })
+        lat_c = None
         node = self.node_class()
         node.create_kpv = Mock()
         node.create_kpvs_at_ktis = Mock()
-        node.derive(lon, tdwns, afr_land_apt, afr_land_rwy)
+        node.derive(lon, tdwns, afr_land_apt, afr_land_rwy, lat_c)
         node.create_kpv.assert_called_once_with(tdwns[-1].index, 1)
         assert not node.create_kpvs_at_ktis.called, 'method should not have been called'
 

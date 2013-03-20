@@ -3101,24 +3101,32 @@ class LatitudeAtTouchdown(KeyPointValueNode):
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
-        one_of = lambda *names: any(name in available for name in names)
-        return 'Touchdown' in available and any((
-            'Latitude' in available,
-            one_of('AFR Landing Runway', 'AFR Landing Airport'),
-        ))
+        return 'Touchdown' in available and any_of(('Latitude',
+                                                  'Latitude Coarse',
+                                                  'AFR Landing Runway',
+                                                  'AFR Landing Airport'),
+                                                 available)
 
     def derive(self,
             lat=P('Latitude'),
             tdwns=KTI('Touchdown'),
             land_afr_apt=A('AFR Landing Airport'),
-            land_afr_rwy=A('AFR Landing Runway')):
+            land_afr_rwy=A('AFR Landing Runway'),
+            lat_c=P('Latitude Coarse')):
         '''
+        Note that Latitude Coarse is a superframe parameter with poor
+        resolution recorded on some FDAUs. Keeping it at the end of the list
+        of parameters means that it will be aligned to a higher sample rate
+        rather than dragging other parameters down to its sample rate. See
+        767 Delta data frame.
         '''
         # 1. Attempt to use latitude parameter if available:
         if lat:
             self.create_kpvs_at_ktis(lat.array, tdwns)
+            return
+
+        if lat_c:
+            self.create_kpvs_at_ktis(lat_c.array, tdwns)
             return
 
         value = None
@@ -3162,24 +3170,28 @@ class LongitudeAtTouchdown(KeyPointValueNode):
 
     @classmethod
     def can_operate(cls, available):
-        '''
-        '''
-        one_of = lambda *names: any(name in available for name in names)
-        return 'Touchdown' in available and any((
-            'Longitude' in available,
-            one_of('AFR Landing Runway', 'AFR Landing Airport'),
-        ))
+        return 'Touchdown' in available and any_of(('Longitude',
+                                                  'Longitude Coarse',
+                                                  'AFR Touchdown Runway',
+                                                  'AFR Touchdown Airport'),
+                                                 available)
 
     def derive(self,
             lon=P('Longitude'),
             tdwns=KTI('Touchdown'),
             land_afr_apt=A('AFR Landing Airport'),
-            land_afr_rwy=A('AFR Landing Runway')):
+            land_afr_rwy=A('AFR Landing Runway'),
+            lon_c=P('Longitude Coarse')):
         '''
+        See note relating to coarse latitude and longitude under Latitude At Touchdown
         '''
         # 1. Attempt to use longitude parameter if available:
         if lon:
             self.create_kpvs_at_ktis(lon.array, tdwns)
+            return
+
+        if lon_c:
+            self.create_kpvs_at_ktis(lon_c.array, tdwns)
             return
 
         value = None
