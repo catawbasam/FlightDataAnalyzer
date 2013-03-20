@@ -40,7 +40,9 @@ from analysis_engine.flight_phase import (Airborne,
                                           )
 from analysis_engine.key_time_instances import TopOfClimb, TopOfDescent
 from analysis_engine.library import integrate
-from analysis_engine.node import (A, App, ApproachItem, M, Parameter, P,
+from analysis_engine.node import (A, App, ApproachItem, 
+                                  FlightPhaseNode,
+                                  M, Parameter, P,
                                   Section, SectionNode, load)
 from analysis_engine.process_flight import process_flight
 
@@ -183,17 +185,20 @@ class TestApproachAndLanding(unittest.TestCase):
         ga = buildsection('Go Around And Climbout', 8, 13)
         app = ApproachAndLanding()
         app.derive(
-            Parameter('Altitude AAL For Flight Phases', alt), land, ga)
-        self.assertEqual(app.get_slices(), [slice(4.0, 20)])
+            Parameter('Altitude AAL For Flight Phases', alt), 
+            lands=phase('[11..20]'), 
+            go_arounds=phase('[8..13]'))
+        self.assertEqual(app, '[4.0..20]')
 
     def test_approach_and_landing_landing_and_go_around_overlap(self):
-        alt = np.ma.array([3500, 2500, 2000, 2500, 3500, 3500])
-        land = buildsection('Landing', 5, 6)
-        ga = buildsection('Go Around And Climbout', 2.5, 3.5)
+        alt = np.ma.array([3500, 2500, 2000, 2500, 3500, 3500, 3500])
         app = ApproachAndLanding()
         app.derive(
-            Parameter('Altitude AAL For Flight Phases', alt), land, ga)
-        self.assertEqual(app.get_slices(), [slice(0, 6)])
+            Parameter('Altitude AAL For Flight Phases', alt),
+            lands=phase('[5..6]'), 
+            go_arounds=phase('[2.5..3.5]'))
+        # 3000 feet starts half a sample into data, data ends after 6 samples
+        self.assertEqual(app, '[0.5..6]')
 
     def test_approach_and_landing_separate_landing_phase_go_around(self):
         alt = np.ma.array([3500, 2500, 2000, 2500, 3500, 3500])
@@ -201,8 +206,10 @@ class TestApproachAndLanding(unittest.TestCase):
         ga = buildsection('Go Around And Climbout', 1.5, 2.0)
         app = ApproachAndLanding()
         app.derive(
-            Parameter('Altitude AAL For Flight Phases', alt), land, ga)
-        self.assertEqual(app.get_slices(), [slice(0, 2), slice(3, 6)])
+            Parameter('Altitude AAL For Flight Phases', alt),
+            lands=phase('[5..6]'), 
+            go_arounds=phase('[1.5..2]'))
+        self.assertEqual(app, '[0.5..2], [3.5..6]')
 
 
 class TestApproach(unittest.TestCase):

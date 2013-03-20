@@ -31,7 +31,7 @@ from analysis_engine.library import (
     slices_remove_small_gaps
 )
 
-from analysis_engine.node import FlightPhaseNode, A, P, S, KTI, M
+from analysis_engine.node import FlightPhaseNode, A, P, S, Section, KTI, M
 
 from analysis_engine.settings import (
     AIRBORNE_THRESHOLD_TIME,
@@ -198,14 +198,14 @@ class ApproachAndLanding(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                lands=S('Landing'), go_arounds=S('Go Around And Climbout')):
         # Prepare to extract the slices
-        app_slices = []
-        ga_slices = []
+        app_slices = FlightPhaseNode()
+        ga_slices = FlightPhaseNode()
 
         for land in lands:
             app_start = index_closest_value(
                 alt_aal.array, INITIAL_APPROACH_THRESHOLD,
-                slice(land.slice.start, 0, -1))
-            app_slices.append(slice(app_start, land.slice.stop))
+                slice(land.lower_bound, 0, -1))
+            app_slices.add(Section(app_start, land.upper_bound))
 
         last_ga = 0
         for ga in go_arounds:
@@ -217,17 +217,16 @@ class ApproachAndLanding(FlightPhaseNode):
             # which are inherently ordered.
             gapp_start = index_closest_value(
                 alt_aal.array, INITIAL_APPROACH_THRESHOLD,
-                slice(ga.slice.start, last_ga, -1))
-            ga_slices.append(slice(gapp_start, ga.slice.stop))
-            last_ga = ga.slice.stop
+                slice(ga.lower_bound, last_ga, -1))
+            ga_slices.add(Section(gapp_start, ga.upper_bound))
+            last_ga = ga.upper_bound
 
-        all_apps = slices_or(app_slices, ga_slices)
+        all_apps = app_slices | ga_slices
 
         if not all_apps:
             self.warning('Flight with no valid approach or go-around phase. '
                          'Probably truncated data')
-
-        self.create_phases(all_apps)
+        self.update(all_apps)
 
 
 class Approach(FlightPhaseNode):
