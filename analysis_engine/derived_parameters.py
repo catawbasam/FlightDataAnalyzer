@@ -4143,6 +4143,9 @@ class ThrustAsymmetry(DerivedParameterNode):
     used to identify imbalance of thrust and as the thrust comes from engine
     speed, N1 is still applicable.
 
+    Using a 5 second moving average to desensitise the parameter against
+    transient differences as engines accelerate.
+
     If we have EPR rated engines, but no N1 recorded, a possible solution
     would be to treat EPR=2.0 as 100% and EPR=1.0 as 0% so the Thrust
     Asymmetry would be simply (EPRmax-EPRmin)*100.
@@ -4154,7 +4157,8 @@ class ThrustAsymmetry(DerivedParameterNode):
     units = '%'
 
     def derive(self, max_n1=P('Eng (*) N1 Max'), min_n1=P('Eng (*) N1 Min')):
-        self.array = max_n1.array - min_n1.array
+        window = 5 * self.frequency # 5 second window
+        self.array = moving_average(max_n1.array - min_n1.array, window=window)
 
 
 class ThrustReversers(MultistateDerivedParameterNode):
