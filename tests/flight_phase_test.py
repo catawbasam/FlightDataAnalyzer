@@ -144,7 +144,7 @@ class TestAirborne(unittest.TestCase):
                                     range(400,-400,-20)+
                                     range(-400,50,20))
         altitude = Parameter('Altitude AAL For Flight Phases', integrate(vert_spd_data, 1, 0, 1.0/60.0))
-        fast = SectionNode('Fast', items=[Section(3, 80)])
+        fast = SectionNode(items=[Section(3, 80)])
         air = Airborne()
         air.derive(altitude, fast)
         expected = [Section(8, 80, name='Airborne')]
@@ -156,7 +156,8 @@ class TestAirborne(unittest.TestCase):
         fast = []
         air = Airborne()
         air.derive(alt_aal, fast)
-        self.assertEqual(air, [])
+        self.assertEqual(air, SectionNode([]))
+        self.assertEqual(air, '<Empty>')
 
     def test_airborne_phase_started_midflight(self):
         altitude_data = np.ma.array([100]*20+[60,30,10]+[0]*4)
@@ -166,6 +167,7 @@ class TestAirborne(unittest.TestCase):
         air.derive(alt_aal, fast)
         expected = buildsection('Airborne', 0, 22)
         self.assertEqual(air, expected)
+        self.assertEqual(air, '[0..22]')
 
     def test_airborne_phase_ends_in_midflight(self):
         altitude_data = np.ma.array([0]*5+[30,80]+[100]*20)
@@ -175,6 +177,7 @@ class TestAirborne(unittest.TestCase):
         air.derive(alt_aal, fast)
         expected = buildsection('Airborne', 5, 26) # end of flight
         self.assertEqual(list(air), list(expected))
+        self.assertEqual(air, '[5..26]')
 
 
 class TestApproachAndLanding(unittest.TestCase):
