@@ -1155,7 +1155,7 @@ class BaseIntervalSet(object):
         except IndexError:
             raise IndexError("Index is out of range")
 
-    def __iter__(self):  #FIXME: Duplicate of the other__iter__?
+    def __iter__(self):
         """Returns an iterator to iterate through the intervals
 
         Unlike sets, which do not have ordering, BaseIntervalSets do.  Therefore,
@@ -1175,6 +1175,36 @@ class BaseIntervalSet(object):
         2
         3
         5
+        
+        >>> s = IntervalSet(
+        ...   [2, 7, 2, 87, 4, 3, Interval.greater_than(12),
+        ...   Interval.less_than(-2)])
+        >>> l = set()
+        >>> for i in s:
+        ...   l.add(str(i))
+        ...
+        >>> print len(l)
+        6
+        >>> "2" in l
+        True
+        >>> "7" in l
+        True
+        >>> "87" in l
+        False
+        >>> "4" in l
+        True
+        >>> "3" in l
+        True
+        >>> "(12...)" in l
+        True
+        >>> "(...-2)" in l
+        True
+
+        >>> s = IntervalSet([2])
+        >>> for i in s:
+        ...   i == '2'
+        ...
+        True
         """
         return self.intervals.__iter__()
 
@@ -1364,50 +1394,7 @@ class BaseIntervalSet(object):
             if obj in r:
                 return True
         return False
-
-    def __iter__(self):  #FIXME: Duplicate of the other__iter__?
-        """Returns an iterator over the intervals in the set
-
-        >>> s = IntervalSet(
-        ...   [2, 7, 2, 87, 4, 3, Interval.greater_than(12),
-        ...   Interval.less_than(-2)])
-        >>> l = set()
-        >>> for i in s:
-        ...   l.add(str(i))
-        ...
-        >>> print len(l)
-        6
-        >>> "2" in l
-        True
-        >>> "7" in l
-        True
-        >>> "87" in l
-        False
-        >>> "4" in l
-        True
-        >>> "3" in l
-        True
-        >>> "(12...)" in l
-        True
-        >>> "(...-2)" in l
-        True
-
-        Though an IntervalSet contains only Interval objects, we pretend
-        that they contain discrete objects as well.
-
-        >>> s = IntervalSet([2])
-        >>> for i in s:
-        ...   i == 2
-        ...
-        True
-        """
-        for i in self.intervals:
-            # Return point Intervals as the values they abstract
-            if i.lower_bound == i.upper_bound:
-                yield i.lower_bound
-            else:
-                yield i
-
+    
     def __add__(self, other):
         """Returns the union of two IntervalSets
 
@@ -2141,7 +2128,7 @@ class BaseIntervalSet(object):
         """
         c = cls()
         for interval_repr in interval_set_repr.split(','):
-            i = Interval.from_string(interval_repr.strip())
+            i = cls._interval.from_string(interval_repr.strip())
             c._add(i)
         return c
     
