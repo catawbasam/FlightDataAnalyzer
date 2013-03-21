@@ -104,6 +104,7 @@ class ApproachInformation(ApproachNode):
         else:
             # No suitable coordinates, so fall through and try AFR.
             self.warning('No coordinates for looking up approach airport.')
+            return None, None
 
         # A2. If and we have an airport in achieved flight record, use it:
         # NOTE: AFR data is only provided if this approach is a landing.
