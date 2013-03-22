@@ -316,9 +316,13 @@ from analysis_engine.key_point_values import (
     WindDirectionAtAltitudeDuringDescent,
     WindSpeedAtAltitudeDuringDescent,
     ZeroFuelWeight,
-    TakeoffConfigWarningDuration,
     MasterWarningDuringTakeoffDuration,
     MasterCautionDuringTakeoffDuration,
+    TakeoffConfigurationWarningDuration,
+    TakeoffConfigurationFlapWarningDuration,
+    TakeoffConfigurationParkingBrakeWarningDuration,
+    TakeoffConfigurationSpoilerWarningDuration,
+    TakeoffConfigurationStabilizerWarningDuration,
     TAWSAlertDuration,
     TAWSGeneralWarningDuration,
     TAWSSinkRateWarningDuration,
@@ -5055,18 +5059,6 @@ class TestTailwind100FtToTouchdownMax(unittest.TestCase, NodeTest):
 
 
 # TODO: Need a CreateKPVsWhereStateTest super class!
-class TestTakeoffConfigWarningDuration(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = TakeoffConfigWarningDuration
-        self.operational_combinations = [('Takeoff Config Warning', 'Takeoff Roll')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestMasterWarningDuringTakeoffDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5368,6 +5360,70 @@ class TestTCASRAToAPDisengagedDuration(unittest.TestCase, NodeTest):
         self.assertEqual([KeyPointValue(7.0, 5.0,
                                         'TCAS RA To AP Disengaged Duration')],
                          node)
+
+
+##############################################################################
+# Warnings: Takeoff Configuration
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTakeoffConfigurationWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TakeoffConfigurationWarningDuration
+        self.operational_combinations = [('Takeoff Configuration Warning', 'Takeoff Roll')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTakeoffConfigurationFlapWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TakeoffConfigurationFlapWarningDuration
+        self.operational_combinations = [('Takeoff Configuration Flap Warning', 'Takeoff Roll')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTakeoffConfigurationParkingBrakeWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TakeoffConfigurationParkingBrakeWarningDuration
+        self.operational_combinations = [('Takeoff Configuration Parking Brake Warning', 'Takeoff Roll')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTakeoffConfigurationSpoilerWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TakeoffConfigurationSpoilerWarningDuration
+        self.operational_combinations = [('Takeoff Configuration Spoiler Warning', 'Takeoff Roll')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTakeoffConfigurationStabilizerWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TakeoffConfigurationStabilizerWarningDuration
+        self.operational_combinations = [('Takeoff Configuration Stabilizer Warning', 'Takeoff Roll')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 ##############################################################################
