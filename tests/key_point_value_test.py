@@ -191,6 +191,7 @@ from analysis_engine.key_point_values import (
     HeadingDeviationFromRunwayAtTOGADuringTakeoff,
     HeadingDeviationFromRunwayAt50FtDuringLanding,
     HeadingDeviationFromRunwayDuringLandingRoll,
+    HeadingVariation300To50Ft,
     HeadingVariation500To50Ft,
     HeadingVariationAbove100KtsAirspeedDuringLanding,
     HeadingVariationTouchdownPlus4SecTo60KtsAirspeed,
@@ -3848,6 +3849,20 @@ class TestHeadingDeviationFromRunwayDuringLandingRoll(unittest.TestCase, NodeTes
             'Heading True Continuous',
             'Landing Roll',
             'FDR Landing Runway',
+        )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestHeadingVariation300To50Ft(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = HeadingVariation300To50Ft
+        self.operational_combinations = [(
+            'Heading Continuous',
+            'Altitude AAL For Flight Phases',
         )]
 
     @unittest.skip('Test Not Implemented')

@@ -4653,6 +4653,19 @@ class HeadingDeviationFromRunwayDuringLandingRoll(KeyPointValueNode):
         self.create_kpv_from_slices(dev, [final_landing], max_abs_value)
 
 
+class HeadingVariation300To50Ft(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self,
+               head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        for band in alt_aal.slices_from_to(300, 50):
+            dev = np.ma.ptp(head.array[band])
+            self.create_kpv(band.stop, dev)
+
+
 class HeadingVariation500To50Ft(KeyPointValueNode):
     '''
     '''
