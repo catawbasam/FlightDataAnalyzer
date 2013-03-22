@@ -2813,6 +2813,29 @@ def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
     return new_list
             
 
+def slices_remove_small_slices(slice_list, time_limit=10, hz=1):
+    '''
+    Routine to remove small slices in a list of slices.
+
+    :param slice_list: list of slices to be processed
+    :type slice_list: list of Python slices.
+    :param time_limit: Tolerance below which slice will be rejected.
+    :type time_limit: integer (sec)
+    :param hz: sample rate for the parameter
+    :type hz: float
+
+    :returns: slice list.
+    '''
+    sample_limit = time_limit * hz
+    if slice_list is None :
+        return slice_list
+    new_list = []
+    for each_slice in slice_list:
+        if each_slice.stop - each_slice.start > sample_limit:
+            new_list.append(each_slice)
+    return new_list
+            
+
 """
 def section_contains_kti(section, kti):
     '''
