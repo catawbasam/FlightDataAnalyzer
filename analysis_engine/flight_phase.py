@@ -18,6 +18,7 @@ from analysis_engine.library import (
     index_closest_value,
     is_index_within_slice,
     is_slice_within_slice,
+    max_value,
     moving_average,
     rate_of_change,
     repair_mask,
@@ -261,6 +262,23 @@ class BouncedLanding(FlightPhaseNode):
     
     def derive(self, alt_aal=P('Altitude AAL'), airs=S('Airborne'),
                fast=S('Fast')):
+        #overlaps = airs & fast
+        #for overlap in overlaps:
+            #if overlap.duration(self.frequency) > BOUNCED_MAXIMUM_DURATION:
+                ## duration too long to be a bounced landing!
+                ## possible cause: Touch and go.
+                #continue
+            
+            #ht = max_value(alt_aal.array, overlap)
+            #if BOUNCED_LANDING_THRESHOLD < ht.value < BOUNCED_MAXIMUM_HEIGHT:
+                ## we have a bounce, mark the duration
+                ###self.add(overlap)
+                #scan = alt_aal.array[overlap.slice]
+                #up = np.ma.clump_unmasked(np.ma.masked_less_equal(scan, 0.0))
+                #start = overlap.slice.start
+                #self.create_phase(up[0].start + start, up[-1].stop + start -1)
+                        
+                        
         for speedy in fast:
             for air in airs:
                 if slices_overlap(speedy.slice, air.slice):
