@@ -2611,6 +2611,17 @@ class TestEng_4_FuelBurn(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestEng_FuelBurn(unittest.TestCase):
+
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestEng_GasTempAvg(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):

@@ -1680,6 +1680,31 @@ class Eng_4_FuelBurn(DerivedParameterNode):
         self.array = np.ma.array(integrate(flow / 3600.0, ff.frequency))
 
 
+class Eng_FuelBurn(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Fuel Burn'
+    units = 'kg'
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+
+        # Works with any combination of parameters available:
+        return any(d in available for d in cls.get_dependency_names())
+
+    def derive(self,
+               eng1=P('Eng (1) Fuel Burn'),
+               eng2=P('Eng (2) Fuel Burn'),
+               eng3=P('Eng (3) Fuel Burn'),
+               eng4=P('Eng (4) Fuel Burn')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.sum(engines, axis=0)
+        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+
+
 ################################################################################
 # Engine Gas Temperature
 
