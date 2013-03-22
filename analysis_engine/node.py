@@ -104,6 +104,34 @@ class Section(Interval):
         if lower_bound > upper_bound:
             raise TypeError("Cannot create a Section which stops before it starts")
         super(Section, self).__init__(lower_bound, upper_bound, **kwargs)
+        
+    @property
+    def size(self):
+        '''
+        Difference between lower and upper bound of the section. Returns Infinity
+        should it start or end in Infinity!
+        
+        :returns: Difference of lower and upper bound
+        :rtype: Int/Float/Inf
+        '''
+        if self.lower_bound == -Inf or self.upper_bound == Inf:
+            return Inf
+        return self.upper_bound - self.lower_bound
+    
+    def duration(self, frequency):
+        '''
+        Duration of the section in time (seconds) depends on it's frequency,
+        which it doesn't know about - hence you need to tell it!
+        
+        :param frequency: Frequency at which this section was measured (Hz)
+        :type frequency: Float
+        :returns: Duration in seconds
+        :rtype: Float
+        '''
+        s = self.size 
+        if s == Inf:
+            raise ValueError('Duration is to infinity, and beyond')
+        return s / float(frequency)
             
     @property
     def slice(self):

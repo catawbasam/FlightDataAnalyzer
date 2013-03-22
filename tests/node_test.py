@@ -566,6 +566,17 @@ class TestSection(unittest.TestCase):
         self.assertFalse(Section(10, 12).overlaps(Section(5, 6)))
         self.assertFalse(Section(10, 12).overlaps(Section(None, 6)))
         self.assertFalse(Section(10, 12).overlaps(Section(13, None)))
+        
+    def test_size_and_duration(self):
+        self.assertTrue(Section(10, 20).size, 10)
+        self.assertTrue(Section(None, 20).size, Inf)
+        self.assertTrue(Section(10, None).size, Inf)
+        self.assertTrue(Section(10, 20).duration(2), 5)
+        self.assertTrue(Section(10.9, 12.1), 1.2)
+        self.assertTrue(Section(10.9, 12.1).duration(1), 1.2)
+        self.assertTrue(Section(10.9, 12.1).duration(4), 4.8)
+        sect = Section(10, None)
+        self.assertRaises(ValueError, sect.duration, 2)
 
 
 class TestSectionNode(unittest.TestCase):
