@@ -3718,6 +3718,24 @@ class EngEPR500To50FtMin(KeyPointValueNode):
 
 
 ##############################################################################
+# Engine Fire
+
+
+class EngFireWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self,
+               eng_fire=M('Eng (*) Fire')):
+
+        self.create_kpvs_where_state(
+            'Fire',
+            eng_fire.array,
+            eng_fire.hz,
+        )
+
+
+##############################################################################
 # Engine Gas Temperature
 
 

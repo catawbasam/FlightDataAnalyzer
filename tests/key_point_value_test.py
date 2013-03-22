@@ -127,6 +127,7 @@ from analysis_engine.key_point_values import (
     EngEPRDuringMaximumContinuousPowerMax,
     EngEPR500To50FtMax,
     EngEPR500To50FtMin,
+    EngFireWarningDuration,
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
     EngGasTempDuringMaximumContinuousPowerMax,
@@ -2655,6 +2656,22 @@ class TestEngEPR500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+##############################################################################
+# Engine Fire
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestEngFireWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngFireWarningDuration
+        self.operational_combinations = [('Eng (*) Fire', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 ##############################################################################
