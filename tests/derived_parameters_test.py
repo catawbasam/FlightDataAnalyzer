@@ -57,6 +57,7 @@ from analysis_engine.derived_parameters import (
     DistanceTravelled,
     DistanceToLanding,
     Elevator,
+    Eng_Fire,
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
@@ -2552,6 +2553,17 @@ class TestEng_EPRMin(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_Fire(unittest.TestCase):
+
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')

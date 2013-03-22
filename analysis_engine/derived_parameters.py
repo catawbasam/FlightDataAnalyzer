@@ -1588,6 +1588,35 @@ class Eng_EPRMin(DerivedParameterNode):
 
 
 ################################################################################
+# Engine Fire
+
+
+class Eng_Fire(MultistateDerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) Fire'
+    values_mapping = {0: '-', 1: 'Fire'}
+
+    @classmethod
+    def can_operate(cls, available):
+
+        # Works with any combination of parameters available:
+        return any(d in available for d in cls.get_dependency_names())
+
+    def derive(self,
+               eng1=M('Eng (1) Fire'),
+               eng2=M('Eng (2) Fire'),
+               eng3=M('Eng (3) Fire'),
+               eng4=M('Eng (4) Fire')):
+
+        self.array = vstack_params_where_state((
+            (eng1, 'Fire'), (eng2, 'Fire'),
+            (eng3, 'Fire'), (eng4, 'Fire'),
+        )).any(axis=0)
+
+
+################################################################################
 # Engine Fuel Flow
 
 
