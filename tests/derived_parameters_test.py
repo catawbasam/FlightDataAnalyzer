@@ -60,6 +60,7 @@ from analysis_engine.derived_parameters import (
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
+    Eng_N1MinFor5Sec,
     Eng_N2Avg,
     Eng_N2Max,
     Eng_N2Min,
@@ -1459,8 +1460,19 @@ class TestEng_N1Min(unittest.TestCase):
             np.array([999, # both masked, so filled with 999
                       1,2,3,4,5,6,7,8,9])
         )
-        
-        
+
+
+class TestEng_N1MinFor5Sec(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_N1MinFor5Sec
+        self.operational_combinations = [('Eng (*) N1 Min',)]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestEng_N2Avg(unittest.TestCase):
     def test_can_operate(self):
         opts = Eng_N2Avg.get_operational_combinations()

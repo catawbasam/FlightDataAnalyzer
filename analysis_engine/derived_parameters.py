@@ -1810,6 +1810,19 @@ class Eng_N1Min(DerivedParameterNode):
         self.array = np.ma.min(engines, axis=0)
 
 
+class Eng_N1MinFor5Sec(DerivedParameterNode):
+    '''
+    Returns the lowest N1 for up to four engines over five seconds.
+    '''
+
+    name = 'Eng (*) N1 Min For 5 Sec'
+    units = '%'
+
+    def derive(self, eng_n1_min=P('Eng (*) N1 Min')):
+
+        self.array = clip(eng_n1_min.array, 5.0, eng_n1_min.frequency)
+
+
 ################################################################################
 # Engine N2
 
