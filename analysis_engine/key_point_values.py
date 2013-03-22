@@ -3995,7 +3995,7 @@ class EngN1500To50FtMin(KeyPointValueNode):
     units = '%'
 
     def derive(self,
-               eng_n1_min=P('Eng (*) N1 Min'),
+               eng_n1_min=P('Eng (*) N1 Min For 5 Sec'),
                alt_aal=P('Altitude AAL For Flight Phases')):
 
         self.create_kpvs_within_slices(

@@ -2810,7 +2810,7 @@ class TestEngN1500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
         self.node_class = EngN1500To50FtMin
-        self.operational_combinations = [('Eng (*) N1 Min', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Eng (*) N1 Min For 5 Sec', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
 
