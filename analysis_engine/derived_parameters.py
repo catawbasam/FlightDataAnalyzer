@@ -288,6 +288,8 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
     See the derived parameter 'Airspeed Minus V2'.
     '''
 
+    units = 'kts'
+
     def derive(self, spd_v2=P('Airspeed Minus V2')):
         '''
         '''
