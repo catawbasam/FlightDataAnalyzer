@@ -109,6 +109,7 @@ AT_WASHOUT_TC = 60.0
 # threshold is higher than this.
 BOUNCED_LANDING_THRESHOLD = 2.0
 BOUNCED_MAXIMUM_DURATION = 20  # sec
+BOUNCED_MAXIMUM_HEIGHT = 100  # ft
 
 # Force to start checking control stiffness. Intended to be the same setting
 # for all three flying controls.

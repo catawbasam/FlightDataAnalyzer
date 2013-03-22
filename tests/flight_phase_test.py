@@ -230,41 +230,47 @@ class TestApproach(unittest.TestCase):
 
 class TestBouncedLanding(unittest.TestCase):
     def test_bounce_basic(self):
-        fast = buildsection('Fast',2,13)
-        airborne = buildsection('Airborne', 3,10)
+        fast = phase('[2..13]')
+        airborne = phase('[3..10]')
         alt = np.ma.array([0,0,0,2,10,30,10,2,0,0,0,0,0,0])
         bl = BouncedLanding()
         bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
-        expected = []
-        self.assertEqual(bl, expected)
+        self.assertEqual(bl, '<Empty>')
 
     def test_bounce_with_bounce(self):
-        fast = buildsection('Fast',2,13)
-        airborne = buildsection('Airborne', 3,8)
+        fast = phase('[2..13]')
+        airborne = phase('[3..8]')
         alt = np.ma.array([0,0,0,2,10,30,10,2,0,3,3,0,0,0])
         bl = BouncedLanding()
         bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
-        expected = buildsection('Bounced Landing', 9, 11)
-        self.assertEqual(bl, expected)
+        self.assertEqual(bl, '[9..11]')
 
     def test_bounce_with_double_bounce(self):
-        fast = buildsection('Fast',2,13)
-        airborne = buildsection('Airborne', 3,8)
+        fast = phase('[2..13]')
+        airborne = phase('[3..8]')
         alt = np.ma.array([0,0,0,2,10,30,10,2,0,3,0,5,0])
         bl = BouncedLanding()
         bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
-        expected = buildsection('Bounced Landing', 9, 12)
-        self.assertEqual(bl, expected)
+        self.assertEqual(bl, '[9..12]')
 
     def test_bounce_not_detected_with_multiple_touch_and_go(self):
         # test data is a training flight with many touch and go
         bl = BouncedLanding()
         aal = load(os.path.join(test_data_path, 'alt_aal_training.nod'))
-        airs = load(os.path.join(test_data_path, 'airborne_training.nod'))
-        fast = load(os.path.join(test_data_path, 'fast_training.nod'))
+        airs = phase('[724..1002], [1027..1322], [1347..1982], [2003..2420], '
+                     '[2440..2791], [2814..3212], [3236..3616], [3645..4032], '
+                     '[4061..4671], [4702..5051], [5079..5415], [5440..5768], '
+                     '[5792..6138], [6166..6538], [6562..7197], [7222..7570], '
+                     '[7594..7931], [7957..8289], [8314..8604], [8631..10114]')
+        ##airs = load(os.path.join(test_data_path, 'airborne_training.nod'))
+
+        # 710?
+        fast = phase('[378..10129]')
+        ##fast = load(os.path.join(test_data_path, 'fast_training.nod'))
         bl.derive(aal, airs, fast)
         # should not create any bounced landings (used to create 20 at 8000ft)
         self.assertEqual(len(bl), 0)
+        self.assertEqual(bl, '<Empty>')
 
 
 class TestILSGlideslopeEstablished(unittest.TestCase):

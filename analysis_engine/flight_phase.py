@@ -38,6 +38,7 @@ from analysis_engine.settings import (
     AIRSPEED_THRESHOLD,
     BOUNCED_LANDING_THRESHOLD,
     BOUNCED_MAXIMUM_DURATION,
+    BOUNCED_MAXIMUM_HEIGHT,
     DESCENT_LOW_CLIMB_THRESHOLD,
     GROUNDSPEED_FOR_MOBILE,
     HEADING_RATE_FOR_MOBILE,
@@ -254,9 +255,10 @@ class BouncedLanding(FlightPhaseNode):
     '''
     TODO: Review increasing the frequency for more accurate indexing into the
     altitude arrays.
-
-    Q: Should Airborne be first so we align to its offset?
     '''
+    # force all phases to 0 offset.
+    align_offset = 0
+    
     def derive(self, alt_aal=P('Altitude AAL'), airs=S('Airborne'),
                fast=S('Fast')):
         for speedy in fast:
@@ -272,12 +274,11 @@ class BouncedLanding(FlightPhaseNode):
                         stop += 1
                     scan = alt_aal.array[start:stop]
                     ht = max(scan)
-                    if ht > BOUNCED_LANDING_THRESHOLD:
-                        #TODO: Input maximum BOUNCE_HEIGHT check?
-                        up = np.ma.clump_unmasked(np.ma.masked_less_equal(scan,
-                                                                          0.0))
-                        self.create_phase(
-                            shift_slice(slice(up[0].start, up[-1].stop), start))
+                    if ht > BOUNCED_LANDING_THRESHOLD and \
+                       ht < BOUNCED_MAXIMUM_HEIGHT:
+                        up = np.ma.clump_unmasked(
+                            np.ma.masked_less_equal(scan, 0.0))
+                        self.create_phase(up[0].start + start, up[-1].stop + start)
 
 
 class ClimbCruiseDescent(FlightPhaseNode):
