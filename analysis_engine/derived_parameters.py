@@ -1105,9 +1105,9 @@ class AltitudeSTD(DerivedParameterNode):
     units = 'ft'
     @classmethod
     def can_operate(cls, available):
-        high_and_low = 'Altitude STD Coarse' in available and \
-            'Altitude STD Fine' in available
-        coarse_and_ivv = 'Altitude STD Coarse' in available and \
+        high_and_low = 'Altitude STD (Coarse)' in available and \
+            'Altitude STD (Fine)' in available
+        coarse_and_ivv = 'Altitude STD (Coarse)' in available and \
             'Vertical Speed' in available
         return high_and_low or coarse_and_ivv
 
@@ -1149,8 +1149,8 @@ class AltitudeSTD(DerivedParameterNode):
         return np.ma.masked_array(alt_std_with_lag + (ivv.array / 60.0),
                                   mask=mask)
 
-    def derive(self, alt_std_coarse=P('Altitude STD Coarse'),
-               alt_std_fine=P('Altitude STD Fine'),
+    def derive(self, alt_std_coarse=P('Altitude STD (Coarse)'),
+               alt_std_fine=P('Altitude STD (Fine)'),
                ivv=P('Vertical Speed')):
         if alt_std_high and alt_std_low:
             self.array = self._high_and_low(alt_std_coarse, alt_std_fine)

@@ -1073,8 +1073,8 @@ class TestAltitudeQNH(unittest.TestCase):
 class TestAltitudeSTD(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeSTD.get_operational_combinations(),
-          [('Altitude STD Coarse', 'Altitude STD Fine'),
-           ('Altitude STD Coarse', 'Vertical Speed')])
+          [('Altitude STD (Coarse)', 'Altitude STD (Fine)'),
+           ('Altitude STD (Coarse)', 'Vertical Speed')])
     
     def test__high_and_low(self):
         high_values = np.ma.array([15000, 16000, 17000, 18000, 19000, 20000,

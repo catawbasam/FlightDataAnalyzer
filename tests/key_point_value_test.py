@@ -3267,18 +3267,18 @@ class TestLatitudeAtTouchdown(unittest.TestCase, NodeTest):
             ('Latitude', 'Touchdown'),
             ('Touchdown', 'AFR Landing Airport'),
             ('Touchdown', 'AFR Landing Runway'),
-            ('Touchdown', 'Latitude Coarse'),
+            ('Touchdown', 'Latitude (Coarse)'),
             ('Latitude', 'Touchdown', 'AFR Landing Airport'),
             ('Latitude', 'Touchdown', 'AFR Landing Runway'),
-            ('Latitude', 'Touchdown', 'Latitude Coarse'),
+            ('Latitude', 'Touchdown', 'Latitude (Coarse)'),
             ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
-            ('Touchdown', 'AFR Landing Airport', 'Latitude Coarse'),
-            ('Touchdown', 'AFR Landing Runway', 'Latitude Coarse'),
+            ('Touchdown', 'AFR Landing Airport', 'Latitude (Coarse)'),
+            ('Touchdown', 'AFR Landing Runway', 'Latitude (Coarse)'),
             ('Latitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
-            ('Latitude', 'Touchdown', 'AFR Landing Airport', 'Latitude Coarse'),
-            ('Latitude', 'Touchdown', 'AFR Landing Runway', 'Latitude Coarse'),
-            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Latitude Coarse'),
-            ('Latitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Latitude Coarse')
+            ('Latitude', 'Touchdown', 'AFR Landing Airport', 'Latitude (Coarse)'),
+            ('Latitude', 'Touchdown', 'AFR Landing Runway', 'Latitude (Coarse)'),
+            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Latitude (Coarse)'),
+            ('Latitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Latitude (Coarse)')
         ]
 
     def test_derive_with_latitude(self):
@@ -3336,18 +3336,18 @@ class TestLatitudeAtLiftoff(unittest.TestCase, NodeTest):
             ('Latitude', 'Liftoff'),
             ('Liftoff', 'AFR Takeoff Airport'),
             ('Liftoff', 'AFR Takeoff Runway'),
-            ('Liftoff', 'Latitude Coarse'),
+            ('Liftoff', 'Latitude (Coarse)'),
             ('Latitude', 'Liftoff', 'AFR Takeoff Airport'),
             ('Latitude', 'Liftoff', 'AFR Takeoff Runway'),
-            ('Latitude', 'Liftoff', 'Latitude Coarse'),
+            ('Latitude', 'Liftoff', 'Latitude (Coarse)'),
             ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
-            ('Liftoff', 'AFR Takeoff Airport', 'Latitude Coarse'),
-            ('Liftoff', 'AFR Takeoff Runway', 'Latitude Coarse'),
+            ('Liftoff', 'AFR Takeoff Airport', 'Latitude (Coarse)'),
+            ('Liftoff', 'AFR Takeoff Runway', 'Latitude (Coarse)'),
             ('Latitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
-            ('Latitude', 'Liftoff', 'AFR Takeoff Airport', 'Latitude Coarse'),
-            ('Latitude', 'Liftoff', 'AFR Takeoff Runway', 'Latitude Coarse'),
-            ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude Coarse'),
-            ('Latitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude Coarse'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Airport', 'Latitude (Coarse)'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Runway', 'Latitude (Coarse)'),
+            ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude (Coarse)'),
+            ('Latitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude (Coarse)'),
         ]
 
     def test_derive_with_latitude(self):
@@ -3434,17 +3434,17 @@ class TestLongitudeAtTouchdown(unittest.TestCase, NodeTest):
         self.node_class = LongitudeAtTouchdown
         self.operational_combinations = [
             ('Longitude', 'Touchdown'),
-            ('Touchdown', 'Longitude Coarse'),
+            ('Touchdown', 'Longitude (Coarse)'),
             ('Longitude', 'Touchdown', 'AFR Landing Airport'),
             ('Longitude', 'Touchdown', 'AFR Landing Runway'),
-            ('Longitude', 'Touchdown', 'Longitude Coarse'),
-            ('Touchdown', 'AFR Landing Airport', 'Longitude Coarse'),
-            ('Touchdown', 'AFR Landing Runway', 'Longitude Coarse'),
+            ('Longitude', 'Touchdown', 'Longitude (Coarse)'),
+            ('Touchdown', 'AFR Landing Airport', 'Longitude (Coarse)'),
+            ('Touchdown', 'AFR Landing Runway', 'Longitude (Coarse)'),
             ('Longitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
-            ('Longitude', 'Touchdown', 'AFR Landing Airport', 'Longitude Coarse'),
-            ('Longitude', 'Touchdown', 'AFR Landing Runway', 'Longitude Coarse'),
-            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Longitude Coarse'),
-            ('Longitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Longitude Coarse')
+            ('Longitude', 'Touchdown', 'AFR Landing Airport', 'Longitude (Coarse)'),
+            ('Longitude', 'Touchdown', 'AFR Landing Runway', 'Longitude (Coarse)'),
+            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Longitude (Coarse)'),
+            ('Longitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway', 'Longitude (Coarse)')
         ]
 
     def test_derive_with_longitude(self):
@@ -3503,18 +3503,18 @@ class TestLongitudeAtLiftoff(unittest.TestCase, NodeTest):
             ('Longitude', 'Liftoff'),
             ('Liftoff', 'AFR Takeoff Airport'),
             ('Liftoff', 'AFR Takeoff Runway'),
-            ('Liftoff', 'Longitude Coarse'),
+            ('Liftoff', 'Longitude (Coarse)'),
             ('Longitude', 'Liftoff', 'AFR Takeoff Airport'),
             ('Longitude', 'Liftoff', 'AFR Takeoff Runway'),
-            ('Longitude', 'Liftoff', 'Longitude Coarse'),
+            ('Longitude', 'Liftoff', 'Longitude (Coarse)'),
             ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
-            ('Liftoff', 'AFR Takeoff Airport', 'Longitude Coarse'),
-            ('Liftoff', 'AFR Takeoff Runway', 'Longitude Coarse'),
+            ('Liftoff', 'AFR Takeoff Airport', 'Longitude (Coarse)'),
+            ('Liftoff', 'AFR Takeoff Runway', 'Longitude (Coarse)'),
             ('Longitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway'),
-            ('Longitude', 'Liftoff', 'AFR Takeoff Airport', 'Longitude Coarse'),
-            ('Longitude', 'Liftoff', 'AFR Takeoff Runway', 'Longitude Coarse'),
-            ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Longitude Coarse'),
-            ('Longitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Longitude Coarse'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Airport', 'Longitude (Coarse)'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Runway', 'Longitude (Coarse)'),
+            ('Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Longitude (Coarse)'),
+            ('Longitude', 'Liftoff', 'AFR Takeoff Airport', 'AFR Takeoff Runway', 'Longitude (Coarse)'),
         ]
 
     def test_derive_with_longitude(self):
