@@ -71,12 +71,12 @@ class Airborne(FlightPhaseNode):
 
             start_point = speedy.slice.start or 0
             stop_point = speedy.slice.stop ##or len(alt_aal.array)
-            # First tidy up the data we're interested in
+            # First tidy up the data we're interested in  # CJ: repair Not required as aal for flight phases includes this.
             working_alt = repair_mask(alt_aal.array[start_point:stop_point])
 
             # Stop here if there is inadequate airborne data to process.
             if working_alt is None:
-                break
+                break  # CJ: SHOULD be continue!
 
             airs = np.ma.clump_unmasked(np.ma.masked_less_equal(working_alt, 0.0))
             # Make sure we propogate None ends to data which starts or ends in
