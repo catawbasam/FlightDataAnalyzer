@@ -14,6 +14,8 @@ Contents:
    ParameterNaming
    HeightAndHeightRateComputation
    FlightTypes
+   KeyTimeInstances
+   KeyPointValues
    Testing
    Changes
    TODO

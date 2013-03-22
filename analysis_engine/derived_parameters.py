@@ -2842,7 +2842,7 @@ class FlapSurface(DerivedParameterNode):
                frame=A('Frame'), apps=S('Approach'), alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else ''
 
-        if frame_name.startswith('737-') or frame_name in ['757-DHL', '767-232F_Delta-85']:
+        if frame_name.startswith('737-') or frame_name in ['757-DHL', '767-232F_DELTA-85']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
