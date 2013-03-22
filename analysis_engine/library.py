@@ -10,6 +10,7 @@ from itertools import izip
 from math import asin, atan2, ceil, cos, degrees, floor, radians, sin, sqrt
 
 from hdfaccess.parameter import MappedArray
+from analysis_engine.interval import Inf
 
 from settings import (CURRENT_YEAR,
                       KTS_TO_MPS,
@@ -2802,7 +2803,7 @@ def max_continuous_unmasked(array, _slice=slice(None)):
     return slice(_max.start + offset, _max.stop + offset)
 
 
-def max_abs_value(array, _slice=slice(None)):
+def max_abs_value(array, section=slice(None)):
     """
     Get the value of the maximum absolute value in the array.
     Return value is NOT the absolute value (i.e. may be negative)
@@ -2812,11 +2813,11 @@ def max_abs_value(array, _slice=slice(None)):
 
     :param array: masked array
     :type array: np.ma.array
-    :param _slice: Slice to apply to the array and return max absolute value relative to
-    :type _slice: slice
+    :param section: Section to apply to the array and return max absolute value relative to
+    :type section: section or slice
     :returns: Value named tuple of index and value.
     """
-    maxval = max_value(np.ma.abs(array), _slice)
+    maxval = max_value(np.ma.abs(array), section)
     if maxval.index % 1:
         # we have a decimal offset, recover sign using value_at_index
         return Value(maxval.index, value_at_index(array, maxval.index))
@@ -2824,7 +2825,7 @@ def max_abs_value(array, _slice=slice(None)):
         return Value(maxval.index, array[maxval.index])
 
 
-def max_value(array, _slice=slice(None)):
+def max_value(array, section=slice(None)):
     """
     Get the maximum value in the array and its index relative to the array and
     not the _slice argument. If _slice.start or _slice.stop are decimal, 
@@ -2832,24 +2833,24 @@ def max_value(array, _slice=slice(None)):
 
     :param array: masked array
     :type array: np.ma.array
-    :param _slice: Slice to apply to the array and return max value relative to
-    :type _slice: slice
+    :param section: Section to apply to the array and return max value relative to
+    :type section: Section or slice
     :returns: Value named tuple of index and value.
     """
-    return _value(array, _slice, np.ma.argmax)
+    return _value(array, section, np.ma.argmax)
 
 
-def min_value(array, _slice=slice(None)):
+def min_value(array, section=slice(None)):
     """
     Get the minimum value in the array and its index.
 
     :param array: masked array
     :type array: np.ma.array
-    :param _slice: Slice to apply to the array and return min value relative to
-    :type _slice: slice
+    :param section: Section to apply to the array and return min value relative to
+    :type section: section or slice
     :returns: Value named tuple of index and value.
     """
-    return _value(array, _slice, np.ma.argmin)
+    return _value(array, section, np.ma.argmin)
 
 
 def minimum_unmasked(array1, array2):
@@ -4396,43 +4397,74 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     return (begin + step * (n + r))
 
 
-def _value(array, _slice, operator):
+def _value(array, section, operator):
     """
     Applies logic of min_value and max_value across the array slice.
+    
+    :param array: Array to inspect
+    :type array: Numpy Array
+    :param section: Subsection of array to inspect
+    :type section: Section or Slice
+    :param operator: Max / Min etc.
+    :type operator: function
+    :returns: index and value in array after applying operator as a 'Value'.
+    :rtype: Value (named_tuple)
     """
     
-    #Check if slice or section..
-    ##if isinstance(_slice, slice):
-        ##start_pos = _slice.start
-        ##stop_pos = _slice.stop
-        
-        
-    if _slice.step and _slice.step < 0:
-        raise ValueError("Negative step not supported")
-    if not np.ma.count(array[_slice]):
+    # Check if slice or section..
+    if isinstance(section, slice):
+        _slice = section
+        if _slice.step and _slice.step < 0:
+            raise ValueError("Negative step not supported")
+        start_pos = _slice.start
+        stop_pos = _slice.stop
+        step = (_slice.step or 1)
+    else:
+        _slice = section.slice
+        if section.lower_bound == -Inf:
+            start_pos = 0
+        elif section.lower_closed:
+            start_pos = section.lower_bound
+        else:
+            # add the smallest amount possible to exclude the lower bound
+            start_pos = np.nextafter(section.lower_bound, section.upper_bound)
+        if section.upper_bound == Inf:
+            stop_pos = len(array)
+        elif section.upper_closed:
+            stop_pos = section.upper_bound
+        else:
+            # subtract the smallest amount possible to exclude upper bound
+            stop_pos = np.nextafter(section.upper_bound, section.lower_bound)
+        step = 1
+    
+    # forcefully constrain the slice to the whole number range from the
+    # ceil of the start to the floor of the end
+    slice_start = ceil(_slice.start or 0)
+    slice_stop = floor(_slice.stop or len(array))
+    sub = slice(slice_start, slice_stop)  # sub short for subsection
+    
+    if not np.ma.count(array[sub]):
         return Value(None, None)
-    # forcefully constrain the slice to the whole number range from the ceil of 
-    # the start to the floor of the end
-    start_pos = ceil(_slice.start or 0)
-    stop_pos = floor(_slice.stop or len(array))
-    index = operator(array[start_pos:stop_pos]) + start_pos * (_slice.step or 1)
+    
+    # work in nice whole numbers
+    index = operator(array[sub]) + sub.start * step
     value = array[index]
     
-    # check whether decimal slice start exceeds value
-    start_value = value_at_index(array, _slice.start)
-    if start_value is not None and _slice.start and _slice.start % 1:
+    # check whether decimal start exceeds value
+    start_value = value_at_index(array, start_pos)
+    if start_value is not None and start_pos % 1:
         # we have a decimal start, check if it exceeds the current value
         if operator((value, start_value)):
             # operator says start_value is the one to use
-            index = _slice.start
+            index = start_pos
             value = start_value
     # check whether the decimal slice end exceeds value
-    stop_value = value_at_index(array, _slice.stop)
-    if stop_value is not None and _slice.stop and _slice.stop % 1:
+    stop_value = value_at_index(array, stop_pos)
+    if stop_value is not None and stop_pos % 1:
         # we have a decimal stop, check if it exceeds the current value
         if operator((value, stop_value)):
             # operator says stop_value is the one to use
-            index = _slice.stop
+            index = stop_pos
             value = stop_value
     return Value(index, value)
 

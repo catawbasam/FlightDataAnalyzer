@@ -14,7 +14,7 @@ from analysis_engine.flight_attribute import LandingRunway
 import flightdatautilities.masked_array_testutils as ma_test
 
 from analysis_engine.library import *
-from analysis_engine.node import (A, P, S, M, KTI, KeyTimeInstance)
+from analysis_engine.node import (A, P, S, M, KTI, KeyTimeInstance, Section)
 from analysis_engine.settings import METRES_TO_FEET
 from flight_phase_test import buildsections
 
@@ -2214,6 +2214,26 @@ class TestMaxValue(unittest.TestCase):
         i, v = max_value(array)
         self.assertEqual(i, None)
         self.assertEqual(v, None)
+        
+    def test_max_value_section(self):
+        array = np.ma.array(data=[2,3,4,8,9], mask=[0,0,0,1,1])
+        # handle complete section
+        v = max_value(array, Section(None, None))
+        self.assertEqual(v, Value(2, 4))
+        # range into masked values
+        v = max_value(array, Section(0, 4))
+        self.assertEqual(v, Value(2, 4))
+        # range ends half way between sample and masked value
+        v = max_value(array, Section(0, 2.6))
+        self.assertEqual(v, Value(2, 4))
+        # range ends .6 way between values
+        v = max_value(array, Section(0, 1.6))
+        self.assertEqual(v, Value(1.6, 3.6))
+        # range ends just before .6 between (due to upper bound open)
+        v = max_value(array, Section(0, 1.6, closed=False))
+        self.assertAlmostEqual(v.index, 1.599999, 5)
+        self.assertAlmostEqual(v.value, 3.599999, 5)
+
 
 
 class TestMaxAbsValue(unittest.TestCase):
