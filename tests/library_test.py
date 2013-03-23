@@ -1791,36 +1791,46 @@ class TestIndexAtValue(unittest.TestCase):
         self.assertEquals (index_at_value(array, 3.1, slice(7, 0, -1), endpoint='nearest'), 3.0)
 
 
-class TestSectionsAbove(unittest.TestCase):
-    def test_sections_above_round_values(self):
+class TestIntervalsAbove(unittest.TestCase):
+    def test_intervals_above_round_values(self):
         array = np.ma.array([50,60,70,80,90,80,70,60]*2)
-        self.assertEqual(sections_above(array, 70), 
+        self.assertEqual(intervals_above(array, 70), 
                          '[2..6],[10..14]')
         # with slice / section subsection
-        self.assertEqual(sections_above(array, 70, Section(4, None)), 
+        self.assertEqual(intervals_above(array, 70, Section(4, None)), 
                          '[4..6],[10..14]')
         # All above threshold
-        self.assertEqual(sections_above(array, 10), 
+        self.assertEqual(intervals_above(array, 10), 
                          '(...)')
         # None above threshold
-        self.assertEqual(sections_above(array, 100), 
+        self.assertEqual(intervals_above(array, 100), 
                          '<Empty>')
         # All above, but only know about a subsection so start from there
-        self.assertEqual(sections_above(array, 30, Section(None, 10)), 
+        self.assertEqual(intervals_above(array, 30, Section(None, 10)), 
                          '(...10]')
         
     def test_short_sections(self):
         # Stays at threshold for different periods
-        array = np.ma.array([10,20,30,20,30,20,10,10,20,30,30,30,20,10,20,30])
-        self.assertEqual(sections_above(array, 28),
-                         '[2..2],[4..4],[9..11],[15...)')
+        array = np.ma.array([10,20,40,20,40,20,10,10,20,40,60,40,20,10,20,60])
+        self.assertEqual(intervals_above(array, 30),
+                         '[1.5..2.5],[3.5..4.5],[8.5..11.5],[14.25...)')
+        # Masked value is inbetween is smoothed over
+        array[3] = np.ma.masked
+        # Masked value is interpolated over a greater distance, but fortunately
+        # in this case the steps are even so the 11.5 should still be the same!
+        #NB: Alternative would be to take nearest sound value
+        array[11] = np.ma.masked
+        # Last value masked so should no longer find the section
+        array[15] = np.ma.masked
+        self.assertEqual(intervals_above(array, 30),
+                         '[1.5..4.5],[8.5..11.5]')
         
-    def test_sections_above_interpolating_values(self):
+    def test_intervals_above_interpolating_values(self):
         array = np.ma.array([10,20,30,20,10,20,30,40])
         # interpolate starting point
-        self.assertEqual(sections_above(array, 25),
+        self.assertEqual(intervals_above(array, 25),
                          '[1.5..2.5],[5.5...)')
-        self.assertEqual(sections_above(array, 37),
+        self.assertEqual(intervals_above(array, 37),
                          '[6.7...)')
         
         # test we only meet the threshold and go back down again...
