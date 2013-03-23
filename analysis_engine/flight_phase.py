@@ -1111,35 +1111,53 @@ class Taxiing(FlightPhaseNode):
             self.create_phases(taxi_slices)
 
 
+class Turning(FlightPhaseNode):
+    """
+    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES (%.2f)
+    """ % RATE_OF_TURN_FOR_FLIGHT_PHASES
+    # force phase to 0 offset
+    align_offset = 0
+    
+    def derive(self, rate_of_turn=P('Rate Of Turn')):
+        # Note: No need to repair mask as Rate of Turn uses Heading
+        # Continuous which has the mask repaired.
+        rate = RATE_OF_TURN_FOR_FLIGHT_PHASES
+        #TODO: Review whether masked_inside is best as it is exclusive of
+        # the range outer limits
+        turning = np.ma.masked_inside(rate_of_turn.array, -rate, rate)
+        turn_slices = np.ma.clump_unmasked(turning)
+        for turn in turn_slices:
+            # Interpolate between the values for closer takeoff position
+            start = turn.start - 0.5  # half sample earlier
+            stop = turn.stop - 0.5    # account for stop being +1
+            # Use infinity in intervals!
+            start_pos = start if start > 0 else None
+            stop_pos = stop if stop < len(rate_of_turn.array)-1 else None
+            self.create_phase(start_pos, stop_pos)
+            
+
 class TurningInAir(FlightPhaseNode):
     """
-    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES (%.2f) in the air
+    Based on Turning phase whilst Airborne.
+    
+    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_FLIGHT_PHASES (%.2f)
+    whilst airborne.
     """ % RATE_OF_TURN_FOR_FLIGHT_PHASES
-    def derive(self, rate_of_turn=P('Rate Of Turn'), airborne=S('Airborne')):
-        turning = np.ma.masked_inside(repair_mask(rate_of_turn.array),
-                                      -RATE_OF_TURN_FOR_FLIGHT_PHASES,
-                                      RATE_OF_TURN_FOR_FLIGHT_PHASES)
-        turn_slices = np.ma.clump_unmasked(turning)
-        for turn_slice in turn_slices:
-            if any([is_slice_within_slice(turn_slice, air.slice)
-                    for air in airborne]):
-                # If the slice is within any airborne section.
-                self.create_phase(turn_slice, name="Turning In Air")
+    
+    def derive(self, turning=P('Turning'), airborne=S('Airborne')):
+        self.intervals = turning & airborne
 
 
 class TurningOnGround(FlightPhaseNode):
     """
-    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_TAXI_TURNS (%.2f) on the ground
+    Based on Turning phase whilst Grounded.
+
+    Rate of Turn is greater than +/- RATE_OF_TURN_FOR_TAXI_TURNS (%.2f)
+    whilst grounded.
     """ % RATE_OF_TURN_FOR_TAXI_TURNS
-    def derive(self, rate_of_turn=P('Rate Of Turn'), ground=S('Grounded')):
-        turning = np.ma.masked_inside(repair_mask(rate_of_turn.array),
-                                      -RATE_OF_TURN_FOR_TAXI_TURNS,
-                                      RATE_OF_TURN_FOR_TAXI_TURNS)
-        turn_slices = np.ma.clump_unmasked(turning)
-        for turn_slice in turn_slices:
-            if any([is_slice_within_slice(turn_slice, gnd.slice)
-                    for gnd in ground]):
-                self.create_phase(turn_slice, name="Turning On Ground")
+    
+    def derive(self, turning=P('Turning'), grounded=S('Grounded')):
+        self.intervals = turning & grounded
 
 
 class TwoDegPitchTo35Ft(FlightPhaseNode):
