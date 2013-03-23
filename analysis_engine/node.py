@@ -102,7 +102,8 @@ class Section(Interval):
         lower_bound = -Inf if lower_bound is None else lower_bound
         upper_bound = Inf if upper_bound is None else upper_bound
         if lower_bound > upper_bound:
-            raise TypeError("Cannot create a Section which stops before it starts")
+            raise TypeError('Cannot create a Section which stops (%s)'
+                ' before it starts (%s)' % (lower_bound, upper_bound))
         super(Section, self).__init__(lower_bound, upper_bound, **kwargs)
         
     @property
