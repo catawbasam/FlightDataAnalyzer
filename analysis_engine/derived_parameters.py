@@ -631,6 +631,8 @@ class AltitudeAAL(DerivedParameterNode):
         # than the Altitude STD Smoothed, this results in a lower sample rate
         # for a primary analysis parameter, and this is why Altitude STD
         # Smoothed is now the primary reference.
+        
+        #Q: Should we just bump the frequency up to 4 Hz all the time?
 
         # alt_aal will be zero on the airfield, so initialise to zero.
         alt_aal = np_ma_zeros_like(alt_std.array)
