@@ -16,6 +16,7 @@ from analysis_engine.library import (
     first_valid_sample,
     index_at_value,
     index_closest_value,
+    intervals_above,
     is_index_within_slice,
     is_slice_within_slice,
     max_value,
@@ -420,7 +421,6 @@ class DescentLowClimb(FlightPhaseNode):
 
 
 class Fast(FlightPhaseNode):
-
     '''
     Data will have been sliced into single flights before entering the
     analysis engine, so we can be sure that there will be only one fast
@@ -429,7 +429,8 @@ class Fast(FlightPhaseNode):
 
     Therefore len(Fast) in [0,1]
 
-    TODO: Discuss whether this assertion is reliable in the presence of air data corruption.
+    TODO: Discuss whether this assertion is reliable in the presence of air 
+    data corruption.
     '''
 
     def derive(self, airspeed=P('Airspeed For Flight Phases')):
@@ -445,17 +446,20 @@ class Fast(FlightPhaseNode):
             (airspeed.array[1:-1]-AIRSPEED_THRESHOLD)
         test_array = np.ma.masked_outside(value_passing_array, 0.0, -100.0)
         """
-        fast_samples = np.ma.clump_unmasked(
-            np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD))
+        self.intervals = intervals_above(airspeed.array, AIRSPEED_THRESHOLD)
+        
+        ##index_at_value(airspeed.array, AIRSPEED_THRESHOLD)
+        ##fast_samples = np.ma.clump_unmasked(
+            ##np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD))
 
-        for fast_sample in fast_samples:
-            start = fast_sample.start
-            stop = fast_sample.stop
-            if abs(airspeed.array[start] - AIRSPEED_THRESHOLD) > 20:
-                start = None
-            if abs(airspeed.array[stop - 1] - AIRSPEED_THRESHOLD) > 20:
-                stop = None
-            self.create_phase(start, stop)
+        ##for fast_sample in fast_samples:
+            ##start = fast_sample.start - 0.5
+            ##stop = fast_sample.stop - 0.5
+            ##if abs(airspeed.array[start] - AIRSPEED_THRESHOLD) > 20:
+                ##start = None
+            ##if abs(airspeed.array[stop] - AIRSPEED_THRESHOLD) > 20:
+                ##stop = None
+            ##self.create_phase(start, stop)
 
 
 class FinalApproach(FlightPhaseNode):

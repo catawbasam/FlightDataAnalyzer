@@ -762,9 +762,9 @@ class TestFast(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(ias)
         if AIRSPEED_THRESHOLD == 80:
-            expected = buildsection('Fast', 2, 311)
+            expected = phase('[2..310]')
         if AIRSPEED_THRESHOLD == 70:
-            expected = buildsection('Fast', 1, 312)
+            expected = phase('[1..311]')
         self.assertEqual(phase_fast, expected)
 
     def test_fast_all_fast(self):
@@ -772,35 +772,29 @@ class TestFast(unittest.TestCase):
         ias = Parameter('Airspeed For Flight Phases', fast_data, 1, 0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        expected = buildsection('Fast', None, None)
-        self.assertEqual(phase_fast, expected)
+        self.assertEqual(phase_fast, '(...)')
 
     def test_fast_all_slow(self):
         fast_data = np.ma.array([12] * 10)
         ias = Parameter('Airspeed For Flight Phases', fast_data, 1, 0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        self.assertEqual(phase_fast, [])
+        self.assertEqual(phase_fast, '<Empty>')
 
     def test_fast_slowing_only(self):
         fast_data = np.ma.arange(110, 60, -10)
         ias = Parameter('Airspeed For Flight Phases', fast_data, 1, 0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        expected = buildsection('Fast', None, 4)
-        self.assertEqual(phase_fast, expected)
+        self.assertEqual(phase_fast, '(...3]')
 
     def test_fast_speeding_only(self):
         fast_data = np.ma.arange(60, 120, 10)
         ias = Parameter('Airspeed For Flight Phases', fast_data, 1, 0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        expected = buildsection('Fast', 2, None)
-        self.assertEqual(phase_fast, expected)
+        self.assertEqual(phase_fast, '[2...)')
 
-    #def test_fast_phase_with_masked_data(self): # These tests were removed.
-    #We now use Airspeed For Flight Phases which has a repair mask function,
-    #so this is not applicable.
 
 class TestGrounded(unittest.TestCase):
     def test_can_operate(self):
