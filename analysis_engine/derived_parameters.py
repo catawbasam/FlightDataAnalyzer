@@ -3056,6 +3056,8 @@ class HeadingContinuous(DerivedParameterNode):
     For all internal computing purposes we use this parameter which does not
     jump as it passes through North. To recover the compass display, modulus
     (val % 360 in Python) returns the value to display to the user.
+    
+    Parameter has its mask repaired here.
     """
     units = 'deg'
     def derive(self, head_mag=P('Heading')):
@@ -3989,7 +3991,8 @@ class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
 
 class RateOfTurn(DerivedParameterNode):
     """
-    Simple rate of change of heading.
+    Simple rate of change of heading, with a little hysteresis to smooth out
+    minor changes. Anything below +/- 0.05 is forced back to 0.
     """
 
     units = 'deg/sec'
