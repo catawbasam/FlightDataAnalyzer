@@ -671,13 +671,17 @@ class Interval(object):
         ['today'..'tomorrow']
         >>> Interval.from_string("['blah'..'fish']")
         Interval('blah', 'fish', lower_closed=True, upper_closed=True)
+        >>> print Interval.from_string('9]')
+        Traceback (most recent call last):
+        ...
+        ValueError: Invalid Interval Format 9]
         """
         cast = lambda s: convert_to(s.replace('\'', '').replace('\"', ''), s, int, float, str)
         if interval_repr == '<Empty>':
             return cls.none()
         elif interval_repr == '(...)':
             return cls.all()
-        elif '..' not in interval_repr and ',' not in interval_repr:
+        elif all([c not in interval_repr for c in ('..','[',']','(',')')]):
             # assumed only a single value within - try to convert
             val = cast(interval_repr)
             return cls.equal_to(val)
@@ -2125,6 +2129,12 @@ class BaseIntervalSet(object):
         12,13.4,[321...)
         >>> print BaseIntervalSet.from_string('(...3),(3...)')
         (...3),(3...)
+        
+        Check invalid (8 format when not using comma format
+        >>> BaseIntervalSet.from_string('[3..8],(8,12]')
+        Traceback (most recent call last):
+        ...
+        ValueError: Invalid Interval Format (8
         """
         c = cls()
         for interval_repr in interval_set_repr.split(','):
