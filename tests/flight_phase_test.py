@@ -804,53 +804,19 @@ class TestFast(unittest.TestCase):
 class TestGrounded(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Grounded.get_operational_combinations(),
-                         [('Airborne', 'Airspeed For Flight Phases')])
+                         [('In Air',)])
 
     def test_grounded_phase_basic(self):
-        slow_and_fast_data = \
-            np.ma.array(range(60, 120, 10) + [120] * 300 + range(120, 50, -10))
-        ias = Parameter('Airspeed For Flight Phases', slow_and_fast_data, 1, 0)
-        air = buildsection('Airborne', 2, 311)
+        airs = phase(
+            '[723.5..1001.5], [1026.5..1321.5], [1346.5..1981.5], '
+            '[2002.5..2419.5], [7593.5..7930.5], [7956.5..8288.5], '
+            '[8313.5..8603.5], [8630.5..10113.5]')
         phase_grounded = Grounded()
-        phase_grounded.derive(air, ias)
-        expected = buildsections('Grounded', [0, 2], [311, 313])
-        self.assertEqual(phase_grounded, expected)
-
-    def test_grounded_all_fast(self):
-        grounded_data = np.ma.array([120] * 10)
-        ias = Parameter('Airspeed For Flight Phases', grounded_data, 1, 0)
-        air = buildsection('Airborne', None, None)
-        phase_grounded = Grounded()
-        phase_grounded.derive(air, ias)
-        expected = buildsection('Grounded', None, None)
-        self.assertEqual(phase_grounded, expected)
-
-    def test_grounded_all_slow(self):
-        grounded_data = np.ma.array([12]*10)
-        ias = Parameter('Airspeed For Flight Phases', grounded_data, 1, 0)
-        air = buildsection('Airborne', None, None)
-        phase_grounded = Grounded()
-        phase_grounded.derive(air, ias)
-        expected = buildsection('Grounded', 0, 10)
-        self.assertEqual(phase_grounded.get_first(), expected[0])
-
-    def test_grounded_landing_only(self):
-        grounded_data = np.ma.arange(110,60,-10)
-        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
-        air = buildsection('Airborne',None,4)
-        phase_grounded = Grounded()
-        phase_grounded.derive(air, ias)
-        expected = buildsection('Grounded',4,5)
-        self.assertEqual(phase_grounded.get_first(), expected[0])
-
-    def test_grounded_speeding_only(self):
-        grounded_data = np.ma.arange(60,120,10)
-        ias = Parameter('Airspeed For Flight Phases', grounded_data,1,0)
-        air = buildsection('Airborne',2,None)
-        phase_grounded = Grounded()
-        phase_grounded.derive(air, ias)
-        expected = buildsection('Grounded',0,2)
-        self.assertEqual(phase_grounded.get_first(), expected[0])
+        phase_grounded.derive(airs)
+        self.assertEqual(phase_grounded, 
+            '(...723.5), (1001.5..1026.5), (1321.5..1346.5), '
+            '(1981.5..2002.5), (2419.5..7593.5), (7930.5..7956.5), '
+            '(8288.5..8313.5), (8603.5..8630.5), (10113.5..)')
 
 
 class TestFinalApproach(unittest.TestCase):

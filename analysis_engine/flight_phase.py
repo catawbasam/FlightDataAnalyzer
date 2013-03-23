@@ -886,21 +886,15 @@ class LevelFlight(FlightPhaseNode):
 
 class Grounded(FlightPhaseNode):
     '''
-    Includes start of takeoff run and part of landing run.
+    The opposite of 'In Air'! This is whenever the aircraft is deemed to be
+    on the ground both in taxiing and takeoff / landing runs.
+    
+    TODO: Ignore short periods between bounced landings?
+    
     Was "On Ground" but this name conflicts with a recorded 737-6 parameter name.
     '''
-    def derive(self, air=S('Airborne'), speed=P('Airspeed For Flight Phases')):
-        data_end=len(speed.array)
-        gnd_phases = slices_not(air.get_slices(), begin_at=0, end_at=data_end)
-        if not gnd_phases:
-            # Either all on ground or all in flight.
-            median_speed = np.ma.median(speed.array)
-            if median_speed > AIRSPEED_THRESHOLD:
-                gnd_phases = [slice(None,None,None)]
-            else:
-                gnd_phases = [slice(0,data_end,None)]
-
-        self.create_phases(gnd_phases)
+    def derive(self, inair=S('In Air')):
+        self.intervals = FlightPhaseNode.all() - inair
 
 
 class Mobile(FlightPhaseNode):
