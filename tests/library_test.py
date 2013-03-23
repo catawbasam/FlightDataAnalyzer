@@ -1802,9 +1802,18 @@ class TestSectionsAbove(unittest.TestCase):
         # All above threshold
         self.assertEqual(sections_above(array, 10), 
                          '(...)')
+        # None above threshold
+        self.assertEqual(sections_above(array, 100), 
+                         '<Empty>')
         # All above, but only know about a subsection so start from there
         self.assertEqual(sections_above(array, 30, Section(None, 10)), 
                          '(...10]')
+        
+    def test_short_sections(self):
+        # Stays at threshold for different periods
+        array = np.ma.array([10,20,30,20,30,20,10,10,20,30,30,30,20,10,20,30])
+        self.assertEqual(sections_above(array, 28),
+                         '[2..2],[4..4],[9..11],[15...)')
         
     def test_sections_above_interpolating_values(self):
         array = np.ma.array([10,20,30,20,10,20,30,40])
