@@ -422,30 +422,14 @@ class DescentLowClimb(FlightPhaseNode):
 
 class Fast(FlightPhaseNode):
     '''
+    Fast is used to determine that the aircraft was going fast enough to
+    become airborne.
+    
     Data will have been sliced into single flights before entering the
-    analysis engine, so we can be sure that there will be only one fast
-    phase. This may have masked data within the phase, but by taking the
-    notmasked edges we enclose all the data worth analysing.
-
-    Therefore len(Fast) in [0,1]
-
-    TODO: Discuss whether this assertion is reliable in the presence of air 
-    data corruption.
+    analysis engine, so there should only be one Fast phase.
     '''
 
     def derive(self, airspeed=P('Airspeed For Flight Phases')):
-        """
-        Did the aircraft go fast enough to possibly become airborne?
-
-        # We use the same technique as in index_at_value where transition of
-        # the required threshold is detected by summing shifted difference
-        # arrays. This has the particular advantage that we can reject
-        # excessive rates of change related to data dropouts which may still
-        # pass the data validation stage.
-        value_passing_array = (airspeed.array[0:-2]-AIRSPEED_THRESHOLD) * \
-            (airspeed.array[1:-1]-AIRSPEED_THRESHOLD)
-        test_array = np.ma.masked_outside(value_passing_array, 0.0, -100.0)
-        """
         self.intervals = intervals_above(airspeed.array, AIRSPEED_THRESHOLD)
 
 
