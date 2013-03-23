@@ -531,7 +531,50 @@ class Interval(object):
         else:
             result = other & self
         return result
-
+        
+    def shift(self, value):
+        """Shift up the Interval lower_bound and upper_bound by value.
+        type value: numeric
+        
+        >>> print Interval(3, 5).shift(2)
+        [5..7]
+        >>> print Interval(-Inf, 5).shift(10)
+        (...15]
+        >>> print Interval(5, Inf, closed=False).shift(-10)
+        (-5...)
+        """
+        if self.lower_bound != -Inf:
+            self.lower_bound += value
+        if self.upper_bound != Inf:
+            self.upper_bound += value 
+        return self
+    
+    def trim(self, lower_trim=None, upper_trim=None):
+        """Trim lower_bound and upper_bound to within lower_trim and/or
+        upper_trim boundaries. The lower_trim and upper_trim are closed
+        (inclusive).
+                
+        >>> print Interval(5, 10).trim(2, 8)
+        [5..8]
+        >>> print Interval(5, Inf).trim(6, 8)
+        [6..8]
+        >>> print Interval(5, 10, closed=False).trim(2, 8)
+        [5..8]
+        >>> print Interval(-Inf, -100).trim(-2, None)
+        [-2..-100]
+        
+        Trim more than can make a valid interval
+        >>> print Interval(-Inf, -5).trim(6, 8)
+        <Empty>
+        """
+        if lower_trim and self.lower_bound < lower_trim:
+            self.lower_bound = lower_trim 
+            self.lower_closed = True
+        if upper_trim and self.upper_bound > upper_trim:
+            self.upper_bound = upper_trim
+            self.upper_closed = True
+        return self
+    
     @classmethod
     def none(cls):
         """Returns an empty interval
@@ -2030,6 +2073,19 @@ class BaseIntervalSet(object):
         True
         """                
         return copy.copy(self)
+    
+    def shift(self, value):
+        """Shift the entire interval set by value.
+        type value: numeric
+        
+        >>> print IntervalSet.from_string('(...2], [4..5)').shift(2)
+        (...4], [6..7)
+        """
+        newIntervals = []
+        for i in self.intervals:
+            newIntervals.append(i.shift(value))
+        self.intervals = newIntervals
+        return self
 
     @classmethod
     def less_than(cls, n):
