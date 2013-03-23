@@ -447,19 +447,6 @@ class Fast(FlightPhaseNode):
         test_array = np.ma.masked_outside(value_passing_array, 0.0, -100.0)
         """
         self.intervals = intervals_above(airspeed.array, AIRSPEED_THRESHOLD)
-        
-        ##index_at_value(airspeed.array, AIRSPEED_THRESHOLD)
-        ##fast_samples = np.ma.clump_unmasked(
-            ##np.ma.masked_less(airspeed.array, AIRSPEED_THRESHOLD))
-
-        ##for fast_sample in fast_samples:
-            ##start = fast_sample.start - 0.5
-            ##stop = fast_sample.stop - 0.5
-            ##if abs(airspeed.array[start] - AIRSPEED_THRESHOLD) > 20:
-                ##start = None
-            ##if abs(airspeed.array[stop] - AIRSPEED_THRESHOLD) > 20:
-                ##stop = None
-            ##self.create_phase(start, stop)
 
 
 class FinalApproach(FlightPhaseNode):
