@@ -1797,18 +1797,14 @@ class TestSectionsAbove(unittest.TestCase):
         self.assertEqual(sections_above(array, 70), 
                          '[2..6],[10..14]')
         # with slice / section subsection
-        self.assertEqual(sections_above(array, 70, slice(4,None)), 
-                         '[4..6],[10..14]')
         self.assertEqual(sections_above(array, 70, Section(4, None)), 
                          '[4..6],[10..14]')
         # All above threshold
         self.assertEqual(sections_above(array, 10), 
-                         '(..)')
+                         '(...)')
         # All above, but only know about a subsection so start from there
-        self.assertEqual(sections_above(array, 30, slice(4,None)), 
-                         '[4..)')
         self.assertEqual(sections_above(array, 30, Section(None, 10)), 
-                         '(..10]')
+                         '(...10]')
         
     def test_sections_above_interpolating_values(self):
         array = np.ma.array([10,20,30,20,10,20,30,40])
