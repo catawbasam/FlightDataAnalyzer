@@ -59,58 +59,74 @@ from analysis_engine.settings import (
 )
 
 
-class Airborne(FlightPhaseNode):
-    align_offset = 0
+class InAir(FlightPhaseNode):
+    '''
+    These phases are created aligned to the Altitude parameter for maximum
+    accuracy when using the clump_unmasked method which does not do any
+    interpolation.
+    
+    Note this uses Altitude AAL For Flight Phases which is simply where the
+    Altitude AAL parameter has had it's array repaired.
+    '''
+    #NB: Do NOT align_offset to 0 here!
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                fast=S('Fast')):
         # Just find out when altitude above airfield is non-zero.
         for speedy in fast:
-            # Stop here if the aircraft never went fast.  ############ Doesn't this mean it was always fast?!!
-            ##if speedy.slice.start is None and speedy.slice.stop is None:
-                ##break
-
-            start_point = speedy.slice.start or 0
-            stop_point = speedy.slice.stop ##or len(alt_aal.array)
-            # First tidy up the data we're interested in  # CJ: repair Not required as aal for flight phases includes this.
-            working_alt = repair_mask(alt_aal.array[start_point:stop_point])
-
-            # Stop here if there is inadequate airborne data to process.
-            if working_alt is None:
-                break  # CJ: SHOULD be continue!
-
+            sss = speedy.slice.start or 0
+            working_alt = alt_aal.array[speedy.slice]  #TODO: This slice edges are only as accurate as the Fast phase.
             airs = np.ma.clump_unmasked(np.ma.masked_less_equal(working_alt, 0.0))
-            # Make sure we propogate None ends to data which starts or ends in
-            # midflight.
             for air in airs:
-                begin = start_point + air.start
-                end = start_point + air.stop
-                if end > len(alt_aal.array):
-                    end = len(alt_aal.array)
-                end -= 1  # remove one to find index rather than stop position
+                # TODO: use another parameter to improve upon accuracy?
+                # Interpolate between the values for closer takeoff position
+                start = sss + air.start - 0.5  # half sample earlier
+                stop = sss + air.stop - 0.5    # account for stop being +1
+                # Use infinity in intervals!
+                start_pos = start if start > 0 else None
+                stop_pos = stop if stop < len(alt_aal.array)-1 else None
+                self.create_phase(start_pos, stop_pos)
+                                  
+                    
+                    
+class Airborne(FlightPhaseNode):
+    '''
+    Airborne is used for determination of prolongued periods in-flight and
+    excludes short periods of data. 
+    
+    Essentially this filters 'In Air' phases that are longer than %d seconds.
+    ''' % AIRBORNE_THRESHOLD_TIME
+
+    # force phase to 0 offset. 
+    align_offset = 0
+    
+    def derive(self, airs=S('In Air')):
+        # Make sure we propogate None ends to data which starts or ends in
+        # midflight.
+        for air in airs:
+            if air.duration(self.frequency) > AIRBORNE_THRESHOLD_TIME:
+                self.add(air)
                 
-                # if we've been in the air for long enough OR the start /
-                # stop is None (goes beyond the current data set such as
-                # for START_ONLY segments) then create a phase.
-                duration = end - begin
-                if (duration / alt_aal.hz) > AIRBORNE_THRESHOLD_TIME \
-                   or speedy.slice.start is None \
-                   or speedy.slice.stop is None:
-                    self.create_phase(begin, end)
-                        
-                #begin = air.start
-                #if begin + start_point == 0: # Was in the air at start of data
-                    #begin = None
-                #end = air.stop
-                #if end + start_point >= len(alt_aal.array): # Was in the air at end of data
-                    #end = None
-                #if begin is None or end is None:
-                    #self.create_phase(shift_slice(slice(begin, end),
-                                                  #start_point))
-                #else:
-                    #duration = end - begin
-                    #if (duration / alt_aal.hz) > AIRBORNE_THRESHOLD_TIME:
-                        #shifted = shift_slice(slice(begin, end), start_point)
-                        #self.create_phase(shifted.start, shifted.stop -1)
+                
+class BouncedLanding(FlightPhaseNode):
+    '''
+    Short periods of 'In Air' phases that are less than %d seconds and reach 
+    an altitude of between %dft and %dft.
+    
+    This is as accurate as the Altitude AAL parameter is.
+    ''' % (BOUNCED_MAXIMUM_DURATION, BOUNCED_LANDING_THRESHOLD,
+           BOUNCED_MAXIMUM_HEIGHT)
+    
+    # force phase to 0 offset. 
+    align_offset = 0
+    
+    def derive(self, alt_aal=P('Altitude AAL'), airs=S('In Air')):
+        for air in airs:
+            if air.duration(self.frequency) > BOUNCED_MAXIMUM_DURATION:
+                continue
+            ht = max_value(alt_aal.array, air)
+            if BOUNCED_LANDING_THRESHOLD < ht.value < BOUNCED_MAXIMUM_HEIGHT:
+                # we have a bounce, mark the duration
+                self.add(air)
 
 
 class GoAroundAndClimbout(FlightPhaseNode):
@@ -252,51 +268,61 @@ class Approach(FlightPhaseNode):
                                                  ##end_at=end)))
 
 
-class BouncedLanding(FlightPhaseNode):
-    '''
-    TODO: Review increasing the frequency for more accurate indexing into the
-    altitude arrays.
-    '''
-    # force all phases to 0 offset.
-    align_offset = 0
+##class BouncedLanding(FlightPhaseNode):
+    ##'''
+    ##TODO: Review increasing the frequency for more accurate indexing into the
+    ##altitude arrays.
+    ##'''
+    ### force all phases to 0 offset.
+    ##align_offset = 0
     
-    def derive(self, alt_aal=P('Altitude AAL'), airs=S('Airborne'),
-               fast=S('Fast')):
-        #overlaps = airs & fast
-        #for overlap in overlaps:
-            #if overlap.duration(self.frequency) > BOUNCED_MAXIMUM_DURATION:
-                ## duration too long to be a bounced landing!
-                ## possible cause: Touch and go.
-                #continue
+    ##def derive(self, alt_aal=P('Altitude AAL'), airs=S('Airborne'),
+               ##fast=S('Fast')):
+        
+        ### This makes the wrong assumption that it's the overlap of airborne
+        ### and fast, where as in fact it is after airborne while still going
+        ### fast that we look to see if the altitude bounced up.
+        
+        ### How about:
+        ### InTheAir = any period in the air (ignoring masks of course)
+        ### Airborne = In The Air > 60 seconds
+        ### BouncedLanding = In The Air < 60 seconds AND 2ft < max_alt < 100 ft
+        
+        ###overlaps = airs & fast
+        ###for overlap in overlaps:
+            ###if overlap.duration(self.frequency) > BOUNCED_MAXIMUM_DURATION:
+                #### duration too long to be a bounced landing!
+                #### possible cause: Touch and go.
+                ###continue
             
-            #ht = max_value(alt_aal.array, overlap)
-            #if BOUNCED_LANDING_THRESHOLD < ht.value < BOUNCED_MAXIMUM_HEIGHT:
-                ## we have a bounce, mark the duration
-                ###self.add(overlap)
-                #scan = alt_aal.array[overlap.slice]
-                #up = np.ma.clump_unmasked(np.ma.masked_less_equal(scan, 0.0))
-                #start = overlap.slice.start
-                #self.create_phase(up[0].start + start, up[-1].stop + start -1)
+            ###ht = max_value(alt_aal.array, overlap)
+            ###if BOUNCED_LANDING_THRESHOLD < ht.value < BOUNCED_MAXIMUM_HEIGHT:
+                #### we have a bounce, mark the duration
+                #####self.add(overlap)
+                ###scan = alt_aal.array[overlap.slice]
+                ###up = np.ma.clump_unmasked(np.ma.masked_less_equal(scan, 0.0))
+                ###start = overlap.slice.start
+                ###self.create_phase(up[0].start + start, up[-1].stop + start -1)
                         
                         
-        for speedy in fast:
-            for air in airs:
-                if slices_overlap(speedy.slice, air.slice):
-                    start = air.slice.stop
-                    stop = speedy.slice.stop
-                    if (stop - start) / self.frequency > BOUNCED_MAXIMUM_DURATION:
-                        # duration too long to be a bounced landing!
-                        # possible cause: Touch and go.
-                        continue
-                    elif start == stop:
-                        stop += 1
-                    scan = alt_aal.array[start:stop]
-                    ht = max(scan)
-                    if ht > BOUNCED_LANDING_THRESHOLD and \
-                       ht < BOUNCED_MAXIMUM_HEIGHT:
-                        up = np.ma.clump_unmasked(
-                            np.ma.masked_less_equal(scan, 0.0))
-                        self.create_phase(up[0].start + start, up[-1].stop + start)
+        ##for speedy in fast:
+            ##for air in airs:
+                ##if slices_overlap(speedy.slice, air.slice):
+                    ##start = air.slice.stop
+                    ##stop = speedy.slice.stop
+                    ##if (stop - start) / self.frequency > BOUNCED_MAXIMUM_DURATION:
+                        ### duration too long to be a bounced landing!
+                        ### possible cause: Touch and go.
+                        ##continue
+                    ##elif start == stop:
+                        ##stop += 1
+                    ##scan = alt_aal.array[start:stop]
+                    ##ht = max(scan)
+                    ##if ht > BOUNCED_LANDING_THRESHOLD and \
+                       ##ht < BOUNCED_MAXIMUM_HEIGHT:
+                        ##up = np.ma.clump_unmasked(
+                            ##np.ma.masked_less_equal(scan, 0.0))
+                        ##self.create_phase(up[0].start + start, up[-1].stop + start)
 
 
 class ClimbCruiseDescent(FlightPhaseNode):

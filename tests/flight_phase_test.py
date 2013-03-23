@@ -22,6 +22,7 @@ from analysis_engine.flight_phase import (Airborne,
                                           GoAround5MinRating,
                                           Grounded,
                                           Holding,
+                                          InAir,
                                           ILSGlideslopeEstablished,
                                           ILSLocalizerEstablished,
                                           Landing,
@@ -73,6 +74,7 @@ def builditem(name, begin, end):
         if ie < end:
             ie += 1
             '''
+    raise NotImplementedError('use phase()!')
     return Section(begin, end, name=name)
 
 
@@ -88,6 +90,7 @@ def buildsection(name, begin, end):
 
     Example: land = buildsection('Landing', 100, 120)
     '''
+    raise NotImplementedError('use phase()!')
     result = builditem(name, begin, end)
     return SectionNode(items=[result], name=name)
 
@@ -131,53 +134,71 @@ class NodeTest(object):
 ##############################################################################
 
 
-class TestAirborne(unittest.TestCase):
+class TestInAir(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
     # outside edges of the envelope.
     def test_can_operate(self):
         expected = [('Altitude AAL For Flight Phases', 'Fast')]
-        opts = Airborne.get_operational_combinations()
+        opts = InAir.get_operational_combinations()
         self.assertEqual(opts, expected)
 
-    def test_airborne_phase_basic(self):
+    def test_inair_phase_basic(self):
         vert_spd_data = np.ma.array([0] * 5 + range(0,400,20)+
                                     range(400,-400,-20)+
                                     range(-400,50,20))
         altitude = Parameter('Altitude AAL For Flight Phases', integrate(vert_spd_data, 1, 0, 1.0/60.0))
         fast = SectionNode(items=[Section(3, 80)])
-        air = Airborne()
+        air = InAir()
         air.derive(altitude, fast)
-        expected = [Section(8, 80, name='Airborne')]
+        expected = [Section(7.5, 80.5, name='Airborne')]
         self.assertEqual(list(air), expected)
 
-    def test_airborne_phase_not_fast(self):
+    def test_inair_phase_not_fast(self):
         altitude_data = np.ma.array(range(0,10))
         alt_aal = Parameter('Altitude AAL For Flight Phases', altitude_data)
         fast = []
-        air = Airborne()
+        air = InAir()
         air.derive(alt_aal, fast)
         self.assertEqual(air, SectionNode([]))
         self.assertEqual(air, '<Empty>')
 
-    def test_airborne_phase_started_midflight(self):
+    def test_inair_phase_started_midflight(self):
         altitude_data = np.ma.array([100]*20+[60,30,10]+[0]*4)
         alt_aal = Parameter('Altitude AAL For Flight Phases', altitude_data)
-        fast = buildsection('Fast', None, 25)
-        air = Airborne()
+        fast = phase('(...25]')
+        air = InAir()
         air.derive(alt_aal, fast)
-        expected = buildsection('Airborne', 0, 22)
-        self.assertEqual(air, expected)
-        self.assertEqual(air, '[0..22]')
+        self.assertEqual(air, '(...22.5]')
 
-    def test_airborne_phase_ends_in_midflight(self):
+    def test_inair_phase_ends_in_midflight(self):
         altitude_data = np.ma.array([0]*5+[30,80]+[100]*20)
         alt_aal = Parameter('Altitude AAL For Flight Phases', altitude_data)
-        fast = buildsection('Fast', 2, None)
-        air = Airborne()
+        fast = phase('(2...)')
+        air = InAir()
         air.derive(alt_aal, fast)
-        expected = buildsection('Airborne', 5, 26) # end of flight
-        self.assertEqual(list(air), list(expected))
-        self.assertEqual(air, '[5..26]')
+        self.assertEqual(air, '[4.5...)')
+        
+    def test_inair_training_flight(self):
+        inair = InAir()
+        aal = load(os.path.join(test_data_path, 'alt_aal_training.nod'))
+        airs = (
+          '[723.5..1001.5], [1026.5..1321.5], [1346.5..1981.5], [2002.5..2419.5], '
+          '[2439.5..2790.5], [2813.5..3211.5], [3235.5..3615.5], [3644.5..4031.5], '
+          '[4060.5..4670.5], [4701.5..5050.5], [5078.5..5414.5], [5439.5..5767.5], '
+          '[5791.5..6137.5], [6165.5..6537.5], [6561.5..7196.5], [7221.5..7569.5], '
+          '[7593.5..7930.5], [7956.5..8288.5], [8313.5..8603.5], [8630.5..10113.5]')
+        
+        fast = phase('[378..10129]')
+        inair.derive(aal, fast)
+        self.assertEqual(inair, airs)
+        
+        
+class TestAirborne(unittest.TestCase):
+    def test_airborne_keeps_long_inairs(self):
+        inair = phase('[10..200],[201..203],[300..400]')
+        airborne = Airborne()
+        airborne.derive(inair)
+        self.assertEqual(airborne, '[10..200],[300..400]')
 
 
 class TestApproachAndLanding(unittest.TestCase):
@@ -230,45 +251,56 @@ class TestApproach(unittest.TestCase):
 
 class TestBouncedLanding(unittest.TestCase):
     def test_bounce_basic(self):
-        fast = phase('[2..13]')
-        airborne = phase('[3..10]')
+        air = phase('[3..10]')
         alt = np.ma.array([0,0,0,2,10,30,10,2,0,0,0,0,0,0])
         bl = BouncedLanding()
-        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
+        bl.derive(Parameter('Altitude AAL', alt), air)
+        self.assertEqual(bl, '[3..10]')
+        
+    def test_no_bounce(self):
+        # tests first section is skipped as too long, second too high, third 
+        air = phase('[10..100],[110..120],(200..230]')
+        alt = np.ma.arange(250)
+        bl = BouncedLanding()
+        bl.derive(Parameter('Altitude AAL', alt), air)
         self.assertEqual(bl, '<Empty>')
 
     def test_bounce_with_bounce(self):
-        fast = phase('[2..13]')
-        airborne = phase('[3..8]')
+        air = phase('[9..11]')
         alt = np.ma.array([0,0,0,2,10,30,10,2,0,3,3,0,0,0])
         bl = BouncedLanding()
-        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
+        bl.derive(Parameter('Altitude AAL', alt), air)
         self.assertEqual(bl, '[9..11]')
 
     def test_bounce_with_double_bounce(self):
-        fast = phase('[2..13]')
-        airborne = phase('[3..8]')
+        air = phase('[3..8],(8..12]')
         alt = np.ma.array([0,0,0,2,10,30,10,2,0,3,0,5,0])
         bl = BouncedLanding()
-        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
-        self.assertEqual(bl, '[9..12]')
+        bl.derive(Parameter('Altitude AAL', alt), air)
+        self.assertEqual(bl, '[3..8],(8..12]')
 
     def test_bounce_not_detected_with_multiple_touch_and_go(self):
         # test data is a training flight with many touch and go
-        bl = BouncedLanding()
+        inair = InAir()
         aal = load(os.path.join(test_data_path, 'alt_aal_training.nod'))
-        airs = phase('[724..1002], [1027..1322], [1347..1982], [2003..2420], '
-                     '[2440..2791], [2814..3212], [3236..3616], [3645..4032], '
-                     '[4061..4671], [4702..5051], [5079..5415], [5440..5768], '
-                     '[5792..6138], [6166..6538], [6562..7197], [7222..7570], '
-                     '[7594..7931], [7957..8289], [8314..8604], [8631..10114]')
-        ##airs = load(os.path.join(test_data_path, 'airborne_training.nod'))
+        ##airs = phase('[724..1002], [1027..1322], [1347..1982], [2003..2420], '
+                     ##'[2440..2791], [2814..3212], [3236..3616], [3645..4032], '
+                     ##'[4061..4671], [4702..5051], [5079..5415], [5440..5768], '
+                     ##'[5792..6138], [6166..6538], [6562..7197], [7222..7570], '
+                     ##'[7594..7931], [7957..8289], [8314..8604], [8631..10114]')
+        exp = phase('[345.5..624.5],[648.5..944.5],  [968.5..1604.5],'
+                  '[1624.5..2042.5],[2061.5..2413.5],[2435.5..2834.5],'
+                  '[2857.5..3238.5],[3266.5..3654.5],[3682.5..4293.5],'
+                  '[4323.5..4673.5],[4700.5..5037.5],[5061.5..5390.5],'
+                  '[5413.5..5760.5],[5787.5..6160.5],[6183.5..6819.5],'
+                  '[6843.5..7192.5],[7215.5..7553.5],[7578.5..7911.5],'
+                  '[7935.5..8226.5],[8252.5..9736.5]')
 
-        # 710?
         fast = phase('[378..10129]')
-        ##fast = load(os.path.join(test_data_path, 'fast_training.nod'))
-        bl.derive(aal, airs, fast)
+        inair.derive(aal, fast)
         # should not create any bounced landings (used to create 20 at 8000ft)
+        bl = BouncedLanding()
+        bl.derive(aal, inair)
         self.assertEqual(len(bl), 0)
         self.assertEqual(bl, '<Empty>')
 
