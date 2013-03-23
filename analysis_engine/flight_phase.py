@@ -246,84 +246,7 @@ class Approach(FlightPhaseNode):
     """
     def derive(self, apps=S('Approach And Landing'), lands=S('Landing')):
         self.intervals = apps  - lands
-        ##app_slices = []
-        ##begin = None
-        ##end = None
-        ##land_slices = []
-        ##for app in apps:
-            ##_slice = app.slice
-            ##app_slices.append(_slice)
-            ##if begin is None:
-                ##begin = _slice.start
-                ##end = _slice.stop
-            ##else:
-                ##begin = min(begin, _slice.start)
-                ##end = max(end, _slice.stop)
-        ##for land in lands:
-            ##land_slices.append(land.slice)
         
-        ##self.create_phases(slices_and(app_slices,
-                                      ##slices_not(land_slices,
-                                                 ##begin_at=begin,
-                                                 ##end_at=end)))
-
-
-##class BouncedLanding(FlightPhaseNode):
-    ##'''
-    ##TODO: Review increasing the frequency for more accurate indexing into the
-    ##altitude arrays.
-    ##'''
-    ### force all phases to 0 offset.
-    ##align_offset = 0
-    
-    ##def derive(self, alt_aal=P('Altitude AAL'), airs=S('Airborne'),
-               ##fast=S('Fast')):
-        
-        ### This makes the wrong assumption that it's the overlap of airborne
-        ### and fast, where as in fact it is after airborne while still going
-        ### fast that we look to see if the altitude bounced up.
-        
-        ### How about:
-        ### InTheAir = any period in the air (ignoring masks of course)
-        ### Airborne = In The Air > 60 seconds
-        ### BouncedLanding = In The Air < 60 seconds AND 2ft < max_alt < 100 ft
-        
-        ###overlaps = airs & fast
-        ###for overlap in overlaps:
-            ###if overlap.duration(self.frequency) > BOUNCED_MAXIMUM_DURATION:
-                #### duration too long to be a bounced landing!
-                #### possible cause: Touch and go.
-                ###continue
-            
-            ###ht = max_value(alt_aal.array, overlap)
-            ###if BOUNCED_LANDING_THRESHOLD < ht.value < BOUNCED_MAXIMUM_HEIGHT:
-                #### we have a bounce, mark the duration
-                #####self.add(overlap)
-                ###scan = alt_aal.array[overlap.slice]
-                ###up = np.ma.clump_unmasked(np.ma.masked_less_equal(scan, 0.0))
-                ###start = overlap.slice.start
-                ###self.create_phase(up[0].start + start, up[-1].stop + start -1)
-                        
-                        
-        ##for speedy in fast:
-            ##for air in airs:
-                ##if slices_overlap(speedy.slice, air.slice):
-                    ##start = air.slice.stop
-                    ##stop = speedy.slice.stop
-                    ##if (stop - start) / self.frequency > BOUNCED_MAXIMUM_DURATION:
-                        ### duration too long to be a bounced landing!
-                        ### possible cause: Touch and go.
-                        ##continue
-                    ##elif start == stop:
-                        ##stop += 1
-                    ##scan = alt_aal.array[start:stop]
-                    ##ht = max(scan)
-                    ##if ht > BOUNCED_LANDING_THRESHOLD and \
-                       ##ht < BOUNCED_MAXIMUM_HEIGHT:
-                        ##up = np.ma.clump_unmasked(
-                            ##np.ma.masked_less_equal(scan, 0.0))
-                        ##self.create_phase(up[0].start + start, up[-1].stop + start)
-
 
 class ClimbCruiseDescent(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
@@ -894,7 +817,7 @@ class Grounded(FlightPhaseNode):
     Was "On Ground" but this name conflicts with a recorded 737-6 parameter name.
     '''
     def derive(self, inair=S('In Air')):
-        self.intervals = FlightPhaseNode.all() - inair
+        self.intervals = ~inair
 
 
 class Mobile(FlightPhaseNode):
