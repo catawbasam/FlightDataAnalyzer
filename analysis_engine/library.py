@@ -10,7 +10,7 @@ from itertools import izip
 from math import asin, atan2, ceil, cos, degrees, floor, radians, sin, sqrt
 
 from hdfaccess.parameter import MappedArray
-from analysis_engine.interval import Inf
+from analysis_engine.interval import Inf, IntervalSet, Interval
 
 from settings import (CURRENT_YEAR,
                       KTS_TO_MPS,
@@ -4396,6 +4396,130 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
 
     return (begin + step * (n + r))
 
+
+def sections_above(array, threshold, sect=slice(None)):
+    '''
+    
+    '''
+    if isinstance(sect, slice):
+        assert (sect.step or 1) == 1
+        _slice = sect
+    else:
+        _slice = sect.slice
+        
+    
+    # here?
+    subarray = array[_slice]
+    if all(subarray > threshold):
+        return Section(sect.start, sect.stop)
+        
+    # Arrange the limits of our scan, ensuring that we stay inside the array.
+    begin = _slice.start or 0
+    end = _slice.stop or len(array)
+    left, right = slice(begin, end - 1), slice(begin + 1, end)
+        
+    if end - begin < 3:
+        logger.warning('No range for seek function to scan across')
+        # Requires at least two values to find if the array crosses a
+        # threshold.
+        return None
+
+    # When the data being tested passes the value we are seeking, the
+    # difference between the data and the value will change sign.
+    # Therefore a negative value indicates where value has been passed.
+    value_passing_array = (array[left] - threshold) * (array[right] - threshold)    
+    test_array = np.ma.masked_greater(value_passing_array, 0.0)
+    
+    passing_thru_threshold = (value_passing_array <= 0)
+    
+
+    if len(test_array) == 0:
+        # Q: Does this mean that value_passing_array is also empty?
+        return None
+
+    elif not np.ma.count(test_array):
+        # The parameter does not pass through threshold in the period in
+        # question, so return empty-handed.
+        if endpoint == 'closing':
+            # Rescan the data to find the last point where the array data is
+            # closing.
+            diff = np.ma.ediff1d(array[_slice])
+            value = closest_unmasked_value(array, _slice.start or 0,
+                                           _slice=_slice)[1]
+            if threshold >= value:
+                diff_where = np.ma.where(diff < 0)
+            else:
+                diff_where = np.ma.where(diff > 0)
+            try:
+                return (_slice.start or 0) + (step * diff_where[0][0])
+            except IndexError:
+                return (_slice.stop - step) if _slice.stop else len(array) - 1
+        elif endpoint == 'nearest':
+            closing_array = abs(array-threshold)
+            return begin + step * np.ma.argmin(closing_array[_slice])
+        else:
+            return None
+
+    else:
+        def interpolate_between(a, b, threshold):
+            'shortcut to find the proportionate distance between a and b that the threshold is in'
+            # Q: How to handle the next value being masked etc?
+            return (float(threshold) - a) / (b - a)
+            
+        idxs = []
+        for (start, end, dur) in zip(*runs_of_ones_array(passing_thru_threshold, 1)):
+            # find crossover point
+            idx = interpolate_between(subarray[start], subarray[end-1], threshold)
+            idxs.append(idx + start)
+            
+        from itertools import izip_longest
+        intervals = IntervalSet()
+        for start, stop in izip_longest(idxs[::2], idxs[1::2], fillvalue=Inf):
+            if stop >= len(array)-1:
+                stop = Inf
+            intervals.add(Interval(start, stop))
+            
+            
+            # Could take first interval from set, if -Inf replace with 0
+            # and if last is Inf, replace with len(array)-1
+            ##if start_pos is None:
+                ### first loop
+                ##interval = Interval(-Inf, idx)
+                ##start_pos = idx
+                ##continue
+            ##end_pos = idx
+            ####if begin+end_pos >= len(array)-1:
+                ##### Allow to run into infinity
+                ####end_pos = None
+            ##intervals.add(Interval(begin+start_pos, begin+end_pos))
+            ##start_pos = end_pos
+        
+        if subarray[0] > threshold:
+            # we started above the threshold, so invert the solution
+            intervals = ~intervals
+        ##else:
+            ##return intervals
+        if begin > 0:
+            # shift intervals up
+            intervals.shift(begin)
+            # restrict the start from -Inf to begin
+            if intervals[0].lower_bound == -Inf:
+                intervals[0].trim(begin)
+        if end < len(array)-1:
+            # restrict the end from Inf to end
+            intervals[-1].trim(end)
+        return intervals
+        ##n, dummy = np.ma.flatnotmasked_edges(test_array)
+        ##a = array[begin + n]
+        ##b = array[begin + n + 1]
+        ### Force threshold to float as often passed as an integer.
+        ### Also check for b=a as otherwise we get a divide by zero condition.
+        ##if (a is np.ma.masked or b is np.ma.masked or a == b):
+            ##r = 0.5
+        ##else:
+            ##r = (float(threshold) - a) / (b - a)
+
+    ##return (begin + n + r)
 
 def _value(array, section, operator):
     """
