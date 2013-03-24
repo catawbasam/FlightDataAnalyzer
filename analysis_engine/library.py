@@ -4402,114 +4402,86 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
 
     return (begin + step * (n + r))
 
-
-def sections_above(array, threshold, sect=Interval.all()):
+def interpolate_between(a, b, threshold):
+    '''Shortcut to find the proportionate distance between a and b that
+    the threshold is in.
+    
+    If either a or b are masked, a masked value is returned.
+    
+    :param a: First value
+    :param b: Second value
+    :param threshold: Threshold lieing between a and b
+    :returns: proportion between a (0) to b (1)
+    :rtype: float [0.0..1.0]
     '''
-    RENAME sections to intervals_above
+    return (float(threshold) - a) / (b - a)
+
+def interpolate_between_valid_values(array, start_idx, stop_idx, threshold):
+    '''Find the first valid sample in array either side of the index,
+    then interpolates to find the index where the threshold would have
+    appeared if the relationship was linear.
+    
+    :param start_idx: the desired start of the interpolation check
+    :type start_idx: Integer
+    :param start_idx: the desired end of the interpolation check
+    :type stop_idx: Integer
+    :returns: Index where threshold would be found with linear interpolation
+    :rtype: Float
     '''
-    ##if isinstance(sect, slice):
-        ##assert (sect.step or 1) == 1
-        ##_slice = sect
-    ##else:
-        ##_slice = sect.slice
-        
+    start = last_valid_sample(array, start_idx)
+    end = first_valid_sample(array, stop_idx)
+    dist = interpolate_between(start.value, end.value, threshold)
+    # dist is say 0.25 of the way between start and end, find index
+    # relative to array start
+    return start.index + (end.index - start.index) * dist
+
+def intervals_above(array, threshold, subsection=Interval.all()):
+    '''
+    Creates intervals where the array data is above the threshold.
+    Interpolates between gaps and accounts for masked data using nearest
+    neighbour repair algorithm.
     
-    # here?
-    ##subarray = array[_slice]
-    ##if np.ma.all(array[sect.slice] > threshold):  # NICE PLAN!!
-        ##return sect
-        
-    # Arrange the limits of our scan, ensuring that we stay inside the array.
-    begin = 0
-    end = len(array)
-    left, right = slice(0, end-1), slice(1, end)
-        
-    ##if end - begin < 3:
-        ##logger.warning('No range for seek function to scan across')
-        ### Requires at least two values to find if the array crosses a
-        ### threshold.
-        ##return None
-
-    # When the data being tested passes the value we are seeking, the
-    # difference between the data and the value will change sign.
-    # Therefore a negative value indicates where value has been passed.
-    value_passing_array = (array[left] - threshold) * (array[right] - threshold)    
-    ##test_array = np.ma.masked_greater(value_passing_array, 0.0)
+    Note: intervals_below == ~intervals_above
     
-    passing_thru_threshold = (value_passing_array <= 0)
-    
-
-    ##if len(test_array) == 0:
-        ### Q: Does this mean that value_passing_array is also empty?
-        ##return None
-
-    ##elif not np.ma.count(test_array):
-        ### The parameter does not pass through threshold in the period in
-        ### question, so return empty-handed.
-        ##if endpoint == 'closing':
-            ### Rescan the data to find the last point where the array data is
-            ### closing.
-            ##diff = np.ma.ediff1d(array[_slice])
-            ##value = closest_unmasked_value(array, _slice.start or 0,
-                                           ##_slice=_slice)[1]
-            ##if threshold >= value:
-                ##diff_where = np.ma.where(diff < 0)
-            ##else:
-                ##diff_where = np.ma.where(diff > 0)
-            ##try:
-                ##return (_slice.start or 0) + (step * diff_where[0][0])
-            ##except IndexError:
-                ##return (_slice.stop - step) if _slice.stop else len(array) - 1
-        ##elif endpoint == 'nearest':
-            ##closing_array = abs(array-threshold)
-            ##return begin + step * np.ma.argmin(closing_array[_slice])
-        ##else:
-            ##return None
-
-    ##else:
-    def interpolate_between(a, b, threshold):
-        'shortcut to find the proportionate distance between a and b that the threshold is in'
-        # Q: How to handle the next value being masked etc?
-        return (float(threshold) - a) / (b - a)
-        
-    idxs = []
-    for (start, end, dur) in zip(*runs_of_ones_array(passing_thru_threshold, 1)):
-        # find crossover point
-        idx = interpolate_between(array[start], array[end-1], threshold)
-        idxs.append(idx + start)
+    :param array: Array
+    :type array: np.ma.array
+    :param threshold: To create intervals above
+    :type threshold: Float
+    :param subsection: If you're only interested in a subset of the data
+    :type subsection: Interval
+    :returns: Intervals where the array is above the threshold
+    :rtype: IntervalSet
+    '''
+    # This alone is quite sensitive to masked spikes in data!
+    above_threshold_with_mask = array > threshold
+    # Repair the boolean array mask filling in with the nearest neighbours
+    above_threshold = nearest_neighbour_mask_repair(above_threshold_with_mask)
         
     intervals = IntervalSet()
-    for start, stop in izip_longest(idxs[::2], idxs[1::2], fillvalue=Inf):
-        if stop >= len(array)-1:
-            stop = Inf
-        intervals.add(Interval(start, stop))
+    for (start, end, dur) in zip(*runs_of_ones_array(above_threshold, 1)):  #FIXME: Replace when merged!
+        # find one value before the start of the data above threshold
+        lower_closed = upper_closed = True
+        if start == 0:
+            start_idx = -Inf
+        else:
+            start_idx = interpolate_between_valid_values(array, start-1, start, threshold)
+            # determine whether bounds are equal to threshold, in which case
+            # interpolation will have narrowed down on the values exactly.
+            # Exclude them by making the bound open.
+            if array[start_idx] == threshold:  #Q: Include check start_idx % 1 == 0?
+                lower_closed = False
+        if end == len(array):
+            end_idx = Inf
+        else:
+            end_idx = interpolate_between_valid_values(array, end-1, end, threshold)
+            if array[end_idx] == threshold:
+                upper_closed = False
         
-    if array[0] > threshold:
-        # we started above the threshold, so invert the solution
-        intervals = ~intervals
-    ##else:
-        ##return intervals
-    ##if begin > 0:
-        ### shift intervals up
-        ##intervals.shift(begin)
-        ### restrict the start from -Inf to begin
-        ##if intervals[0].lower_bound == -Inf:
-            ##intervals[0].trim(begin)
-    ##if end < len(array)-1:
-        ### restrict the end from Inf to end
-        ##intervals[-1].trim(end)
-    return intervals & sect
-        ##n, dummy = np.ma.flatnotmasked_edges(test_array)
-        ##a = array[begin + n]
-        ##b = array[begin + n + 1]
-        ### Force threshold to float as often passed as an integer.
-        ### Also check for b=a as otherwise we get a divide by zero condition.
-        ##if (a is np.ma.masked or b is np.ma.masked or a == b):
-            ##r = 0.5
-        ##else:
-            ##r = (float(threshold) - a) / (b - a)
+        # Add the interval to the set
+        intervals.add(Interval(start_idx, end_idx, lower_closed=lower_closed, 
+                               upper_closed=upper_closed))
+    return intervals & subsection
 
-    ##return (begin + n + r)
 
 def _value(array, section, operator):
     """
