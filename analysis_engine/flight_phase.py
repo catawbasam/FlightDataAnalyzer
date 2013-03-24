@@ -184,23 +184,21 @@ class Holding(FlightPhaseNode):
             # increases.
             turn_bands = np.ma.clump_unmasked(
                 np.ma.masked_less(turn_rate[height_band], 0.5))
-            hold_bands=[]
             for turn_band in shift_slices(turn_bands, height_band.start):
                 # Reject short periods and check that the average groundspeed was
                 # low. The index is reduced by one sample to avoid overruns, and
                 # this is fine because we are not looking for great precision in
                 # this test.
                 hold_sec = turn_band.stop - turn_band.start
-                if (hold_sec > HOLDING_MIN_TIME*alt_aal.frequency):
-                    start = turn_band.start
-                    stop = turn_band.stop - 1
-                    _, hold_dist = bearing_and_distance(
-                        lat.array[start], lon.array[start],
-                        lat.array[stop], lon.array[stop])
-                    if hold_dist/KTS_TO_MPS/hold_sec < HOLDING_MAX_GSPD:
-                        hold_bands.append(turn_band)
-
-            self.create_phases(hold_bands)
+                if hold_sec < HOLDING_MIN_TIME*alt_aal.hz:
+                    continue
+                start = turn_band.start
+                stop = turn_band.stop - 1
+                _, hold_dist = bearing_and_distance(
+                    lat.array[start], lon.array[start],
+                    lat.array[stop], lon.array[stop])
+                if hold_dist/KTS_TO_MPS/hold_sec < HOLDING_MAX_GSPD:
+                    self.create_phase(start, stop)
 
 
 class ApproachAndLanding(FlightPhaseNode):
