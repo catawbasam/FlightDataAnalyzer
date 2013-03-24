@@ -5,6 +5,28 @@ Testing the FlightDataAnalyser
 ==============================
 
 ----------------------------------
+Patching settings Values for tests
+----------------------------------
+
+Sometimes it can be easier to change the value of one of the settings than
+having to generate long or complicated datasets in order to suit the required
+setting. Clearly to keep the code realistic, one should still check the
+setting works - ideally by not patching it in one test or by patching it with
+a value above and below the threshold used in the code.
+
+Here's how to patch the setting using `mock.patch`:
+
+.. code-block:: python
+    :linenos:
+    
+    import mock
+    
+    class TestSomething(unittest.TestCase):
+        @mock.patch("analysis_engine.settings.VALUE_TO_REPLACE_WITH_NEW", new=10)
+        def test_something(self):
+            ....
+
+----------------------------------
 Preparing a Stripped Down HDF File
 ----------------------------------
 
@@ -71,6 +93,9 @@ Writing Test Cases Which Call process_flight()
 *process_flight* will store DerivedParameterNodes into the HDF file being
 processed. If we consider the following test::
 
+.. code-block:: python
+    :linenos:
+    
     def test_process_flight(self):
         process_flight('test_data.hdf5', aircraft_info)
         with hdf_file('test_data.hdf5') as hdf:
@@ -85,6 +110,9 @@ result of this test.
 To avoid this problem, we should first copy the file and run process_flight
 against the copy::
 
+.. code-block:: python
+    :linenos:
+    
     from utilities.filesystem_tools import copy_file
     
     ...    
