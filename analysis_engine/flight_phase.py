@@ -17,6 +17,7 @@ from analysis_engine.library import (
     index_at_value,
     index_closest_value,
     intervals_above,
+    intervals_below,
     is_index_within_slice,
     is_slice_within_slice,
     max_value,
@@ -358,17 +359,17 @@ class Cruise(FlightPhaseNode):
 
 class Descending(FlightPhaseNode):
     """
-    Descending faster than 500fpm towards the ground
-    """
+    Descending faster than %dfpm towards the ground
+    """ % VERTICAL_SPEED_FOR_DESCENT_PHASE
+    align_offset = 0
+    
     def derive(self, vert_spd=P('Vertical Speed For Flight Phases'),
-               airs=S('Airborne')):
+               airborne=S('Airborne')):
         # Vertical speed limits of 500fpm gives good distinction with level
         # flight.
-        for air in airs:
-            descending = np.ma.masked_greater(vert_spd.array[air.slice],
-                                              VERTICAL_SPEED_FOR_DESCENT_PHASE)
-            desc_slices = np.ma.clump_unmasked(descending)
-            self.create_phases(shift_slices(desc_slices, air.slice.start))
+        descending = intervals_below(vert_spd.array,
+                                     VERTICAL_SPEED_FOR_DESCENT_PHASE)
+        self.intervals = descending & airborne
 
 
 class Descent(FlightPhaseNode):

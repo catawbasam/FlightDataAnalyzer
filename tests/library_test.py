@@ -1854,7 +1854,15 @@ class TestIntervalsAbove(unittest.TestCase):
         
         # test we only meet the threshold and go back down again...
         
-
+class TestIntervalsBelow(unittest.TestCase):
+    def test_intervals_below_round_values(self):
+        # inverse of intervals_above - so see those tests for more
+        # comprehensive cover
+        array = np.ma.array([50,60,70,80,90,80,70,60]*2)
+        self.assertEqual(intervals_below(array, 70), 
+                         '(...2),(6..10),(14...)')
+        
+        
 class TestIndexClosestValue(unittest.TestCase):
     def test_index_closest_value(self):
         array = np.ma.array([1, 2, 3, 4, 5, 4, 3])

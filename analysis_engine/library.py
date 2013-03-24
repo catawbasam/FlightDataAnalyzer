@@ -4435,25 +4435,16 @@ def interpolate_between_valid_values(array, start_idx, stop_idx, threshold):
     # relative to array start
     return start.index + (end.index - start.index) * dist
 
-def intervals_above(array, threshold, subsection=Interval.all()):
-    '''
-    Creates intervals where the array data is above the threshold.
-    Interpolates between gaps and accounts for masked data using nearest
-    neighbour repair algorithm.
-    
-    Note: intervals_below == ~intervals_above
-    
+
+def _intervals_on_bool_array(above_threshold_with_mask, array, threshold):
+    """
+    :param above_threshold_with_mask: True where intervals are to be created.
+    :type above_threshold_with_mask: Boolean masked array
     :param array: Array
     :type array: np.ma.array
     :param threshold: To create intervals above
     :type threshold: Float
-    :param subsection: If you're only interested in a subset of the data
-    :type subsection: Interval or IntervalSet
-    :returns: Intervals where the array is above the threshold
-    :rtype: IntervalSet
-    '''
-    # This alone is quite sensitive to masked spikes in data!
-    above_threshold_with_mask = array > threshold
+    """
     # Repair the boolean array mask filling in with the nearest neighbours
     above_threshold = nearest_neighbour_mask_repair(above_threshold_with_mask)
         
@@ -4480,6 +4471,53 @@ def intervals_above(array, threshold, subsection=Interval.all()):
         # Add the interval to the set
         intervals.add(Interval(start_idx, end_idx, lower_closed=lower_closed, 
                                upper_closed=upper_closed))
+    return intervals
+
+
+def intervals_above(array, threshold, subsection=Interval.all()):
+    '''
+    Creates intervals where the array data is above the threshold.
+    Interpolates between gaps and accounts for masked data using nearest
+    neighbour repair algorithm.
+    
+    TODO: Remove subsection argument - it's not necessary to perform that
+    action here other than to discourage subslicing of array before calling
+    this method.
+    
+    :param array: Array
+    :type array: np.ma.array
+    :param threshold: To create intervals above
+    :type threshold: Float
+    :param subsection: If you're only interested in a subset of the data
+    :type subsection: Interval or IntervalSet
+    :returns: Intervals where the array is above the threshold
+    :rtype: IntervalSet
+    '''
+    # This alone is quite sensitive to masked spikes in data!
+    above_threshold_with_mask = array > threshold
+    intervals = _intervals_on_bool_array(
+        above_threshold_with_mask, array, threshold)
+    return intervals & subsection
+
+def intervals_below(array, threshold, subsection=Interval.all()):
+    '''
+    Creates intervals where the array data is below the threshold.
+    Interpolates between gaps and accounts for masked data using nearest
+    neighbour repair algorithm.
+
+    :param array: Array
+    :type array: np.ma.array
+    :param threshold: To create intervals below
+    :type threshold: Float
+    :param subsection: If you're only interested in a subset of the data
+    :type subsection: Interval or IntervalSet
+    :returns: Intervals where the array is below the threshold
+    :rtype: IntervalSet
+    '''
+    # This alone is quite sensitive to masked spikes in data!
+    above_threshold_with_mask = array < threshold
+    intervals = _intervals_on_bool_array(
+        above_threshold_with_mask, array, threshold)
     return intervals & subsection
 
 

@@ -713,11 +713,11 @@ class TestDescending(unittest.TestCase):
     def test_descending_basic(self):
         vert_spd = Parameter('Vertical Speed For Flight Phases',
                              np.ma.array([0, 1000, -600, -800, 0]))
-        air = buildsection('Airborne',2,8)
-        phase = Descending()
-        phase.derive(vert_spd, air)
-        expected = buildsection('Descending', 2, 4)
-        self.assertEqual(phase, expected)
+        air = phase('[2..8]')
+        desc = Descending()
+        desc.derive(vert_spd, air)
+        expected = phase('[2..3.375]')
+        self.assertEqual(desc, expected)
 
 
 """
