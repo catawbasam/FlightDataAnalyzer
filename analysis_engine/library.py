@@ -1286,6 +1286,12 @@ def first_valid_sample(array, start_index=0):
 def last_valid_sample(array, end_index=None):
     '''
     Returns the last valid sample of data before a point in an array.
+    
+    If end_index is negative, it will scan up to -x elements from the end.
+    e.g. end_index = -3 scans up to and including the 3rd last ellement
+    
+    >>> last_valid_sample(np.ma.arange(30), -3)
+    Value(index=27, value=27)
 
     :param array: array of values to scan
     :type array: Numpy masked array
@@ -1298,10 +1304,10 @@ def last_valid_sample(array, end_index=None):
     :type index: Float or None
     '''
     if end_index is None:
-        end_index = len(array)
+        end_index = len(array)-1
     elif end_index > len(array):
         return Value(None, None)
-
+    
     clumps = np.ma.clump_unmasked(array[:end_index+1])
     if clumps:
         index = clumps[-1].stop - 1
