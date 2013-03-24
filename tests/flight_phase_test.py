@@ -151,8 +151,7 @@ class TestInAir(unittest.TestCase):
         fast = SectionNode(items=[Section(3, 80)])
         air = InAir()
         air.derive(altitude, fast)
-        expected = [Section(7.5, 80.5, name='Airborne')]
-        self.assertEqual(list(air), expected)
+        self.assertEqual(air, '(7..80]')
 
     def test_inair_phase_not_fast(self):
         altitude_data = np.ma.array(range(0,10))
@@ -169,7 +168,7 @@ class TestInAir(unittest.TestCase):
         fast = phase('(...25]')
         air = InAir()
         air.derive(alt_aal, fast)
-        self.assertEqual(air, '(...22.5]')
+        self.assertEqual(air, '(...23)')
 
     def test_inair_phase_ends_in_midflight(self):
         altitude_data = np.ma.array([0]*5+[30,80]+[100]*20)
@@ -177,18 +176,24 @@ class TestInAir(unittest.TestCase):
         fast = phase('(2...)')
         air = InAir()
         air.derive(alt_aal, fast)
-        self.assertEqual(air, '[4.5...)')
+        self.assertEqual(air, '(4...)')
         
     def test_inair_training_flight(self):
         inair = InAir()
         aal = load(os.path.join(test_data_path, 'alt_aal_training.nod'))
+        #airs = (
+          #'[723.5..1001.5], [1026.5..1321.5], [1346.5..1981.5], [2002.5..2419.5], '
+          #'[2439.5..2790.5], [2813.5..3211.5], [3235.5..3615.5], [3644.5..4031.5], '
+          #'[4060.5..4670.5], [4701.5..5050.5], [5078.5..5414.5], [5439.5..5767.5], '
+          #'[5791.5..6137.5], [6165.5..6537.5], [6561.5..7196.5], [7221.5..7569.5], '
+          #'[7593.5..7930.5], [7956.5..8288.5], [8313.5..8603.5], [8630.5..10113.5]')
+        # Intervals start just after the value is recorded (open)
         airs = (
-          '[723.5..1001.5], [1026.5..1321.5], [1346.5..1981.5], [2002.5..2419.5], '
-          '[2439.5..2790.5], [2813.5..3211.5], [3235.5..3615.5], [3644.5..4031.5], '
-          '[4060.5..4670.5], [4701.5..5050.5], [5078.5..5414.5], [5439.5..5767.5], '
-          '[5791.5..6137.5], [6165.5..6537.5], [6561.5..7196.5], [7221.5..7569.5], '
-          '[7593.5..7930.5], [7956.5..8288.5], [8313.5..8603.5], [8630.5..10113.5]')
-        
+            '(723.0..1002.0),(1026.0..1322.0),(1346.0..1982.0),(2002.0..2420.0),'
+            '(2439.0..2791.0),(2813.0..3212.0),(3235.0..3616.0),(3644.0..4032.0),'
+            '(4060.0..4671.0),(4701.0..5051.0),(5078.0..5415.0),(5439.0..5768.0),'
+            '(5791.0..6138.0),(6165.0..6538.0),(6561.0..7197.0),(7221.0..7570.0),'
+            '(7593.0..7931.0),(7956.0..8289.0),(8313.0..8604.0),(8630.0..10114.0)')
         fast = phase('[378..10129]')
         inair.derive(aal, fast)
         self.assertEqual(inair, airs)

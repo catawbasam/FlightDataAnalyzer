@@ -68,25 +68,18 @@ class InAir(FlightPhaseNode):
     
     Note this uses Altitude AAL For Flight Phases which is simply where the
     Altitude AAL parameter has had it's array repaired.
+    
+    Q: this will return an open interval where 0 was last recorded - although accurate, perhaps
+    setting the altitude to 1ft would be more sensible to encourage
+    interpolation and the interval to start after it leaves the ground?
     '''
     #NB: Do NOT align_offset to 0 here!
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                fast=S('Fast')):
         # Just find out when altitude above airfield is non-zero.
-        for speedy in fast:
-            sss = speedy.slice.start or 0
-            working_alt = alt_aal.array[speedy.slice]  #TODO: This slice edges are only as accurate as the Fast phase.
-            airs = np.ma.clump_unmasked(np.ma.masked_less_equal(working_alt, 0.0))
-            for air in airs:
-                # TODO: use another parameter to improve upon accuracy?
-                # Interpolate between the values for closer takeoff position
-                start = sss + air.start - 0.5  # half sample earlier
-                stop = sss + air.stop - 0.5    # account for stop being +1
-                # Use infinity in intervals!
-                start_pos = start if start > 0 else None
-                stop_pos = stop if stop < len(alt_aal.array)-1 else None
-                self.create_phase(start_pos, stop_pos)
-                                  
+        above_ground = intervals_above(alt_aal.array, 0)
+        # Ensure that we were going fast enough to be in the air!
+        self.intervals = above_ground & fast
                     
                     
 class Airborne(FlightPhaseNode):

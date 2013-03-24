@@ -4448,7 +4448,7 @@ def intervals_above(array, threshold, subsection=Interval.all()):
     :param threshold: To create intervals above
     :type threshold: Float
     :param subsection: If you're only interested in a subset of the data
-    :type subsection: Interval
+    :type subsection: Interval or IntervalSet
     :returns: Intervals where the array is above the threshold
     :rtype: IntervalSet
     '''
