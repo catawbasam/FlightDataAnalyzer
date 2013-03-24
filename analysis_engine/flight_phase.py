@@ -243,6 +243,14 @@ class Approach(FlightPhaseNode):
         
 
 class ClimbCruiseDescent(FlightPhaseNode):
+    """
+    Circuits of climb/cruise/descents grouped over %d feet.
+    
+    TODO: Review implementation - as this is only used for Cruise and Top Of\
+    Climb/Descent will segregating the top part of climbs/cruise/descents be\
+    enough (i.e. just everything above 500ft?) 
+    It might be as simple as 'climb & cruise & descent'?
+    """ % HYSTERESIS_FPALT_CCD
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                airs=S('Airborne')):
         for air in airs:
@@ -258,7 +266,7 @@ class ClimbCruiseDescent(FlightPhaseNode):
                     next_pk_val = pk_vals[n + 1]
                     next_pk_idx = pk_idxs[n + 1]
                     if next_pk_val < pk_val:
-                        self.create_phase(slice(None, next_pk_idx))
+                        self.create_phase(None, next_pk_idx, closed=False)  #TODO: Should end be inclusive of exclusive of the idx?
                         n += 1
                     else:
                         # We are going upwards from n->n+1, does it go down
@@ -266,11 +274,12 @@ class ClimbCruiseDescent(FlightPhaseNode):
                         if n + 2 < n_vals:
                             if pk_vals[n + 2] < next_pk_val:
                                 # Hurrah! make that phase
-                                self.create_phase(slice(pk_idx,
-                                                        pk_idxs[n + 2]))
+                                self.create_phase(pk_idx, pk_idxs[n + 2], closed=False) #TODO: Should end be inclusive of exclusive of the idx?
                                 n += 2
                         else:
-                            self.create_phase(slice(pk_idx, None))
+                            #Q: Does pk_idx include offset if we're in air
+                            #later than start?
+                            self.create_phase(pk_idx, None, closed=False)
                             n += 1
 
 
@@ -303,9 +312,13 @@ class Climb(FlightPhaseNode):
 
 class Climbing(FlightPhaseNode):
     def derive(self, vert_spd=P('Vertical Speed For Flight Phases'),
-               airs=S('Airborne')):
+               airborne=S('Airborne')):
+        #TODO: Implement this:
+        ##array = moving_average(vert_spd.array, window=30*vert_spd.hz)
+        ##climb = intervals_above(array, VERTICAL_SPEED_FOR_CLIMB_PHASE)
+        ##self.intervals = climb & airborne
         # Climbing is used for data validity checks and to reinforce regimes.
-        for air in airs:
+        for air in airborne:
             climbing = np.ma.masked_less(vert_spd.array[air.slice],
                                          VERTICAL_SPEED_FOR_CLIMB_PHASE)
             climbing_slices = slices_remove_small_gaps(

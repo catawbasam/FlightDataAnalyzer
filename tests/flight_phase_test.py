@@ -478,10 +478,9 @@ class TestClimbCruiseDescent(unittest.TestCase):
         testwave = np.ma.array([15000] * 5 + range(15000, 1000, -1000))
         alt_aal = Parameter('Altitude AAL For Flight Phases',
                             np.ma.array(testwave))
-        air=buildsection('Airborne', None, 19)
+        air = phase('(...19]')
         camel.derive(alt_aal, air)
-        expected = buildsection('Climb Cruise Descent', None, 18)
-        self.assertEqual(list(camel), list(expected))
+        self.assertEqual(camel, '(...18)')
 
     def test_climb_cruise_descent_end_midflight(self):
         # This test will find out if we can separate the two humps on this camel
@@ -490,10 +489,11 @@ class TestClimbCruiseDescent(unittest.TestCase):
         testwave = np.ma.array(range(1000,15000,1000)+[15000]*5)
         alt_aal = Parameter('Altitude AAL For Flight Phases',
                             np.ma.array(testwave))
-        air=buildsection('Airborne',0, None)
+        air = phase('(...)')
         camel.derive(alt_aal, air)
-        expected = buildsection('Climb Cruise Descent', 0, None)
-        self.assertEqual(camel, expected)
+        #self.assertEqual(camel, '(...)')
+        #FIXME: Current implementation lower bound is 0 - should be Inf as above?
+        self.assertEqual(camel, '(0..)')
 
     def test_climb_cruise_descent_all_high(self):
         # This test will find out if we can separate the two humps on this camel
@@ -501,11 +501,10 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.array([15000]*5)
         # plot_parameter (testwave)
-        air=buildsection('Airborne',0,5)
+        air = phase('(...5]')
         camel.derive(Parameter('Altitude AAL For Flight Phases',
                                np.ma.array(testwave)),air)
-        expected = []
-        self.assertEqual(camel, expected)
+        self.assertEqual(camel, '<Empty>')
 
     def test_climb_cruise_descent_one_humps(self):
         # This test will find out if we can separate the two humps on this camel
@@ -513,7 +512,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.cos(np.arange(0, 3.14 * 2, 0.1)) * (-3000) + 12500
         # plot_parameter (testwave)
-        air=buildsection('Airborne', 0, 62)
+        air = phase('(...62]')
         camel.derive(Parameter('Altitude AAL For Flight Phases',
                                np.ma.array(testwave)), air)
         self.assertEqual(len(camel), 1)
@@ -524,7 +523,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.cos(np.arange(0, 3.14 * 4, 0.1)) * (-3000) + 12500
         # plot_parameter (testwave)
-        air=buildsection('Airborne',0,122)
+        air = phase('(...122]')
         camel.derive(Parameter('Altitude AAL For Flight Phases',
                                np.ma.array(testwave)), air)
         self.assertEqual(len(camel), 2)
@@ -535,7 +534,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.cos(np.arange(0, 3.14 * 6, 0.1)) * (-3000) + 12500
         # plot_parameter (testwave)
-        air=buildsection('Airborne',0,186)
+        air = phase('(...186]')
         camel.derive(Parameter('Altitude AAL For Flight Phases',
                                np.ma.array(testwave)), air)
         self.assertEqual(len(camel), 3)
@@ -590,10 +589,10 @@ class TestClimbing(unittest.TestCase):
                                     range(-1200,500,100))
         vert_spd = Parameter('Vertical Speed For Flight Phases',
                              np.ma.array(vert_spd_data))
-        air = buildsection('Airborne', 2, 8)
+        air = phase('[2..8]')
         up = Climbing()
         up.derive(vert_spd, air)
-        expected = buildsection('Climbing', 3, 8)
+        expected = phase('[3..8]')
         self.assertEqual(up, expected)
 
 
