@@ -616,7 +616,7 @@ class TestCruise(unittest.TestCase):
         alt_p = Parameter('Altitude STD', alt_data)
         # Transform the "recorded" altitude into the CCD input data.
         ccd = ClimbCruiseDescent()
-        ccd.derive(alt_p, buildsection('Airborne', 0, len(alt_data)))
+        ccd.derive(alt_p, phase('(...)'))
         toc = TopOfClimb()
         toc.derive(alt_p, ccd)
         tod = TopOfDescent()
@@ -629,8 +629,8 @@ class TestCruise(unittest.TestCase):
         # With this test waveform, the peak at 31:32 is just flat enough
         # for the climb and descent to be a second apart, whereas the peak
         # at 94 genuinely has no interval with a level cruise.
-        expected = buildsections('Cruise',[31, 32],[94, 95])
-        self.assertEqual(list(test_phase), list(expected))
+        ##expected = buildsections('Cruise',[31, 32],[94, 95])
+        self.assertEqual(test_phase, '[31..32],[94..95]')
 
     def test_cruise_truncated_start(self):
         alt_data = np.ma.array([15000]*5+range(15000,2000,-4000))
@@ -638,7 +638,7 @@ class TestCruise(unittest.TestCase):
         alt = Parameter('Altitude STD', alt_data)
         ccd = ClimbCruiseDescent()
         ccd.derive(Parameter('Altitude For Climb Cruise Descent', alt_data),
-                   buildsection('Airborne', 0, len(alt_data)))
+                   phase('(...)'))
         toc = TopOfClimb()
         toc.derive(alt, ccd)
         tod = TopOfDescent()
@@ -646,7 +646,7 @@ class TestCruise(unittest.TestCase):
         test_phase = Cruise()
         test_phase.derive(ccd, toc, tod)
         #===========================================================
-        expected = buildsection('Cruise', None, 5)
+        expected = phase('(...5]')
         self.assertEqual(test_phase, expected)
         self.assertEqual(len(toc), 0)
         self.assertEqual(len(tod), 1)
@@ -657,7 +657,7 @@ class TestCruise(unittest.TestCase):
         alt = Parameter('Altitude STD', alt_data)
         ccd = ClimbCruiseDescent()
         ccd.derive(Parameter('Altitude For Climb Cruise Descent', alt_data),
-                   buildsection('Airborne', 0, len(alt_data)))
+                   phase('(...)'))
         toc = TopOfClimb()
         toc.derive(alt, ccd)
         tod = TopOfDescent()
@@ -666,7 +666,7 @@ class TestCruise(unittest.TestCase):
         test_phase.derive(ccd, toc, tod)
         #===========================================================
         expected = Cruise()
-        expected.create_section(slice(6, 7), 'Cruise')
+        expected.create_section(6, 7)
         self.assertEqual(test_phase, expected)
         self.assertEqual(len(toc), 1)
         self.assertEqual(len(tod), 0)

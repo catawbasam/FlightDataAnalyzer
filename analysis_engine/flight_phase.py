@@ -336,7 +336,7 @@ class Cruise(FlightPhaseNode):
         # The problem is that they need not be in tidy order as the lists may
         # not be of equal lengths.
         for ccd in ccds:
-            toc = tocs.get_first(within_slice=ccd.slice)
+            toc = tocs.get_first(within_slice=ccd.slice)  # TODO: Support section rather than slice!!
             if toc:
                 begin = toc.index
             else:
@@ -346,14 +346,14 @@ class Cruise(FlightPhaseNode):
             if tod:
                 end = tod.index
             else:
-                end = ccd.slice.stop
+                end = ccd.slice.stop #FIXME: if not None, this should be -1
 
             # Some flights just don't cruise. This can cause headaches later
             # on, so we always cruise for at least one second !
             if end <= begin:
                 end = begin + 1
 
-            self.create_phase(slice(begin,end))
+            self.create_phase(begin, end)
 
 
 class Descending(FlightPhaseNode):
