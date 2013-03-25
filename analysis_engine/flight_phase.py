@@ -918,6 +918,8 @@ class Takeoff(FlightPhaseNode):
     introduce a small error and we need to make sure the endpoint is
     exact.
     """ % (INITIAL_CLIMB_THRESHOLD)
+    align_offset = 0
+    
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'),
                fast=S('Fast')):
@@ -966,21 +968,27 @@ class TakeoffRoll(FlightPhaseNode):
     Sub-phase originally written for the correlation tests but has found use
     in the takeoff KPVs where we are interested in the movement down the
     runway, not the turnon or liftoff.
+    
+    Will align to the frequency of Pitch to improve accuracy of measurements.
     '''
+    align_offset = 0
+    
     @classmethod
     def can_operate(cls, available):
-        if all_of(('Takeoff', 'Pitch')) in available:
+        if all_of(('Takeoff', 'Pitch'), available):
             return True
         
-    def derive(self, toffs=S('Takeoff'),
-               pitch=P('Pitch'),
+    def derive(self, pitch=P('Pitch'),
+               toffs=S('Takeoff'),
                acc_starts=KTI('Takeoff Acceleration Start')):
         for toff in toffs:
-            begin = toff.start_pos # Default if acceleration term not available.
-            if acc_starts:
-                for acc_start in acc_starts:
-                    if is_index_within_slice(acc_start.index, toff.slice):
-                        begin = acc_start.index
+            for acc_start in acc_starts or []:
+                if acc_start.index in toff:
+                    begin = acc_start.index
+                    break  # Found a valid start
+            else:
+                # Default if acceleration term not available.
+                begin = toff.lower_bound
             two_deg_idx = index_at_value(pitch.array, 2.0, toff.slice)
             self.create_phase(begin, two_deg_idx)
 

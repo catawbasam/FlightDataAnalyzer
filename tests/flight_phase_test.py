@@ -45,6 +45,8 @@ from analysis_engine.key_time_instances import TopOfClimb, TopOfDescent
 from analysis_engine.library import integrate
 from analysis_engine.node import (A, App, ApproachItem, 
                                   FlightPhaseNode,
+                                  KeyTimeInstanceNode as KTI, 
+                                  KeyTimeInstance,
                                   MultistateDerivedParameterNode as M, 
                                   DerivedParameterNode as P,
                                   Section, SectionNode, load)
@@ -1305,11 +1307,25 @@ class TestTakeoff5MinRating(unittest.TestCase):
 class TestTakeoffRoll(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(TakeoffRoll.get_operational_combinations(),
-                         [('Takeoff', 'Takeoff Acceleration Start', 'Pitch',)])
+                         [('Pitch', 'Takeoff'),
+                          ('Pitch', 'Takeoff', 'Takeoff Acceleration Start')])
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_takeoff_roll(self):
+        # 37.5 at 2.0 pitch
+        data = np.concatenate([np.array([0]*30), np.arange(0,12,0.4)])
+        pitch = P('Pitch', array=np.ma.array(data))
+        toff_roll = TakeoffRoll()
+        toff_roll.derive(pitch, phase('[10..60]'), None)
+        self.assertEqual(toff_roll, '[10..35]')
+    
+    def test_takeoff_roll_with_accel_start(self):
+        # 37.5 at 2.0 pitch
+        data = np.concatenate([np.array([0]*30), np.arange(0,12,0.4)])
+        pitch = P('Pitch', array=np.ma.array(data))
+        acc_start = KTI(items=[KeyTimeInstance(index=8), KeyTimeInstance(index=12.5)])
+        toff_roll = TakeoffRoll()
+        toff_roll.derive(pitch, phase('[10..60]'), acc_start)
+        self.assertEqual(toff_roll, '[12.5..35]')    
 
 
 class TestTakeoffRotation(unittest.TestCase):
