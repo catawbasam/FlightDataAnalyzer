@@ -3953,8 +3953,8 @@ def slices_between(array, min_, max_):
     # therefore already has small masked sections repaired, so no allowance
     # is needed here for minor data corruptions.
     
-    # find unmasked runs
-    starts, stops, durs = runs_of_ones_array(1 - band.mask, 1)
+    # find unmasked runs - ensure mask is returned
+    starts, stops, durs = runs_of_ones_array(~np.ma.getmaskarray(band), 1)
     
     slices = []
     # for each start and stop find the interpolated index of min / max value
