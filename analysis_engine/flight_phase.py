@@ -3,7 +3,6 @@ import numpy as np
 # and clump_unmasked but used here to clump discrete arrays.
 from numpy.ma.extras import _ezclump
 
-from analysis_engine import settings
 from analysis_engine.exceptions import DataFrameError
 
 from analysis_engine.library import (

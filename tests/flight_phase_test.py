@@ -1,3 +1,4 @@
+import mock
 import numpy as np
 import os
 import unittest
@@ -767,9 +768,9 @@ class TestFast(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(ias)
         if AIRSPEED_THRESHOLD == 80:
-            expected = phase('[2..310]')
+            expected = phase('(2..310)')
         if AIRSPEED_THRESHOLD == 70:
-            expected = phase('[1..311]')
+            expected = phase('(1..311)')
         self.assertEqual(phase_fast, expected)
 
     def test_fast_all_fast(self):
@@ -791,14 +792,14 @@ class TestFast(unittest.TestCase):
         ias = P('Airspeed For Flight Phases', fast_data, 1, 0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        self.assertEqual(phase_fast, '(...3]')
+        self.assertEqual(phase_fast, '(...3)')
 
     def test_fast_speeding_only(self):
         fast_data = np.ma.arange(60, 120, 10)
         ias = P('Airspeed For Flight Phases', fast_data, 1, 0)
         phase_fast = Fast()
         phase_fast.derive(ias)
-        self.assertEqual(phase_fast, '[2...)')
+        self.assertEqual(phase_fast, '(2...)')
 
 
 class TestGrounded(unittest.TestCase):
