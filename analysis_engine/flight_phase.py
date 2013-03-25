@@ -1019,7 +1019,9 @@ class TakeoffRotation(FlightPhaseNode):
 class Takeoff5MinRating(FlightPhaseNode):
     '''
     For engines, the period of high power operation is normally 5 minutes from
-    the start of takeoff. Also applies in the case of a go-around.
+    the start of takeoff acceleration.
+    
+    See GoAround5MinRating for the same application in the case of a go-around.
     '''
     align_offset = 0
     
@@ -1029,18 +1031,17 @@ class Takeoff5MinRating(FlightPhaseNode):
             self.create_phase(roll.lower_bound, end)
 
 
-# TODO: Write some unit tests!
 class GoAround5MinRating(FlightPhaseNode):
     '''
-    For engines, the period of high power operation is normally 5 minutes from
-    the start of takeoff. Also applies in the case of a go-around.
+    For engines, the period of high power operation is measured from the
+    start of a Go Around.
     '''
-
+    align_offset = 0
+    
     def derive(self, gas=S('Go Around And Climbout')):
-        '''
-        '''
         for ga in gas:
-            self.create_phase(slice(ga.slice.start, ga.slice.start + 300))
+            end = ga.lower_bound + (300 * self.frequency)
+            self.create_phase(ga.slice.lower_bound, end)
 
 
 ################################################################################

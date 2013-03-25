@@ -1287,9 +1287,11 @@ class TestGoAround5MinRating(unittest.TestCase):
         self.assertEqual(GoAround5MinRating.get_operational_combinations(),
                          [('Go Around And Climbout',)])
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_multiple_goarounds(self):
+        rat = GoAround5MinRating()
+        rat.derive(phase('[100..250], [4200..10000]'))
+        self.assertEqual(rat, '[100..400], [4200..4500]')
+        self.assertEqual(rat.offset, 0)
 
 
 class TestTakeoff5MinRating(unittest.TestCase):
