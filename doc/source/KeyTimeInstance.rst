@@ -1,4 +1,4 @@
-.. _KeyTimeInstances:
+.. _KeyTimeInstance:
 
 =======================
 Key Time Instance (KTI)
