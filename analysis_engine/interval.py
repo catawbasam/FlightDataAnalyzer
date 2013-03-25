@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # As per easy_install interval - https://pypi.python.org/pypi/interval/1.0.0
 # but required Interval to inherit from object and a few other tweaks.
 """Provides the Interval and IntervalSet classes
@@ -46,6 +47,7 @@ True
 """
 
 import copy
+import math
 import re
 
 def convert_to(value, default, *types):
@@ -54,7 +56,7 @@ def convert_to(value, default, *types):
     for t in types:
         try:
             return t(value)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             continue
     return default
 
@@ -298,12 +300,12 @@ class Interval(object):
         TypeError: upper_bound is not hashable.
         """
         try:
-            h = hash(lower_bound)
+            hash(lower_bound)
         except TypeError:
             raise TypeError("lower_bound is not hashable.")
 
         try:
-            h = hash(upper_bound)
+            hash(upper_bound)
         except TypeError:
             raise TypeError("upper_bound is not hashable.")
 
@@ -2570,6 +2572,125 @@ class FrozenIntervalSet(BaseIntervalSet):
             return self
         else:
             copy.copy(self)
+
+
+
+class Section(Interval):
+    u'''
+    Section nodes start and stop are aligned. The start and stops are
+    accurate positions (including interpolation) of indexes into the data.
+    Note that these are more accurate than the slices the Section can create
+    which are rounded appropriately to integer values.
+    
+    Sections are single intervals which allows us many options:
+      left-closed, right-open: [a, b)  ≡  a <= x < b  ≡  slice(a, b)
+      left-bounded, right-unbounded, left-closed: [a, inf)  ≡  x >= a  ≡  slice(a, None)
+      left-unbounded and right-bounded, right-open: (-inf, b)  ≡  x <= b  ≡  slice(None, b)
+    
+    Including the ability to do fully closed intervals which slices cannot afford us:
+      proper and bounded, closed: [a, b]  ≡  a <= x <= b
+    
+    To define a right-closed interval (inclusive of b) use endpoint=True 
+    (default) as used by numpy linspace example here:
+
+      http://docs.scipy.org/doc/numpy/reference/generated/numpy.linspace.html
+    
+    Python slicing uses half-open (left-closed, right-open) intervals to make
+    arithmetics easier (see comment in link). Slicing lists raises a
+    TypeError if floats are used as the slice start or stop, but in numpy the 
+    start and stop are floored to their lower integer.
+    
+      http://stackoverflow.com/questions/9421057/numpy-indexing-questions-on-odd-behavior-inconsistencies#answer-9421268
+    
+    It is difficult to define a flight phase as half-open as you often
+    determine the closed boundaries of the phase based on information from
+    the available data. In addition we often work on parameters at different
+    frequencies which means the start and stop positions must be easily
+    aligned to other frequencies and ofsets requiring that the start/stop
+    positions become decimal values.
+
+    '''
+    def __init__(self, lower_bound=None, upper_bound=None, _slice=None, name='', **kwargs):
+        self.name = name
+        if (lower_bound or upper_bound) and _slice:
+            raise TypeError("Section does not accept both lower_bound/upper_bound"\
+                            "and _slice arguments")
+        elif _slice:
+            if _slice.step not in (1, None):
+                raise NotImplementedError("Section does not support step %s" %\
+                                          _slice.step)
+            lower_bound = _slice.start
+            upper_bound = None if _slice.stop is None else _slice.stop - 1
+        
+        # account for None == Inf
+        lower_bound = -Inf if lower_bound is None else lower_bound
+        upper_bound = Inf if upper_bound is None else upper_bound
+        if lower_bound > upper_bound:
+            raise TypeError('Cannot create a Section which stops (%s)'
+                ' before it starts (%s)' % (lower_bound, upper_bound))
+        super(Section, self).__init__(lower_bound, upper_bound, **kwargs)
+        
+    @property
+    def size(self):
+        '''
+        Difference between lower and upper bound of the section. Returns Infinity
+        should it start or end in Infinity!
+        
+        :returns: Difference of lower and upper bound
+        :rtype: Int/Float/Inf
+        '''
+        if self.lower_bound == -Inf or self.upper_bound == Inf:
+            return Inf
+        return self.upper_bound - self.lower_bound
+    
+    def duration(self, frequency):
+        '''
+        Duration of the section in time (seconds) depends on it's frequency,
+        which it doesn't know about - hence you need to tell it!
+        
+        :param frequency: Frequency at which this section was measured (Hz)
+        :type frequency: Float
+        :returns: Duration in seconds
+        :rtype: Float
+        '''
+        s = self.size 
+        if s == Inf:
+            # Infinity is just a BIG duration!
+            return Inf
+            ##raise ValueError('Duration is to infinity, and beyond')
+        return s / float(frequency)
+            
+    @property
+    def slice(self):
+        """
+        Creates slices on the fly based on Interval period. Rounds
+        lower_bound and upper_bound to the appropriate integer value
+        depending on whether it is open or closed.
+        
+        :returns: Slice describing constrained range of data for array slicing.
+        :rtype: slice
+        """
+        # cast slice start and stop to integer to reassure end-user that no
+        # decimals are used here!
+        is_integer = lambda x: not x % 1
+        if self.lower_bound == -Inf:
+            start = None
+        elif self.lower_open and is_integer(self.lower_bound):
+            # be sure to exclude the whole value and go up to next integer
+            start = int(self.lower_bound) + 1
+        else:
+            # start is always the top end of the value to constrain results
+            start = int(math.ceil(self.lower_bound))
+
+        if self.upper_bound == Inf:
+            stop = None
+        elif self.upper_open and is_integer(self.upper_bound):
+            # do not include stopping point for whole value
+            stop = int(self.upper_bound)
+        else:
+            # stop is the bottom end of the value plus one to include the last value
+            stop = int(math.floor(self.upper_bound)) + 1
+        return slice(start, stop)
 
 
 if __name__ == "__main__":
