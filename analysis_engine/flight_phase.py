@@ -3,7 +3,7 @@ import numpy as np
 # and clump_unmasked but used here to clump discrete arrays.
 from numpy.ma.extras import _ezclump
 
-from analysis_engine.exceptions import DataFrameError
+from analysis_engine.exceptions import DataFrameError, FlightPhaseError
 
 from analysis_engine.library import (
     all_of,
@@ -910,34 +910,26 @@ class LandingRoll(FlightPhaseNode):
 class Takeoff(FlightPhaseNode):
     """
     This flight phase starts as the aircraft turns onto the runway and ends
-    as it climbs through 35ft. Subsequent KTIs and KPV computations identify
+    as it climbs through %dft. Subsequent KTIs and KPV computations identify
     the specific moments and values of interest within this phase.
 
-    We use Altitude AAL (not "for Flight Phases") to avoid small errors
-    introduced by hysteresis, which is applied to avoid hunting in level
-    flight conditions, and make sure the 35ft endpoint is exact.
-    """
+    We use Altitude AAL For Flight Phases as it has its mask repaired. This
+    makes the assumption that no hysteresis is included as this will
+    introduce a small error and we need to make sure the endpoint is
+    exact.
+    """ % (INITIAL_CLIMB_THRESHOLD)
     def derive(self, head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
                fast=S('Fast')):
-
-        # Note: This algorithm works across the entire data array, and
-        # not just inside the speedy slice, so the final indexes are
-        # absolute and not relative references.
-
         for speedy in fast:
-            # This basic flight phase cuts data into fast and slow sections.
-
             # We know a takeoff should come at the start of the phase,
             # however if the aircraft is already airborne, we can skip the
             # takeoff stuff.
-            if speedy.slice.start is None:
-                break
-
+            if speedy.slice.start is None:  #Q: and alt_aal.array[0] > 35?
+                continue
             # The aircraft is part way down it's takeoff run at the start of
             # the section.
             takeoff_run = speedy.slice.start
-
             #-------------------------------------------------------------------
             # Find the start of the takeoff phase from the turn onto the runway.
 
@@ -950,12 +942,10 @@ class Takeoff(FlightPhaseNode):
             takeoff_begin = index_at_value(np.ma.abs(head.array - datum),
                                            HEADING_TURN_ONTO_RUNWAY,
                                            slice(takeoff_run, first, -1))
-
             # Where the data starts in line with the runway, default to the
             # start of the data
             if takeoff_begin is None:
                 takeoff_begin = first
-
             #-------------------------------------------------------------------
             # Find the end of the takeoff phase as we climb through 35ft.
 
@@ -964,11 +954,11 @@ class Takeoff(FlightPhaseNode):
             last = takeoff_run + (300 * alt_aal.frequency)
             takeoff_end = index_at_value(alt_aal.array, INITIAL_CLIMB_THRESHOLD,
                                          slice(takeoff_run, last))
-
+            if takeoff_end is None:
+                raise FlightPhaseError('Takeoff starts but does not end!')
             #-------------------------------------------------------------------
             # Create a phase for this takeoff
-            if takeoff_begin and takeoff_end:
-                self.create_phases([slice(takeoff_begin, takeoff_end)])
+            self.create_phase(takeoff_begin, takeoff_end)
 
 
 class TakeoffRoll(FlightPhaseNode):

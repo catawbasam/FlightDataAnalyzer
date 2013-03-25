@@ -42,5 +42,12 @@ class DataFrameError(Exception):
             % (self.param_name, self.frame_name)
 
 
+
+class FlightPhaseError(Exception):
+    '''
+    Error raised when an unexpected issues is encountered within a Flight Phase
+    '''
+    pass
+
 ################################################################################
 # vim:et:ft=python:nowrap:sts=4:sw=4:ts=4
