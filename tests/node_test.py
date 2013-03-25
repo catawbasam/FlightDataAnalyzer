@@ -508,6 +508,7 @@ class TestApproachNode(unittest.TestCase):
 
 
 class TestSection(unittest.TestCase):
+    #Q: Move this to a new interval_test.py?
     def test_section_slice_creation(self):
         # allow None to None
         self.assertEqual(Section(None, None).slice, slice(None))
@@ -568,15 +569,14 @@ class TestSection(unittest.TestCase):
         self.assertFalse(Section(10, 12).overlaps(Section(13, None)))
         
     def test_size_and_duration(self):
-        self.assertTrue(Section(10, 20).size, 10)
-        self.assertTrue(Section(None, 20).size, Inf)
-        self.assertTrue(Section(10, None).size, Inf)
-        self.assertTrue(Section(10, 20).duration(2), 5)
-        self.assertTrue(Section(10.9, 12.1), 1.2)
-        self.assertTrue(Section(10.9, 12.1).duration(1), 1.2)
-        self.assertTrue(Section(10.9, 12.1).duration(4), 4.8)
-        sect = Section(10, None)
-        self.assertRaises(ValueError, sect.duration, 2)
+        self.assertEqual(Section(10, 20).size, 10)
+        self.assertEqual(Section(None, 20).size, Inf)
+        self.assertEqual(Section(10, None).size, Inf)
+        self.assertEqual(Section(10, 20).duration(2), 5)
+        self.assertEqual(Section(10.9, 12.1), 1.2)
+        self.assertEqual(Section(10.9, 12.1).duration(1), 1.2)
+        self.assertEqual(Section(10.9, 12.1).duration(4), 4.8)
+        self.assertEqual(Section(10, None).duration, Inf)
 
 
 class TestSectionNode(unittest.TestCase):
