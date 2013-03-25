@@ -4338,7 +4338,7 @@ class TAWSAlert(MultistateDerivedParameterNode):
             (taws_too_low_terrain, 'Warning'),
             (taws_windshear_warning, 'Warning'),
         )
-        params_state = vstack_params_where_state(taws_states)
+        params_state = vstack_params_where_state(*taws_states)
         res = params_state.any(axis=0)
 
         self.array = np_ma_masked_zeros_like(params_state[0])
