@@ -14,17 +14,38 @@ setting. Clearly to keep the code realistic, one should still check the
 setting works - ideally by not patching it in one test or by patching it with
 a value above and below the threshold used in the code.
 
-Here's how to patch the setting using `mock.patch`:
+Here's how to patch the setting using `mock.patch` where the module imports
+analysis_engine.settings like so:
+
+    # my_module.py
+    import analysis_engine.settings as settings
 
 .. code-block:: python
     :linenos:
     
+    # my_module_test.py
     import mock
     
     class TestSomething(unittest.TestCase):
         @mock.patch("analysis_engine.settings.VALUE_TO_REPLACE_WITH_NEW", new=10)
         def test_something(self):
             ....
+            
+However be aware that if settings are imported directly into the module, the 
+variable now belongs in that module so the patch path needs to reflect this:
+
+    # my_module.py
+    from analysis_engine.settings import VALUE_TO_REPLACE_WITH_NEW
+    
+.. code-block:: python
+    :linenos:
+
+    # my_module_test.py
+    class TestSomething(unittest.TestCase):
+        @mock.patch("analysis_engine.my_module.VALUE_TO_REPLACE_WITH_NEW", new=10)
+        def test_something(self):
+            ....
+    
 
 ----------------------------------
 Preparing a Stripped Down HDF File

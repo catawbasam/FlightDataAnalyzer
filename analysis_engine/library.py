@@ -6,11 +6,11 @@ import logging
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
-from itertools import izip, izip_longest
+from itertools import izip
 from math import asin, atan2, ceil, cos, degrees, floor, radians, sin, sqrt
 
 from hdfaccess.parameter import MappedArray
-from analysis_engine.interval import Inf, IntervalSet, Interval
+from analysis_engine.interval import Inf, IntervalSet, Section
 
 from settings import (CURRENT_YEAR,
                       KTS_TO_MPS,
@@ -4469,12 +4469,12 @@ def _intervals_on_bool_array(above_threshold_with_mask, array, threshold):
                 upper_closed = False
         
         # Add the interval to the set
-        intervals.add(Interval(start_idx, end_idx, lower_closed=lower_closed, 
+        intervals.add(Section(start_idx, end_idx, lower_closed=lower_closed, 
                                upper_closed=upper_closed))
     return intervals
 
 
-def intervals_above(array, threshold, subsection=Interval.all()):
+def intervals_above(array, threshold, subsection=Section.all()):
     '''
     Creates intervals where the array data is above the threshold.
     Interpolates between gaps and accounts for masked data using nearest
@@ -4499,7 +4499,8 @@ def intervals_above(array, threshold, subsection=Interval.all()):
         above_threshold_with_mask, array, threshold)
     return intervals & subsection
 
-def intervals_below(array, threshold, subsection=Interval.all()):
+
+def intervals_below(array, threshold, subsection=Section.all()):
     '''
     Creates intervals where the array data is below the threshold.
     Interpolates between gaps and accounts for masked data using nearest

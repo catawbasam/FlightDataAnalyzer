@@ -1081,46 +1081,44 @@ class TestMobile(unittest.TestCase):
         self.assertEqual(move, expected)
 
 
-class TestLevelFlight(unittest.TestCase, NodeTest):
-
+class TestLevelFlight(unittest.TestCase):
     def setUp(self):
-        self.node_class = LevelFlight
-        self.operational_combinations = [('Airborne', 'Vertical Speed For Flight Phases')]
+        self.assertEqual(LevelFlight.get_operational_combinations(), 
+                         [('Vertical Speed For Flight Phases', 'Airborne')])
 
+    @mock.patch("analysis_engine.flight_phase.LEVEL_FLIGHT_MIN_DURATION", new=3)
     def test_level_flight_phase_basic(self):
         data = range(0, 400, 50) + range(400, -450, -50) + range(-450, 50, 50)
-        vrt_spd = P(
-            name='Vertical Speed For Flight Phases',
-            array=np.ma.array(data),
-        )
-        airborne = SectionNode('Airborne', items=[
-            Section('Airborne', slice(0, 36, None), 0, 36),
-        ])
+        vrt_spd = P(name='Vertical Speed For Flight Phases',
+                    array=np.ma.array(data)) 
         level = LevelFlight()
-        level.derive(airborne, vrt_spd)
-        self.assertEqual(level, [
-            Section('Level Flight', slice(0, 7, None), 0, 7),
-            Section('Level Flight', slice(10, 23, None), 10, 23),
-            Section('Level Flight', slice(28, 35, None), 28, 35),
-        ])
+        level.derive(airborne=phase('[0..36]'), vrt_spd=vrt_spd)
+        self.assertEqual(level, '[0..6),(10..22),(28..36]')
 
+    @mock.patch("analysis_engine.flight_phase.LEVEL_FLIGHT_MIN_DURATION", new=1)
     def test_level_flight_phase_not_airborne_basic(self):
         data = range(0, 400, 50) + range(400, -450, -50) + range(-450, 50, 50)
-        vrt_spd = P(
-            name='Vertical Speed For Flight Phases',
-            array=np.ma.array(data),
-        )
-        airborne = SectionNode('Airborne', items=[
-            Section('Airborne', slice(8, 30, None), 8, 30),
-        ])
+        vrt_spd = P(name='Vertical Speed For Flight Phases',
+                    array=np.ma.array(data))
         level = LevelFlight()
-        level.derive(airborne, vrt_spd)
-        self.assertEqual(level, [
-            Section('Level Flight', slice(10, 23, None), 10, 23),
-            Section('Level Flight', slice(28, 30, None), 28, 30),
-        ])
+        level.derive(airborne=phase('[8..30]'), vrt_spd=vrt_spd)
+        # skips first section 0..6 and last section 28..36 is cut short to 30
+        self.assertEqual(level, '(10..22),(28..30]')
 
-
+    @mock.patch("analysis_engine.flight_phase.LEVEL_FLIGHT_MIN_DURATION", new=10)
+    def test_level_flight_phase_short_durations(self):
+        from analysis_engine.flight_phase import LEVEL_FLIGHT_MIN_DURATION
+        # ensure patch has worked
+        self.assertEqual(LEVEL_FLIGHT_MIN_DURATION, 10, 'Patching Failed')
+        data = range(0, 400, 50) + range(400, -450, -50) + range(-450, 50, 50)
+        vrt_spd = P(name='Vertical Speed For Flight Phases',
+                    array=np.ma.array(data))
+        level = LevelFlight()
+        level.derive(airborne=phase('[11.2..30]'), vrt_spd=vrt_spd)
+        # skips first section 0..6 and last section 28..30
+        self.assertEqual(level, '[11.2..22)')
+        
+        
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Takeoff.get_operational_combinations(),

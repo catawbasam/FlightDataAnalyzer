@@ -54,8 +54,10 @@ from analysis_engine.settings import (
     INITIAL_APPROACH_THRESHOLD,
     KTS_TO_MPS,
     LANDING_THRESHOLD_HEIGHT,
+    LEVEL_FLIGHT_MIN_DURATION,
     VERTICAL_SPEED_FOR_CLIMB_PHASE,
     VERTICAL_SPEED_FOR_DESCENT_PHASE,
+    VERTICAL_SPEED_FOR_LEVEL_FLIGHT,
     RATE_OF_TURN_FOR_FLIGHT_PHASES,
     RATE_OF_TURN_FOR_TAXI_TURNS
 )
@@ -762,29 +764,21 @@ class InitialApproach(FlightPhaseNode):
 
 class LevelFlight(FlightPhaseNode):
     '''
-    '''
+    Find periods of flight where the vertical speed is less than +/- %dfpm
+    for at least %d minutes.
+    ''' % (VERTICAL_SPEED_FOR_LEVEL_FLIGHT,
+           int(LEVEL_FLIGHT_MIN_DURATION / 60))
+    align_offset = 0
 
-    @staticmethod
-    def _duration_filter(slices, frequency):
-        filtered = []
-        for _slice in slices:
-            duration = (_slice.stop - _slice.start) / frequency
-            if duration < settings.LEVEL_FLIGHT_MIN_DURATION:
-                filtered.append(_slice)
-        return filtered
-
-    def derive(self,
-               airs=S('Airborne'),
-               vrt_spd=P('Vertical Speed For Flight Phases')):
-
-        # Vertical speed limit set to identify both level flight and end of
-        # takeoff / start of landing.
-        for air in airs:
-            limit = settings.VERTICAL_SPEED_FOR_LEVEL_FLIGHT
-            level_flight = np.ma.masked_outside(vrt_spd.array[air.slice], -limit, limit)
-            level_slices = np.ma.clump_unmasked(level_flight)
-            level_slices = self._duration_filter(level_slices, airs.frequency)
-            self.create_phases(shift_slices(level_slices, air.slice.start))
+    def derive(self, vrt_spd=P('Vertical Speed For Flight Phases'), 
+               airborne=S('Airborne')):
+        level = intervals_below(abs(vrt_spd.array),
+                                VERTICAL_SPEED_FOR_LEVEL_FLIGHT)
+        level_in_air = level & airborne
+        # filter out those which are too short
+        for section in level_in_air:
+            if section.duration(vrt_spd.hz) > LEVEL_FLIGHT_MIN_DURATION:
+                self.add(section)
 
 
 class Grounded(FlightPhaseNode):
