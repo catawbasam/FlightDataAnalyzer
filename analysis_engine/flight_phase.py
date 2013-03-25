@@ -997,14 +997,19 @@ class TakeoffRotation(FlightPhaseNode):
     '''
     This is used by correlation tests to check control movements during the
     rotation and lift phases.
+    
+    Defined by 10 seconds before liftoff to 15 seconds after.
+    
+    Note: Currently allows for multiple Liftoffs therefore creating multiple
+    TakeoffRotations
     '''
-    def derive(self, lifts=S('Liftoff')):
-        if not lifts:
-            return
-        lift_index = lifts.get_first().index
-        start = lift_index - 10
-        end = lift_index + 15
-        self.create_phase(slice(start, end))
+    align_offset = 0
+    
+    def derive(self, lifts=KTI('Liftoff')):
+        for lift in lifts:
+            start = lift.index - (10 * self.frequency)
+            end = lift.index + (15 * self.frequency)
+            self.create_phase(start, end)
 
 
 ################################################################################

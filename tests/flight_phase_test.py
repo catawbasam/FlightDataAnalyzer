@@ -1331,9 +1331,11 @@ class TestTakeoffRotation(unittest.TestCase):
         self.assertEqual(TakeoffRotation.get_operational_combinations(),
                          [('Liftoff',)])
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        trot = TakeoffRotation()
+        trot.derive(KTI(items=[
+            KeyTimeInstance(index=30), KeyTimeInstance(index=100)]))
+        self.assertEqual(trot, '[20..45],[90..115]')
 
 
 class TestTwoDegPitchTo35Ft(unittest.TestCase):
