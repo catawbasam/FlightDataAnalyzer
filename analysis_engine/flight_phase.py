@@ -1082,10 +1082,13 @@ class TaxiOut(FlightPhaseNode):
 
 
 class Taxiing(FlightPhaseNode):
+    '''
+    The combination of Taxi In and Taxi Out.
+    '''
+    align_offset = 0
+    
     def derive(self, t_out=S('Taxi Out'), t_in=S('Taxi In')):
-        taxi_slices = slices_or(t_out.get_slices(), t_in.get_slices())
-        if taxi_slices:
-            self.create_phases(taxi_slices)
+        self.intervals = t_out | t_in
 
 
 class Turning(FlightPhaseNode):

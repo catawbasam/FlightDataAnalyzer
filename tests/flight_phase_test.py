@@ -1186,12 +1186,11 @@ class TestTaxiing(unittest.TestCase):
         self.assertEqual(Taxiing.get_operational_combinations(), expected)
 
     def test_taxiing(self):
-        tout = buildsection('Taxi Out', 2,  5)
-        t_in = buildsection('Taxi In',  8, 11)
+        tout = phase('[2..5]')
+        t_in = phase('[8..11]')
         ting = Taxiing()
         ting.derive(tout, t_in)
-        expected = buildsections('Taxiing', [2,5],[8,11])
-        self.assertEqual(ting, expected)
+        self.assertEqual(ting, '[2..5], [8..11]')
 
 
 class TestTurning(unittest.TestCase):
@@ -1303,6 +1302,7 @@ class TestTakeoff5MinRating(unittest.TestCase):
         rat = Takeoff5MinRating()
         rat.derive(phase('[100..250], [4200..10000]'))
         self.assertEqual(rat, '[100..400], [4200..4500]')
+        self.assertEqual(rat.offset, 0)
         
     def test_derive_two_takeoffs_in_rapid_succession(self):
         rat = Takeoff5MinRating()
