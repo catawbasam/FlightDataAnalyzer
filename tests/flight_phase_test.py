@@ -43,7 +43,8 @@ from analysis_engine.flight_phase import (Airborne,
                                           )
 from analysis_engine.key_time_instances import TopOfClimb, TopOfDescent
 from analysis_engine.library import integrate
-from analysis_engine.node import (A, App, ApproachItem, 
+from analysis_engine.node import (Attribute as A,
+                                  App, ApproachItem, 
                                   FlightPhaseNode,
                                   KeyTimeInstanceNode as KTI, 
                                   KeyTimeInstance,
@@ -356,10 +357,10 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         ils = P('ILS Localizer',np.ma.arange(-3, 0, 0.3))
         alt_aal = P('Alttiude AAL For Flight Phases',
                     np.ma.arange(1000, 0, -100))
-        app = App(items=[ApproachItem('LANDING', slice(0, 10))])
+        app = phase('[0..10]')
         establish = ILSLocalizerEstablished()
         establish.derive(ils, alt_aal, app)
-        expected = buildsection('ILS Localizer Established', 10*2.0/3.0, 10)
+        expected = Section(10*2.0/3.0, 10)
         # Slightly daft choice of ils array makes exact equality impossible!
         self.assertAlmostEqual(establish.get_first().start_edge,
                                expected.get_first().start_edge)
@@ -861,7 +862,15 @@ class TestGearRetracting(unittest.TestCase):
                      'Airborne'),]
         self.assertTrue([e in opts for e in expected])
 
-    def test_737_3C(self):
+    def test_gear_retracting_with_gear_down_only(self):
+        gear_down = M('Gear Down', np.ma.array([0,1,1,1,1,1,1,1,1,1,0,0,1]),
+                      values_mapping={0:'Up', 1:'Down'})
+        airs = phase('[2..11]')
+        gr = GearRetracting()
+        gr.derive(gear_down, None, None, None, airs)
+        self.assertEqual(gr, '[4.5..9.5]')
+
+    def test_gear_warnings_for_737_3C(self):
         gear_down = M('Gear Down', np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1]),
                       values_mapping={0:'Up', 1:'Down'})
         gear_warn_l = M('Gear (L) Red Warning',
@@ -873,12 +882,24 @@ class TestGearRetracting(unittest.TestCase):
         gear_warn_r = M('Gear (R) Red Warning',
                         np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]),
                         values_mapping={1:'Warning', 0:'False'})
-        frame = A('Frame', value='737-3C')
-        airs=buildsection('Airborne', 1, 11)
+        airs = phase('[1..11]')
         gr = GearRetracting()
-        gr.derive(gear_down, gear_warn_l, gear_warn_n, gear_warn_r, frame, airs)
-        expected=buildsection('Gear Retracting', 3, 6)
-        self.assertEqual(list(gr), list(expected))
+        gr.derive(gear_down, gear_warn_l, gear_warn_n, gear_warn_r, airs)
+        self.assertEqual(gr, '[3..5]')  # Q: 2.5 to 5.5 more accurate?
+        
+    def test_gear_down_without_nose_warning(self):
+        gear_down = M('Gear Down', np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1]),
+                      values_mapping={0:'Up', 1:'Down'})
+        gear_warn_l = M('Gear (L) Red Warning',
+                        np.ma.array([0,0,0,1,1,1,0,0,0,1,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        gear_warn_r = M('Gear (R) Red Warning',
+                        np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        airs = phase('[1..11]')
+        gr = GearRetracting()
+        gr.derive(gear_down, gear_warn_l, None, gear_warn_r, airs)
+        self.assertEqual(gr, '[3..5]')   # Q: 2.5 to 5.5 more accurate?
 
 
 class TestGoAroundAndClimbout(unittest.TestCase):
