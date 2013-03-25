@@ -19,7 +19,7 @@ from analysis_engine.node import (
     Attribute, A, App, ApproachItem, KPV, KeyTimeInstance, KTI, load, M,
     Parameter, P, Section, S)
 from analysis_engine.process_flight import process_flight
-from analysis_engine.settings import METRES_TO_FEET
+from analysis_engine.settings import GRAVITY_IMPERIAL, METRES_TO_FEET
 
 from flight_phase_test import buildsection
 
@@ -57,9 +57,11 @@ from analysis_engine.derived_parameters import (
     DistanceTravelled,
     DistanceToLanding,
     Elevator,
+    Eng_Fire,
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
+    Eng_N1MinFor5Sec,
     Eng_N2Avg,
     Eng_N2Max,
     Eng_N2Min,
@@ -103,6 +105,7 @@ from analysis_engine.derived_parameters import (
     TrackTrue,
     TurbulenceRMSG,
     V2,
+    VerticalSpeedInertial,
     WindAcrossLandingRunway,
 )
 
@@ -1459,8 +1462,19 @@ class TestEng_N1Min(unittest.TestCase):
             np.array([999, # both masked, so filled with 999
                       1,2,3,4,5,6,7,8,9])
         )
-        
-        
+
+
+class TestEng_N1MinFor5Sec(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_N1MinFor5Sec
+        self.operational_combinations = [('Eng (*) N1 Min',)]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestEng_N2Avg(unittest.TestCase):
     def test_can_operate(self):
         opts = Eng_N2Avg.get_operational_combinations()
@@ -2545,6 +2559,17 @@ class TestEng_EPRMin(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestEng_Fire(unittest.TestCase):
+
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestEng_FuelFlow(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -2593,6 +2618,17 @@ class TestEng_4_FuelBurn(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = Eng_4_FuelBurn
         self.operational_combinations = [('Eng (4) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_FuelBurn(unittest.TestCase):
+
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -3404,9 +3440,46 @@ class TestVerticalSpeedInertial(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        time = np.arange(100)
+        zero = np.array([0]*10)
+        acc_values = np.concatenate([zero, np.cos(time*np.pi*0.02), zero])
+        vel_values = np.concatenate([zero, np.sin(time*np.pi*0.02), zero])
+        ht_values = np.concatenate([zero, 1.0-np.cos(time*np.pi*0.02), zero])
+        
+        # For a 0-400ft leap, the scaling is 200ft amplitude and 2*pi/100 for each differentiation.
+        amplitude = 200.0
+        diff = 2.0 * np.pi / 100.0
+        ht_values *= amplitude
+        vel_values *= amplitude * diff * 60.0
+        acc_values *= amplitude * diff**2.0 / GRAVITY_IMPERIAL
+        
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(acc_values)
+        plt.plot(vel_values)
+        plt.plot(ht_values)
+        plt.show()
+        '''
+        az = P('Acceleration Vertical', acc_values)
+        alt_std = P('Altitude STD Smoothed', ht_values + 30.0) # Pressure offset
+        alt_rad = P('Altitude STD Smoothed', ht_values-2.0) #Oleo compression
+        fast = buildsection('Fast', 5, len(acc_values)-5)
+
+        vsi = VerticalSpeedInertial()
+        vsi.derive(az, alt_std, alt_rad, fast)
+        
+        expected = vel_values
+
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(expected)
+        plt.plot(vsi.array)
+        plt.show()
+        '''
+        # Just check the graphs are similar in shape - there will always be
+        # errors because of the integration technique used.
+        np.testing.assert_almost_equal(vsi.array, expected, decimal=-2)
 
 
 class TestWindDirectionContinuous(unittest.TestCase):

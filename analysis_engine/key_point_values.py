@@ -3718,6 +3718,28 @@ class EngEPR500To50FtMin(KeyPointValueNode):
 
 
 ##############################################################################
+# Engine Fire
+
+
+class EngFireWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               eng_fire=M('Eng (*) Fire'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_where_state(
+            'Fire',
+            eng_fire.array,
+            eng_fire.hz,
+            phase=airborne,
+        )
+
+
+##############################################################################
 # Engine Gas Temperature
 
 
@@ -3996,6 +4018,24 @@ class EngN1500To50FtMin(KeyPointValueNode):
 
     def derive(self,
                eng_n1_min=P('Eng (*) N1 Min'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        self.create_kpvs_within_slices(
+            eng_n1_min.array,
+            alt_aal.slices_from_to(500, 50),
+            min_value,
+        )
+
+
+class EngN1For5Sec500To50FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng N1 For 5 Sec 500 To 50 Ft Min'
+    units = '%'
+
+    def derive(self,
+               eng_n1_min=P('Eng (*) N1 Min For 5 Sec'),
                alt_aal=P('Altitude AAL For Flight Phases')):
 
         self.create_kpvs_within_slices(
@@ -4631,6 +4671,19 @@ class HeadingDeviationFromRunwayDuringLandingRoll(KeyPointValueNode):
         final_landing = land_rolls[-1].slice
         dev = runway_deviation(head.array, rwy.value)
         self.create_kpv_from_slices(dev, [final_landing], max_abs_value)
+
+
+class HeadingVariation300To50Ft(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self,
+               head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        for band in alt_aal.slices_from_to(300, 50):
+            dev = np.ma.ptp(head.array[band])
+            self.create_kpv(band.stop, dev)
 
 
 class HeadingVariation500To50Ft(KeyPointValueNode):
@@ -6289,28 +6342,7 @@ class Tailwind100FtToTouchdownMax(KeyPointValueNode):
 
 
 ##############################################################################
-# Warnings: Takeoff Configuration Warning
-
-
-class TakeoffConfigWarningDuration(KeyPointValueNode):
-    '''
-    FDS developed this KPV to support the UK CAA Significant Seven programme.
-    "Excursions - Take-Off (Longitudinal), Take-off config warning during
-    takeoff roll."
-    '''
-
-    units = 's'
-
-    def derive(self,
-               config_warning=M('Takeoff Config Warning'),
-               takeoff_rolls=S('Takeoff Roll')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            config_warning.array,
-            config_warning.hz,
-            phase=takeoff_rolls,
-        )
+# Warnings: Master Caution/Warning
 
 
 class MasterWarningDuringTakeoffDuration(KeyPointValueNode):
@@ -6809,6 +6841,103 @@ class TCASRAToAPDisengagedDuration(KeyPointValueNode):
                 index = ap_off.index
                 duration = (index - ra.start) / self.frequency
                 self.create_kpv(index, duration)
+
+
+##############################################################################
+# Warnings: Takeoff Configuration
+
+
+class TakeoffConfigurationWarningDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Take-off config warning during
+    takeoff roll."
+    '''
+
+    units = 's'
+
+    def derive(self,
+               takeoff_warn=M('Takeoff Configuration Warning'),
+               takeoff=S('Takeoff Roll')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            takeoff_warn.array,
+            takeoff_warn.hz,
+            phase=takeoff,
+        )
+
+
+class TakeoffConfigurationFlapWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               takeoff_warn=M('Takeoff Configuration Flap Warning'),
+               takeoff=S('Takeoff Roll')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            takeoff_warn.array,
+            takeoff_warn.hz,
+            phase=takeoff,
+        )
+
+
+class TakeoffConfigurationParkingBrakeWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               takeoff_warn=M('Takeoff Configuration Parking Brake Warning'),
+               takeoff=S('Takeoff Roll')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            takeoff_warn.array,
+            takeoff_warn.hz,
+            phase=takeoff,
+        )
+
+
+class TakeoffConfigurationSpoilerWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               takeoff_cfg_warn=M('Takeoff Configuration Spoiler Warning'),
+               takeoff=S('Takeoff Roll')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            takeoff_cfg_warn.array,
+            takeoff_cfg_warn.hz,
+            phase=takeoff,
+        )
+
+
+class TakeoffConfigurationStabilizerWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               takeoff_cfg_warn=M('Takeoff Configuration Stabilizer Warning'),
+               takeoff=S('Takeoff Roll')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            takeoff_cfg_warn.array,
+            takeoff_cfg_warn.hz,
+            phase=takeoff,
+        )
 
 
 ##############################################################################
