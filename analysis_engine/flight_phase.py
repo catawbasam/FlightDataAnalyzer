@@ -445,6 +445,7 @@ class Fast(FlightPhaseNode):
 
 class FinalApproach(FlightPhaseNode):
     '''
+    Where descending between the Altitude AAL or 1000ft to 50ft
     '''
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
         self.create_phases(alt_aal.slices_from_to(1000, 50))

@@ -832,10 +832,9 @@ class TestFinalApproach(unittest.TestCase):
     def test_approach_phase_basic(self):
         alt = np.ma.array(range(0,1200,100)+range(1500,500,-100)+range(400,0,-40)+[0,0,0])
         alt_aal = P('Altitude AAL For Flight Phases', array=alt)
-        expected = buildsection('Final Approach', 18, 31)
-        fapp=FinalApproach()
+        fapp = FinalApproach()
         fapp.derive(alt_aal)
-        self.assertEqual(fapp, expected)
+        self.assertEqual(fapp, '[17..30.75]')
 
 
 class TestGearRetracting(unittest.TestCase):
