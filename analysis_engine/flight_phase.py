@@ -22,12 +22,13 @@ from analysis_engine.library import (
     repair_mask,
     shift_slice,
     shift_slices,
-    slices_from_to,
-    slices_overlap,
     slices_and,
-    slices_or,
+    slices_from_to,
     slices_not,
-    slices_remove_small_gaps
+    slices_or,
+    slices_overlap,
+    slices_remove_small_gaps,
+    slices_remove_small_slices,
 )
 
 from analysis_engine.node import FlightPhaseNode, A, P, S, KTI, M
@@ -384,7 +385,7 @@ class Descending(FlightPhaseNode):
         for air in airs:
             descending = np.ma.masked_greater(vert_spd.array[air.slice],
                                               VERTICAL_SPEED_FOR_DESCENT_PHASE)
-            desc_slices = np.ma.clump_unmasked(descending)
+            desc_slices = slices_remove_small_slices(np.ma.clump_unmasked(descending))
             self.create_phases(shift_slices(desc_slices, air.slice.start))
 
 

@@ -3102,19 +3102,19 @@ class LatitudeAtTouchdown(KeyPointValueNode):
     @classmethod
     def can_operate(cls, available):
         return 'Touchdown' in available and any_of(('Latitude',
-                                                  'Latitude Coarse',
-                                                  'AFR Landing Runway',
-                                                  'AFR Landing Airport'),
-                                                 available)
+                                                    'Latitude (Coarse)',
+                                                    'AFR Landing Runway',
+                                                    'AFR Landing Airport'),
+                                                   available)
 
     def derive(self,
             lat=P('Latitude'),
             tdwns=KTI('Touchdown'),
             land_afr_apt=A('AFR Landing Airport'),
             land_afr_rwy=A('AFR Landing Runway'),
-            lat_c=P('Latitude Coarse')):
+            lat_c=P('Latitude (Coarse)')):
         '''
-        Note that Latitude Coarse is a superframe parameter with poor
+        Note that Latitude (Coarse) is a superframe parameter with poor
         resolution recorded on some FDAUs. Keeping it at the end of the list
         of parameters means that it will be aligned to a higher sample rate
         rather than dragging other parameters down to its sample rate. See
@@ -3171,17 +3171,17 @@ class LongitudeAtTouchdown(KeyPointValueNode):
     @classmethod
     def can_operate(cls, available):
         return 'Touchdown' in available and any_of(('Longitude',
-                                                  'Longitude Coarse',
-                                                  'AFR Touchdown Runway',
-                                                  'AFR Touchdown Airport'),
-                                                 available)
+                                                    'Longitude (Coarse)',
+                                                    'AFR Touchdown Runway',
+                                                    'AFR Touchdown Airport'),
+                                                   available)
 
     def derive(self,
             lon=P('Longitude'),
             tdwns=KTI('Touchdown'),
             land_afr_apt=A('AFR Landing Airport'),
             land_afr_rwy=A('AFR Landing Runway'),
-            lon_c=P('Longitude Coarse')):
+            lon_c=P('Longitude (Coarse)')):
         '''
         See note relating to coarse latitude and longitude under Latitude At Touchdown
         '''
@@ -3236,7 +3236,7 @@ class LatitudeAtLiftoff(KeyPointValueNode):
         '''
         '''
         return 'Liftoff' in available and any_of(('Latitude',
-                                                  'Latitude Coarse',
+                                                  'Latitude (Coarse)',
                                                   'AFR Takeoff Runway', 
                                                   'AFR Takeoff Airport'),
                                                  available)
@@ -3246,7 +3246,7 @@ class LatitudeAtLiftoff(KeyPointValueNode):
             liftoffs=KTI('Liftoff'),
             toff_afr_apt=A('AFR Takeoff Airport'),
             toff_afr_rwy=A('AFR Takeoff Runway'),
-            lat_c=P('Latitude Coarse')):
+            lat_c=P('Latitude (Coarse)')):
         '''
         Note that Latitude Coarse is a superframe parameter with poor
         resolution recorded on some FDAUs. Keeping it at the end of the list
@@ -3305,7 +3305,7 @@ class LongitudeAtLiftoff(KeyPointValueNode):
         '''
         '''
         return 'Liftoff' in available and any_of(('Longitude',
-                                                  'Longitude Coarse',
+                                                  'Longitude (Coarse)',
                                                   'AFR Takeoff Runway',
                                                   'AFR Takeoff Airport'),
                                                  available)
@@ -3315,7 +3315,7 @@ class LongitudeAtLiftoff(KeyPointValueNode):
             liftoffs=KTI('Liftoff'),
             toff_afr_apt=A('AFR Takeoff Airport'),
             toff_afr_rwy=A('AFR Takeoff Runway'),
-            lon_c=P('Longitude Coarse')):
+            lon_c=P('Longitude (Coarse)')):
         '''
         See note relating to coarse latitude and longitude under Latitude At Takeoff
         '''
@@ -3718,6 +3718,28 @@ class EngEPR500To50FtMin(KeyPointValueNode):
 
 
 ##############################################################################
+# Engine Fire
+
+
+class EngFireWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               eng_fire=M('Eng (*) Fire'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_where_state(
+            'Fire',
+            eng_fire.array,
+            eng_fire.hz,
+            phase=airborne,
+        )
+
+
+##############################################################################
 # Engine Gas Temperature
 
 
@@ -3995,7 +4017,7 @@ class EngN1500To50FtMin(KeyPointValueNode):
     units = '%'
 
     def derive(self,
-               eng_n1_min=P('Eng (*) N1 Min'),
+               eng_n1_min=P('Eng (*) N1 Min For 5 Sec'),
                alt_aal=P('Altitude AAL For Flight Phases')):
 
         self.create_kpvs_within_slices(
@@ -4631,6 +4653,19 @@ class HeadingDeviationFromRunwayDuringLandingRoll(KeyPointValueNode):
         final_landing = land_rolls[-1].slice
         dev = runway_deviation(head.array, rwy.value)
         self.create_kpv_from_slices(dev, [final_landing], max_abs_value)
+
+
+class HeadingVariation300To50Ft(KeyPointValueNode):
+    '''
+    '''
+
+    def derive(self,
+               head=P('Heading Continuous'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        for band in alt_aal.slices_from_to(300, 50):
+            dev = np.ma.ptp(head.array[band])
+            self.create_kpv(band.stop, dev)
 
 
 class HeadingVariation500To50Ft(KeyPointValueNode):
@@ -6289,28 +6324,7 @@ class Tailwind100FtToTouchdownMax(KeyPointValueNode):
 
 
 ##############################################################################
-# Warnings: Takeoff Configuration Warning
-
-
-class TakeoffConfigWarningDuration(KeyPointValueNode):
-    '''
-    FDS developed this KPV to support the UK CAA Significant Seven programme.
-    "Excursions - Take-Off (Longitudinal), Take-off config warning during
-    takeoff roll."
-    '''
-
-    units = 's'
-
-    def derive(self,
-               config_warning=M('Takeoff Config Warning'),
-               takeoff_rolls=S('Takeoff Roll')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            config_warning.array,
-            config_warning.hz,
-            phase=takeoff_rolls,
-        )
+# Warnings: Master Caution/Warning
 
 
 class MasterWarningDuringTakeoffDuration(KeyPointValueNode):
@@ -6809,6 +6823,103 @@ class TCASRAToAPDisengagedDuration(KeyPointValueNode):
                 index = ap_off.index
                 duration = (index - ra.start) / self.frequency
                 self.create_kpv(index, duration)
+
+
+##############################################################################
+# Warnings: Takeoff Configuration
+
+
+class TakeoffConfigurationWarningDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Take-off config warning during
+    takeoff roll."
+    '''
+
+    units = 's'
+
+    def derive(self,
+               takeoff_warn=M('Takeoff Configuration Warning'),
+               takeoff=S('Takeoff Roll')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            takeoff_warn.array,
+            takeoff_warn.hz,
+            phase=takeoff,
+        )
+
+
+class TakeoffConfigurationFlapWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               takeoff_warn=M('Takeoff Configuration Flap Warning'),
+               takeoff=S('Takeoff Roll')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            takeoff_warn.array,
+            takeoff_warn.hz,
+            phase=takeoff,
+        )
+
+
+class TakeoffConfigurationParkingBrakeWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               takeoff_warn=M('Takeoff Configuration Parking Brake Warning'),
+               takeoff=S('Takeoff Roll')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            takeoff_warn.array,
+            takeoff_warn.hz,
+            phase=takeoff,
+        )
+
+
+class TakeoffConfigurationSpoilerWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               takeoff_cfg_warn=M('Takeoff Configuration Spoiler Warning'),
+               takeoff=S('Takeoff Roll')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            takeoff_cfg_warn.array,
+            takeoff_cfg_warn.hz,
+            phase=takeoff,
+        )
+
+
+class TakeoffConfigurationStabilizerWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               takeoff_cfg_warn=M('Takeoff Configuration Stabilizer Warning'),
+               takeoff=S('Takeoff Roll')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            takeoff_cfg_warn.array,
+            takeoff_cfg_warn.hz,
+            phase=takeoff,
+        )
 
 
 ##############################################################################

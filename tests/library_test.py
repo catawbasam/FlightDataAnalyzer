@@ -3651,6 +3651,21 @@ class TestSlicesRemoveSmallGaps(unittest.TestCase):
         newlist=slices_remove_small_gaps(slicelist, hz=2)
         expected = []
         self.assertEqual(expected, newlist)
+        
+class TestSlicesRemoveSmallSlices(unittest.TestCase):
+    def test_slice_removal(self):
+        slicelist = [slice(1, 13), slice(25, 27), slice(30, 43)]
+        newlist = slices_remove_small_slices(slicelist)
+        expected = [slice(1, 13), slice(30, 43)]
+        self.assertEqual(expected, newlist)
+
+    def test_slice_removal_time_set(self):
+        slicelist = [slice(1, 13), slice(25, 27), slice(30, 33)]
+        newlist = slices_remove_small_slices(slicelist, time_limit=5)
+        expected = [slice(1, 13)]
+        self.assertEqual(expected, newlist)
+
+
 
 
 class TestSlicesNot(unittest.TestCase):
