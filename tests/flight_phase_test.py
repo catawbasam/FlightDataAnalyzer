@@ -1125,18 +1125,18 @@ class TestLevelFlight(unittest.TestCase):
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Takeoff.get_operational_combinations(),
-                         [('Heading Continuous', 'Altitude AAL', 'Fast')])
+                         [('Heading Continuous', 
+                           'Altitude AAL For Flight Phases', 
+                           'Fast')])
 
     def test_takeoff_basic(self):
         head = np.ma.array([ 0,0,10,20,20,20,20,20,20,20,20])
         alt_aal = np.ma.array([0,0,0,0,0,0,0,0,10,30,70])
-        phase_fast = buildsection('Fast', 6.5, 10)
         takeoff = Takeoff()
         takeoff.derive(P('Heading Continuous',head),
                        P('Altitude AAL For Flight Phases',alt_aal),
-                       phase_fast)
-        expected = buildsection('Takeoff', 1.5, 9.125)
-        self.assertEqual(takeoff, expected)
+                       fast=phase('[6.5..10]'))
+        self.assertEqual(takeoff, '[1.5..9.125]')
 
     def test_takeoff_with_zero_slices(self):
         '''
@@ -1146,13 +1146,11 @@ class TestTakeoff(unittest.TestCase):
         '''
         head = np.ma.array([ 0,0,10,20,20,20,20,20,20,20,20])
         alt_aal = np.ma.array([0,0,0,0,0,0,0,0,10,30,70])
-        phase_fast = buildsection('Fast', None, None)
         takeoff = Takeoff()
         takeoff.derive(P('Heading Continuous',head),
                        P('Altitude AAL For Flight Phases',alt_aal),
-                       phase_fast)
-        expected = []
-        self.assertEqual(takeoff, expected)
+                       fast=phase('(...)'))
+        self.assertEqual(takeoff, '<Empty>')
 
 
 class TestTaxiOut(unittest.TestCase):
