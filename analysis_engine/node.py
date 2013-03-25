@@ -20,6 +20,7 @@ from analysis_engine.library import (
     find_edges,
     is_index_within_slice,
     is_slice_within_slice,
+    repair_mask,
     slice_multiply,
     slices_above,
     slices_below,
@@ -1390,14 +1391,15 @@ class KeyTimeInstanceNode(FormattedNameNode):
                     self.create_kti(stop - 0.5)
             return
 
+        repaired_array = repair_mask(array, frequency=self.frequency)
         # High level function scans phase blocks or complete array and
         # presents appropriate arguments for analysis. We test for phase.name
         # as phase returns False.
         if phase is None:
-            state_changes(state, array, change)
+            state_changes(state, repaired_array, change)
         else:
             for each_period in phase:
-                state_changes(state, array, change, each_period.slice)
+                state_changes(state, repaired_array, change, each_period.slice)
         return
 
     def get_aligned(self, param):
