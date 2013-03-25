@@ -36,7 +36,8 @@ from analysis_engine.library import (
     vstack_params_where_state,
 )
 
-from analysis_engine.node import FlightPhaseNode, A, P, S, Section, KTI, M
+from analysis_engine.node import (FlightPhaseNode, A, P, S, Section,\
+     SectionNode, KTI, M)
 
 from analysis_engine.settings import (
     AIRBORNE_THRESHOLD_TIME,
@@ -443,64 +444,83 @@ class Fast(FlightPhaseNode):
 
 
 class FinalApproach(FlightPhaseNode):
+    '''
+    '''
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
         self.create_phases(alt_aal.slices_from_to(1000, 50))
+        
+        
+class GearTransition(object):
+    '''
+    Shared calculation of transitioning phases (Retracting / Extending).
+    '''
+    def gear_transition_estimate(self, state, gear_down, airborne):
+        '''
+        state: 'Up' or 'Down'
+        '''
+        # Aircraft without red warning captions for travelling have no
+        # transition state, so allow 5 seconds for the gear to retract.
+        edges = find_edges(gear_down.array == state, slice(None), 
+                           direction='rising_edges')
+        s = SectionNode()
+        for now_up in edges:
+            if now_up not in airborne:
+                continue
+            est_down = now_up - (5.0 * gear_down.frequency)
+            s.add(Section(est_down, now_up))
+        return s
 
+    def gear_red_warning(self, state, gear_down, gear_warn_n,
+                         gear_warn_l, gear_warn_r):
+        # Aircraft with red warning captions to show travelling
+        gear_warn = vstack_params_where_state(
+            (gear_warn_l, 'Warning'),
+            (gear_warn_r, 'Warning'),
+            (gear_warn_n, 'Warning'),
+        )
+        gear_moving = gear_warn.any(axis=0)
+        s = SectionNode()
+        for (start, end, dur) in zip(*runs_of_ones_array(gear_moving, 1)):
+            if gear_down.array[start-1] != state:
+                # Gear was down, so now we're retracting
+                ##self.create_phase(start, end-1)
+                s.add(Section(start-0.5, end-0.5))
+            else:
+                # Moving to a gear down transition, not interested!
+                continue
+        # be sure that these transitions happened while airborne!
+        return s
+    
 
-class GearExtending(FlightPhaseNode):
-    """
-    Gear extending and retracting are section nodes, as they last for a
-    finite period.
-
-    For some aircraft no parameters to identify the transit are recorded, so
-    a nominal period of 5 seconds at gear down and gear up is included to
-    allow for exceedance of gear transit limits.
-    """
+class GearExtending(FlightPhaseNode, GearTransition):
+    '''
+    If any of the Gear Red Warnings (Left, Right or Nose) are active, the
+    Gear is Extending.
+    
+    Aircraft without red warning captions for travelling have no transition
+    state, so allow 5 seconds for the gear to transition to the 'Down' position.
+    '''
     @classmethod
     def can_operate(cls, available):
-        return 'Gear Down' in available and 'Airborne' in available
-
+        return all_of(('Gear Down', 'Airborne'), available)
+    
     def derive(self, gear_down=M('Gear Down'),
                gear_warn_l=P('Gear (L) Red Warning'),
                gear_warn_n=P('Gear (N) Red Warning'),
                gear_warn_r=P('Gear (R) Red Warning'),
-               frame=A('Frame'), airs=S('Airborne')):
+               airborne=S('Airborne')):
         if any((gear_warn_l, gear_warn_n, gear_warn_r)):
-            # Aircraft with red warning captions to show travelling
-            if not all((gear_warn_l, gear_warn_n, gear_warn_r)):
-                frame_name = frame.value if frame else None
-                # some, but not all are available. Q: allow for any combination
-                # rather than raising exception
-                raise DataFrameError(self.name, frame_name)
-            gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
-            gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
-            slices = _ezclump(gear_warn)
-            if gear_warn[0] == 0:
-                gear_moving = slices[1::2]
-            else:
-                gear_moving = slices[::2]
-            for air in airs:
-                gear_moves = slices_and([air.slice], gear_moving)
-                for gear_move in gear_moves:
-                    if gear_down.array[gear_move.start - 1] == \
-                            gear_down.array.state['Up']:
-                        self.create_phase(gear_move)
-
+            # use the Red Warning technique
+            retracting = self.gear_red_warning(
+                'Down', gear_down, gear_warn_n, gear_warn_l, gear_warn_r)
+            self.intervals = retracting & airborne
         else:
-            # Aircraft without red warning captions for travelling
-            edge_list = []
-            for air in airs:
-                edge_list.append(find_edges(gear_down.array.raw, air.slice))
-            # We now have a list of lists and this trick flattens the result.
-            for edge in sum(edge_list, []):
-                # We have no transition state, so allow 5 seconds for the
-                # gear to extend.
-                begin = edge
-                end = edge + (5.0 * gear_down.frequency)
-                self.create_phase(begin, end)
-
-
-class GearRetracting(FlightPhaseNode):
+            # use the estimation technique
+            self.intervals = self.gear_transition_estimate(
+                'Down', gear_down, airborne)
+        
+        
+class GearRetracting(FlightPhaseNode, GearTransition):
     '''
     If any of the Gear Red Warnings (Left, Right or Nose) are active, the
     Gear is Retracting.
@@ -511,40 +531,21 @@ class GearRetracting(FlightPhaseNode):
     @classmethod
     def can_operate(cls, available):
         return all_of(('Gear Down', 'Airborne'), available)
-
+    
     def derive(self, gear_down=M('Gear Down'),
                gear_warn_l=P('Gear (L) Red Warning'),
                gear_warn_n=P('Gear (N) Red Warning'),
                gear_warn_r=P('Gear (R) Red Warning'),
                airborne=S('Airborne')):
         if any((gear_warn_l, gear_warn_n, gear_warn_r)):
-            # Aircraft with red warning captions to show travelling
-            gear_warn = vstack_params_where_state(
-                (gear_warn_l, 'Warning'),
-                (gear_warn_r, 'Warning'),
-                (gear_warn_n, 'Warning'),
-            )
-            gear_moving = gear_warn.any(axis=0)
-            for (start, end, dur) in zip(*runs_of_ones_array(gear_moving, 1)):
-                if gear_down.array[start-1] == 'Down':
-                    # Gear was down, so now we're retracting
-                    self.create_phase(start, end-1)
-                else:
-                    # Moving to a gear down transition, not interested!
-                    continue
-            # be sure that these transitions happened while airborne!
-            self.intervals = self & airborne
-            return
-        
-        # Aircraft without red warning captions for travelling have no
-        # transition state, so allow 5 seconds for the gear to retract.
-        edges = find_edges(gear_down.array == 'Up', slice(None), 
-                           direction='rising_edges')
-        for now_up in edges:
-            if now_up not in airborne:
-                continue
-            est_down = now_up - (5.0 * gear_down.frequency)
-            self.create_phase(est_down, now_up)
+            # use the Red Warning technique
+            retracting = self.gear_red_warning(
+                'Up', gear_down, gear_warn_n, gear_warn_l, gear_warn_r)
+            self.intervals = retracting & airborne
+        else:
+            # use the estimation technique
+            self.intervals = self.gear_transition_estimate(
+                'Up', gear_down, airborne)
 
 
 def scan_ils(beam, ils_dots, height, scan_slice):

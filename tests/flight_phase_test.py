@@ -839,28 +839,20 @@ class TestFinalApproach(unittest.TestCase):
 
 
 class TestGearRetracting(unittest.TestCase):
-    '''
-    The Gear Extending and Gear Retracting flight phases were written when
-    these were integer arrays, but now they are multistate arrays the flight
-    phases themselves need to be rewritten before tests are created.
-
-    As a result of this change, the KPVs AirspeedAsGearRetractingMax,
-    AirspeedAsGearExtendingMax, MachAsGearRetractingMax &
-    MachAsGearExtendingMax are currently inoperative.
-    '''
-
     def test_can_operate(self):
         opts = GearRetracting.get_operational_combinations()
         self.assertTrue(all(['Gear Down' for o in opts]))
-        expected = [('Gear Down', 'Gear (L) Red Warning',),
-                    ('Gear Down', 'Gear (N) Red Warning',),
-                    ('Gear Down', 'Gear (R) Red Warning',),
-                    ('Gear Down', 'Frame',),
-                    ('Gear Down', 'Airborne',),
-                    ('Gear Down', 'Gear (L) Red Warning',
-                     'Gear (N) Red Warning', 'Gear (R) Red Warning', 'Frame',
-                     'Airborne'),]
-        self.assertTrue([e in opts for e in expected])
+        expected = [
+            ('Gear Down', 'Airborne'),
+            ('Gear Down', 'Gear (L) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (N) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (R) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (L) Red Warning', 'Gear (N) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (L) Red Warning', 'Gear (R) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (N) Red Warning', 'Gear (R) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (L) Red Warning', 'Gear (N) Red Warning', 'Gear (R) Red Warning', 'Airborne'),
+            ]
+        self.assertTrue(all([e in opts for e in expected]))
 
     def test_gear_retracting_with_gear_down_only(self):
         gear_down = M('Gear Down', np.ma.array([0,1,1,1,1,1,1,1,1,1,0,0,1]),
@@ -885,7 +877,7 @@ class TestGearRetracting(unittest.TestCase):
         airs = phase('[1..11]')
         gr = GearRetracting()
         gr.derive(gear_down, gear_warn_l, gear_warn_n, gear_warn_r, airs)
-        self.assertEqual(gr, '[3..5]')  # Q: 2.5 to 5.5 more accurate?
+        self.assertEqual(gr, '[2.5..5.5]')  # Q: 2.5 to 5.5 more accurate?
         
     def test_gear_down_without_nose_warning(self):
         gear_down = M('Gear Down', np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1]),
@@ -899,7 +891,7 @@ class TestGearRetracting(unittest.TestCase):
         airs = phase('[1..11]')
         gr = GearRetracting()
         gr.derive(gear_down, gear_warn_l, None, gear_warn_r, airs)
-        self.assertEqual(gr, '[3..5]')   # Q: 2.5 to 5.5 more accurate?
+        self.assertEqual(gr, '[2.5..5.5]')   # Q: 2.5 to 5.5 more accurate?
 
 
 class TestGoAroundAndClimbout(unittest.TestCase):
@@ -1279,27 +1271,45 @@ class TestDescentToFlare(unittest.TestCase):
 
 
 class TestGearExtending(unittest.TestCase):
-    '''
-    The Gear Extending and Gear Retracting flight phases were written when
-    these were integer arrays, but now they are multistate arrays the flight
-    phases themselves need to be rewritten before tests are created.
-
-    As a result of this change, the KPVs AirspeedAsGearRetractingMax,
-    AirspeedAsGearExtendingMax, MachAsGearRetractingMax &
-    MachAsGearExtendingMax are currently inoperative.
-    '''
     def test_can_operate(self):
-        combinations = GearExtending.get_operational_combinations()
-        self.assertTrue(
-            all('Gear Down' in c and 'Airborne' in c for c in combinations))
-        self.assertTrue(('Gear Down', 'Airborne') in combinations)
-        self.assertTrue((
-            'Gear Down', 'Gear (L) Red Warning', 'Gear (N) Red Warning',
-            'Gear (R) Red Warning', 'Frame', 'Airborne') in combinations)
+        opts = GearExtending.get_operational_combinations()
+        self.assertTrue(all(['Gear Down' for o in opts]))
+        expected = [
+            ('Gear Down', 'Airborne'),
+            ('Gear Down', 'Gear (L) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (N) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (R) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (L) Red Warning', 'Gear (N) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (L) Red Warning', 'Gear (R) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (N) Red Warning', 'Gear (R) Red Warning', 'Airborne'),
+            ('Gear Down', 'Gear (L) Red Warning', 'Gear (N) Red Warning', 'Gear (R) Red Warning', 'Airborne'),
+            ]
+        self.assertTrue(all([e in opts for e in expected]))
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_gear_extending_with_gear_down_only(self):
+        gear_down = M('Gear Down', np.ma.array([0,0,0,0,0,0,0,0,1,1,1,1,1]),
+                      values_mapping={0:'Up', 1:'Down'})
+        airs = phase('[2..11]')
+        gr = GearExtending()
+        gr.derive(gear_down, None, None, None, airs)
+        self.assertEqual(gr, '[2.5..7.5]')
+
+    def test_gear_warnings_for_737_3C(self):
+        gear_down = M('Gear Down', np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1]),
+                      values_mapping={0:'Up', 1:'Down'})
+        gear_warn_l = M('Gear (L) Red Warning',
+                        np.ma.array([0,0,0,1,0,0,0,0,0,1,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        gear_warn_n = M('Gear (N) Red Warning',
+                        np.ma.array([0,0,0,0,1,0,0,0,1,0,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        gear_warn_r = M('Gear (R) Red Warning',
+                        np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        airs = phase('[1..11]')
+        gr = GearExtending()
+        gr.derive(gear_down, gear_warn_l, gear_warn_n, gear_warn_r, airs)
+        self.assertEqual(gr, '[6.5..9.5]')  # Q: 2.5 to 5.5 more accurate?
 
 
 class TestGoAround5MinRating(unittest.TestCase):
