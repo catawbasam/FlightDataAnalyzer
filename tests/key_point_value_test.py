@@ -2672,7 +2672,7 @@ class TestEngFireWarningDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = EngFireWarningDuration
-        self.operational_combinations = [('Eng (*) Fire', )]
+        self.operational_combinations = [('Eng (*) Fire', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

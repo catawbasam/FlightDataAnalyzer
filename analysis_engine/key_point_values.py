@@ -3728,12 +3728,14 @@ class EngFireWarningDuration(KeyPointValueNode):
     units = 's'
 
     def derive(self,
-               eng_fire=M('Eng (*) Fire')):
+               eng_fire=M('Eng (*) Fire'),
+               airborne=S('Airborne')):
 
         self.create_kpvs_where_state(
             'Fire',
             eng_fire.array,
             eng_fire.hz,
+            phase=airborne,
         )
 
 
