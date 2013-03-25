@@ -1295,12 +1295,19 @@ class TestGoAround5MinRating(unittest.TestCase):
 class TestTakeoff5MinRating(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Takeoff5MinRating.get_operational_combinations(),
-                         [('Takeoff',)])
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
+                         [('Takeoff Roll',)])
+        
+    def test_derive_multiple_takeoffs(self):
+        rat = Takeoff5MinRating()
+        rat.derive(phase('[100..250], [4200..10000]'))
+        self.assertEqual(rat, '[100..400], [4200..4500]')
+        
+    def test_derive_two_takeoffs_in_rapid_succession(self):
+        rat = Takeoff5MinRating()
+        rat.derive(phase('[100..150], [200..1000]'))
+        # phases are merged
+        self.assertEqual(rat, '[100..500]')
+        
 
 class TestTakeoffRoll(unittest.TestCase):
     def test_can_operate(self):

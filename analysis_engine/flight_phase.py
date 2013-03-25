@@ -1016,17 +1016,17 @@ class TakeoffRotation(FlightPhaseNode):
 # Takeoff/Go-Around Ratings
 
 
-# TODO: Write some unit tests!
 class Takeoff5MinRating(FlightPhaseNode):
     '''
     For engines, the period of high power operation is normally 5 minutes from
     the start of takeoff. Also applies in the case of a go-around.
     '''
-    def derive(self, toffs=S('Takeoff')):
-        '''
-        '''
-        for toff in toffs:
-            self.create_phase(slice(toff.slice.start, toff.slice.start + 300))
+    align_offset = 0
+    
+    def derive(self, toff_rolls=S('Takeoff Roll')):
+        for roll in toff_rolls:
+            end = roll.lower_bound + (300 * self.frequency)
+            self.create_phase(roll.lower_bound, end)
 
 
 # TODO: Write some unit tests!
