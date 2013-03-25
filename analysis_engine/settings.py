@@ -276,7 +276,7 @@ VERTICAL_SPEED_LAG_TC = 3.0  # sec
 
 # Rate of turn limits for flight.
 # (Also used for validation of accelerometers on ground).
-RATE_OF_TURN_FOR_FLIGHT_PHASES = 1.5  # deg per second
+RATE_OF_TURN_FOR_FLIGHT_PHASES = 2.0  # deg per second
 
 # Rate of turn limit for taxi event.
 RATE_OF_TURN_FOR_TAXI_TURNS = 5.0  # deg per second
