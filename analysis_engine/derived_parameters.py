@@ -804,13 +804,18 @@ class AltitudeAAL(DerivedParameterNode):
 
 
 class AltitudeAALForFlightPhases(DerivedParameterNode):
+    """
+    This parameter repairs short periods of masked data, making it suitable
+    for detecting altitude bands on the climb and descent. The parameter
+    should not be used to compute KPV values themselves, to avoid using
+    interpolated values in an event.
+    
+    Note: This parameter used to apply some hysteresis, but now it does not
+    and other parameters/phases depend on the fact it does not.
+    """
     name = 'Altitude AAL For Flight Phases'
     units = 'ft'
 
-    # This parameter repairs short periods of masked data, making it suitable
-    # for detecting altitude bands on the climb and descent. The parameter
-    # should not be used to compute KPV values themselves, to avoid using
-    # interpolated values in an event.
 
     def derive(self, alt_aal=P('Altitude AAL')):
         self.array = repair_mask(alt_aal.array, repair_duration=None)
