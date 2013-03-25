@@ -3183,7 +3183,7 @@ class TestTAWSAlert(unittest.TestCase):
         pull_up_array = [ 0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  0,  0,  0,  0,  0,  1,  0]
 
         self.airs = S(name='Airborne')
-        self.airs.create_section(slice(5,15))
+        self.airs.create_section(5, 14)
         self.terrain = M(name='TAWS Terrain', array=np.ma.array(terrain_array), values_mapping={1:'Warning'})
         self.pull_up = M(name='TAWS Pull Up', array=np.ma.array(pull_up_array), values_mapping={1:'Warning'})
         self.taws_alert = TAWSAlert()
