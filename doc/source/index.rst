@@ -8,6 +8,7 @@ Contents:
 
    Introduction
    Principles
+   Install
    Tutorial
    Extending
    Profiling
