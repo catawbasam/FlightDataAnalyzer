@@ -4593,7 +4593,7 @@ class Speedbrake(DerivedParameterNode):
         offset = (spoiler_a.offset + spoiler_b.offset) / 2.0
         array = np.ma.minimum(spoiler_a.array, spoiler_b.array)
         # Force small angles to indicate zero:
-        array = np.ma.where(array < 3.0, 0.0, array)
+        array = np.ma.where(array < 5.0, 0.0, array)
         return array, offset
 
     def derive(self,
