@@ -1,7 +1,7 @@
 Introduction
 ============
 
-A tool for analysing HDF5 files containing engineering unit representation of 
+A tool for analysing HDF5 files containing engineering unit representation of
 flight data. It provides the following utilities:
 
 * Flight phase detection.
@@ -16,7 +16,9 @@ Software License (`OSL-3.0`_).
 Installation
 ------------
 
-See ``doc/source/Install.rst`` for full installation instructions.
+Full installation instructions are available from the URL below.
+
+* https://github.com/FlightDataServices/FlightDataAnalyzer/blob/master/doc/source/Install.rst
 
 Source Code
 -----------

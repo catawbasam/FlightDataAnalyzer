@@ -155,6 +155,8 @@ Use pip to install virtualenv and virtualenv wrapper.
 
 Install the development tools and headers required to build Numpy and SciPy.
 
+.. code-block:: shell
+
     sudo apt-get install build-essential libpng12-dev libfreetype6-dev pkg-config
     sudo apt-get install gfortran libatlas-base-dev
     sudo apt-get install libxslt-dev
@@ -183,6 +185,8 @@ commands.
 
 Now ``clone`` the FlightDataAnalyzer repository change to the directory where
 FlightDataAnalyzer was cloned to and execute the following.
+
+.. code-block:: shell
 
     pip install requirements.txt
 
