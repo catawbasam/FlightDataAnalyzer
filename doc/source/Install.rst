@@ -23,14 +23,15 @@ Make a directory in the same location as ``Python(x,y)-2.7.3.1.exe`` called ``pl
 
 Download the following and save them in the ``plugins`` directory.
 
-* http://pythonxy.googlecode.com/files/h5py-2.0.0_py27.exe
+* http://pythonxy.googlecode.com/files/h5py-2.0.1_py27.exe
 * http://pythonxy.googlecode.com/files/ply-3.4_py27.exe
 * http://pythonxy.googlecode.com/files/lxml-2.3.4_py27.exe
 * http://pythonxy.googlecode.com/files/xlrd-0.8.0_py27.exe
 * http://pythonxy.googlecode.com/files/swig-2.0.8.exe
 
-FlightDataAnalyzer currently requires h5py 2.0.0 but python(x,y) provides 2.1.0,
-so the h5py 2.0.0 python(x,y) plugin is installed to downgrade to a compatible version.
+FlightDataAnalyzer currently requires h5py 2.0.1 but python(x,y) provides 2.1.0. Therefore
+the h5py 2.0.1 python(x,y) plugin is installed to forcibly downgrade to a compatible
+version.
 
 To install Python(x,y) do the following.
 
