@@ -1,8 +1,8 @@
 .. _Install:
 
-=======================================
-Install the Analysis Engine from Source
-=======================================
+======================================
+Install FlightDataAnalyzer from Source
+======================================
 
 ------
 Python
@@ -190,4 +190,3 @@ following tools from source.
 
 * ``python split_hdf_to_segments.py``
 * ``python process_flight.py``
-

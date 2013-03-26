@@ -10,23 +10,13 @@ flight data. It provides the following utilities:
 * Creation of flight attributes, such as take and landing runways.
 * Calculation and creation of KPVs and KTIs.
 
-Project sponsored by `Flight Data Services`_ and released under the Open 
+Project sponsored by `Flight Data Services`_ and released under the Open
 Software License (`OSL-3.0`_).
-
-NOTE! It is not currently possible to run FlightDataAnalyzer from source since
-it is dependant on the `Utilities` module which contains proprietary code we
-can't release. We are in the process of liberating the `Utilities` module and
-will release `FlightDataUtilities` in Q1 2013 as a fully Open Source
-replacement. At which time we will the publish "run from source" documentation
-which will be available via the `Flight Data Community_` website.
 
 Installation
 ------------
 
-Package requires ``pip`` for installation.
-::
-
-    pip install git+https://github.com/FlightDataServices/FlightDataAnalyser.git
+See ``doc/source/Install.rst`` for full installation instructions.
 
 Source Code
 -----------
