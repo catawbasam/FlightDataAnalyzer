@@ -1055,6 +1055,6 @@ class TestTransmit(unittest.TestCase):
         hf = M('Key HF', ['Off', 'Off', 'Off', 'Keyed', 'Off', 'Off', 'Off'],
                values_mapping={0: 'Off', 1: 'Keyed'})
         tr = Transmit()
-        tr.derive(hf)
+        tr.derive(hf, *[None] * 10)
         expected = [KeyTimeInstance(index=2.5, name='Transmit')]
         self.assertEqual(tr, expected)
