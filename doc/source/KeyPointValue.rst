@@ -64,7 +64,7 @@ Here is the code for AltitudeMax::
     
             self.create_kpvs_within_slices(alt_std.array, airborne, max_value)
 
-AltitudeMax no can operate defined so both "Altitude STD Smoothed" and
+AltitudeMax has no can_operate defined so both "Altitude STD Smoothed" and
 "Airborne" sections are required for AltitudeMax to run.
 to return max value, prevents data spikes whilst on the
 ground. aligned to Altitude STD Smoothed. uses create_kpvs_within_slices.
