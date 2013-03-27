@@ -1391,7 +1391,7 @@ class KeyTimeInstanceNode(FormattedNameNode):
                     self.create_kti(stop - 0.5)
             return
 
-        repaired_array = repair_mask(array, frequency=self.frequency)
+        repaired_array = repair_mask(array, frequency=self.frequency, repair_duration=64)
         # High level function scans phase blocks or complete array and
         # presents appropriate arguments for analysis. We test for phase.name
         # as phase returns False.
