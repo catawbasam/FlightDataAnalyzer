@@ -255,7 +255,7 @@ class B767(VelocitySpeed):
     '''
     Velocity speed tables for Boeing B767.
     '''
-    interpolate = False
+    interpolate = True
     source = '767 Flight Crew Operations Manual'
     weight_unit = 't'
     tables = {
@@ -279,7 +279,7 @@ class B767_200_CF6_80A(VelocitySpeed):
     '''
     Velocity speed tables for Boeing B767-200 w/ GE CF6-80A.
     '''
-    interpolate = False
+    interpolate = True
     source = ''  # FIXME: Populate this attribute.
     weight_unit = 'lb'
     tables = {
@@ -303,7 +303,7 @@ class B767_300_CF6_80C2(VelocitySpeed):
     '''
     Velocity speed tables for Boeing B767-300 w/ GE CF6-80C2.
     '''
-    interpolate = False
+    interpolate = True
     source = ''  # FIXME: Populate this attribute.
     weight_unit = 't'
     tables = {
@@ -326,7 +326,7 @@ class B767_300_PW4000_94(VelocitySpeed):
     '''
     Velocity speed tables for Boeing B767-300 w/ P&W 4000-94.
     '''
-    interpolate = False
+    interpolate = True
     source = ''  # FIXME: Populate this attribute.
     weight_unit = 't'
     tables = {
