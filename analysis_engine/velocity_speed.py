@@ -255,7 +255,7 @@ class B767(VelocitySpeed):
     '''
     Velocity speed tables for Boeing B767.
     '''
-    interpolate = False
+    interpolate = True
     source = '767 Flight Crew Operations Manual'
     weight_unit = 't'
     tables = {
@@ -279,22 +279,22 @@ class B767_200_CF6_80A(VelocitySpeed):
     '''
     Velocity speed tables for Boeing B767-200 w/ GE CF6-80A.
     '''
-    interpolate = False
+    interpolate = True
     source = ''  # FIXME: Populate this attribute.
     weight_unit = 'lb'
     tables = {
         'v2': {
-            'weight': (220, 240, 260, 280, 300, 320, 340, 360),
-                   1: (135, 140, 145, 150, 155, 160, 164, 169),
-                   5: (130, 135, 140, 144, 149, 154, 158, 162),
-                  15: (123, 128, 133, 138, 142, 146, 151, None),
-                  20: (120, 125, 129, 134, 138, 143, 148, None),
+            'weight': (220000, 240000, 260000, 280000, 300000, 320000, 340000, 360000),
+                   1: (   135,    140,    145,    150,    155,    160,    164,    169),
+                   5: (   130,    135,    140,    144,    149,    154,    158,    162),
+                  15: (   123,    128,    133,    138,    142,    146,    151,   None),
+                  20: (   120,    125,    129,    134,    138,    143,    148,   None),
         },
         'vref': {
-            'weight': (220, 240, 260, 280, 300, 320, 340, 360),
-                  20: (129, 135, 141, 146, 151, 156, 161, 165),
-                  25: (126, 132, 137, 142, 147, 152, 157, 161),
-                  30: (122, 127, 133, 138, 143, 147, 152, 156),
+            'weight': (220000, 240000, 260000, 280000, 300000, 320000, 340000, 360000),
+                  20: (   129,    135,    141,    146,    151,    156,    161,    165),
+                  25: (   126,    132,    137,    142,    147,    152,    157,    161),
+                  30: (   122,    127,    133,    138,    143,    147,    152,    156),
         },
     }
 
@@ -303,7 +303,7 @@ class B767_300_CF6_80C2(VelocitySpeed):
     '''
     Velocity speed tables for Boeing B767-300 w/ GE CF6-80C2.
     '''
-    interpolate = False
+    interpolate = True
     source = ''  # FIXME: Populate this attribute.
     weight_unit = 't'
     tables = {
@@ -326,7 +326,7 @@ class B767_300_PW4000_94(VelocitySpeed):
     '''
     Velocity speed tables for Boeing B767-300 w/ P&W 4000-94.
     '''
-    interpolate = False
+    interpolate = True
     source = ''  # FIXME: Populate this attribute.
     weight_unit = 't'
     tables = {
@@ -367,9 +367,20 @@ AIRCRAFT_FAMILY_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
 
 
 AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
+    # All combinations listed
+    # TODO: better lookup solution needed
     ('B767-200', 'CF6-80A'): B767_200_CF6_80A,
+    ('B767-200(F)', 'CF6-80A'): B767_200_CF6_80A,
+    ('B767-200(ER)', 'CF6-80A'): B767_200_CF6_80A,
+    ('B767-200(ER/F)', 'CF6-80A'): B767_200_CF6_80A,
     ('B767-300', 'CF6-80C2'): B767_300_CF6_80C2,
+    ('B767-300(ER)', 'CF6-80C2'): B767_300_CF6_80C2,
+    ('B767-300F(ER)', 'CF6-80C2'): B767_300_CF6_80C2,
+    ('B767-300(ER/F)', 'CF6-80C2'): B767_300_CF6_80C2,
     ('B767-300', 'PW4000-94'): B767_300_PW4000_94,
+    ('B767-300(ER)', 'PW4000-94'): B767_300_PW4000_94,
+    ('B767-300F(ER)', 'PW4000-94'): B767_300_PW4000_94,
+    ('B767-300(ER/F)', 'PW4000-94'): B767_300_PW4000_94,
 }
 
 

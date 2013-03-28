@@ -127,6 +127,7 @@ from analysis_engine.key_point_values import (
     EngEPRDuringMaximumContinuousPowerMax,
     EngEPR500To50FtMax,
     EngEPR500To50FtMin,
+    EngFireWarningDuration,
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
     EngGasTempDuringMaximumContinuousPowerMax,
@@ -139,6 +140,7 @@ from analysis_engine.key_point_values import (
     EngN1CyclesDuringFinalApproach,
     EngN1500To50FtMax,
     EngN1500To50FtMin,
+    EngN1For5Sec500To50FtMin,
     EngN1WithThrustReversersInTransitMax,
     EngN1Below60PercentAfterTouchdownDuration,
     EngN2DuringTaxiMax,
@@ -190,6 +192,7 @@ from analysis_engine.key_point_values import (
     HeadingDeviationFromRunwayAtTOGADuringTakeoff,
     HeadingDeviationFromRunwayAt50FtDuringLanding,
     HeadingDeviationFromRunwayDuringLandingRoll,
+    HeadingVariation300To50Ft,
     HeadingVariation500To50Ft,
     HeadingVariationAbove100KtsAirspeedDuringLanding,
     HeadingVariationTouchdownPlus4SecTo60KtsAirspeed,
@@ -315,9 +318,13 @@ from analysis_engine.key_point_values import (
     WindDirectionAtAltitudeDuringDescent,
     WindSpeedAtAltitudeDuringDescent,
     ZeroFuelWeight,
-    TakeoffConfigWarningDuration,
     MasterWarningDuringTakeoffDuration,
     MasterCautionDuringTakeoffDuration,
+    TakeoffConfigurationWarningDuration,
+    TakeoffConfigurationFlapWarningDuration,
+    TakeoffConfigurationParkingBrakeWarningDuration,
+    TakeoffConfigurationSpoilerWarningDuration,
+    TakeoffConfigurationStabilizerWarningDuration,
     TAWSAlertDuration,
     TAWSGeneralWarningDuration,
     TAWSSinkRateWarningDuration,
@@ -2658,6 +2665,22 @@ class TestEngEPR500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
 
 ##############################################################################
+# Engine Fire
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestEngFireWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngFireWarningDuration
+        self.operational_combinations = [('Eng (*) Fire', 'Airborne')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
 # Engine Gas Temperature
 
 
@@ -2811,6 +2834,19 @@ class TestEngN1500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = EngN1500To50FtMin
         self.operational_combinations = [('Eng (*) N1 Min', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngN1For5Sec500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN1For5Sec500To50FtMin
+        self.operational_combinations = [('Eng (*) N1 Min For 5 Sec', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
 
@@ -3827,6 +3863,20 @@ class TestHeadingDeviationFromRunwayDuringLandingRoll(unittest.TestCase, NodeTes
             'Heading True Continuous',
             'Landing Roll',
             'FDR Landing Runway',
+        )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestHeadingVariation300To50Ft(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = HeadingVariation300To50Ft
+        self.operational_combinations = [(
+            'Heading Continuous',
+            'Altitude AAL For Flight Phases',
         )]
 
     @unittest.skip('Test Not Implemented')
@@ -5038,18 +5088,6 @@ class TestTailwind100FtToTouchdownMax(unittest.TestCase, NodeTest):
 
 
 # TODO: Need a CreateKPVsWhereStateTest super class!
-class TestTakeoffConfigWarningDuration(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = TakeoffConfigWarningDuration
-        self.operational_combinations = [('Takeoff Config Warning', 'Takeoff Roll')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestMasterWarningDuringTakeoffDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5351,6 +5389,70 @@ class TestTCASRAToAPDisengagedDuration(unittest.TestCase, NodeTest):
         self.assertEqual([KeyPointValue(7.0, 5.0,
                                         'TCAS RA To AP Disengaged Duration')],
                          node)
+
+
+##############################################################################
+# Warnings: Takeoff Configuration
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTakeoffConfigurationWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TakeoffConfigurationWarningDuration
+        self.operational_combinations = [('Takeoff Configuration Warning', 'Takeoff Roll')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTakeoffConfigurationFlapWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TakeoffConfigurationFlapWarningDuration
+        self.operational_combinations = [('Takeoff Configuration Flap Warning', 'Takeoff Roll')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTakeoffConfigurationParkingBrakeWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TakeoffConfigurationParkingBrakeWarningDuration
+        self.operational_combinations = [('Takeoff Configuration Parking Brake Warning', 'Takeoff Roll')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTakeoffConfigurationSpoilerWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TakeoffConfigurationSpoilerWarningDuration
+        self.operational_combinations = [('Takeoff Configuration Spoiler Warning', 'Takeoff Roll')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestTakeoffConfigurationStabilizerWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TakeoffConfigurationStabilizerWarningDuration
+        self.operational_combinations = [('Takeoff Configuration Stabilizer Warning', 'Takeoff Roll')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 ##############################################################################

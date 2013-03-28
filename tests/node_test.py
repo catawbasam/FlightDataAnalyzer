@@ -1377,6 +1377,15 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         self.assertEqual(kti, [KeyTimeInstance(index=0.5, name='Kti'),
                                KeyTimeInstance(index=6.5, name='Kti')])
 
+    def test_create_ktis_on_state_change_entering_with_mask(self):
+        kti = self.kti
+        test_param = MappedArray([0, 1, 1, 1, 0, 0, 0, 1, 0],
+                            mask=[0, 0, 1, 0, 0, 0, 0, 0, 0],
+                                 values_mapping={0: 'Off', 1: 'On'})
+        kti.create_ktis_on_state_change('On', test_param, change='entering')
+        self.assertEqual(kti, [KeyTimeInstance(index=0.5, name='Kti'),
+                               KeyTimeInstance(index=6.5, name='Kti')])
+
     def test_create_ktis_on_state_change_leaving(self):
         kti = self.kti
         test_param = MappedArray([0, 1, 1, 0, 0, 0, 0, 1, 0],

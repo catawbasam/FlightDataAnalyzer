@@ -8,12 +8,15 @@ Contents:
 
    Introduction
    Principles
+   Install
    Tutorial
    Extending
    Profiling
    ParameterNaming
    HeightAndHeightRateComputation
    FlightTypes
+   KeyTimeInstance
+   KeyPointValue
    Testing
    Changes
    TODO
