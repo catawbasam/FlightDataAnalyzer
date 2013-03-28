@@ -390,7 +390,10 @@ class AirspeedReference(DerivedParameterNode):
                     repaired_gw = repair_mask(gw.array, repair_duration=130,
                                           copy=True, extrapolate=True)
                 except:
-                    repaired_gw = np_ma_masked_zeros_like(gw.array)
+                    self.logger.warning(
+                        "'AirspeedReference' will be fully masked because "
+                        "'Gross Weight' array could not be repaired.")
+                    return
 
                 for approach in apps:
                     _slice = approach.slice
