@@ -302,7 +302,10 @@ class AirspeedReference(DerivedParameterNode):
     '''
     Airspeed on approach will use recorded value if present. If no recorded
     value AFR values will be used. Finally if neither recorded or AFR value
-    lookup based on weight and Flap (Surface detents) at landing will be used:
+    lookup based on weight and Flap (Surface detents) at landing will be used.
+
+    Flap is used as first dependant to avoid interpolation of Flap detents when
+    Flap is recorded at a lower frequency than Airspeed.
 
     - Vapp  -- Airbus
     - Vref  -- Boeing
@@ -327,9 +330,9 @@ class AirspeedReference(DerivedParameterNode):
         return existing_values or airbus or boeing
 
     def derive(self,
+               flap=P('Flap'),
                spd=P('Airspeed'),
                gw=P('Gross Weight Smoothed'),
-               flap=P('Flap'),
                conf=P('Configuration'),
                vapp=P('Vapp'),
                vref=P('Vref'),
@@ -4415,6 +4418,9 @@ class V2(DerivedParameterNode):
     will be used. Finally if neither recorded or AFR value lookup based on
     weight and Flap (Surface detents) at liftoff will be used, first liftoff
     only:
+
+    Flap is used as first dependant to avoid interpolation of Flap detents when
+    Flap is recorded at a lower frequency than Airspeed
     '''
 
     units = 'kts'
@@ -4430,8 +4436,8 @@ class V2(DerivedParameterNode):
         return afr or airbus or boeing
 
     def derive(self,
-               spd=P('Airspeed'),
                flap=P('Flap'),
+               spd=P('Airspeed'),
                conf=P('Configuration'),
                afr_v2=A('AFR V2'),
                weight_liftoff=KPV('Gross Weight At Liftoff'),

@@ -521,9 +521,9 @@ class TestAirspeedReference(unittest.TestCase):
             approaches = [ApproachItem('TOUCH_AND_GO', slice(3346, 3540)),
                           ApproachItem('LANDING', slice(5502, 5795))]
             args = [
+                P(**hdf['Flap'].__dict__),
                 P(**hdf['Airspeed'].__dict__),
                 P(**hdf['Gross Weight Smoothed'].__dict__),
-                P(**hdf['Flap Lever Detents'].__dict__),
                 None,
                 None,
                 None,
@@ -2303,8 +2303,8 @@ class TestV2(unittest.TestCase):
         test_hdf = copy_file(os.path.join(test_data_path, 'airspeed_reference.hdf5'))
         with hdf_file(test_hdf) as hdf:
             args = [
+                P(**hdf['Flap'].__dict__),
                 P(**hdf['Airspeed'].__dict__),
-                P(**hdf['Flap Lever Detents'].__dict__),
                 None,
                 None,
                 gw,
