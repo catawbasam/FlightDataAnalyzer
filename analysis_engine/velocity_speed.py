@@ -63,6 +63,18 @@ class VelocitySpeed(object):
         'vref': {'weight': ()},
     }
 
+    @property
+    def reference_settings(self):
+        ref_settings = self.tables['vref'].keys()
+        ref_settings.remove('weight')
+        return ref_settings
+
+    @property
+    def v2_settings(self):
+        v2_settings = self.tables['v2'].keys()
+        v2_settings.remove('weight')
+        return v2_settings
+
     def v2(self, weight, setting):
         '''
         Look up a value for V2.

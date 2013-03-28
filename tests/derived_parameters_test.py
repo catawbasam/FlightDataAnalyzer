@@ -515,6 +515,7 @@ class TestAirspeedReference(unittest.TestCase):
     def test_airspeed_reference__boeing_lookup(self, vspeed_map):
         vspeed_table = Mock
         vspeed_table.vref = Mock(side_effect = [135, 130])
+        vspeed_table.reference_settings = [15, 20, 30]
         vspeed_map.return_value = vspeed_table
         test_hdf = copy_file(os.path.join(test_data_path, 'airspeed_reference.hdf5'))
         with hdf_file(test_hdf) as hdf:
@@ -530,6 +531,8 @@ class TestAirspeedReference(unittest.TestCase):
                 None,
                 None,
                 App('Approach Information', items=approaches),
+                KTI('Touchdown', items=[KeyTimeInstance(3450, 'Touchdown'),
+                                        KeyTimeInstance(5700, 'Touchdown')]),
                 A('Series', value='B737-300'),
                 A('Family', value='B737 Classic'),
                 None,

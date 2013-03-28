@@ -303,6 +303,10 @@ class AirspeedReference(DerivedParameterNode):
     Airspeed on approach will use recorded value if present. If no recorded
     value AFR values will be used. Finally if neither recorded or AFR value
     lookup based on weight and Flap (Surface detents) at landing will be used.
+    
+    Achieved flight records without a recorded value will be repeated
+    thoughout the flight, calculated values will be calculated for each
+    approach.
 
     Flap is used as first dependant to avoid interpolation of Flap detents when
     Flap is recorded at a lower frequency than Airspeed.
@@ -313,6 +317,10 @@ class AirspeedReference(DerivedParameterNode):
 
     A fixed value will most likely be zero making this relative airspeed
     derived parameter the same as the original absolute airspeed parameter.
+
+    if approach leads to touchdown use max flap/conf recorded in approach phase.
+    if approach does not lead to touchdown use max flaps recorded in approach phase
+    if flap/conf not in lookup table use max flaps setting
     '''
 
     units = 'kts'
@@ -324,7 +332,7 @@ class AirspeedReference(DerivedParameterNode):
 
         x = set(available)
         base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series',
-                           'Family', 'Approach And Landing']
+                           'Family', 'Approach And Landing', 'Touchdown']
         airbus = set(base_for_lookup + ['Configuration']).issubset(x)
         boeing = set(base_for_lookup + ['Flap']).issubset(x)
         return existing_values or airbus or boeing
@@ -339,19 +347,13 @@ class AirspeedReference(DerivedParameterNode):
                afr_vapp=A('AFR Vapp'),
                afr_vref=A('AFR Vref'),
                apps=S('Approach And Landing'),
+               tdwn=KTI('Touchdown'),
                series=A('Series'),
                family=A('Family'),
                engine=A('Engine Series')):
-        # docstring no longer accurate?
-        ##'''
-        ##Currently a work in progress. We should use a recorded parameter if
-        ##it's available, failing that a computed forumla reflecting the
-        ##aircraft condition and failing that a single value from the achieved
-        ##flight file. Achieved flight records without a recorded value will be
-        ##repeated thoughout the flight, calculated values will be calculated
-        ##for each approach.
-        ##Rises KeyError if no entires for Family/Series in vspeed lookup map.
-        ##'''
+        '''
+        Raises KeyError if no entires for Family/Series in vspeed lookup map.
+        '''
         if vapp:
             # Vapp is recorded so use this
             self.array = vapp.array
@@ -395,7 +397,16 @@ class AirspeedReference(DerivedParameterNode):
                     index = np.ma.argmax(setting_param.array[_slice])
                     weight = repaired_gw[_slice][index]
                     setting = setting_param.array[_slice][index]
-                    vspeed = vspeed_table.vref(weight, setting)
+                    if is_index_within_slice(tdwn.get_last().index, _slice) or setting in vspeed_table.reference_settings:
+                        # landing or approach with setting in vspeed table
+                        vspeed = vspeed_table.vref(weight, setting)
+                    else:
+                        # no landing and max setting not in vspeed table
+                        if setting_param.name == 'Flap':
+                            setting = max(get_flap_map(series.value, family.value))
+                        else:
+                            setting = max(get_conf_map(series.value, family.value).keys())
+                        vspeed = vspeed_table.vref(weight, setting)
                     self.array[_slice] = vspeed
             else:
                 # aircraft does not use vspeeds
