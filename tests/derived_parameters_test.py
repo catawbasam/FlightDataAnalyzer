@@ -2356,7 +2356,7 @@ class TestHeadwind(unittest.TestCase):
 
 class TestWindAcrossLandingRunway(unittest.TestCase):
     def test_can_operate(self):
-        opts=WindAcrossLandingRunway.get_operational_combinations()
+        opts = WindAcrossLandingRunway.get_operational_combinations()
         self.assertEqual(opts, [('Wind Speed', 'Wind Direction Continuous', 'FDR Landing Runway')])
     
     def test_real_example(self):
@@ -2412,44 +2412,68 @@ class TestAccelerationNormalOffsetRemoved(unittest.TestCase):
 
 
 class TestAileron(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
+    
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
+        opts = Aileron.get_operational_combinations()
+        self.assertTrue(('Aileron (L)',) in opts)
+        self.assertTrue(('Aileron (R)',) in opts)
+        self.assertTrue(('Aileron (L) Outboard',) in opts)
+        self.assertTrue(('Aileron (R) Outboard',) in opts)
+        self.assertTrue(('Aileron (L)', 'Aileron (R)', 'Aileron (L) Outboard',
+                         'Aileron (R) Outboard') in opts)
+
     def test_normal_two_sensors(self):
-        left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset = 0.1)
-        right = P('Aileron (R)', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset = 1.1)
+        left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
+        right = P('Aileron (R)', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset=1.1)
         aileron = Aileron()
-        aileron.derive(left, right)
+        aileron.derive(left, right, None, None)
         expected_data = np.ma.array([1.5]*3+[1.75]*2+[1.5]*3)
         np.testing.assert_array_equal(aileron.array, expected_data)
         self.assertEqual(aileron.frequency, 1.0)
         self.assertEqual(aileron.offset, 0.1)
 
     def test_left_only(self):
-        left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset = 0.1)
+        left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
         aileron = Aileron()
-        aileron.derive(left, None)
+        aileron.derive(left, None, None, None)
         expected_data = left.array
         np.testing.assert_array_equal(aileron.array, expected_data)
         self.assertEqual(aileron.frequency, 0.5)
         self.assertEqual(aileron.offset, 0.1)
-    
+        left_outboard = P('Aileron (L) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
+        aileron = Aileron()
+        aileron.derive(None, None, left_outboard, None)
+        expected_data = left_outboard.array
+        np.testing.assert_array_equal(aileron.array, expected_data)
+        self.assertEqual(aileron.frequency, 0.5)
+        self.assertEqual(aileron.offset, 0.1)
+
     def test_right_only(self):
         right = P('Aileron (R)', np.ma.array([3.0]*2+[2.0]*2), frequency=2.0, offset = 0.3)
         aileron = Aileron()
-        aileron.derive(None, right)
+        aileron.derive(None, right, None, None)
         expected_data = right.array
         np.testing.assert_array_equal(aileron.array, expected_data)
         self.assertEqual(aileron.frequency, 2.0)
         self.assertEqual(aileron.offset, 0.3)
-        
-    @unittest.skip('Test Not Implemented')
-    def test_four_parts(self):
-        # The aileron code allows for four sensors, split inboard and outboard. This still needs tests written.
-        self.assertTrue(False, msg='Test not implemented.')
+        right_outboard = P('Aileron (R) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
+        aileron = Aileron()
+        aileron.derive(None, None, right_outboard, None)
+        expected_data = right_outboard.array
+        np.testing.assert_array_equal(aileron.array, expected_data)
+        self.assertEqual(aileron.frequency, 0.5)
+        self.assertEqual(aileron.offset, 0.1)        
 
-        
+    def test_outboard_two_sensors(self):
+        left_outboard = P('Aileron (L) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
+        right_outboard = P('Aileron (R) Outboard', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset=1.1)
+        aileron = Aileron()
+        aileron.derive(None, None, left_outboard, right_outboard)
+        expected_data = np.ma.array([1.5]*3+[1.75]*2+[1.5]*3)
+        np.testing.assert_array_equal(aileron.array, expected_data)
+        self.assertEqual(aileron.frequency, 1.0)
+        self.assertEqual(aileron.offset, 0.1)
+
 
 class TestAileronTrim(unittest.TestCase):
     @unittest.skip('Test Not Implemented')

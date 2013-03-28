@@ -4511,30 +4511,24 @@ class Aileron(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        a = set(['Aileron (L) Inboard', 'Aileron (R) Inboard', 'Aileron (L) Outboard', 'Aileron (R) Outboard'])
-        x = set(available)
-        return 'Aileron (L)' in available or \
-               'Aileron (R)' in available or \
-               not (a - x)
+        return any_of(('Aileron (L)', 'Aileron (R)', 'Aileron (L) Outboard',
+                       'Aileron (R) Outboard'), available)
 
     def derive(self,
                al=P('Aileron (L)'),
                ar=P('Aileron (R)'),
-               ali=P('Aileron (L) Inboard'),
-               ari=P('Aileron (R) Inboard'),
                alo=P('Aileron (L) Outboard'),
                aro=P('Aileron (R) Outboard')):
-
+        if not al and alo:
+            al = alo
+        if not ar and aro:
+            ar = aro
         if al and ar:
             self.array, self.frequency, self.offset = blend_two_parameters(al, ar)
         elif al or ar:
             self.array = al.array if al else ar.array
             self.frequency = al.frequency if al else ar.frequency
             self.offset = al.offset if al else ar.offset
-        elif ali and alo and ari and aro:
-            self.array = merge_sources(ali.array, ari.array, alo.array,aro.array)
-            self.frequency = ali.frequency * 4.0
-            self.offset = ali.offset
         else:
             return NotImplemented
 
