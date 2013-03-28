@@ -187,10 +187,64 @@ class TestAPEngaged(unittest.TestCase, NodeTest):
             ('AP (1) Engaged', 'AP (2) Engaged', 'AP (3) Engaged'),
         ]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_single_ap(self):
+        ap1 = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (1) Engaged')        
+        eng = APEngaged()
+        eng.derive(ap1, None, None)
+        expected = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={0: '-', 1: 'Engaged'},
+                   name='AP Engaged', 
+                   frequency=1, 
+                   offset=0.1)        
+        ma_test.assert_array_equal(expected.array.data, eng.array.data)
 
+    def test_dual_ap(self):
+        ap1 = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (1) Engaged')        
+        ap2 = M(array=np.ma.array(data=[0,0,0,1,1,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (2) Engaged')        
+        ap3 = None
+        eng = APEngaged()
+        eng.derive(ap1, ap2, ap3)
+        expected = M(array=np.ma.array(data=[0,0,1,2,1,0]),
+                   values_mapping={0: '-', 1: 'Engaged', 2: 'Duplex'},
+                   name='AP Engaged', 
+                   frequency=1, 
+                   offset=0.1)        
+        
+        ma_test.assert_array_equal(expected.array.data, eng.array.data)
+
+    def test_triple_ap(self):
+        ap1 = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (1) Engaged', 
+                   frequency=1, 
+                   offset=0.1)        
+        ap2 = M(array=np.ma.array(data=[0,1,0,1,1,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (2) Engaged', 
+                   frequency=1, 
+                   offset=0.2)        
+        ap3 = M(array=np.ma.array(data=[0,0,1,1,1,1]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (3) Engaged', 
+                   frequency=1, 
+                   offset=0.4)        
+        eng = APEngaged()
+        eng.derive(ap1, ap2, ap3)
+        expected = M(array=np.ma.array(data=[0,1,2,3,2,1]),
+                   values_mapping={0: '-', 1: 'Engaged', 2: 'Duplex', 3: 'Triplex'},
+                   name='AP Engaged', 
+                   frequency=1, 
+                   offset=0.25)        
+        
+        ma_test.assert_array_equal(expected.array.data, eng.array.data)
+
+        
 
 ##### FIXME: Re-enable when 'AT Engaged' has been implemented.
 ####class TestATEngaged(unittest.TestCase, NodeTest):
