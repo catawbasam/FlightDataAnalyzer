@@ -341,7 +341,6 @@ NAME_VALUES_DESCENT = {
 ##############################################################################
 # Custom Settings
 
-
 # Import from custom_settings if exists
 try:
     from analyser_custom_settings import *  # NOQA

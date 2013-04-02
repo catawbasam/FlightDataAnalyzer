@@ -4,7 +4,7 @@ import logging
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
 from pprint import pformat
-from utilities.dict_helpers import dict_filter
+from flightdatautilities.dict_helpers import dict_filter
 
 from analysis_engine.node import (
     ApproachNode,
