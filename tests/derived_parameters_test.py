@@ -1066,12 +1066,12 @@ class TestAltitudeRadio(unittest.TestCase):
         alt_rad.derive(Attribute('Frame','737-3C'), 
                        None,
                        Parameter('Altitude Radio (A)', 
-                                 np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5,  0.0),
+                                 np.ma.array([10.0,10.0,10.0,10.0,10.1]*2), 0.5,  0.0),
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.25, 1.0),
                        Parameter('Altitude Radio (C)',
                                  np.ma.array([30.0,30.0,30.0,30.0,30.3]), 0.25, 3.0),
-                       None
+                       None, None, None
                        )
         answer = np.ma.array(data=[25.0]*7+[25.05,25.175,25.25])
         ma_test.assert_array_almost_equal(alt_rad.array, answer)
@@ -1086,7 +1086,7 @@ class TestAltitudeRadio(unittest.TestCase):
                                  np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
-                       )
+                       None, None, None, None)
         answer = np.ma.array(data=[15.0]*7+[15.025,15.1,15.15])
         ma_test.assert_array_almost_equal(alt_rad.array, answer)
         self.assertEqual(alt_rad.offset,0.0)
@@ -1100,7 +1100,7 @@ class TestAltitudeRadio(unittest.TestCase):
                                  np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
-                       )
+                       None, None, None, None)
         answer = np.ma.array(data=[15.0]*7+[15.025,15.1,15.15])
         ma_test.assert_array_almost_equal(alt_rad.array, answer)
         self.assertEqual(alt_rad.offset,0.0)
