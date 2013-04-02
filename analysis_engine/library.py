@@ -30,12 +30,68 @@ class InvalidDatetime(ValueError):
     pass
 
 
+def actuator_mismatch(ap, ap_l, ap_r, act_l, act_r, surf, scaling, frequency):
+    '''
+    Computes the mismatch between a control surface and the driving actuator
+    during autopilot engaged phases of flight.
+    
+    :param ap: autopilot engaged status, 1=engaged, 0=not engaged
+    :type ap: numpy masked array
+    :param ap_l: autopilot left channel engaged, 1=engaged, 0=not engaged
+    :type ap_l: numpy masked array 
+    :param ap_r: autopilot right channel engaged, 1=engaged, 0=not engaged
+    :type ap_r: numpy masked array
+    :param act_l: left channel actuator position, degrees actuator
+    :type act_l: numpy masked array
+    :param act_r: right channel actuator position, degrees actuator
+    :type act_r: numpy masked array
+    :param surf: control surface position, degrees surface movement
+    :type param: numpy masked array
+    :param scaling: ratio of surface movement to actuator movement
+    :type scaling: float
+    :param frequency: Frequency of parameters.
+    :type frequency: float
+    
+    :returns mismatch: degrees of mismatch between recorded actuator and surface positions
+    :type mismatch: numpy masked array.
+    
+    :Note: mismatch is zero for autopilot not engaged, and is computed for
+    the engaged channel only.
+    '''
+    mismatch = np_ma_zeros_like(ap)
+    act = np.ma.where(ap_l == 1, act_l, act_r) * scaling
+    
+    ap_engs = np.ma.clump_unmasked(np.ma.masked_equal(ap, 0))
+    for ap_eng in filter_slices_duration(ap_engs, 4, frequency):
+        # Allow the actuator two seconds to settle after engagement.
+        check = slice(ap_eng.start + (3 * frequency), ap_eng.stop)
+
+        # We compute a transient mismatch to avoid long term scaling errors.
+        mismatch[check] = first_order_washout(surf[check] - act[check], 30.0,
+                                              1.0)
+
+    # Square to ensure always positive, and take moving average to smooth.
+    mismatch = moving_average(mismatch ** 2.0)
+    
+    '''
+    # This plot shows how the fitted straight sections match the recorded data.
+    import matplotlib.pyplot as plt
+    plt.plot(surf)
+    plt.plot(act)
+    plt.plot(mismatch)
+    plt.show()
+    '''
+    
+    return mismatch    
+
+
 def all_of(names, available):
     '''
     Returns True if all of the names are within the available list.
     i.e. names is a subset of available
     '''
     return all(name in available for name in names)
+
 
 def any_of(names, available):
     '''
@@ -81,7 +137,6 @@ def air_track(lat_start, lon_start, lat_end, lon_end, spd, hdg, frequency):
     :Invalid mode fails with ValueError
     :Mismatched array lengths fails with ValueError
     """
-
     # First check that the gspd/hdg arrays are sensible.
     if len(spd) != len(hdg):
         raise ValueError('Ground_track requires equi-length speed and '
@@ -685,55 +740,111 @@ def _create_phase_mask(array, hz, offset, a, b, which_side):
     return np.ma.MaskedArray(array, mask = m)
 
 
-def cycle_counter(array, min_step, cycle_time, hz, array_offset):
+def cycle_counter(array, min_step, max_time, hz, offset=0):
     '''
-    Counts the number of consecutive cycles, each with a period not more than
-    cycle_time seconds, and with variation greater than min_step.
+    Counts the number of consecutive cycles.
 
-    :param array: time series data
-    :type array: Numpy masked array
-    :param min_step: Optional minimum step, below which fluctuations will be removed.
+    Each cycle must have a period of not more than ``cycle_time`` seconds, and
+    have a variation greater than ``min_step``.
+
+    Note: Where two events with the same cycle count arise in the same array,
+    the latter is recorded as it is normally the later in the flight that will
+    be most hazardous.
+
+    :param array: Array of data to count cycles within.
+    :type array: numpy.ma.core.MaskedArray
+    :param min_step: Minimum step, below which fluctuations will be removed.
     :type min_step: float
-    :param cycle_time: Maximum time for a complete valid cycle
-    :type cycle_time: float, seconds
-    :param hz: array sample rate
-    :type hz: float, Hz
-    :param array_offset: Index to start of array
-    :type array_offset: integer
-
-    :returns: A tuple containing the index of the array element at the end of the highest number of cycles and the highest number of cycles in the array.
-    :rtype: (integer, float (counts a half cycle for each change over min_step))
-
-    Note - Where two events with the same cycle count arise in the same
-    array, the latter is recorded as it is normally the later in the flight
-    that will be most hazardous.
+    :param max_time: Maximum time for a complete valid cycle in seconds.
+    :type max_time: float
+    :param hz: The sample rate of the array.
+    :type hz: float
+    :param offset: Index offset to start of the provided array.
+    :type offset: int
+    :returns: A tuple containing the index of the array element at the end of
+        the highest number of cycles and the highest number of cycles in the
+        array. Note that the value can be a float as we count a half cycle for
+        each change over the minimum step.
+    :rtype: (int, float)
     '''
-    if not np.ma.count(array):
-        return Value(None, None)
     idxs, vals = cycle_finder(array, min_step=min_step)
+
     if idxs is None:
         return Value(None, None)
 
+    index, half_cycles = None, 0
+    max_index, max_half_cycles = None, 0
+
+    # Determine the half cycle times and look for the most cycling:
     half_cycle_times = np.ediff1d(idxs) / hz
-    half_cycles = 0
-    max_half_cycles = 0
-    for num, half_cycle_time in enumerate(half_cycle_times):
-        if half_cycle_time < cycle_time:
+    for n, half_cycle_time in enumerate(half_cycle_times):
+        # If we are within the max time, keep track of the half cycle:
+        if half_cycle_time < max_time:
             half_cycles += 1
-            index = idxs[num+1]
-        else:
-            if 0 < half_cycles >= max_half_cycles:
-                max_half_cycles = half_cycles
-                max_index = index
-                half_cycles = 0
+            index = idxs[n + 1]
+        # Otherwise check if this is the most cycling and reset:
+        elif 0 < half_cycles >= max_half_cycles:
+            max_index, max_half_cycles = index, half_cycles
+            half_cycles = 0
+    else:
+        # Finally check whether the last loop had most cycling:
+        if 0 < half_cycles >= max_half_cycles:
+            max_index, max_half_cycles = index, half_cycles
 
-    if 0 < half_cycles >= max_half_cycles:
-        max_half_cycles = half_cycles
-        max_index = index
-
-    if max_half_cycles <= 1: # Ignore single direction movements.
+    # Ignore single direction movements (we only want full cycles):
+    if max_half_cycles < 2:
         return Value(None, None)
-    return Value(array_offset + max_index, max_half_cycles / 2.0)
+
+    return Value(offset + max_index, max_half_cycles / 2.0)
+
+
+def cycle_select(array, min_step, max_time, hz, offset=0):
+    '''
+    Selects the value difference in the array when cycling.
+
+    Each cycle must have a period of not more than ``cycle_time`` seconds, and
+    have a variation greater than ``min_step``.  The selected value is the
+    largest peak-to-peak value of the cycles.
+
+    Note: Where two events with the same cycle difference arise in the same
+    array, the latter is recorded as it is normally the later in the flight
+    that will be most hazardous.
+
+    :param array: Array of data to count cycles within.
+    :type array: numpy.ma.core.MaskedArray
+    :param min_step: Minimum step, below which fluctuations will be removed.
+    :type min_step: float
+    :param cycle_time: Maximum time for a complete valid cycle in seconds.
+    :type cycle_time: float
+    :param hz: The sample rate of the array.
+    :type hz: float
+    :param offset: Index offset to start of the provided array.
+    :type offset: int
+    :returns: A tuple containing the index of the array element at the end of
+        the highest difference and the highest difference between a peak and a
+        trough in the array while cycling.
+    :rtype: (int, float)
+    '''
+    idxs, vals = cycle_finder(array, min_step=min_step)
+
+    if idxs is None:
+        return Value(None, None)
+
+    max_index, max_value = None, 0
+
+    # Determine the half cycle times and ptp values for the half cycles:
+    half_cycle_times = np.ediff1d(idxs) / hz
+    half_cycle_diffs = np.ediff1d(vals)
+    half_cycle_pairs = zip(half_cycle_times, half_cycle_diffs)
+    for n, (half_cycle_time, value) in enumerate(half_cycle_pairs):
+        # If we are within the max time and have max difference, keep it:
+        if half_cycle_time < max_time and abs(value) >= max_value:
+            max_index, max_value = idxs[n + 1], abs(value)
+
+    if max_index is None:
+        return Value(None, None)
+
+    return Value(offset + max_index, max_value)
 
 
 def cycle_finder(array, min_step=0.0, include_ends=True):
@@ -1106,7 +1217,8 @@ def find_app_rwy(app_info, this_loc):
     return approach, runway
 
 
-def index_of_first_start(bool_array, _slice=slice(0,None), min_dur=1):
+def index_of_first_start(bool_array, _slice=slice(0, None), min_dur=0.0,
+                         frequency=1):
     '''
     Find the first starting index of a state change.
 
@@ -1122,14 +1234,17 @@ def index_of_first_start(bool_array, _slice=slice(0,None), min_dur=1):
     '''
     if _slice.step and _slice.step < 0:
         raise ValueError("Reverse step not supported")
-    starts, e, d = runs_of_ones_array(bool_array[_slice], min_dur)
-    if any(starts):
-        return starts[0] + (_slice.start or 0) - 0.5  # interpolate offset
+    runs = runs_of_ones(bool_array[_slice])
+    if min_dur:
+        runs = filter_slices_duration(runs, min_dur, frequency=frequency)
+    if runs:
+        return runs[0].start + (_slice.start or 0) - 0.5  # interpolate offset
     else:
         return None
 
 
-def index_of_last_stop(bool_array, _slice=slice(0,None), min_dur=1):
+def index_of_last_stop(bool_array, _slice=slice(0, None), min_dur=1,
+                       frequency=1):
     '''
     Find the first stopping index of a state change.
 
@@ -1145,9 +1260,11 @@ def index_of_last_stop(bool_array, _slice=slice(0,None), min_dur=1):
     '''
     if _slice.step and _slice.step < 0:
         raise ValueError("Reverse step not supported")
-    s, ends, d = runs_of_ones_array(bool_array[_slice], min_dur)
-    if any(ends):
-        return ends[-1] + (_slice.start or 0) - 0.5
+    runs = runs_of_ones(bool_array[_slice])
+    if min_dur:
+        runs = filter_slices_duration(runs, min_dur, frequency=frequency)
+    if runs:
+        return runs[-1].stop + (_slice.start or 0) - 0.5
     else:
         return None
 
@@ -1496,9 +1613,9 @@ def runway_distance_from_end(runway, *args, **kwds):
 
     Note: If high accuracy is required, compute the latitude and longitude
     using the value_at_index function rather than just indexing into the
-    latitude and longitude array. Alternatively use KPVs 'Latitude At
-    Touchdown' and 'Longitude At Touchdown' which are the most accurate
-    locations we have available for touchdown.
+    latitude and longitude array. Alternatively use KPVs 'Latitude Smoothed At
+    Touchdown' and 'Longitude Smoothed At Touchdown' which are the most
+    accurate locations we have available for touchdown.
 
     :param runway: Runway location details dictionary.
     :type runway: Dictionary containing:
@@ -1848,6 +1965,12 @@ def gtp_compute_error(weights, *args):
     frequency = args[6]
     mode = args[7]
     return_arg_set = args[8]
+    
+    if len(speed)==0:
+        if return_arg_set == 'iterate':
+            return 0.0
+        else:
+            return lat, lon, 0.0
 
     speed_weighting  = gtp_weighting_vector(speed, straight_ends, weights)
     if mode == 'takeoff':
@@ -2437,6 +2560,21 @@ def is_index_within_slice(index, _slice):
     return _slice.start <= index < _slice.stop
 
 
+def filter_slices_duration(slices, duration, frequency=1):
+    '''
+    Q: Does this need to be updated to use Sections?
+    :param slices: List of slices to filter.
+    :type slices: [slice]
+    :param duration: Minimum duration of slices in seconds.
+    :type duration: int or float
+    :param frequency: Frequency of slice start and stop.
+    :type frequency: int or float
+    :returns: List of slices greater than duration.
+    :rtype: [slice]
+    '''
+    return [s for s in slices if (s.stop - s.start) >= (duration * frequency)]
+
+
 def find_slices_containing_index(index, slices):
     '''
     :type index: int or float
@@ -2663,7 +2801,7 @@ def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
 
     :returns: slice list.
     '''
-    sample_limit = time_limit*hz
+    sample_limit = time_limit * hz
     if slice_list is None or len(slice_list) < 2:
         return slice_list
     new_list = [slice_list[0]]
@@ -2673,7 +2811,30 @@ def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
         else:
             new_list.append(each_slice)
     return new_list
+            
 
+def slices_remove_small_slices(slice_list, time_limit=10, hz=1):
+    '''
+    Routine to remove small slices in a list of slices.
+
+    :param slice_list: list of slices to be processed
+    :type slice_list: list of Python slices.
+    :param time_limit: Tolerance below which slice will be rejected.
+    :type time_limit: integer (sec)
+    :param hz: sample rate for the parameter
+    :type hz: float
+
+    :returns: slice list.
+    '''
+    sample_limit = time_limit * hz
+    if slice_list is None :
+        return slice_list
+    new_list = []
+    for each_slice in slice_list:
+        if each_slice.stop - each_slice.start > sample_limit:
+            new_list.append(each_slice)
+    return new_list
+            
 
 """
 def section_contains_kti(section, kti):
@@ -2712,7 +2873,7 @@ def latitudes_and_longitudes(bearings, distances, reference):
     """
     lat_ref = radians(reference['latitude'])
     lon_ref = radians(reference['longitude'])
-    brg = bearings*deg2rad
+    brg = bearings * deg2rad
     dist = distances.data / 6371000.0 # Scale to earth radius in metres
 
     lat = np.arcsin(sin(lat_ref)*np.ma.cos(dist) +
@@ -3159,6 +3320,62 @@ def blend_two_parameters(param_one, param_two):
         return array, frequency, offset
 
 
+def most_points_cost(coefs, x, y):
+    '''
+    This cost function computes a value which is minimal for points clost to
+    a "best fit" line. It differs from normal least squares optimisation in
+    that points a long way from the line have almost the same error as points
+    a little way off the line.
+    
+    The function is used as a form of correlation function where we are
+    looking to find the largest number of points on a certain line, with less
+    regard to points that lie off that line.
+    
+    :param coefs: line coefficients, m and c, to be adjusted to minimise this cost function.
+    :type coefs: list of floats, containing [m, c]
+    :param x: independent variable
+    :type x: numpy masked array
+    :param y: dependent variable
+    :type y: numpy masked array
+    
+    :returns: cost function; most negative value represents best fit.
+    :type: float
+    '''
+    # Wrote "assert len(x) == len(y)" but can't find how to test this, so verbose equivalent is...
+    if len(x) != len(y):
+        raise ValueError('most_points_cost called with x & y of unequal length')
+    if len(x) < 2:
+        raise ValueError('most_points_cost called with inadequate samples')
+    # Conventional y=mx+c equation for the "bet fit" line
+    m=coefs[0]
+    c=coefs[1]
+    
+    # We compute the distance of each point from the line
+    d = np.ma.sqrt((m*x+c-y)**2.0/(m**2.0+1))
+    # and work out the maximum distance
+    d_max = np.ma.max(d)
+    if d_max == 0.0:
+        raise ValueError('most_points_cost called with colinear data')
+    # The error for each point is computed as a nonlinear function of the
+    # distance, tailored to make points on the line give a small error, and
+    # those away from the line progressively greater, but reaching a limit
+    # value of 0 so that points at a great distance do not contribute more to
+    # the weighted error.
+    
+    # width sets the width of the channel created by this function. Larger
+    # values make the channel wider, but this opens up the function to
+    # settling on minima away from the optimal line. Too narrow a width and,
+    # again, the function can latch onto few points and determine a local
+    # minimum. The value of 0.003 was chosen from analysis of fuel flow vs
+    # altitude plots where periods of level flight in the climb create low
+    # fuel readings which are not part of the climb performance we are trying
+    # to detect. Values 3 times greater or smaller gave similar results,
+    # while values 10 times greater or smaller led to erroneous results.
+    width=0.003
+    e = 1.0 -1.0/((d/d_max)**2 + width)
+    return np.ma.sum(e)
+
+
 def moving_average(array, window=9, weightings=None, pad=True):
     """
     Moving average over an array with window of n samples. Weightings allows
@@ -3178,6 +3395,9 @@ def moving_average(array, window=9, weightings=None, pad=True):
 
     Ref: http://argandgahandapandpa.wordpress.com/2011/02/24/python-numpy-moving-average-for-data/
     """
+    if len(array)==0:
+        return None
+    
     if weightings is None:
         weightings = np.repeat(1.0, window) / window
     elif len(weightings) != window:
@@ -3614,7 +3834,6 @@ def rate_of_change_array(to_diff, hz, width=2.0):
     slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
     return slope
 
-
 def rate_of_change(diff_param, width):
     '''
     @param to_diff: Parameter object with .array attr (masked array)
@@ -3760,17 +3979,17 @@ def rms_noise(array, ignore_pc=None):
     return sqrt(np.ma.mean(np.ma.power(to_rms,2))) # RMS in one line !
 
 
-def runs_of_ones_array(bits, min_len):
-    # make sure all runs of ones are well-bounded
-    bounded = np.hstack(([0], bits, [0]))
-    # get 1 at run starts and -1 at run ends
-    difs = np.diff(bounded)
-    run_starts, = np.where(difs > 0)
-    run_ends, = np.where(difs < 0)
-    run_dur = run_ends - run_starts
-    those_above = run_dur>=min_len
-    # return duration and starting locations
-    return run_starts[those_above], run_ends[those_above], run_dur[those_above]
+def runs_of_ones(bits):
+    '''
+    Q: This function used to have a min_len kwarg which was a result of its
+    implementation. If there is a use case for only returning sections greater
+    than a minimum length, would it be better to specify time based on a
+    frequency rather than samples?
+    TODO: Update to return Sections?
+    :returns: S
+    :rtype: [slice]
+    '''
+    return np.ma.clump_unmasked(np.ma.masked_not_equal(bits, 1))
 
 
 def shift_slice(this_slice, offset):

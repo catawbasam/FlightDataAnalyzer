@@ -936,7 +936,57 @@ class TestClosestUnmaskedValue(unittest.TestCase):
         array[5:8] = np.ma.masked
         self.assertEqual(closest_unmasked_value(array, 7), Value(8, 8))
 
-
+class TestActuatorMismatch(unittest.TestCase):
+    '''
+    Originally written to monitor 737 elevator actuators, this may be
+    extended in future to cover different actuators on different aircraft.
+    '''
+    def setUp(self):
+        ap_list = []
+        fcc_l_list = []
+        fcc_r_list = []
+        act_l_list = []
+        act_r_list = []
+        surf_list = []
+        '''
+        This test data came from a known actuator failure case and includes
+        autopilot disengagement and selection of both left and right
+        actuators.
+        '''
+        duration_test_data_path = os.path.join(test_data_path,
+                                               'Elevator Actuator Mismatch Test Data.csv')
+        with open(duration_test_data_path, 'rb') as csvfile:
+            self.reader = csv.DictReader(csvfile)
+            for row in self.reader:
+                ap_list.append(float(row['Engaged']))
+                fcc_l_list.append(float(row['Left channel']))
+                fcc_r_list.append(float(row['Right channel']))
+                act_l_list.append(float(row['Elevator (L) Actuator']))
+                act_r_list.append(float(row['Elevator (R) Actuator']))
+                surf_list.append(float(row['Elevator']))
+        self.ap_array = np.ma.array(ap_list)
+        self.fcc_l_array = np.ma.array(fcc_l_list)
+        self.fcc_r_array = np.ma.array(fcc_r_list)
+        self.act_l_array = np.ma.array(act_l_list)
+        self.act_r_array = np.ma.array(act_r_list)
+        self.surf_array = np.ma.array(surf_list)
+        
+    def test_actuator_basic(self):
+        scaling = 1 / 2.6  # 737 elevator specific at this time
+        amm = actuator_mismatch(self.ap_array, 
+                                self.fcc_l_array, 
+                                self.fcc_r_array,
+                                self.act_l_array,
+                                self.act_r_array,
+                                self.surf_array,
+                                scaling, 1.0)
+        peak_index = np.ma.argmax(amm)
+        peak_value = amm[peak_index]
+        self.assertGreater(peak_value, 1.0)
+        self.assertGreater(peak_index, 9530)
+        self.assertLess(peak_index, 9540)
+        
+        
 class TestClip(unittest.TestCase):
     # Previously known as Duration
     def setUp(self):
@@ -1122,48 +1172,86 @@ class TestCreatePhaseOutside(unittest.TestCase):
 
 
 class TestCycleCounter(unittest.TestCase):
-    def test_cycle_counter(self):
-        array = np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
+
+    def setUp(self):
+        self.array = \
+            np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
             np.ma.sin(np.ma.arange(100) * 0.82)
-        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0, 0)
-        self.assertEqual(n_cycles, 3)
-        self.assertEqual(end_index, 91)
+
+    def test_cycle_counter(self):
+        index, count = cycle_counter(self.array, 3.0, 10, 1.0, 0)
+        self.assertEqual(index, 91)
+        self.assertEqual(count, 3)
 
     def test_cycle_counter_with_offset(self):
-        array = np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
-            np.ma.sin(np.ma.arange(100) * 0.82)
-        end_index, n_cycles = cycle_counter(array, 3.0, 10, 1.0, 1234)
-        self.assertEqual(end_index, 1234 + 91)
+        index, count = cycle_counter(self.array, 3.0, 10, 1.0, 1234)
+        self.assertEqual(index, 1234 + 91)
+        self.assertEqual(count, 3)
 
     def test_cycle_counter_too_slow(self):
-        array = np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
-            np.ma.sin(np.ma.arange(100) * 0.82)
-        end_index, n_cycles = cycle_counter(array, 3.0, 1, 1.0, 0)
-        self.assertEqual(n_cycles, None)
-        self.assertEqual(end_index, None)
+        index, count = cycle_counter(self.array, 3.0, 1, 1.0, 0)
+        self.assertEqual(index, None)
+        self.assertEqual(count, None)
 
     def test_cycle_counter_empty(self):
-        end_index, n_cycles = cycle_counter(np.ma.array([]), 3.0, 10, 1.0, 0)
-        self.assertEqual(n_cycles, None)
-        self.assertEqual(end_index, None)
+        array = np.ma.array([])
+        index, count = cycle_counter(array, 3.0, 10, 1.0, 0)
+        self.assertEqual(index, None)
+        self.assertEqual(count, None)
+
+
+class TestCycleSelect(unittest.TestCase):
+
+    def setUp(self):
+        self.array = \
+            np.ma.sin(np.ma.arange(100) * 0.7 + 3) + \
+            np.ma.sin(np.ma.arange(100) * 0.82)
+
+    def test_cycle_select(self):
+        index, value = cycle_select(self.array, 3.0, 10, 1.0, 0)
+        self.assertEqual(index, 29)
+        self.assertAlmostEqual(value, 3.93586778133)
+
+    def test_cycle_select_with_offset(self):
+        index, value = cycle_select(self.array, 3.0, 10, 1.0, 1234)
+        self.assertEqual(index, 1234 + 29)
+        self.assertAlmostEqual(value, 3.93586778133)
+
+    def test_cycle_select_too_slow(self):
+        index, value = cycle_select(self.array, 3.0, 1, 1.0, 0)
+        self.assertEqual(index, None)
+        self.assertEqual(value, None)
+
+    def test_cycle_select_empty(self):
+        array = np.ma.array([])
+        index, value = cycle_select(array, 3.0, 10, 1.0, 0)
+        self.assertEqual(index, None)
+        self.assertEqual(value, None)
+
+    def test_cycle_select_negative_change(self):
+        array = np.ma.array([0.0,3.0,-4.0,-2.0,0.0])
+        index, value = cycle_select(array, 3.0, 10, 1.0, 0)
+        self.assertEqual(index, 2)
+        self.assertEqual(value, 7.0)
 
 
 class TestCycleFinder(unittest.TestCase):
+
+    def setUp(self):
+        self.array = np.ma.array([0, 1, 3.8, 1, 0.3, 1, 2, 3, 2, 1, 2, 3, 4, 3, 2])
+
     def test_cycle_finder_basic(self):
-        array = np.ma.array([0,1,3.8,1,0.3,1,2,3,2,1,2,3,4,3,2])
-        idxs, vals = cycle_finder(array, min_step=2.1, include_ends=False)
+        idxs, vals = cycle_finder(self.array, min_step=2.1, include_ends=False)
         np.testing.assert_array_equal(idxs, [2, 4, 12])
-        np.testing.assert_array_equal(vals, [3.8,0.3,4])
+        np.testing.assert_array_equal(vals, [3.8, 0.3, 4])
 
     def test_cycle_finder_default(self):
-        array = np.ma.array([0,1,3.8,1,0.3,1,2,3,2,1,2,3,4,3,2])
-        idxs, vals = cycle_finder(array)
-        np.testing.assert_array_equal(idxs, [ 0, 2, 4, 7, 9,12,14])
-        np.testing.assert_array_equal(vals, [ 0., 3.8, 0.3, 3., 1., 4., 2.])
+        idxs, vals = cycle_finder(self.array)
+        np.testing.assert_array_equal(idxs, [0, 2, 4, 7, 9, 12, 14])
+        np.testing.assert_array_equal(vals, [0., 3.8, 0.3, 3., 1., 4., 2.])
 
     def test_cycle_finder_null(self):
-        array = np.ma.array([0,1,3.8,1,0.3,1,2,3,2,1,2,3,4,3,2])
-        idxs, vals = cycle_finder(array, min_step=15)
+        idxs, vals = cycle_finder(self.array, min_step=15)
         np.testing.assert_array_equal(idxs, None)
         np.testing.assert_array_equal(vals, None)
 
@@ -1174,19 +1262,30 @@ class TestCycleFinder(unittest.TestCase):
         np.testing.assert_array_equal(vals, None)
 
     def test_cycle_finder_removals(self):
-        array = np.ma.array([0,1,2,1,2,3,2,1,2,3,4,5,4,5,6])
+        array = np.ma.array([0, 1, 2, 1, 2, 3, 2, 1, 2, 3, 4, 5, 4, 5, 6])
         idxs, vals = cycle_finder(array, min_step=1.5)
-        np.testing.assert_array_equal(idxs, [0,5,7,14])
-        np.testing.assert_array_equal(vals, [0,3,1,6])
+        np.testing.assert_array_equal(idxs, [0, 5, 7, 14])
+        np.testing.assert_array_equal(vals, [0, 3, 1, 6])
 
 
 class TestDatetimeOfIndex(unittest.TestCase):
     def test_index_of_datetime(self):
         start_datetime = datetime.now()
-        index = 160
-        frequency = 4
-        dt = datetime_of_index(start_datetime, index, frequency=frequency)
+        dt = datetime_of_index(start_datetime, 160, frequency=4)
         self.assertEqual(dt, start_datetime + timedelta(seconds=40))
+
+
+class TestFilterSlicesDuration(unittest.TestCase):
+    def test_filter_slices_duration(self):
+        slices = [slice(1, 5), slice(4, 6), slice (5, 10)]
+        result = filter_slices_duration(slices, 0)
+        self.assertEqual(result, slices)
+        result = filter_slices_duration(slices, 4)
+        self.assertEqual(result, [slices[0], slices[2]])
+        result = filter_slices_duration(slices, 5)
+        self.assertEqual(result, [slices[2]])
+        result = filter_slices_duration(slices, 5, frequency=0.5)
+        self.assertEqual(result, [slices[0], slices[2]])
 
 
 class TestFilterVorIlsFrequencies(unittest.TestCase):
@@ -1832,7 +1931,7 @@ class TestIndexOfFirstStart(unittest.TestCase):
                           b, slice(None, None, -1))
 
 
-class TestIndexOfFirstStop(unittest.TestCase):
+class TestIndexOfLastStop(unittest.TestCase):
     def test_index_stop(self):
         b = np.array([0,0,1,1,1,1,0,0,0,0,0,1,1,0])
         pos = index_of_last_stop(b, slice(2, -1))
@@ -2410,7 +2509,31 @@ class TestBlendTwoParameters(unittest.TestCase):
         self.assertEqual(freq, 2.0)
         self.assertAlmostEqual(off, 0.4)
 
+class TestMostPointsCost(unittest.TestCase):
+    def test_mpc_assertion(self):
+        coefs=[0.0,0.0]
+        x = np.ma.array([0.0])
+        y = np.ma.array([0.0])
+        self.assertRaises(ValueError, most_points_cost, coefs, x, y)
 
+    def test_mpc_colinear_raises(self):
+        coefs=[-1.0,0.0]
+        x = np.ma.array([0.0, 1.0, 2.0])
+        y = np.ma.array([0.0, -1.0, -2.0])
+        self.assertRaises(ValueError, most_points_cost, coefs, x, y)
+
+    def test_mpc_imbalanced_raises(self):
+        coefs=[0.0,0.0]
+        x = np.ma.array([0.0, 2.0])
+        y = np.ma.array([0.0])
+        self.assertRaises(ValueError, most_points_cost, coefs, x, y)
+
+    def test_mpc_basic(self):
+        coefs=[0.0,1.0]
+        x = np.ma.array([0.0, 0.0, 0.0])
+        y = np.ma.array([0.0, 0.0, 0.0])
+        result = most_points_cost(coefs, x, y)
+        self.assertAlmostEqual(result, 0.003 * 3.0, places=3)
 
 class TestMovingAverage(unittest.TestCase):
     def test_basic_average(self):
@@ -3230,11 +3353,10 @@ class TestSectionContainsKti(unittest.TestCase):
 
 class TestRunsOfOnes(unittest.TestCase):
     def test_runs_of_ones(self):
-        st, end, dur = runs_of_ones_array([0,0,1,0,1,1,1,1,1,0,0,1,1,1], 2)
-
-        self.assertEqual(list(st), [4, 11]) # starts at 4
-        self.assertEqual(list(end), [9, 14]) # ends at 8+1 = 9 for slicing
-        self.assertEqual(list(dur), [5, 3]) # dur of 5
+        result = runs_of_ones(np.ma.array(
+            [0,0,1,0,1,1,1,1,1,0,0,1,1,1,0,1,1,1],
+            mask=14 * [False] + 4 * [True]))
+        self.assertEqual(result, [slice(2, 3), slice(4, 9), slice(11, 14)])
 
 
 class TestShiftSlice(unittest.TestCase):
@@ -3529,6 +3651,21 @@ class TestSlicesRemoveSmallGaps(unittest.TestCase):
         newlist=slices_remove_small_gaps(slicelist, hz=2)
         expected = []
         self.assertEqual(expected, newlist)
+        
+class TestSlicesRemoveSmallSlices(unittest.TestCase):
+    def test_slice_removal(self):
+        slicelist = [slice(1, 13), slice(25, 27), slice(30, 43)]
+        newlist = slices_remove_small_slices(slicelist)
+        expected = [slice(1, 13), slice(30, 43)]
+        self.assertEqual(expected, newlist)
+
+    def test_slice_removal_time_set(self):
+        slicelist = [slice(1, 13), slice(25, 27), slice(30, 33)]
+        newlist = slices_remove_small_slices(slicelist, time_limit=5)
+        expected = [slice(1, 13)]
+        self.assertEqual(expected, newlist)
+
+
 
 
 class TestSlicesNot(unittest.TestCase):

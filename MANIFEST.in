@@ -16,7 +16,5 @@ exclude .coverage
 exclude coverage.xml
 exclude nosetests.xml
 
-
 # Project specific
 exclude tests/AnalysisEngine_tests/*
-recursive-include spacetree *

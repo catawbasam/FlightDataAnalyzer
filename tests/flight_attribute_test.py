@@ -309,10 +309,10 @@ class TestLandingAirport(unittest.TestCase, NodeTest):
         self.node_class = LandingAirport
         self.operational_combinations = [
             ('AFR Landing Airport',),
-            ('Latitude At Landing', 'Longitude At Landing'),
-            ('Latitude At Landing', 'AFR Landing Airport'),
-            ('Longitude At Landing', 'AFR Landing Airport'),
-            ('Latitude At Landing', 'Longitude At Landing', 'AFR Landing Airport'),
+            ('Latitude At Touchdown', 'Longitude At Touchdown'),
+            ('Latitude At Touchdown', 'AFR Landing Airport'),
+            ('Longitude At Touchdown', 'AFR Landing Airport'),
+            ('Latitude At Touchdown', 'Longitude At Touchdown', 'AFR Landing Airport'),
         ]
 
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
@@ -321,11 +321,11 @@ class TestLandingAirport(unittest.TestCase, NodeTest):
         Attribute is not set when airport is not found.
         '''
         get_nearest_airport.side_effect = NotFoundError('Not Found.')
-        lat = KPV(name='Latitude At Landing', items=[
+        lat = KPV(name='Latitude At Touchdown', items=[
             KeyPointValue(index=12, value=0.5),
             KeyPointValue(index=32, value=0.9),
         ])
-        lon = KPV(name='Longitude At Landing', items=[
+        lon = KPV(name='Longitude At Touchdown', items=[
             KeyPointValue(index=12, value=7.1),
             KeyPointValue(index=32, value=8.4),
         ])
@@ -352,11 +352,11 @@ class TestLandingAirport(unittest.TestCase, NodeTest):
         '''
         info = {'id': 123}
         get_nearest_airport.return_value = info
-        lat = KPV(name='Latitude At Landing', items=[
+        lat = KPV(name='Latitude At Touchdown', items=[
             KeyPointValue(index=12, value=0.5),
             KeyPointValue(index=32, value=0.9),
         ])
-        lon = KPV(name='Longitude At Landing', items=[
+        lon = KPV(name='Longitude At Touchdown', items=[
             KeyPointValue(index=12, value=7.1),
             KeyPointValue(index=32, value=8.4),
         ])
@@ -374,11 +374,11 @@ class TestLandingAirport(unittest.TestCase, NodeTest):
     def test_derive_afr_fallback(self, get_nearest_airport):
         info = {'id': '50'}
         get_nearest_airport.return_value = info
-        lat = KPV(name='Latitude At Landing', items=[
+        lat = KPV(name='Latitude At Touchdown', items=[
             KeyPointValue(index=12, value=0.5),
             KeyPointValue(index=32, value=0.9),
         ])
-        lon = KPV(name='Longitude At Landing', items=[
+        lon = KPV(name='Longitude At Touchdown', items=[
             KeyPointValue(index=12, value=7.1),
             KeyPointValue(index=32, value=8.4),
         ])
@@ -547,15 +547,15 @@ class TestLandingRunway(unittest.TestCase, NodeTest):
         get_nearest_runway.return_value = info
         fdr_apt = A(name='FDR Landing Airport', value={'id': 25})
         afr_apt = None
-        lat = KPV(name='Latitude At Landing', items=[
+        lat = KPV(name='Latitude At Touchdown', items=[
             KeyPointValue(index=16, value=4.0),
             KeyPointValue(index=18, value=6.0),
         ])
-        lon = KPV(name='Longitude At Landing', items=[
+        lon = KPV(name='Longitude At Touchdown', items=[
             KeyPointValue(index=16, value=3.0),
             KeyPointValue(index=18, value=9.0),
         ])
-        hdg = KPV(name='Heading At Landing', items=[
+        hdg = KPV(name='Heading During Landing', items=[
             KeyPointValue(index=16, value=60.0),
             KeyPointValue(index=18, value=20.0),
         ])
@@ -606,11 +606,11 @@ class TestLandingRunway(unittest.TestCase, NodeTest):
         get_nearest_runway.side_effect = runway_side_effect
         fdr_apt = A(name='FDR Landing Airport', value={'id': 50})
         afr_rwy = A(name='AFR Landing Runway', value={'ident': '27R'})
-        hdg_a = KPV(name='Heading At Landing', items=[
+        hdg_a = KPV(name='Heading During Landing', items=[
             KeyPointValue(index=1, value=360.0),
             KeyPointValue(index=2, value=270.0),
         ])
-        hdg_b = KPV(name='Heading At Landing', items=[
+        hdg_b = KPV(name='Heading During Landing', items=[
             KeyPointValue(index=1, value=180.0),
             KeyPointValue(index=2, value=90.0),
         ])
@@ -707,10 +707,10 @@ class TestTakeoffAirport(unittest.TestCase, NodeTest):
         self.node_class = TakeoffAirport
         self.operational_combinations = [
             ('AFR Takeoff Airport',),
-            ('Latitude At Takeoff', 'Longitude At Takeoff'),
-            ('Latitude At Takeoff', 'AFR Takeoff Airport'),
-            ('Longitude At Takeoff', 'AFR Takeoff Airport'),
-            ('Latitude At Takeoff', 'Longitude At Takeoff', 'AFR Takeoff Airport'),
+            ('Latitude At Liftoff', 'Longitude At Liftoff'),
+            ('Latitude At Liftoff', 'AFR Takeoff Airport'),
+            ('Longitude At Liftoff', 'AFR Takeoff Airport'),
+            ('Latitude At Liftoff', 'Longitude At Liftoff', 'AFR Takeoff Airport'),
         ]
 
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_airport')
@@ -719,11 +719,11 @@ class TestTakeoffAirport(unittest.TestCase, NodeTest):
         Attribute is not set when airport is not found.
         '''
         get_nearest_airport.side_effect = NotFoundError('Not Found.')
-        lat = KPV(name='Latitude At Takeoff', items=[
+        lat = KPV(name='Latitude At Liftoff', items=[
             KeyPointValue(index=12, value=4.0),
             KeyPointValue(index=32, value=6.0),
         ])
-        lon = KPV(name='Longitude At Takeoff', items=[
+        lon = KPV(name='Longitude At Liftoff', items=[
             KeyPointValue(index=12, value=3.0),
             KeyPointValue(index=32, value=9.0),
         ])
@@ -750,11 +750,11 @@ class TestTakeoffAirport(unittest.TestCase, NodeTest):
         '''
         info = {'id': 123}
         get_nearest_airport.return_value = info
-        lat = KPV(name='Latitude At Takeoff', items=[
+        lat = KPV(name='Latitude At Liftoff', items=[
             KeyPointValue(index=12, value=4.0),
             KeyPointValue(index=32, value=6.0),
         ])
-        lon = KPV(name='Longitude At Takeoff', items=[
+        lon = KPV(name='Longitude At Liftoff', items=[
             KeyPointValue(index=12, value=3.0),
             KeyPointValue(index=32, value=9.0),
         ])
@@ -772,11 +772,11 @@ class TestTakeoffAirport(unittest.TestCase, NodeTest):
     def test_derive_afr_fallback(self, get_nearest_airport):
         info = {'id': '50'}
         get_nearest_airport.return_value = info
-        lat = KPV(name='Latitude At Takeoff', items=[
+        lat = KPV(name='Latitude At Liftoff', items=[
             KeyPointValue(index=12, value=4.0),
             KeyPointValue(index=32, value=6.0),
         ])
-        lon = KPV(name='Longitude At Takeoff', items=[
+        lon = KPV(name='Longitude At Liftoff', items=[
             KeyPointValue(index=12, value=3.0),
             KeyPointValue(index=32, value=9.0),
         ])
@@ -925,48 +925,8 @@ class TestTakeoffPilot(unittest.TestCase):
 class TestTakeoffRunway(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = TakeoffRunway
-        self.operational_combinations = [
-            ('AFR Takeoff Runway',),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway'),
-            ('FDR Takeoff Airport', 'Heading At Takeoff'),
-            ('AFR Takeoff Runway', 'Heading At Takeoff'),
-            ('AFR Takeoff Runway', 'Latitude At Takeoff'),
-            ('AFR Takeoff Runway', 'Longitude At Takeoff'),
-            ('AFR Takeoff Runway', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude At Takeoff'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Longitude At Takeoff'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff'),
-            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude At Takeoff'),
-            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Precise Positioning'),
-            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff'),
-            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Longitude At Takeoff'),
-            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Precise Positioning'),
-            ('AFR Takeoff Runway', 'Latitude At Takeoff', 'Longitude At Takeoff'),
-            ('AFR Takeoff Runway', 'Latitude At Takeoff', 'Precise Positioning'),
-            ('AFR Takeoff Runway', 'Longitude At Takeoff', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Longitude At Takeoff'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude At Takeoff', 'Longitude At Takeoff'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude At Takeoff', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Longitude At Takeoff', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff'),
-            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
-            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff'),
-            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Precise Positioning'),
-            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
-            ('AFR Takeoff Runway', 'Latitude At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Latitude At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
-            ('AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
-            ('FDR Takeoff Airport', 'AFR Takeoff Runway', 'Heading At Takeoff', 'Latitude At Takeoff', 'Longitude At Takeoff', 'Precise Positioning'),
-        ]
+        self.operational_combination_length = 40
+        self.check_operational_combination_length_only = True
 
     @patch('analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal.get_nearest_runway')
     def test_derive(self, get_nearest_runway):
@@ -974,15 +934,15 @@ class TestTakeoffRunway(unittest.TestCase, NodeTest):
         get_nearest_runway.return_value = info
         fdr_apt = A(name='FDR Takeoff Airport', value={'id': 25})
         afr_apt = None
-        lat = KPV(name='Latitude At Takeoff', items=[
+        lat = KPV(name='Latitude At Liftoff', items=[
             KeyPointValue(index=1, value=4.0),
             KeyPointValue(index=2, value=6.0),
         ])
-        lon = KPV(name='Longitude At Takeoff', items=[
+        lon = KPV(name='Longitude At Liftoff', items=[
             KeyPointValue(index=1, value=3.0),
             KeyPointValue(index=2, value=9.0),
         ])
-        hdg = KPV(name='Heading At Takeoff', items=[
+        hdg = KPV(name='Heading During Takeoff', items=[
             KeyPointValue(index=1, value=20.0),
             KeyPointValue(index=2, value=60.0),
         ])
@@ -1022,11 +982,11 @@ class TestTakeoffRunway(unittest.TestCase, NodeTest):
         get_nearest_runway.side_effect = runway_side_effect
         fdr_apt = A(name='FDR Takeoff Airport', value={'id': 50})
         afr_rwy = A(name='AFR Takeoff Runway', value={'ident': '27R'})
-        hdg_a = KPV(name='Heading At Takeoff', items=[
+        hdg_a = KPV(name='Heading During Takeoff', items=[
             KeyPointValue(index=1, value=270.0),
             KeyPointValue(index=2, value=360.0),
         ])
-        hdg_b = KPV(name='Heading At Takeoff', items=[
+        hdg_b = KPV(name='Heading During Takeoff', items=[
             KeyPointValue(index=1, value=90.0),
             KeyPointValue(index=2, value=180.0),
         ])

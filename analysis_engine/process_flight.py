@@ -362,7 +362,6 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         # Store dependency tree
         hdf.dependency_tree = graph_adjacencies(gr_st)
         # Store aircraft info
-        ##hdf.aircraft_tail = ... NB: Remove from downsample!
         hdf.set_attr('aircraft_info', aircraft_info)
         hdf.set_attr('achieved_flight_record', achieved_flight_record)
         
@@ -379,7 +378,7 @@ if __name__ == '__main__':
     print '  - http://www.flightdatacommunity.com'
     print ''
     import argparse, os
-    from utilities.filesystem_tools import copy_file
+    from flightdatautilities.filesystem_tools import copy_file
     from analysis_engine.plot_flight import csv_flight_details, track_to_kml
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)

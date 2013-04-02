@@ -4,7 +4,7 @@ import httplib2
 import os
 import simplejson
 
-from analysis_engine.model_information import (
+from flightdatautilities.model_information import (
     get_aileron_map,
     get_conf_map,
     get_flap_map,

@@ -178,13 +178,13 @@ class LandingAirport(FlightAttributeNode):
         2. Use the airport data provided in the achieved flight record.
         '''
         return 'AFR Landing Airport' in available or all((
-            'Latitude At Landing' in available,
-            'Longitude At Landing' in available,
+            'Latitude At Touchdown' in available,
+            'Longitude At Touchdown' in available,
         ))
 
     def derive(self,
-               land_lat=KPV('Latitude At Landing'),
-               land_lon=KPV('Longitude At Landing'),
+               land_lat=KPV('Latitude At Touchdown'),
+               land_lon=KPV('Longitude At Touchdown'),
                land_afr_apt=A('AFR Landing Airport')):
         '''
         '''
@@ -234,13 +234,13 @@ class LandingRunway(FlightAttributeNode):
         '''
         We can determine a landing runway in a number of ways:
 
-        1. Imprecisely using airport and heading at landing.
+        1. Imprecisely using airport and heading during landing.
         2. Precisely using airport, heading and coordinates at landing.
         3. Use the runway data provided in the achieved flight record.
         '''
         minimum = all((
             'FDR Landing Airport' in available,
-            'Heading At Landing' in available,
+            'Heading During Landing' in available,
             'ILS Frequency During Approach' in available
         ))
 
@@ -251,9 +251,9 @@ class LandingRunway(FlightAttributeNode):
     def derive(self,
             land_fdr_apt=A('FDR Landing Airport'),
             land_afr_rwy=A('AFR Landing Runway'),
-            land_hdg=KPV('Heading At Landing'),
-            land_lat=KPV('Latitude At Landing'),
-            land_lon=KPV('Longitude At Landing'),
+            land_hdg=KPV('Heading During Landing'),
+            land_lat=KPV('Latitude At Touchdown'),
+            land_lon=KPV('Longitude At Touchdown'),
             precision=A('Precise Positioning'),
             approaches=S('Approach And Landing'),
             ils_freq_on_app=KPV('ILS Frequency During Approach')):
@@ -390,13 +390,13 @@ class TakeoffAirport(FlightAttributeNode):
         2. Use the airport data provided in the achieved flight record.
         '''
         return 'AFR Takeoff Airport' in available or all((
-            'Latitude At Takeoff' in available,
-            'Longitude At Takeoff' in available,
+            'Latitude At Liftoff' in available,
+            'Longitude At Liftoff' in available,
         ))
 
     def derive(self,
-            toff_lat=KPV('Latitude At Takeoff'),
-            toff_lon=KPV('Longitude At Takeoff'),
+            toff_lat=KPV('Latitude At Liftoff'),
+            toff_lon=KPV('Longitude At Liftoff'),
             toff_afr_apt=A('AFR Takeoff Airport')):
         '''
         '''
@@ -554,13 +554,13 @@ class TakeoffRunway(FlightAttributeNode):
         '''
         We can determine a takeoff runway in a number of ways:
 
-        1. Imprecisely using airport and heading at takeoff.
+        1. Imprecisely using airport and heading during takeoff.
         2. Precisely using airport, heading and coordinates at takeoff.
         3. Use the runway data provided in the achieved flight record.
         '''
         minimum = all((
             'FDR Takeoff Airport' in available,
-            'Heading At Takeoff' in available,
+            'Heading During Takeoff' in available,
         ))
 
         fallback = 'AFR Takeoff Runway' in available
@@ -570,9 +570,9 @@ class TakeoffRunway(FlightAttributeNode):
     def derive(self,
             toff_fdr_apt=A('FDR Takeoff Airport'),
             toff_afr_rwy=A('AFR Takeoff Runway'),
-            toff_hdg=KPV('Heading At Takeoff'),
-            toff_lat=KPV('Latitude At Takeoff'),
-            toff_lon=KPV('Longitude At Takeoff'),
+            toff_hdg=KPV('Heading During Takeoff'),
+            toff_lat=KPV('Latitude At Liftoff'),
+            toff_lon=KPV('Longitude At Liftoff'),
             precision=A('Precise Positioning')):
         '''
         '''

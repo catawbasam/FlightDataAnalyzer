@@ -1,7 +1,7 @@
 Introduction
 ============
 
-A tool for analysing HDF5 files containing engineering unit representation of 
+A tool for analysing HDF5 files containing engineering unit representation of
 flight data. It provides the following utilities:
 
 * Flight phase detection.
@@ -10,23 +10,15 @@ flight data. It provides the following utilities:
 * Creation of flight attributes, such as take and landing runways.
 * Calculation and creation of KPVs and KTIs.
 
-Project sponsored by `Flight Data Services`_ and released under the Open 
+Project sponsored by `Flight Data Services`_ and released under the Open
 Software License (`OSL-3.0`_).
-
-NOTE! It is not currently possible to run FlightDataAnalyzer from source since
-it is dependant on the `Utilities` module which contains proprietary code we
-can't release. We are in the process of liberating the `Utilities` module and
-will release `FlightDataUtilities` in Q1 2013 as a fully Open Source
-replacement. At which time we will the publish "run from source" documentation
-which will be available via the `Flight Data Community_` website.
 
 Installation
 ------------
 
-Package requires ``pip`` for installation.
-::
+Full installation instructions are available from the URL below.
 
-    pip install git+https://github.com/FlightDataServices/FlightDataAnalyser.git
+* https://github.com/FlightDataServices/FlightDataAnalyzer/blob/master/doc/source/Install.rst
 
 Source Code
 -----------

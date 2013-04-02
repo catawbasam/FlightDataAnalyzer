@@ -1,11 +1,11 @@
 import numpy as np
 
-from analysis_engine.library import (any_of,
+from analysis_engine.library import (all_of,
+                                     any_of,
                                      coreg,
                                      find_edges_on_state_change,
                                      hysteresis,
                                      index_at_value,
-                                     is_index_within_slice,
                                      max_value,
                                      minimum_unmasked,
                                      peak_curvature,
@@ -13,7 +13,7 @@ from analysis_engine.library import (any_of,
                                      slices_not,
                                      touchdown_inertial)
 
-from analysis_engine.node import (A, M, P, S, KTI, KeyTimeInstanceNode)
+from analysis_engine.node import M, P, S, KTI, KeyTimeInstanceNode
 
 from settings import (CLIMB_THRESHOLD,
                       NAME_VALUES_CLIMB,
@@ -83,21 +83,6 @@ class AltitudePeak(KeyTimeInstanceNode):
         '''
         '''
         self.create_kti(np.ma.argmax(np.ma.abs(np.ma.diff(alt_aal.array))))
-
-
-'''
-Redundant, as either a go-around, or landing
-
-class ApproachLowestPoint(KeyTimeInstanceNode):
-    def derive(self, apps=S('Approach'), alt_aal=P('Altitude AAL')):
-        # In the case of descents without landing, this finds the minimum
-        # point of the dip.
-        for app in apps:
-            index = np.ma.argmin(alt_aal.array[app.slice]) + app.slice.start
-            value = alt_aal.array[index]
-            if value:
-                self.create_kti(index)
-                '''
 
 
 ##############################################################################
@@ -209,13 +194,12 @@ class ClimbStart(KeyTimeInstanceNode):
                 self.create_kti(initial_climb_index)
 
 
-class Eng_Stop(KeyTimeInstanceNode):
+class EngStop(KeyTimeInstanceNode):
     '''
     '''
 
     NAME_FORMAT = 'Eng (%(number)d) Stop'
     NAME_VALUES = NAME_VALUES_ENGINE
-    name = 'Eng (*) Stop'  # FIXME: Name conflict!?
 
     @classmethod
     def can_operate(cls, available):
@@ -285,18 +269,6 @@ class GoAround(KeyTimeInstanceNode):
             self.create_kti(pit + dlc.start_edge)
 
 
-class GoAroundFlapRetracted(KeyTimeInstanceNode):
-    def derive(self, flap=P('Flap'), gas=S('Go Around And Climbout')):
-        self.create_ktis_at_edges(flap.array, direction='falling_edges',
-                                  phase=gas)
-
-
-class GoAroundGearSelectedUp(KeyTimeInstanceNode):
-    def derive(self, gear=M('Gear Down'), gas=S('Go Around And Climbout')):
-        self.create_ktis_on_state_change('Up', gear.array, change='entering',
-                                         phase=gas)
-
-
 class TopOfClimb(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude STD Smoothed'),
                ccd=S('Climb Cruise Descent')):
@@ -343,11 +315,20 @@ class TopOfDescent(KeyTimeInstanceNode):
             self.create_kti(n_tod)
 
 
-class FlapStateChanges(KeyTimeInstanceNode):
+##############################################################################
+# Flap
+
+
+class FlapSet(KeyTimeInstanceNode):
+    '''
+    '''
+
     NAME_FORMAT = 'Flap %(flap)d Set'
     NAME_VALUES = NAME_VALUES_FLAP
 
-    def derive(self, flap=P('Flap')):
+    def derive(self,
+               flap=P('Flap')):
+
         # Mark all flap changes, and annotate with the new flap position.
         # Could include "phase=airborne" if we want to eliminate ground flap
         # changes.
@@ -355,34 +336,78 @@ class FlapStateChanges(KeyTimeInstanceNode):
                                   name='flap')
 
 
+class FlapRetractionDuringGoAround(KeyTimeInstanceNode):
+    '''
+    '''
+
+    def derive(self,
+               flap=P('Flap'),
+               go_arounds=S('Go Around And Climbout')):
+
+        self.create_ktis_at_edges(
+            flap.array,
+            direction='falling_edges',
+            phase=go_arounds,
+        )
+
+
+##############################################################################
+# Gear
+
+
 class GearDownSelection(KeyTimeInstanceNode):
-    def derive(self, gear_sel_down=M('Gear Down Selected'),
-               phase=S('Airborne')):
-        self.create_ktis_on_state_change('Down', gear_sel_down.array,
-                                         change='entering', phase=phase)
+    '''
+    Instants at which gear down was selected while airborne.
+    '''
+
+    def derive(self,
+               gear_dn_sel=M('Gear Down Selected'),
+               airborne=S('Airborne')):
+
+        self.create_ktis_on_state_change('Down', gear_dn_sel.array,
+                                         change='entering', phase=airborne)
 
 
 class GearUpSelection(KeyTimeInstanceNode):
     '''
-    This covers normal gear up selections, not during a go-around.
-    See "Go Around Gear Retracted" for Go-Around case.
+    Instants at which gear up was selected while airborne excluding go-arounds.
     '''
-    def derive(self, gear_sel_up=M('Gear Up Selected'), airs=S('Airborne'),
-               gas=S('Go Around And Climbout')):
-        air_slices = airs.get_slices()
-        ga_slices = gas.get_slices()
+
+    def derive(self,
+               gear_up_sel=M('Gear Up Selected'),
+               airborne=S('Airborne'),
+               go_arounds=S('Go Around And Climbout')):
+
+        air_slices = airborne.get_slices()
+        ga_slices = go_arounds.get_slices()
         if not air_slices:
             return
         air_not_ga = slices_and(air_slices, slices_not(ga_slices,
             begin_at=air_slices[0].start,
             end_at=air_slices[-1].stop,
         ))
-        good_phases = S(name='Airborne but not in Go Arounds',
-                        frequency=gear_sel_up.frequency,
-                        offset=gear_sel_up.offset)
+        good_phases = S(name='Airborne Not During Go Around',
+                        frequency=gear_up_sel.frequency,
+                        offset=gear_up_sel.offset)
         good_phases.create_sections(air_not_ga)
-        self.create_ktis_on_state_change('Up', gear_sel_up.array,
+        self.create_ktis_on_state_change('Up', gear_up_sel.array,
                                          change='entering', phase=good_phases)
+
+
+class GearUpSelectionDuringGoAround(KeyTimeInstanceNode):
+    '''
+    Instants at which gear up was selected while airborne including go-arounds.
+    '''
+
+    def derive(self,
+               gear_up_sel=M('Gear Up Selected'),
+               go_arounds=S('Go Around And Climbout')):
+
+        self.create_ktis_on_state_change('Up', gear_up_sel.array,
+                                         change='entering', phase=go_arounds)
+
+
+##############################################################################
 
 
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
@@ -474,16 +499,6 @@ class TakeoffPeakAcceleration(KeyTimeInstanceNode):
                 self.create_kti(index)
 
 
-class TakeoffRotation(KeyTimeInstanceNode):
-    '''
-    '''
-    def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
-        for takeoff in takeoffs:
-            index = index_at_value(pitch.array, 2.0, _slice=takeoff.slice)
-            if index:
-                self.create_kti(index)
-
-
 class Liftoff(KeyTimeInstanceNode):
     '''
     This checks for the moment when the inertial rate of climb increases
@@ -515,7 +530,7 @@ class Liftoff(KeyTimeInstanceNode):
                 self.create_kti(t0)
 
 
-class LowestPointOnApproach(KeyTimeInstanceNode):
+class LowestAltitudeDuringApproach(KeyTimeInstanceNode):
     '''
     For any approach phase that did not result in a landing, the lowest point
     is taken as key, from which the position, heading and height will be
@@ -524,12 +539,16 @@ class LowestPointOnApproach(KeyTimeInstanceNode):
     This KTI is essential to collect the related KPVs which inform the
     approach attribute, and thereafter compute the smoothed track.
     '''
-    def derive(self, alt_aal=P('Altitude AAL'), alt_rad=P('Altitude Radio'),
-               apps=S('Approach And Landing')):
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               alt_rad=P('Altitude Radio'),
+               approaches=S('Approach And Landing')):
+
         height = minimum_unmasked(alt_aal.array, alt_rad.array)
-        for app in apps:
-            index = np.ma.argmin(height[app.slice])
-            self.create_kti(index + app.start_edge)
+        for approach in approaches:
+            index = np.ma.argmin(height[approach.slice])
+            self.create_kti(approach.start_edge + index)
 
 
 class InitialClimbStart(KeyTimeInstanceNode):
@@ -573,46 +592,60 @@ class Touchdown(KeyTimeInstanceNode):
     @classmethod
     def can_operate(cls, available):
         # List the minimum required parameters.
-        return 'Gear On Ground' in available or \
-               all(x in available for x in ('Altitude AAL',
-                                            'Airborne',
-                                            'Landing',))
+        return all_of(('Altitude AAL', 'Landing'), available)
 
-    def derive(self, wow=M('Gear On Ground'), roc=P('Vertical Speed Inertial'),
-               alt=P('Altitude AAL'), airs=S('Airborne'), lands=S('Landing'),
-               frame=A('Frame')):
+    def derive(self, gog=M('Gear On Ground'), roc=P('Vertical Speed Inertial'),
+               alt=P('Altitude AAL'), lands=S('Landing')):
         # The preamble here checks that the landing we are looking at is
         # genuine, it's not just because the data stopped in mid-flight. We
         # reduce the scope of the search for touchdown to avoid triggering in
         # mid-cruise, and it avoids problems for aircraft where the gear
         # signal changes state on raising the gear (OK, if they do a gear-up
         # landing it won't work, but this will be the least of the problems).
-        for air in airs:
-            t0 = air.slice.stop
-            for land in (lands or []):
-                if t0 and is_index_within_slice(t0, land.slice):
-                    if frame and frame.value == 'Q-200':
-                        self.create_kti(index_at_value(alt.array, 0.0,
-                                                       land.slice))
-                        continue
-                    # If we have a wheel sensor, use this. It is often a derived
-                    # parameter created by ORing the left and right main gear
-                    # signals.
-                    if wow:
-                        edges = find_edges_on_state_change(
-                            'Ground', wow.array[land.slice])
-                        if edges != []:
-                            self.create_kti(edges[0] + (land.slice.start or 0))
-                            return
 
-                    if not wow or edges == []:
-                        if roc:
-                            index, _ = touchdown_inertial(land, roc, alt)
-                            if index:
-                                self.create_kti(index)
-                        else:
-                            self.create_kti(index_at_value(alt.array, 0.0,
-                                                           land.slice))
+        for land in lands:
+            if gog:
+                # try using Gear On Ground switch
+                edges = find_edges_on_state_change(
+                    'Ground', gog.array[land.slice])
+                if edges:
+                    # use the first contact with ground as touchdown point 
+                    # (ignore bounces)
+                    index = edges[0] + land.slice.start
+                    if not alt:
+                        self.create_kti(index)
+                        continue
+                    elif alt.array[index] < 5.0:
+                        # Check computation is OK - we've seen 747 "Gear On
+                        # Ground" at 21ft
+                        self.create_kti(index)
+                        continue
+                    else:
+                        # Did not find a realistic Gear On Ground trigger.
+                        pass
+                        # trigger at silly height > work it out from height only
+                else:
+                    # no gear on ground switch found > work it out from height only
+                    pass
+
+            alt_index = index_at_value(alt.array, 0.0, land.slice)
+            # no touchdown found by Gear On Ground or it was not available
+            if roc:
+                # Beware, Q-200 roc caused invalid touchdown results.
+                inertial_index, val = touchdown_inertial(land, roc, alt)
+                index = min(alt_index, inertial_index)
+                if index:
+                    # found an intertial touchdown point
+                    self.create_kti(index)
+                    continue
+
+            # no Gear On Ground or Intertial estimate, use altitude
+            index = alt_index
+            if index:
+                self.create_kti(index)
+            else:
+                # Altitude did not get to 0 ft!
+                continue
 
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):

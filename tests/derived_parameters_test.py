@@ -11,7 +11,7 @@ from mock import Mock, call, patch
 
 from hdfaccess.file import hdf_file
 from flightdatautilities import masked_array_testutils as ma_test
-from utilities.filesystem_tools import copy_file
+from flightdatautilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
 from analysis_engine.library import (align, max_value, np_ma_masked_zeros_like)
@@ -19,7 +19,7 @@ from analysis_engine.node import (
     Attribute, A, App, ApproachItem, KPV, KeyTimeInstance, KTI, load, M,
     Parameter, P, Section, S)
 from analysis_engine.process_flight import process_flight
-from analysis_engine.settings import METRES_TO_FEET
+from analysis_engine.settings import GRAVITY_IMPERIAL, METRES_TO_FEET
 
 from flight_phase_test import buildsection
 
@@ -57,15 +57,20 @@ from analysis_engine.derived_parameters import (
     DistanceTravelled,
     DistanceToLanding,
     Elevator,
+    Eng_Fire,
     Eng_N1Avg,
     Eng_N1Max,
     Eng_N1Min,
+    Eng_N1MinFor5Sec,
     Eng_N2Avg,
     Eng_N2Max,
     Eng_N2Min,
     Eng_N3Avg,
     Eng_N3Max,
     Eng_N3Min,
+    Eng_VibN1Max,
+    Eng_VibN2Max,
+    Eng_VibN3Max,
     Eng_1_FuelBurn,
     Eng_2_FuelBurn,
     Eng_3_FuelBurn,
@@ -100,6 +105,7 @@ from analysis_engine.derived_parameters import (
     TrackTrue,
     TurbulenceRMSG,
     V2,
+    VerticalSpeedInertial,
     WindAcrossLandingRunway,
 )
 
@@ -181,10 +187,64 @@ class TestAPEngaged(unittest.TestCase, NodeTest):
             ('AP (1) Engaged', 'AP (2) Engaged', 'AP (3) Engaged'),
         ]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_single_ap(self):
+        ap1 = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (1) Engaged')        
+        eng = APEngaged()
+        eng.derive(ap1, None, None)
+        expected = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={0: '-', 1: 'Engaged'},
+                   name='AP Engaged', 
+                   frequency=1, 
+                   offset=0.1)        
+        ma_test.assert_array_equal(expected.array.data, eng.array.data)
 
+    def test_dual_ap(self):
+        ap1 = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (1) Engaged')        
+        ap2 = M(array=np.ma.array(data=[0,0,0,1,1,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (2) Engaged')        
+        ap3 = None
+        eng = APEngaged()
+        eng.derive(ap1, ap2, ap3)
+        expected = M(array=np.ma.array(data=[0,0,1,2,1,0]),
+                   values_mapping={0: '-', 1: 'Engaged', 2: 'Duplex'},
+                   name='AP Engaged', 
+                   frequency=1, 
+                   offset=0.1)        
+        
+        ma_test.assert_array_equal(expected.array.data, eng.array.data)
+
+    def test_triple_ap(self):
+        ap1 = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (1) Engaged', 
+                   frequency=1, 
+                   offset=0.1)        
+        ap2 = M(array=np.ma.array(data=[0,1,0,1,1,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (2) Engaged', 
+                   frequency=1, 
+                   offset=0.2)        
+        ap3 = M(array=np.ma.array(data=[0,0,1,1,1,1]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (3) Engaged', 
+                   frequency=1, 
+                   offset=0.4)        
+        eng = APEngaged()
+        eng.derive(ap1, ap2, ap3)
+        expected = M(array=np.ma.array(data=[0,1,2,3,2,1]),
+                   values_mapping={0: '-', 1: 'Engaged', 2: 'Duplex', 3: 'Triplex'},
+                   name='AP Engaged', 
+                   frequency=1, 
+                   offset=0.25)        
+        
+        ma_test.assert_array_equal(expected.array.data, eng.array.data)
+
+        
 
 ##### FIXME: Re-enable when 'AT Engaged' has been implemented.
 ####class TestATEngaged(unittest.TestCase, NodeTest):
@@ -483,7 +543,6 @@ class TestAirspeedReference(unittest.TestCase):
         expected[self.approach_slice] = 120
         np.testing.assert_array_equal(param.array, expected)
 
-
     def test_airspeed_reference__recorded_vapp(self):
         kwargs = self.default_kwargs.copy()
         kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
@@ -509,24 +568,28 @@ class TestAirspeedReference(unittest.TestCase):
     @patch('analysis_engine.derived_parameters.get_vspeed_map')
     def test_airspeed_reference__boeing_lookup(self, vspeed_map):
         vspeed_table = Mock
-        vspeed_table.airspeed_reference = Mock(side_effect = [135, 130])
+        vspeed_table.vref = Mock(side_effect = [135, 130])
+        vspeed_table.reference_settings = [15, 20, 30]
         vspeed_map.return_value = vspeed_table
         test_hdf = copy_file(os.path.join(test_data_path, 'airspeed_reference.hdf5'))
         with hdf_file(test_hdf) as hdf:
             approaches = [ApproachItem('TOUCH_AND_GO', slice(3346, 3540)),
                           ApproachItem('LANDING', slice(5502, 5795))]
             args = [
+                P(**hdf['Flap'].__dict__),
                 P(**hdf['Airspeed'].__dict__),
                 P(**hdf['Gross Weight Smoothed'].__dict__),
-                P(**hdf['Flap Lever Detents'].__dict__),
                 None,
                 None,
                 None,
                 None,
                 None,
                 App('Approach Information', items=approaches),
+                KTI('Touchdown', items=[KeyTimeInstance(3450, 'Touchdown'),
+                                        KeyTimeInstance(5700, 'Touchdown')]),
                 A('Series', value='B737-300'),
                 A('Family', value='B737 Classic'),
+                None,
             ]
             param = AirspeedReference()
             param.get_derived(args)
@@ -554,6 +617,7 @@ class TestAirspeedReference(unittest.TestCase):
                 #S('Approach', items=approaches),
                 #A('Series', value='B737-300'),
                 #A('Family', value='B737 Classic'),
+                #None,
             #]
             #param = AirspeedReference()
             #param.get_derived(args)
@@ -1002,12 +1066,12 @@ class TestAltitudeRadio(unittest.TestCase):
         alt_rad.derive(Attribute('Frame','737-3C'), 
                        None,
                        Parameter('Altitude Radio (A)', 
-                                 np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5,  0.0),
+                                 np.ma.array([10.0,10.0,10.0,10.0,10.1]*2), 0.5,  0.0),
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.25, 1.0),
                        Parameter('Altitude Radio (C)',
                                  np.ma.array([30.0,30.0,30.0,30.0,30.3]), 0.25, 3.0),
-                       None
+                       None, None, None
                        )
         answer = np.ma.array(data=[25.0]*7+[25.05,25.175,25.25])
         ma_test.assert_array_almost_equal(alt_rad.array, answer)
@@ -1022,7 +1086,7 @@ class TestAltitudeRadio(unittest.TestCase):
                                  np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
-                       )
+                       None, None, None, None)
         answer = np.ma.array(data=[15.0]*7+[15.025,15.1,15.15])
         ma_test.assert_array_almost_equal(alt_rad.array, answer)
         self.assertEqual(alt_rad.offset,0.0)
@@ -1036,7 +1100,7 @@ class TestAltitudeRadio(unittest.TestCase):
                                  np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
-                       )
+                       None, None, None, None)
         answer = np.ma.array(data=[15.0]*7+[15.025,15.1,15.15])
         ma_test.assert_array_almost_equal(alt_rad.array, answer)
         self.assertEqual(alt_rad.offset,0.0)
@@ -1069,8 +1133,8 @@ class TestAltitudeQNH(unittest.TestCase):
 class TestAltitudeSTD(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeSTD.get_operational_combinations(),
-          [('Altitude STD Coarse', 'Altitude STD Fine'),
-           ('Altitude STD Coarse', 'Vertical Speed')])
+          [('Altitude STD (Coarse)', 'Altitude STD (Fine)'),
+           ('Altitude STD (Coarse)', 'Vertical Speed')])
     
     def test__high_and_low(self):
         high_values = np.ma.array([15000, 16000, 17000, 18000, 19000, 20000,
@@ -1430,7 +1494,7 @@ class TestEng_N1Max(unittest.TestCase):
         eng = Eng_N1Max()
         eng.derive(P('Eng (1)',a,offset=0.25), P('Eng (2)',b, offset=0.75), None, None)
         ma_test.assert_array_equal(eng.array,np.ma.array([54.2, 53.2, 52.2, 53, 54]))
-        self.assertEqual(eng.offset, 0.5)
+        self.assertEqual(eng.offset, 0)
         
         
 class TestEng_N1Min(unittest.TestCase):
@@ -1455,8 +1519,19 @@ class TestEng_N1Min(unittest.TestCase):
             np.array([999, # both masked, so filled with 999
                       1,2,3,4,5,6,7,8,9])
         )
-        
-        
+
+
+class TestEng_N1MinFor5Sec(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_N1MinFor5Sec
+        self.operational_combinations = [('Eng (*) N1 Min',)]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestEng_N2Avg(unittest.TestCase):
     def test_can_operate(self):
         opts = Eng_N2Avg.get_operational_combinations()
@@ -1991,18 +2066,18 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
                          'Longitude',
                          'Heading True',
                          'Airspeed True',
-                         'Latitude At Takeoff',
-                         'Longitude At Takeoff',
-                         'Latitude At Landing',
-                         'Longitude At Landing') in combinations)
+                         'Latitude At Liftoff',
+                         'Longitude At Liftoff',
+                         'Latitude At Touchdown',
+                         'Longitude At Touchdown') in combinations)
         
         # without lat long
         self.assertTrue(('Heading True',
                          'Airspeed True',
-                         'Latitude At Takeoff',
-                         'Longitude At Takeoff',
-                         'Latitude At Landing',
-                         'Longitude At Landing') in combinations)
+                         'Latitude At Liftoff',
+                         'Longitude At Liftoff',
+                         'Latitude At Touchdown',
+                         'Longitude At Touchdown') in combinations)
         
     def test_latitude_smoothing_basic(self):
         lat = P('Latitude',np.ma.array([0,0,1,2,1,0,0],dtype=float))
@@ -2285,13 +2360,14 @@ class TestV2(unittest.TestCase):
         test_hdf = copy_file(os.path.join(test_data_path, 'airspeed_reference.hdf5'))
         with hdf_file(test_hdf) as hdf:
             args = [
+                P(**hdf['Flap'].__dict__),
                 P(**hdf['Airspeed'].__dict__),
-                P(**hdf['Flap Lever Detents'].__dict__),
                 None,
                 None,
                 gw,
                 A('Series', value='B737-300'),
                 A('Family', value='B737 Classic'),
+                None,
             ]
             param = V2()
             param.get_derived(args)
@@ -2315,6 +2391,7 @@ class TestV2(unittest.TestCase):
                 #KPV('Gross Weight At Liftoff'),
                 #A('Series', value='B737-300'),
                 #A('Family', value='B737 Classic'),
+                #None,
             #]
             #param = V2()
             #param.get_derived(args)
@@ -2350,7 +2427,7 @@ class TestHeadwind(unittest.TestCase):
 
 class TestWindAcrossLandingRunway(unittest.TestCase):
     def test_can_operate(self):
-        opts=WindAcrossLandingRunway.get_operational_combinations()
+        opts = WindAcrossLandingRunway.get_operational_combinations()
         self.assertEqual(opts, [('Wind Speed', 'Wind Direction Continuous', 'FDR Landing Runway')])
     
     def test_real_example(self):
@@ -2406,44 +2483,68 @@ class TestAccelerationNormalOffsetRemoved(unittest.TestCase):
 
 
 class TestAileron(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
+    
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
+        opts = Aileron.get_operational_combinations()
+        self.assertTrue(('Aileron (L)',) in opts)
+        self.assertTrue(('Aileron (R)',) in opts)
+        self.assertTrue(('Aileron (L) Outboard',) in opts)
+        self.assertTrue(('Aileron (R) Outboard',) in opts)
+        self.assertTrue(('Aileron (L)', 'Aileron (R)', 'Aileron (L) Outboard',
+                         'Aileron (R) Outboard') in opts)
+
     def test_normal_two_sensors(self):
-        left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset = 0.1)
-        right = P('Aileron (R)', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset = 1.1)
+        left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
+        right = P('Aileron (R)', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset=1.1)
         aileron = Aileron()
-        aileron.derive(left, right)
+        aileron.derive(left, right, None, None)
         expected_data = np.ma.array([1.5]*3+[1.75]*2+[1.5]*3)
         np.testing.assert_array_equal(aileron.array, expected_data)
         self.assertEqual(aileron.frequency, 1.0)
         self.assertEqual(aileron.offset, 0.1)
 
     def test_left_only(self):
-        left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset = 0.1)
+        left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
         aileron = Aileron()
-        aileron.derive(left, None)
+        aileron.derive(left, None, None, None)
         expected_data = left.array
         np.testing.assert_array_equal(aileron.array, expected_data)
         self.assertEqual(aileron.frequency, 0.5)
         self.assertEqual(aileron.offset, 0.1)
-    
+        left_outboard = P('Aileron (L) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
+        aileron = Aileron()
+        aileron.derive(None, None, left_outboard, None)
+        expected_data = left_outboard.array
+        np.testing.assert_array_equal(aileron.array, expected_data)
+        self.assertEqual(aileron.frequency, 0.5)
+        self.assertEqual(aileron.offset, 0.1)
+
     def test_right_only(self):
         right = P('Aileron (R)', np.ma.array([3.0]*2+[2.0]*2), frequency=2.0, offset = 0.3)
         aileron = Aileron()
-        aileron.derive(None, right)
+        aileron.derive(None, right, None, None)
         expected_data = right.array
         np.testing.assert_array_equal(aileron.array, expected_data)
         self.assertEqual(aileron.frequency, 2.0)
         self.assertEqual(aileron.offset, 0.3)
-        
-    @unittest.skip('Test Not Implemented')
-    def test_four_parts(self):
-        # The aileron code allows for four sensors, split inboard and outboard. This still needs tests written.
-        self.assertTrue(False, msg='Test not implemented.')
+        right_outboard = P('Aileron (R) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
+        aileron = Aileron()
+        aileron.derive(None, None, right_outboard, None)
+        expected_data = right_outboard.array
+        np.testing.assert_array_equal(aileron.array, expected_data)
+        self.assertEqual(aileron.frequency, 0.5)
+        self.assertEqual(aileron.offset, 0.1)        
 
-        
+    def test_outboard_two_sensors(self):
+        left_outboard = P('Aileron (L) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
+        right_outboard = P('Aileron (R) Outboard', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset=1.1)
+        aileron = Aileron()
+        aileron.derive(None, None, left_outboard, right_outboard)
+        expected_data = np.ma.array([1.5]*3+[1.75]*2+[1.5]*3)
+        np.testing.assert_array_equal(aileron.array, expected_data)
+        self.assertEqual(aileron.frequency, 1.0)
+        self.assertEqual(aileron.offset, 0.1)
+
 
 class TestAileronTrim(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
@@ -2539,6 +2640,17 @@ class TestEng_EPRMin(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestEng_Fire(unittest.TestCase):
+
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestEng_FuelFlow(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -2587,6 +2699,17 @@ class TestEng_4_FuelBurn(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = Eng_4_FuelBurn
         self.operational_combinations = [('Eng (4) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_FuelBurn(unittest.TestCase):
+
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -2743,37 +2866,43 @@ class TestEng_TorqueMin(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEng_VibN1Max(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+class TestEng_VibN1Max(unittest.TestCase, NodeTest):
 
+    def setUp(self):
+        self.node_class = Eng_VibN1Max
+        self.operational_combination_length = 255
+        self.check_operational_combination_length_only = True
 
-class TestEng_VibN2Max(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEng_VibN3Max(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
+class TestEng_VibN2Max(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_VibN2Max
+        self.operational_combination_length = 255
+        self.check_operational_combination_length_only = True
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapLeverDetens(unittest.TestCase):
+class TestEng_VibN3Max(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_VibN3Max
+        self.operational_combination_length = 15
+        self.check_operational_combination_length_only = True
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestFlapLeverDetent(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3100,12 +3229,13 @@ class TestSpeedbrake(unittest.TestCase):
 
 
 class TestSpeedbrakeSelected(unittest.TestCase):
+
     def test_can_operate(self):
         opts = SpeedbrakeSelected.get_operational_combinations()
         self.assertTrue(('Speedbrake Deployed',) in opts)
-        self.assertTrue(('Speedbrake', 'Frame') in opts)
-        self.assertTrue(('Speedbrake Handle', 'Frame') in opts)
-        self.assertTrue(('Speedbrake Handle', 'Speedbrake', 'Frame') in opts)        
+        self.assertTrue(('Speedbrake', 'Family') in opts)
+        self.assertTrue(('Speedbrake Handle', 'Family') in opts)
+        self.assertTrue(('Speedbrake Handle', 'Speedbrake', 'Family') in opts)
         
     def test_derive(self):
         # test with deployed
@@ -3299,16 +3429,17 @@ class TestThrustReversers(unittest.TestCase):
 
     def test_derive(self):
         result = [ 2,  2,  2,  2,  1,  1,  0,  0,  0,  0]
-        self.thrust_reversers.get_derived((self.eng_1_deployed,
+        self.thrust_reversers.get_derived([self.eng_1_deployed,
                                 None,
                                 None,
                                 self.eng_1_unlocked,
                                 None,
                                 None,
+                                None,
                                 self.eng_2_deployed,
                                 None,
                                 None,
-                                self.eng_2_unlocked))
+                                self.eng_2_unlocked] + [None] * 17)
         np.testing.assert_equal(self.thrust_reversers.array.data, result)
 
     def test_derive_masked_value(self):
@@ -3320,18 +3451,36 @@ class TestThrustReversers(unittest.TestCase):
         result_array = [ 2,  2,  2,  2,  1,  2,  0,  0,  0,  0]
         result_mask =  [ 0,  0,  0,  0,  0,  1,  0,  0,  1,  0]
 
-        self.thrust_reversers.get_derived((self.eng_1_deployed,
+        self.thrust_reversers.get_derived([self.eng_1_deployed,
                                 None,
                                 None,
                                 self.eng_1_unlocked,
                                 None,
                                 None,
+                                None,
                                 self.eng_2_deployed,
                                 None,
                                 None,
-                                self.eng_2_unlocked))
+                                self.eng_2_unlocked] + [None] * 17)
         np.testing.assert_equal(self.thrust_reversers.array.data, result_array)
         np.testing.assert_equal(self.thrust_reversers.array.mask, result_mask)
+
+    def test_derive_in_transit_avaliable(self):
+        result = [ 2,  2,  1,  1,  1,  1,  0,  0,  0,  0]
+        transit_array = [ 0,  0,  1,  1,  1,  1,  0,  0,  0,  0]
+        eng_1_in_transit = M(name='Eng (1) Thrust Reverser In Transit', array=np.ma.array(transit_array), values_mapping={1:'In Transit'})
+        self.thrust_reversers.get_derived([self.eng_1_deployed,
+                                None,
+                                None,
+                                self.eng_1_unlocked,
+                                None,
+                                None,
+                                eng_1_in_transit,
+                                self.eng_2_deployed,
+                                None,
+                                None,
+                                self.eng_2_unlocked] + [None] * 17)
+        np.testing.assert_equal(self.thrust_reversers.array.data, result)
 
 
 class TestTurbulence(unittest.TestCase):
@@ -3372,9 +3521,46 @@ class TestVerticalSpeedInertial(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        time = np.arange(100)
+        zero = np.array([0]*10)
+        acc_values = np.concatenate([zero, np.cos(time*np.pi*0.02), zero])
+        vel_values = np.concatenate([zero, np.sin(time*np.pi*0.02), zero])
+        ht_values = np.concatenate([zero, 1.0-np.cos(time*np.pi*0.02), zero])
+        
+        # For a 0-400ft leap, the scaling is 200ft amplitude and 2*pi/100 for each differentiation.
+        amplitude = 200.0
+        diff = 2.0 * np.pi / 100.0
+        ht_values *= amplitude
+        vel_values *= amplitude * diff * 60.0
+        acc_values *= amplitude * diff**2.0 / GRAVITY_IMPERIAL
+        
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(acc_values)
+        plt.plot(vel_values)
+        plt.plot(ht_values)
+        plt.show()
+        '''
+        az = P('Acceleration Vertical', acc_values)
+        alt_std = P('Altitude STD Smoothed', ht_values + 30.0) # Pressure offset
+        alt_rad = P('Altitude STD Smoothed', ht_values-2.0) #Oleo compression
+        fast = buildsection('Fast', 5, len(acc_values)-5)
+
+        vsi = VerticalSpeedInertial()
+        vsi.derive(az, alt_std, alt_rad, fast)
+        
+        expected = vel_values
+
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(expected)
+        plt.plot(vsi.array)
+        plt.show()
+        '''
+        # Just check the graphs are similar in shape - there will always be
+        # errors because of the integration technique used.
+        np.testing.assert_almost_equal(vsi.array, expected, decimal=-2)
 
 
 class TestWindDirectionContinuous(unittest.TestCase):

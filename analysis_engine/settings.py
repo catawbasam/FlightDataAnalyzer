@@ -163,7 +163,9 @@ HEADING_TURN_ONTO_RUNWAY = 15.0  # deg
 #as part of the landing phase. Notice that the KTI "Landing Turn Off Runway"
 #will determine the point of turning off the runway centreline in either
 #case, using the peak curvature technique.
-HEADING_TURN_OFF_RUNWAY = 60.0  # deg
+# Reduced from 60 to 45 deg after we found some cargo operators whose pattern
+# after leaving the runway did not exceed 60 deg.
+HEADING_TURN_OFF_RUNWAY = 45.0  # deg
 
 # Holding pattern criteria.
 # Minimum time is 4 minutes, corresponding to one racetrack pattern.
@@ -314,7 +316,7 @@ NAME_VALUES_ENGINE = {
     'number': [1, 2, 3, 4],
 }
 
-from analysis_engine.model_information import get_flap_detents
+from flightdatautilities.model_information import get_flap_detents
 NAME_VALUES_FLAP = {
     'flap': get_flap_detents()
 }

@@ -7,6 +7,7 @@ from analysis_engine import settings
 from analysis_engine.exceptions import DataFrameError
 
 from analysis_engine.library import (
+    all_of,
     bearing_and_distance,
     closest_unmasked_value,
     cycle_finder,
@@ -21,12 +22,13 @@ from analysis_engine.library import (
     repair_mask,
     shift_slice,
     shift_slices,
-    slices_from_to,
-    slices_overlap,
     slices_and,
-    slices_or,
+    slices_from_to,
     slices_not,
-    slices_remove_small_gaps
+    slices_or,
+    slices_overlap,
+    slices_remove_small_gaps,
+    slices_remove_small_slices,
 )
 
 from analysis_engine.node import FlightPhaseNode, A, P, S, KTI, M
@@ -101,7 +103,8 @@ class GoAroundAndClimbout(FlightPhaseNode):
     and 2000ft after.
     '''
 
-    def derive(self, alt_aal=P('Altitude AAL'), gas=KTI('Go Around')):
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'), 
+               gas=KTI('Go Around')):
         # Prepare a home for multiple go-arounds. (Not a good day, eh?)
         ga_slice = []
 
@@ -209,7 +212,8 @@ class ApproachAndLanding(FlightPhaseNode):
             self.warning('Flight with no valid approach or go-around phase. '
                          'Probably truncated data')
 
-        self.create_phases(all_apps)
+        else:
+            self.create_phases(all_apps)
 
 
 class Approach(FlightPhaseNode):
@@ -245,7 +249,8 @@ class BouncedLanding(FlightPhaseNode):
 
     Q: Should Airborne be first so we align to its offset?
     '''
-    def derive(self, alt_aal=P('Altitude AAL'), airs=S('Airborne'),
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'), 
+               airs=S('Airborne'),
                fast=S('Fast')):
         for speedy in fast:
             for air in airs:
@@ -380,7 +385,7 @@ class Descending(FlightPhaseNode):
         for air in airs:
             descending = np.ma.masked_greater(vert_spd.array[air.slice],
                                               VERTICAL_SPEED_FOR_DESCENT_PHASE)
-            desc_slices = np.ma.clump_unmasked(descending)
+            desc_slices = slices_remove_small_slices(np.ma.clump_unmasked(descending))
             self.create_phases(shift_slices(desc_slices, air.slice.start))
 
 
@@ -593,11 +598,6 @@ def scan_ils(beam, ils_dots, height, scan_slice):
     if beam not in ['localizer', 'glideslope']:
         raise ValueError('Unrecognised beam type in scan_ils')
 
-    # Let's check to see if we have something sensible to work with...
-    if np.ma.count(ils_dots[scan_slice]) < 5 or \
-       np.ma.count(ils_dots)/float(len(ils_dots)) < 0.8:
-        return None
-
     # Find where we first see the ILS indication. We will start from 200ft to
     # avoid getting spurious glideslope readings (hence this code is the same
     # for glide and localizer).
@@ -619,6 +619,11 @@ def scan_ils(beam, ils_dots, height, scan_slice):
                              slice(idx_200, scan_slice.start, -1))
     if dots_25 is None:
         dots_25 = scan_slice.start
+        
+    # Let's check to see if we have something sensible to work with...
+    if np.ma.count(ils_dots[scan_slice]) < 5 or \
+       np.ma.count(ils_dots[scan_slice])/float(len(ils_dots[scan_slice])) < 0.7:
+        return None
 
     # And now work forwards to the point of "Capture", defined as the first
     # time the ILS goes below 1 dot.
@@ -709,7 +714,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
     """
     def derive(self, ils_gs = P('ILS Glideslope'),
                ils_loc_ests = S('ILS Localizer Established'),
-               alt_aal=P('Altitude AAL')):
+               alt_aal=P('Altitude AAL For Flight Phases')):
         # We don't accept glideslope approaches without localizer established
         # first, so this only works within that context. If you want to
         # follow a glidepath without a localizer, seek flight safety guidance
@@ -880,7 +885,7 @@ class Landing(FlightPhaseNode):
     flight conditions, and thereby make sure the 50ft startpoint is exact.
     '''
     def derive(self, head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL'), fast=S('Fast')):
+               alt_aal=P('Altitude AAL For Flight Phases'), fast=S('Fast')):
 
         for speedy in fast:
             # See takeoff phase for comments on how the algorithm works.
@@ -932,6 +937,10 @@ class LandingRoll(FlightPhaseNode):
     roll, and the landing roll starts as the aircraft passes 2 deg the last
     time, i.e. as the nosewheel comes down and not as the flare starts.
     '''
+    @classmethod
+    def can_operate(cls, available):
+        return all_of(['Pitch', 'Airspeed True', 'Landing'], available)
+
     def derive(self, pitch=P('Pitch'), gspd=P('Groundspeed'),
                aspd=P('Airspeed True'), lands=S('Landing')):
         if gspd:
@@ -957,7 +966,7 @@ class Takeoff(FlightPhaseNode):
     flight conditions, and make sure the 35ft endpoint is exact.
     """
     def derive(self, head=P('Heading Continuous'),
-               alt_aal=P('Altitude AAL'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
                fast=S('Fast')):
 
         # Note: This algorithm works across the entire data array, and
@@ -1106,9 +1115,10 @@ class TaxiOut(FlightPhaseNode):
             toff = toffs[0]
             for gnd in gnds:
                 if slices_overlap(gnd.slice, toff.slice):
-                    taxi_start = gnd.slice.start+1
-                    taxi_stop = toff.slice.start-1
-                    self.create_phase(slice(taxi_start, taxi_stop), name="Taxi Out")
+                    taxi_start = gnd.slice.start + 1
+                    taxi_stop = toff.slice.start - 1
+                    self.create_phase(slice(taxi_start, taxi_stop),
+                                      name="Taxi Out")
 
 
 class Taxiing(FlightPhaseNode):
@@ -1149,12 +1159,12 @@ class TurningOnGround(FlightPhaseNode):
                 self.create_phase(turn_slice, name="Turning On Ground")
 
 
+# NOTE: Python class name restriction: '2DegPitchTo35Ft' not permitted.
 class TwoDegPitchTo35Ft(FlightPhaseNode):
-    """
-    """
-    # NOTE: Python class name restriction: '2DegPitchTo35Ft' not permitted.
+    '''
+    '''
 
-    name='2 Deg Pitch To 35 Ft'
+    name = '2 Deg Pitch To 35 Ft'
 
     def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
         for takeoff in takeoffs:

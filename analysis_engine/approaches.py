@@ -104,6 +104,7 @@ class ApproachInformation(ApproachNode):
         else:
             # No suitable coordinates, so fall through and try AFR.
             self.warning('No coordinates for looking up approach airport.')
+            return None, None
 
         # A2. If and we have an airport in achieved flight record, use it:
         # NOTE: AFR data is only provided if this approach is a landing.
@@ -166,12 +167,12 @@ class ApproachInformation(ApproachNode):
     def derive(self, app=S('Approach And Landing'),
                alt_aal=P('Altitude AAL'),
                fast=S('Fast'),
-               land_hdg=KPV('Heading At Landing'),
-               land_lat=KPV('Latitude At Landing'),
-               land_lon=KPV('Longitude At Landing'),
-               appr_hdg=KPV('Heading At Lowest Point On Approach'),
-               appr_lat=KPV('Latitude At Lowest Point On Approach'),
-               appr_lon=KPV('Longitude At Lowest Point On Approach'),
+               land_hdg=KPV('Heading During Landing'),
+               land_lat=KPV('Latitude At Touchdown'),
+               land_lon=KPV('Longitude At Touchdown'),
+               appr_hdg=KPV('Heading At Lowest Altitude During Approach'),
+               appr_lat=KPV('Latitude At Lowest Altitude During Approach'),
+               appr_lon=KPV('Longitude At Lowest Altitude During Approach'),
                loc_ests=S('ILS Localizer Established'),
                gs_ests=S('ILS Glideslope Established'),
                appr_ils_freq=KPV('ILS Frequency During Approach'),

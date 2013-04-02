@@ -2,7 +2,7 @@ import numpy as np
 import os
 import unittest
 
-from utilities.filesystem_tools import copy_file
+from flightdatautilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import (Airborne,
                                           Approach,
@@ -223,7 +223,7 @@ class TestBouncedLanding(unittest.TestCase):
         airborne = buildsection('Airborne', 3,10)
         alt = np.ma.array([0,0,0,2,10,30,10,2,0,0,0,0,0,0])
         bl = BouncedLanding()
-        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
+        bl.derive(Parameter('Altitude AAL For Flight Phases', alt), airborne, fast)
         expected = []
         self.assertEqual(bl, expected)
 
@@ -232,7 +232,7 @@ class TestBouncedLanding(unittest.TestCase):
         airborne = buildsection('Airborne', 3,8)
         alt = np.ma.array([0,0,0,2,10,30,10,2,0,3,3,0,0,0])
         bl = BouncedLanding()
-        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
+        bl.derive(Parameter('Altitude AAL For Flight Phases', alt), airborne, fast)
         expected = buildsection('Bounced Landing', 9, 11)
         self.assertEqual(bl, expected)
 
@@ -241,7 +241,7 @@ class TestBouncedLanding(unittest.TestCase):
         airborne = buildsection('Airborne', 3,8)
         alt = np.ma.array([0,0,0,2,10,30,10,2,0,3,0,5,0])
         bl = BouncedLanding()
-        bl.derive(Parameter('Altitude AAL', alt), airborne, fast)
+        bl.derive(Parameter('Altitude AAL For Flight Phases', alt), airborne, fast)
         expected = buildsection('Bounced Landing', 9, 12)
         self.assertEqual(bl, expected)
 
@@ -259,7 +259,7 @@ class TestBouncedLanding(unittest.TestCase):
 class TestILSGlideslopeEstablished(unittest.TestCase):
     def test_can_operate(self):
         expected=[('ILS Glideslope', 'ILS Localizer Established',
-                   'Altitude AAL')]
+                   'Altitude AAL For Flight Phases')]
         opts = ILSGlideslopeEstablished.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -867,7 +867,7 @@ class TestGoAroundAndClimbout(unittest.TestCase):
 
     def test_can_operate(self):
         self.assertEqual(GoAroundAndClimbout.get_operational_combinations(),
-                         [('Altitude AAL','Go Around')])
+                         [('Altitude AAL For Flight Phases','Go Around')])
 
     def test_go_around_and_climbout_phase_basic(self):
         '''
@@ -1005,7 +1005,7 @@ class TestHolding(unittest.TestCase):
 class TestLanding(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Landing.get_operational_combinations(),
-                         [('Heading Continuous', 'Altitude AAL', 'Fast')])
+                         [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast')])
 
     def test_landing_basic(self):
         head = np.ma.array([20]*8+[10,0])
@@ -1116,7 +1116,7 @@ class TestLevelFlight(unittest.TestCase, NodeTest):
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Takeoff.get_operational_combinations(),
-                         [('Heading Continuous', 'Altitude AAL', 'Fast')])
+                         [('Heading Continuous', 'Altitude AAL For Flight Phases', 'Fast')])
 
     def test_takeoff_basic(self):
         head = np.ma.array([ 0,0,10,20,20,20,20,20,20,20,20])

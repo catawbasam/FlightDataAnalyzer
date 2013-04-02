@@ -39,26 +39,26 @@ class TestApproachInformation(unittest.TestCase):
                     stop_edge=22.5),
         ])
 
-        land_hdg = KPV(name='Heading At Landing', items=[
+        land_hdg = KPV(name='Heading During Landing', items=[
             KeyPointValue(index=22, value=60),
         ])
-        land_lat = KPV(name='Latitude At Landing', items=[
+        land_lat = KPV(name='Latitude At Touchdown', items=[
             KeyPointValue(index=22, value=10),
         ])
-        land_lon = KPV(name='Longitude At Landing', items=[
+        land_lon = KPV(name='Longitude At Touchdown', items=[
             KeyPointValue(index=22, value=-2),
         ])
-        appr_hdg = KPV(name='Heading At Low Point On Approach', items=[
+        appr_hdg = KPV(name='Heading At Lowest Altitude During Approach', items=[
             KeyPointValue(index=5, value=25),
             KeyPointValue(index=12, value=35),
         ])
-        appr_lat = KPV(name='Latitude At Lowest Point On Approach', items=[
+        appr_lat = KPV(name='Latitude At Lowest Altitude During Approach', items=[
             KeyPointValue(index=5, value=8),
         ])
-        appr_lon = KPV(name='Longitude At Lowest Point On Approach', items=[
+        appr_lon = KPV(name='Longitude At Lowest Altitude During Approach', items=[
             KeyPointValue(index=5, value=4),
         ])
-        #appr_ils_freq = KPV(name='ILS Frequency on Approach', items=[
+        #appr_ils_freq = KPV(name='ILS Frequency During Approach', items=[
             #KeyPointValue(name=5, value=330150),
         #])
 

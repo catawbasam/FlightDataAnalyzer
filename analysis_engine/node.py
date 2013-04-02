@@ -20,6 +20,7 @@ from analysis_engine.library import (
     find_edges,
     is_index_within_slice,
     is_slice_within_slice,
+    repair_mask,
     slice_multiply,
     slices_above,
     slices_below,
@@ -70,6 +71,8 @@ def load(path):
     Load a Node module from a file path.
 
     Convention is to use the .nod file extension.
+    
+    FIXME: MappedArray should take values_mapping and apply it itself
     '''
     with gzip.open(path) as file_obj:
         try:
@@ -658,7 +661,7 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
         super(MultistateDerivedParameterNode, self).__init__(
                 name, array, frequency, offset, data_type, *args,
                 **kwargs)
-
+        
     def __setattr__(self, name, value):
         '''
         Prepare self.array
@@ -1204,7 +1207,7 @@ class FormattedNameNode(ListNode):
 
         :param index: Index to get the next item from.
         :type index: int or float
-        :param frequency: Frequency of index.
+        :param frequency: Frequency of index if it is not the same as the FormattedNameNode.
         :type frequency: int or float
         :param kwargs: Passed into _get_condition (see docstring).
         :returns: Element with the next index matching criteria.
@@ -1225,7 +1228,7 @@ class FormattedNameNode(ListNode):
 
         :param index: Index to get the previous item from.
         :type index: int or float
-        :param frequency: Frequency of index.
+        :param frequency: Frequency of index if it is not the same as the FormattedNameNode.
         :type frequency: int or float
         :param kwargs: Passed into _get_condition (see docstring).
         :returns: Element with the previous index matching criteria.
@@ -1247,6 +1250,29 @@ class KeyTimeInstanceNode(FormattedNameNode):
 
     from analysis_engine.node import KTI, KeyTimeInstance
     k = KTI(items=[KeyTimeInstance(12, 'Airspeed At 20ft'), KeyTimeInstance(15, 'Airspeed At 10ft')])
+
+    Note that when using NAME_FORMAT and NAME_VALUES, the general node name
+    should match NAME_FORMAT as closely as possible but exclude specifying name
+    values or using the marker ``(*)`` e.g.::
+
+        class EngStop(KeyTimeInstanceNode):
+            NAME_FORMAT = 'Eng (%(number)d) Stop'
+            NAME_VALUES = {'number': range(1, 5)}
+            # ...
+
+        class FlapSet(KeyTimeInstanceNode):
+            NAME_FORMAT = 'Flap (%(flap)d) Set'
+            NAME_VALUES = {'flap': (1, 2, 5, 10, 15, 25, 30, 40)}
+            # ...
+
+    The marker ``(*)`` is intended to imply **all** of something so the
+    following would imply the point in time that **all** engines were stopped
+    (equivalent to the last engine stopping)::
+
+        class Eng_Stop(KeyTimeInstanceNode):
+            name = 'Eng (*) Stop'
+            # ...
+
     '''
     def __init__(self, *args, **kwargs):
         # place holder
@@ -1365,14 +1391,15 @@ class KeyTimeInstanceNode(FormattedNameNode):
                     self.create_kti(stop - 0.5)
             return
 
+        repaired_array = repair_mask(array, frequency=self.frequency, repair_duration=64)
         # High level function scans phase blocks or complete array and
         # presents appropriate arguments for analysis. We test for phase.name
         # as phase returns False.
         if phase is None:
-            state_changes(state, array, change)
+            state_changes(state, repaired_array, change)
         else:
             for each_period in phase:
-                state_changes(state, array, change, each_period.slice)
+                state_changes(state, repaired_array, change, each_period.slice)
         return
 
     def get_aligned(self, param):
@@ -1635,7 +1662,9 @@ class KeyPointValueNode(FormattedNameNode):
         index, value = function(array)
         self.create_kpv(index, value, **kwargs)
 
-    def create_kpvs_from_slice_durations(self, slices, min_duration=0.0, mark='midpoint', **kwargs):
+    def create_kpvs_from_slice_durations(self, slices, frequency,
+                                         min_duration=0.0, mark='midpoint',
+                                         **kwargs):
         '''
         Shortcut for creating KPVs from slices based only on the slice duration.
 
@@ -1650,18 +1679,21 @@ class KeyPointValueNode(FormattedNameNode):
         :param slices: Slices from which to create KPVs. Note: as the only
                        parameter they will default to 1Hz.
         :type slices: List of slices.
-        :param min_duration: Minimum duration for a KPV to be created.
-        :type min_duration: float (seconds)
+        :param frequency: Frequency of slices.
+        :type frequency: int or float
+        :param min_duration: Minimum duration for a KPV to be created in seconds.
+        :type min_duration: float
         :param mark: Optional field to select when to identify the KPV.
         :type mark: String from 'start', 'midpoint' or 'end'
-
+        :param slice_offset: Optional offset of slices.
+        :type slice_offset: int or float
         :returns: None
         :rtype: None
         '''
         slices = self._get_slices(slices)
         for slice_ in slices:
             if isinstance(slice_, Section): # Use slice within Section.
-                duration = slice_.stop_edge - slice_.start_edge
+                duration = (slice_.stop_edge - slice_.start_edge) * frequency
                 if duration > min_duration:
                     if mark == 'start':
                         index = slice_.start_edge
@@ -1675,7 +1707,7 @@ class KeyPointValueNode(FormattedNameNode):
                                          mark)
                     self.create_kpv(index, duration, **kwargs)
             else:
-                duration = slice_.stop - slice_.start
+                duration = (slice_.stop - slice_.start) * frequency
                 if duration > min_duration:
                     if mark == 'start':
                         index = slice_.start
