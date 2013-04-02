@@ -3851,6 +3851,7 @@ class EngGasTempDuringEngStartMax(KeyPointValueNode):
         # We never see engine start if data started after aircraft is airborne:
         if not toff_turn_rwy:
             return
+        
         # Extract the index for the first turn onto the runway:
         fto_idx = toff_turn_rwy.get_first().index
         # Determine the value of interest for each engine:
@@ -3859,9 +3860,14 @@ class EngGasTempDuringEngStartMax(KeyPointValueNode):
             # Determine which engine parameters we are looking at:
             egt = locals().get('eng_%d_egt' % n)
             n2 = locals().get('eng_%d_n2' % n)
+            
             # Skip this engine if missing any of the parameters:
             if not egt or not n2:
                 continue
+            if egt and egt.frequency < 0.25:
+                # Where the egt is in a superframe, let's give up now.
+                continue
+            
             # Determine the peak start engine gas temperature:
             ignition, started_up = self.peak_start_egt(egt, n2, fto_idx)
             if started_up:

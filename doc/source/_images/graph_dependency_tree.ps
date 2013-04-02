@@ -1,0 +1,492 @@
+%!PS-Adobe-3.0
+%%Creator: graphviz version 2.26.3 (20100126.1600)
+%%Title: _anonymous_0
+%%Pages: (atend)
+%%BoundingBox: (atend)
+%%EndComments
+save
+%%BeginProlog
+/DotDict 200 dict def
+DotDict begin
+
+/setupLatin1 {
+mark
+/EncodingVector 256 array def
+ EncodingVector 0
+
+ISOLatin1Encoding 0 255 getinterval putinterval
+EncodingVector 45 /hyphen put
+
+% Set up ISO Latin 1 character encoding
+/starnetISO {
+        dup dup findfont dup length dict begin
+        { 1 index /FID ne { def }{ pop pop } ifelse
+        } forall
+        /Encoding EncodingVector def
+        currentdict end definefont
+} def
+/Times-Roman starnetISO def
+/Times-Italic starnetISO def
+/Times-Bold starnetISO def
+/Times-BoldItalic starnetISO def
+/Helvetica starnetISO def
+/Helvetica-Oblique starnetISO def
+/Helvetica-Bold starnetISO def
+/Helvetica-BoldOblique starnetISO def
+/Courier starnetISO def
+/Courier-Oblique starnetISO def
+/Courier-Bold starnetISO def
+/Courier-BoldOblique starnetISO def
+cleartomark
+} bind def
+
+%%BeginResource: procset graphviz 0 0
+/coord-font-family /Times-Roman def
+/default-font-family /Times-Roman def
+/coordfont coord-font-family findfont 8 scalefont def
+
+/InvScaleFactor 1.0 def
+/set_scale {
+       dup 1 exch div /InvScaleFactor exch def
+       scale
+} bind def
+
+% styles
+/solid { [] 0 setdash } bind def
+/dashed { [9 InvScaleFactor mul dup ] 0 setdash } bind def
+/dotted { [1 InvScaleFactor mul 6 InvScaleFactor mul] 0 setdash } bind def
+/invis {/fill {newpath} def /stroke {newpath} def /show {pop newpath} def} bind def
+/bold { 2 setlinewidth } bind def
+/filled { } bind def
+/unfilled { } bind def
+/rounded { } bind def
+/diagonals { } bind def
+
+% hooks for setting color 
+/nodecolor { sethsbcolor } bind def
+/edgecolor { sethsbcolor } bind def
+/graphcolor { sethsbcolor } bind def
+/nopcolor {pop pop pop} bind def
+
+/beginpage {	% i j npages
+	/npages exch def
+	/j exch def
+	/i exch def
+	/str 10 string def
+	npages 1 gt {
+		gsave
+			coordfont setfont
+			0 0 moveto
+			(\() show i str cvs show (,) show j str cvs show (\)) show
+		grestore
+	} if
+} bind def
+
+/set_font {
+	findfont exch
+	scalefont setfont
+} def
+
+% draw text fitted to its expected width
+/alignedtext {			% width text
+	/text exch def
+	/width exch def
+	gsave
+		width 0 gt {
+			[] 0 setdash
+			text stringwidth pop width exch sub text length div 0 text ashow
+		} if
+	grestore
+} def
+
+/boxprim {				% xcorner ycorner xsize ysize
+		4 2 roll
+		moveto
+		2 copy
+		exch 0 rlineto
+		0 exch rlineto
+		pop neg 0 rlineto
+		closepath
+} bind def
+
+/ellipse_path {
+	/ry exch def
+	/rx exch def
+	/y exch def
+	/x exch def
+	matrix currentmatrix
+	newpath
+	x y translate
+	rx ry scale
+	0 0 1 0 360 arc
+	setmatrix
+} bind def
+
+/endpage { showpage } bind def
+/showpage { } def
+
+/layercolorseq
+	[	% layer color sequence - darkest to lightest
+		[0 0 0]
+		[.2 .8 .8]
+		[.4 .8 .8]
+		[.6 .8 .8]
+		[.8 .8 .8]
+	]
+def
+
+/layerlen layercolorseq length def
+
+/setlayer {/maxlayer exch def /curlayer exch def
+	layercolorseq curlayer 1 sub layerlen mod get
+	aload pop sethsbcolor
+	/nodecolor {nopcolor} def
+	/edgecolor {nopcolor} def
+	/graphcolor {nopcolor} def
+} bind def
+
+/onlayer { curlayer ne {invis} if } def
+
+/onlayers {
+	/myupper exch def
+	/mylower exch def
+	curlayer mylower lt
+	curlayer myupper gt
+	or
+	{invis} if
+} def
+
+/curlayer 0 def
+
+%%EndResource
+%%EndProlog
+%%BeginSetup
+14 default-font-family set_font
+1 setmiterlimit
+% /arrowlength 10 def
+% /arrowwidth 5 def
+
+% make sure pdfmark is harmless for PS-interpreters other than Distiller
+/pdfmark where {pop} {userdict /pdfmark /cleartomark load put} ifelse
+% make '<<' and '>>' safe on PS Level 1 devices
+/languagelevel where {pop languagelevel}{1} ifelse
+2 lt {
+    userdict (<<) cvn ([) cvn load put
+    userdict (>>) cvn ([) cvn load put
+} if
+
+%%EndSetup
+setupLatin1
+%%Page: 1 1
+%%PageBoundingBox: 36 36 540 452
+%%PageOrientation: Portrait
+0 0 1 beginpage
+gsave
+36 36 504 416 boxprim clip newpath
+1 1 set_scale 0 rotate 40 41 translate
+% Airborne
+gsave
+1 setlinewidth
+0 0.74654 0.85098 nodecolor
+53 167 52.91 18.5 ellipse_path stroke
+0 0 0 nodecolor
+14 /Times-Roman set_font
+23 163.4 moveto 60 (Airborne) alignedtext
+grestore
+% Fast
+gsave
+1 setlinewidth
+0.55 0.53279 0.95686 nodecolor
+64 93 31 18.5 ellipse_path stroke
+0 0 0 nodecolor
+14 /Times-Roman set_font
+50 89.4 moveto 28 (Fast) alignedtext
+grestore
+% Airborne->Fast
+gsave
+1 setlinewidth
+0 0 0 edgecolor
+newpath 55.78 148.33 moveto
+56.97 140.26 58.4 130.65 59.73 121.71 curveto
+stroke
+0 0 0 edgecolor
+newpath 63.22 122.08 moveto
+61.23 111.67 lineto
+56.29 121.05 lineto
+closepath fill
+1 setlinewidth
+solid
+0 0 0 edgecolor
+newpath 63.22 122.08 moveto
+61.23 111.67 lineto
+56.29 121.05 lineto
+closepath stroke
+grestore
+% Airspeed
+gsave
+1 setlinewidth
+0.48846 0.53279 0.95686 nodecolor
+99 19 52.91 18.5 ellipse_path stroke
+0 0 0 nodecolor
+14 /Times-Roman set_font
+69 15.4 moveto 60 (Airspeed) alignedtext
+grestore
+% Fast->Airspeed
+gsave
+1 setlinewidth
+0 0 0 edgecolor
+newpath 72.47 75.09 moveto
+76.54 66.49 81.5 56 86.03 46.42 curveto
+stroke
+0 0 0 edgecolor
+newpath 89.25 47.8 moveto
+90.36 37.26 lineto
+82.92 44.81 lineto
+closepath fill
+1 setlinewidth
+solid
+0 0 0 edgecolor
+newpath 89.25 47.8 moveto
+90.36 37.26 lineto
+82.92 44.81 lineto
+closepath stroke
+grestore
+% Altitude AAL
+gsave
+1 setlinewidth
+0.55 0.53279 0.95686 nodecolor
+264 241 73.09 18.5 ellipse_path stroke
+0 0 0 nodecolor
+14 /Times-Roman set_font
+220 237.4 moveto 88 (Altitude AAL) alignedtext
+grestore
+% Altitude Std
+gsave
+1 setlinewidth
+0.48846 0.53279 0.95686 nodecolor
+248 167 70 18.5 ellipse_path stroke
+0 0 0 nodecolor
+14 /Times-Roman set_font
+206.5 163.4 moveto 83 (Altitude Std) alignedtext
+grestore
+% Altitude AAL->Altitude Std
+gsave
+1 setlinewidth
+0 0 0 edgecolor
+newpath 259.96 222.33 moveto
+258.22 214.26 256.14 204.65 254.21 195.71 curveto
+stroke
+0 0 0 edgecolor
+newpath 257.57 194.7 moveto
+252.04 185.67 lineto
+250.73 196.18 lineto
+closepath fill
+1 setlinewidth
+solid
+0 0 0 edgecolor
+newpath 257.57 194.7 moveto
+252.04 185.67 lineto
+250.73 196.18 lineto
+closepath stroke
+grestore
+% Altitude Radio
+gsave
+0 0 0.75294 nodecolor
+416 167 80.11 18.5 ellipse_path fill
+1 setlinewidth
+filled
+0 0 0.75294 nodecolor
+416 167 80.11 18.5 ellipse_path stroke
+0 0 0 nodecolor
+14 /Times-Roman set_font
+367 163.4 moveto 98 (Altitude Radio) alignedtext
+grestore
+% Altitude AAL->Altitude Radio
+gsave
+1 setlinewidth
+0 0 0.75294 edgecolor
+newpath 297.73 224.58 moveto
+319.74 213.86 348.68 199.78 372.42 188.22 curveto
+stroke
+0 0 0.75294 edgecolor
+newpath 374.11 191.29 moveto
+381.57 183.76 lineto
+371.05 185 lineto
+closepath fill
+1 setlinewidth
+solid
+0 0 0.75294 edgecolor
+newpath 374.11 191.29 moveto
+381.57 183.76 lineto
+371.05 185 lineto
+closepath stroke
+grestore
+% Lift off
+gsave
+1 setlinewidth
+0.11301 0.81028 0.99216 nodecolor
+58 241 44 18.5 ellipse_path stroke
+0 0 0 nodecolor
+14 /Times-Roman set_font
+35 237.4 moveto 46 (Lift off) alignedtext
+grestore
+% Lift off->Airborne
+gsave
+1 setlinewidth
+0 0 0 edgecolor
+newpath 56.74 222.33 moveto
+56.19 214.26 55.54 204.65 54.94 195.71 curveto
+stroke
+0 0 0 edgecolor
+newpath 58.43 195.41 moveto
+54.26 185.67 lineto
+51.44 195.88 lineto
+closepath fill
+1 setlinewidth
+solid
+0 0 0 edgecolor
+newpath 58.43 195.41 moveto
+54.26 185.67 lineto
+51.44 195.88 lineto
+closepath stroke
+grestore
+% Airspeed At Liftoff
+gsave
+1 setlinewidth
+0.19076 0.7757 0.83922 nodecolor
+105 315 99.09 18.5 ellipse_path stroke
+0 0 0 nodecolor
+14 /Times-Roman set_font
+42.5 311.4 moveto 125 (Airspeed At Liftoff) alignedtext
+grestore
+% Airspeed At Liftoff->Airspeed
+gsave
+1 setlinewidth
+0 0 0 edgecolor
+newpath 107.28 296.44 moveto
+108.52 285.79 110.01 272.16 111 260 curveto
+115.05 210.36 118.07 197.71 115 148 curveto
+112.86 113.36 107.52 73.78 103.59 47.7 curveto
+stroke
+0 0 0 edgecolor
+newpath 107.04 47.08 moveto
+102.06 37.73 lineto
+100.12 48.15 lineto
+closepath fill
+1 setlinewidth
+solid
+0 0 0 edgecolor
+newpath 107.04 47.08 moveto
+102.06 37.73 lineto
+100.12 48.15 lineto
+closepath stroke
+grestore
+% Airspeed At Liftoff->Lift off
+gsave
+1 setlinewidth
+0 0 0 edgecolor
+newpath 93.14 296.33 moveto
+87.62 287.63 80.95 277.13 74.91 267.62 curveto
+stroke
+0 0 0 edgecolor
+newpath 77.69 265.47 moveto
+69.37 258.9 lineto
+71.78 269.22 lineto
+closepath fill
+1 setlinewidth
+solid
+0 0 0 edgecolor
+newpath 77.69 265.47 moveto
+69.37 258.9 lineto
+71.78 269.22 lineto
+closepath stroke
+grestore
+% Cruise
+gsave
+1 setlinewidth
+0 0.74654 0.85098 nodecolor
+264 315 42.17 18.5 ellipse_path stroke
+0 0 0 nodecolor
+14 /Times-Roman set_font
+242 311.4 moveto 44 (Cruise) alignedtext
+grestore
+% Cruise->Altitude AAL
+gsave
+1 setlinewidth
+0 0 0 edgecolor
+newpath 264 296.33 moveto
+264 288.26 264 278.65 264 269.71 curveto
+stroke
+0 0 0 edgecolor
+newpath 267.5 269.67 moveto
+264 259.67 lineto
+260.5 269.67 lineto
+closepath fill
+1 setlinewidth
+solid
+0 0 0 edgecolor
+newpath 267.5 269.67 moveto
+264 259.67 lineto
+260.5 269.67 lineto
+closepath stroke
+grestore
+% root
+gsave
+1 setlinewidth
+0.11301 0.81028 0.99216 nodecolor
+184 389 32 18.5 ellipse_path stroke
+0 0 0 nodecolor
+14 /Times-Roman set_font
+169.5 385.4 moveto 29 (root) alignedtext
+grestore
+% root->Airspeed At Liftoff
+gsave
+1 setlinewidth
+0 0 0 edgecolor
+newpath 166.86 372.94 moveto
+156.66 363.39 143.49 351.06 131.93 340.23 curveto
+stroke
+0 0 0 edgecolor
+newpath 134.3 337.65 moveto
+124.61 333.37 lineto
+129.51 342.76 lineto
+closepath fill
+1 setlinewidth
+solid
+0 0 0 edgecolor
+newpath 134.3 337.65 moveto
+124.61 333.37 lineto
+129.51 342.76 lineto
+closepath stroke
+grestore
+% root->Cruise
+gsave
+1 setlinewidth
+0 0 0 edgecolor
+newpath 200.97 373.31 moveto
+211.73 363.35 225.86 350.28 238.02 339.03 curveto
+stroke
+0 0 0 edgecolor
+newpath 240.7 341.32 moveto
+245.67 331.96 lineto
+235.95 336.18 lineto
+closepath fill
+1 setlinewidth
+solid
+0 0 0 edgecolor
+newpath 240.7 341.32 moveto
+245.67 331.96 lineto
+235.95 336.18 lineto
+closepath stroke
+grestore
+endpage
+showpage
+grestore
+%%PageTrailer
+%%EndPage: 1
+%%Trailer
+%%Pages: 1
+%%BoundingBox: 36 36 540 452
+end
+restore
+%%EOF
