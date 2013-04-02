@@ -10,6 +10,7 @@ Contents:
    Principles
    Install
    Tutorial
+   SplitSegments
    Extending
    Profiling
    ParameterNaming
