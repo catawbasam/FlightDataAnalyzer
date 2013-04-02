@@ -4,7 +4,7 @@
 Section Nodes
 =============
 
-
+.. _interval-theory:
 ---------------
 Interval Theory
 ---------------
@@ -13,12 +13,40 @@ A mathematical `interval` represenets all the numbers between two given
 values. Much like a python slice represents a subset of data, only interval's
 bounds can be decimal and optionally include or exclude the bound values.
 
+Sections are single intervals which allows us many options:
+
+.. code-block:: none
+
+    left-closed, right-open: [a, b)  ≡  a <= x < b  ≡  slice(a, b)
+    left-bounded, right-unbounded, left-closed: [a, inf)  ≡  x >= a  ≡  slice(a, None)
+    left-unbounded and right-bounded, right-open: (-inf, b)  ≡  x <= b  ≡  slice(None, b)
+    
+Including the ability to do fully closed intervals which slices cannot afford us:
+
+.. code-block:: none
+
+    proper and bounded, closed: [a, b]  ≡  a <= x <= b
+
+To define a right-closed interval (inclusive of b) use endpoint=True 
+(default) as used by `numpy linspace <http://docs.scipy.org/doc/numpy/reference/generated/numpy.linspace.html>`_
+
+    
+
+Python slicing uses half-open (left-closed, right-open) intervals to make
+arithmetics easier (see comment in link). Slicing lists raises a
+TypeError if floats are used as the slice start or stop, but in numpy the 
+start and stop are floored to their lower integer. See this well answered 
+`question on Stackoverflow <http://stackoverflow.com/questions/9421057/numpy-indexing-questions-on-odd-behavior-inconsistencies#answer-9421268>`_
+
+.. 
+    It is difficult to define a flight phase as half-open as you often
+    determine the closed boundaries of the phase based on information from
+    the available data. In addition we often work on parameters at different
+    frequencies which means the start and stop positions must be easily
+    aligned to other frequencies and offsets requiring that the start/stop
+    positions become decimal values.
 
 
-
---------
-Interval
---------
 
 Section
 -------
