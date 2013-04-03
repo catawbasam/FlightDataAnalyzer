@@ -2577,38 +2577,12 @@ class FrozenIntervalSet(BaseIntervalSet):
 
 class Section(Interval):
     u'''
-    Section nodes start and stop are aligned. The start and stops are
-    accurate positions (including interpolation) of indexes into the data.
-    Note that these are more accurate than the slices the Section can create
-    which are rounded appropriately to integer values.
-    
-    Sections are single intervals which allows us many options:
-      left-closed, right-open: [a, b)  ≡  a <= x < b  ≡  slice(a, b)
-      left-bounded, right-unbounded, left-closed: [a, inf)  ≡  x >= a  ≡  slice(a, None)
-      left-unbounded and right-bounded, right-open: (-inf, b)  ≡  x <= b  ≡  slice(None, b)
-    
-    Including the ability to do fully closed intervals which slices cannot afford us:
-      proper and bounded, closed: [a, b]  ≡  a <= x <= b
-    
-    To define a right-closed interval (inclusive of b) use endpoint=True 
-    (default) as used by numpy linspace example here:
+    Section nodes lower_bound and upper_bound are aligned. The lower and
+    upper bounds are accurate positions (including interpolation) of indexes
+    into the data. Note that these are more accurate than the slices the
+    Section can create which are rounded appropriately to integer values.
 
-      http://docs.scipy.org/doc/numpy/reference/generated/numpy.linspace.html
-    
-    Python slicing uses half-open (left-closed, right-open) intervals to make
-    arithmetics easier (see comment in link). Slicing lists raises a
-    TypeError if floats are used as the slice start or stop, but in numpy the 
-    start and stop are floored to their lower integer.
-    
-      http://stackoverflow.com/questions/9421057/numpy-indexing-questions-on-odd-behavior-inconsistencies#answer-9421268
-    
-    It is difficult to define a flight phase as half-open as you often
-    determine the closed boundaries of the phase based on information from
-    the available data. In addition we often work on parameters at different
-    frequencies which means the start and stop positions must be easily
-    aligned to other frequencies and ofsets requiring that the start/stop
-    positions become decimal values.
-
+    For more details on Intervals, see :ref:`interval-theory`
     '''
     def __init__(self, lower_bound=None, upper_bound=None, _slice=None, name='', **kwargs):
         self.name = name
