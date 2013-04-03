@@ -462,6 +462,9 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         # Store version of FlightDataAnalyser
         hdf.analysis_version = __version__
         # Store dependency tree
+        #TODO: store nx compatible version for loading again:
+        ##from networkx.readwrite import json_graph
+        ##print json_graph.dumps(DG) -- and then don't convert to json in hdf_file
         hdf.dependency_tree = graph_adjacencies(gr_st)
         # Store aircraft info
         ##hdf.aircraft_tail = ... NB: Remove from downsample!
