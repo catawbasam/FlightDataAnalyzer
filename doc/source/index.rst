@@ -15,6 +15,7 @@ Contents:
    ParameterNaming
    HeightAndHeightRateComputation
    FlightTypes
+   DerivedParameter
    KeyTimeInstance
    KeyPointValue
    Testing
