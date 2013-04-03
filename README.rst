@@ -25,7 +25,7 @@ Source Code
 
 Source code is available from `GitHub`_:
 
-* https://github.com/organizations/FlightDataServices/FlightDataAnalyser
+* https://github.com/FlightDataServices/FlightDataAnalyser
 
 Documentation
 -------------
