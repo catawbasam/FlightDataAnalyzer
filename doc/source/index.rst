@@ -10,12 +10,14 @@ Contents:
    Principles
    Install
    Tutorial
+   SplitSegments
    Extending
    Profiling
    ParameterNaming
    HeightAndHeightRateComputation
    FlightTypes
    DerivedParameter
+   SectionNode
    KeyTimeInstance
    KeyPointValue
    Testing

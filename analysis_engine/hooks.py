@@ -31,7 +31,6 @@ PRE_FLIGHT_ANALYSIS = fn
 ##POST_DERIVED_PARAM_PROCESS = fn
 ##"""
 
-
 try:
     from analyser_custom_hooks import *
 except ImportError as err:

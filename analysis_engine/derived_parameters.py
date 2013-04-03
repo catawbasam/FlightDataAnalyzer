@@ -390,7 +390,10 @@ class AirspeedReference(DerivedParameterNode):
                     repaired_gw = repair_mask(gw.array, repair_duration=130,
                                           copy=True, extrapolate=True)
                 except:
-                    repaired_gw = np_ma_masked_zeros_like(gw.array)
+                    self.logger.warning(
+                        "'AirspeedReference' will be fully masked because "
+                        "'Gross Weight' array could not be repaired.")
+                    return
 
                 for approach in apps:
                     _slice = approach.slice
@@ -1250,7 +1253,7 @@ class APEngaged(MultistateDerivedParameterNode):
 
     name = 'AP Engaged'
     align = False
-    values_mapping = {0: '-', 1: 'Engaged'}
+    values_mapping = {0: '-', 1: 'Engaged', 2: 'Duplex', 3: 'Triplex'}
 
     @classmethod
     def can_operate(cls, available):
@@ -1262,19 +1265,22 @@ class APEngaged(MultistateDerivedParameterNode):
                ap2=M('AP (2) Engaged'),
                ap3=M('AP (3) Engaged')):
 
-        if ap3 == None:
-            # Only got a duplex autopilot.
-            self.array = np.ma.max(np.ma.hstack(ap1.array.raw,
-                                                ap2.array.raw),
-                                   axis=0)
-            self.offset = offset_select('mean', [ap1, ap2])
-        else:
-            self.array = np.ma.max(np.ma.hstack(ap1.array.raw, 
+        if ap3:
+            self.array = np.ma.sum(np.ma.hstack(ap1.array.raw, 
                                                 ap2.array.raw, 
                                                 ap3.array.raw),
                                    axis=0)
             self.offset = offset_select('mean', [ap1, ap2, ap3])
-            ##self.array = ap1.array.raw # TEMPORARY FIX FOR 747-200
+        elif ap2:
+            # Only got a duplex autopilot.
+            self.array = np.ma.sum(np.ma.hstack(ap1.array.raw,
+                                                ap2.array.raw),
+                                   axis=0)
+            self.offset = offset_select('mean', [ap1, ap2])
+        else:
+            # Probably got a multi-channel autopilot but only one (presumed AP1) is instrumented.
+            self.array = ap1.array.raw
+            self.offset = ap1.offset
 
         self.frequency = ap1.frequency
 
@@ -4451,6 +4457,11 @@ class V2(DerivedParameterNode):
                spd=P('Airspeed'),
                conf=P('Configuration'),
                afr_v2=A('AFR V2'),
+
+               spd_ctrl=P('Auto Speed Control'),
+               spd_sel=P('Selected Speed'),
+               #alt_aal=P('Altitude AAL For Flight Phases'),
+               
                weight_liftoff=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
                family=A('Family'),
@@ -4464,6 +4475,9 @@ class V2(DerivedParameterNode):
             # v2 supplied, use this
             afr_v2_array = np.ones_like(spd.array)
             self.array = afr_v2_array * afr_v2.value
+        elif spd_sel:
+            # Airbus
+            self.array = np.ma.where(spd_ctrl.array==1,spd_sel.array,np.ma.masked)
         elif weight_liftoff:
             x = map(lambda x: x.value if x else None, (series, family, engine))
             vspeed_class = get_vspeed_map(*x)

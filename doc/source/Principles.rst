@@ -4,7 +4,7 @@ Principles of Flight Data Processing
 ====================================
 
 * Offsets
-* Align of all dependencies to the first available dependency
+* Aligning of parameters
 * Dependency tree
 * Testing
 * Inputs and Outputs
@@ -81,3 +81,42 @@ and::
 We will see later how this affects the implementation of the algorithms, but suffice to say for now that the 
 implementation takes the effort away from the programmer and end users will just see more accurate answers.
 
+
+Aligning of parameters
+----------------------
+
+Matrix computation generally requires datasets of the same shape:
+
+    >>> np.arange(10) * np.arange(20)
+    Traceback (most recent call last):
+      File "<string>", line 1, in <fragment>
+    ValueError: operands could not be broadcast together with shapes (10) (20)
+
+
+Aligning parameters allows us to create arrays which have the same shape. 
+
+Another problem is that parameters are sampled at different points in time,
+either when it was sampled in the dataframe or due to a delay in the databus.
+Aligning ensures that at a particular index position the values across all
+arrays will have been sampled at the appropriate time.
+
+
+Frequency
+~~~~~~~~~
+
+Flight Data parameters which are sampled at different frequencies will have a
+different number of samples for a given flight duration. The
+FlightDataAnalyzer is able to increase and decrease the sample rate of a
+given parameter to ensure the matrix arrays are of the same shape.
+
+When increasing sample rate, linear interpolation is used to gain a
+statistically more probable value of the recorded parameter between the
+previous and next recorded samples.
+
+<Image>
+
+Offset
+~~~~~~
+
+As valids To ensure the accuracy of the data is maintained...
+of multiple parameters is best performed with Align of all dependencies to the first available dependency
