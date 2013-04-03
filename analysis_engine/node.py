@@ -787,7 +787,7 @@ class SectionNode(IntervalSet, Node):
     '''
     _interval = Section
         
-    def create_section(self, lower_bound, upper_bound, name=''):
+    def create_section(self, lower_bound, upper_bound, name='', **kwargs):
         """
         Create a section between the lower_bound and the upper_bound.
         
@@ -797,13 +797,16 @@ class SectionNode(IntervalSet, Node):
         
         :type lower_bound: float (or None)
         :type upper_bound: float (or None)
+        :type lower_closed: boolean (optional)
+        :type upper_closed: boolean (optional)
         :type name: str
         :type begin: int or float
         :type end: int or float
         :rtype: None
         """
         section = Section(lower_bound, upper_bound,
-                          name=name or self.get_name())
+                          name=name or self.get_name(), 
+                          **kwargs)
         self.add(section)
         return self
 
@@ -853,6 +856,10 @@ class SectionNode(IntervalSet, Node):
         :rtype: [slice,slice]
         '''
         return [section.slice for section in self]
+    
+    ##def append(self, item):
+        ##self.add(item)
+        ###TODO delete or raise NotImplementedError('You should be using "add()" as this is a Set implementation')
 
 
 class FlightPhaseNode(SectionNode):
