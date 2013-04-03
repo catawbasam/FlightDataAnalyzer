@@ -32,64 +32,117 @@ of factors, there may be between 0 and many instances;
  eg. AirspeedWithFlapMax is a single node which will create KPV's for each flap detent applicable to the aircraft.
 
 
+Boilerplate code for a Key Point Value node
+
+.. code-block:: python
+
+    from analysis_engine.node import KeyPointValueNode
+
+    class NodeName(KeyPointValueNode):
+        '''
+        Docstring
+        '''
+    
+        units = 'unit'
+    
+        def derive(self, param1=P('Parameter One'), ...):
+            ...
 
 --------
 Benefits
 --------
 
- * ensures a consistent measurement technique is employed accros all aircraft
- * allows direct comparisons(not dependent on thresolds/limits)
- * can be used to detect events with the use of thresolds/limits
- * distributions/histograms
+* ensures a consistent measurement technique is employed accros all aircraft
+* allows direct comparisons(not dependent on thresolds/limits)
+* can be used to detect events with the use of thresolds/limits
+* can be used to produce statistical distributions/histograms
 
 -------
 Example
 -------
 
-A simple example of a Key Point Value is AltitudeMax, The maximum altitude
-during the flight.
+A simple example of a Key Point Value would be the maximum altitude experianced during the flight, which we will call AltitudeMax. We will provide a docstring and the units the Key Point Value will be recorded in (ft).
 
-Here is the code for AltitudeMax::
+.. code-block:: python
 
     class AltitudeMax(KeyPointValueNode):
         '''
-        Maximum Altitude STD
+        Maximum Altitude STD experianced during the flight.
+        '''
+    
+        units = 'ft'
+
+We now need a derive method which will create the Key Point Value objects. The parameters we want passed into the derive method is the 'Altitude STD' parameter for the altitude, we also pass in the 'Airborne' sections as we will want the maximum altitude for each airborne phase, e.g. in case of touch and go's
+As we require both 'Altitude STD' and 'Airborne' we do not require a can_operate method as this is default behavoiur.
+aligned to Altitude STD Smoothed.
+
+.. code-block:: python
+
+    def derive(self, 
+           alt_std=P('Altitude STD'),
+           airborne=S('Airborne')):
+           ...
+
+We can now create Key Point Values from the maximum recorded Altitude STD for each Airborne phase of a flight. We do this by passing the Altitude STD array, Airborne slices and the max_value function into the create_kpv_within_slices method.
+
+.. code-block:: python
+
+    from analysis_engine.library import max_value
+    
+    ...
+    
+    self.create_kpvs_within_slices(alt_std.array, airborne, max_value)
+
+The completed node will look as follows.
+
+.. code-block:: python
+
+    from analysis_engine.library import max_value
+
+    class AltitudeMax(KeyPointValueNode):
+        '''
+        Maximum Altitude STD experianced during the flight.
         '''
     
         units = 'ft'
     
-        def derive(self,
-                   alt_std=P('Altitude STD Smoothed'),
-                   airborne=S('Airborne')):
-    
+        def derive(self, 
+               alt_std=P('Altitude STD'),
+               airborne=S('Airborne')):
             self.create_kpvs_within_slices(alt_std.array, airborne, max_value)
 
-AltitudeMax has no can_operate defined so both "Altitude STD Smoothed" and
-"Airborne" sections are required for AltitudeMax to run.
-to return max value, prevents data spikes whilst on the
-ground. aligned to Altitude STD Smoothed. uses create_kpvs_within_slices.
-resulting Key Point Value in feet ("ft")
+.. warning::
+   do not return anything from a derive method as this will raise a UserWarning exception.
 
 ----------------
 Helper Functions
 ----------------
 
- * create_kpv
- creates a KPV 
- * create_kpvs_at_ktis
- 
- * create_kpvs_from_slice
- 
- * create_kpvs_where_state
- 
- * create_kpv_within_slices
- 
- * create_kpvs_outside_slices
- 
+Key Point Value nodes have several helper methods to aid in the creating of Key Point Values.
 
+:py:meth:`analysis_engine.node.KeyPointValueNode.create_kpv`
+    Creates a KeyPointValue with the supplied index and value.
+ 
+:py:meth:`analysis_engine.node.KeyPointValueNode.create_kpvs_at_ktis`
+    Creates KPVs by sourcing the array at each KTI index. Requires the array to be aligned to the KTIs.
+
+:py:meth:`analysis_engine.node.KeyPointValueNode.create_kpv_from_slices`
+    Creates a single KPV from multiple slices using a provided function to return an index and value (for instance max_value)..
+
+:py:meth:`analysis_engine.node.KeyPointValueNode.create_kpvs_where_state`
+    For discrete and multi-state parameters, this detects a specified state and records the duration as the value for the KeyPointValue.
+
+:py:meth:`analysis_engine.node.KeyPointValueNode.create_kpvs_within_slices`
+    Shortcut for creating KPVs from a number of slices by retrieving an index and value from function (for instance max_value).
+
+:py:meth:`analysis_engine.node.KeyPointValueNode.create_kpv_outside_slices`
+    Creates a KPV excluding values within provided slices or sections by retrieving an index and value from function (for instance max_value).
+
+:py:meth:`analysis_engine.node.KeyPointValueNode.create_kpvs_from_slice_durations`
+    Creates KPVs from slices based only on the slice duration.
 
 --------
 Tutorial
 --------
 
-
+To Follow
