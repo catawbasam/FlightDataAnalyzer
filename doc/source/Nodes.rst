@@ -4,50 +4,44 @@
 Nodes and Subclasses
 ====================
 
-----
-Node
-----
-
-Each derived parameter and key point value etc. is a Node. Each Node forms a part of the dependency tree :ref:`DependencyTree`
+Each derived parameter and key point value etc. is a Node. Each Node forms a
+part of the dependency tree :ref:`DependencyTree`
 
 There are certain attributes which all nodes have in common.
 
+* frequency - `in Hz`
+* offset - `in secs`
+* derive method - `where the derivation work is performed`
+* get_name  - `to auto-generate the "Nice Name" from "class NiceName"`
+* get_aligned - `returns a version of itself aligned to another node`
 
-* frequency
-* offset
 
-* derive method
-* get_name
+Node Types
+~~~~~~~~~~
+
+.. py:module:: analysis_engine.node
+
+.. inheritance-diagram:: KeyTimeInstanceNode KeyPointValueNode FlightPhaseNode DerivedParameterNode FlightAttributeNode ApproachNode MultistateDerivedParameterNode
+   :parts: 1
+
+The following Nodes are documented here:
+
+* :ref:`ListNode` - provides list like functionality for storing multiple occurrences of a KeyPointValue or KeyTimeInstance within a Node
+* :ref:`FormattedNameNode` - provides the ability for each occurrence to have a name formatted from variables defined by class variables in advance
+* :ref:`KeyTimeInstanceNode` - important time instances within the flight
+* :ref:`KeyPointValueNode` - individual value measurements taken from the flight
+* :ref:`FlightPhaseNode` - defined intervals of the flight
+* :ref:`DerivedParameterNode` - arrays derived from other parameters
+* :ref:`FlightAttributeNode` - pythonic objects derived from the flight such as takeoff airport
+* :ref:`ApproachNode` - a list of approaches which can account for multiple approaches into different airports
+
 
 Node.get_name()
----------------
+~~~~~~~~~~~~~~~
 
 The **get_name** method returns the class defined **name** or if that hasn't
 been created it generates the name from the class name by converting the
 "ClassName" to "Class Name"
-
-
-
-
-
-
-•	Naming convention and get_name functionality
-•	dump
-–	Derived Parameters
-–	ListNode & FormattedNameNode
-•	Names % format
-•	Key Time Instances
-•	Key Point Values
-–	SectionNode
-•	Flight Phase
-–	Attributes
-
-
-
-
-
-
-
 
 
 
