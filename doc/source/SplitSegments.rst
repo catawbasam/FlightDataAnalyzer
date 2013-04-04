@@ -64,8 +64,8 @@ uniquely identifying the correct aircraft such as:
 Split Segments
 ~~~~~~~~~~~~~~
 
-Essentially we want to separate flights This is easiest to understand in Pseudo code:
-        
+Essentially we want to separate flights This is easiest to understand in Pseudo code::
+
     start = None
     # Loop over any slow sections to split the segments within
     for slow_section in airspeeds_below(AIRSPEED_THRESHOLD):

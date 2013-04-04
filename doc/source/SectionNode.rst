@@ -9,7 +9,7 @@ Section Nodes
 Interval Theory
 ---------------
 
-A mathematical `interval` represenets all the numbers between two given
+A mathematical `interval` represents all the numbers between two given
 values. Much like a python slice represents a subset of data, only interval's
 bounds can be decimal and optionally include or exclude the bound values.
 

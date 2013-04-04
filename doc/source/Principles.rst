@@ -51,6 +51,7 @@ preceding frame.
 A typical value of L might be 50 mS and with data sampled at 256 wps, this corresponds to shifting a data 
 point 1/20th second or 13 samples earlier than its position implies.
 
+
 Computing With Data Latency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -81,7 +82,7 @@ and::
 We will see later how this affects the implementation of the algorithms, but suffice to say for now that the 
 implementation takes the effort away from the programmer and end users will just see more accurate answers.
 
-.. _aligning-of-parameters:
+.. _aligning:
 
 Aligning of parameters
 ----------------------
