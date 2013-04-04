@@ -57,22 +57,20 @@ point 1/20th second or 13 samples earlier than its position implies.
 Computing With Data Latency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The problem of computing in the presence of data latency is illustrated in the diagram below. Here two parameters 
-with differing sample rates and latency have been represented by 'a' and 'b' and a calculation has been performed
-at times representing 0, 1, 2 seconds into the data. This is typical of analysis systems that perform periodic computations.
+.. The problem of computing in the presence of data latency is illustrated in the diagram below. Here two parameters 
+   with differing sample rates and latency have been represented by 'a' and 'b' and a calculation has been performed
+   at times representing 0, 1, 2 seconds into the data. This is typical of analysis systems that perform periodic computations.
 
-.. image:: images/data processing before POLARIS.jpg
+   The computed values, represented by the green squares, do not lie on the correct result path and these errors 
+   can build surprisingly rapidly. As an example, FDS had one algorithm for computing the takeoff where the compuation lag 
+   was so bad that the radio altimeter readings had reached almost 70ft at the point of computed takeoff.
 
-The computed values, represented by the green squares, do not lie on the correct result path and these errors 
-can build surprisingly rapidly. As an example, FDS had one algorithm for computing the takeoff where the compuation lag 
-was so bad that the radio altimeter readings had reached almost 70ft at the point of computed takeoff.
+   It is possible to keep such errors under control, but it would be better not to have such errors in the first place.
 
-It is possible to keep such errors under control, but it would be better not to have such errors in the first place.
+POLARIS calculations are exact in time for the primary parameter in a computation and accept an interpolated
+estimate of the secondary parameter(s).
 
-By contrast, POLARIS calculations are exact in time for the primary parameter in a computation and accept an interpolated
-estimate of the secondary parameter(s). Here the results can be seen to lie exactly on the optimal solution line.
-
-.. image:: images/data processing with POLARIS.jpg
+.. image:: _images/alignment_plot.png
 
 One mathematical issue here is that the results are non-communtative. That is to say::
     
@@ -116,8 +114,6 @@ given parameter to ensure the matrix arrays are of the same shape.
 When increasing sample rate, linear interpolation is used to gain a
 statistically more probable value of the recorded parameter between the
 previous and next recorded samples.
-
-.. image:: _images/alignment_plot.png
 
 Offset
 ~~~~~~
