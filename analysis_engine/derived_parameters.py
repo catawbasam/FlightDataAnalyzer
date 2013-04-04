@@ -4540,10 +4540,8 @@ class Aileron(DerivedParameterNode):
                ar=P('Aileron (R)'),
                alo=P('Aileron (L) Outboard'),
                aro=P('Aileron (R) Outboard')):
-        if not al and alo:
-            al = alo
-        if not ar and aro:
-            ar = aro
+        al = al or alo
+        ar = ar or aro
         if al and ar:
             self.array, self.frequency, self.offset = blend_two_parameters(al, ar)
         elif al or ar:
