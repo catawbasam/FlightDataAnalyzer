@@ -1,4 +1,4 @@
-. _Nodes:
+.. _Nodes:
 
 ====================
 Nodes and Subclasses
