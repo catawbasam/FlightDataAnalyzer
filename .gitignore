@@ -75,3 +75,4 @@ tests/test_data/temp/*
 
 # Keep empty directories:
 !*/.git*
+/tests/test_data/Specimen_Flight_process.hdf5

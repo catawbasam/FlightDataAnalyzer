@@ -139,6 +139,12 @@ Graph Theory
 Derived Parameter Nodes, Attribute Nodes, Key Time Instance Nodes, Key Point
 Value Nodes and Section Nodes are all objects which can have dependencies
 upon other Nodes or LFL Parameters.
+
+.. digraph:: foo
+
+   "Mach Max" -> "Mach" -> "Airspeed";
+   "Mach" -> "Altitude STD";
+ 
  
 Each of these objects is a Node within a directional graph (`DiGraph`). The
 edges of the graph represents the dependency of one Node upon another.
