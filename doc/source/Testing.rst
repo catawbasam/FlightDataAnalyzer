@@ -112,11 +112,11 @@ Writing Test Cases Which Call process_flight()
 ----------------------------------------------
 
 *process_flight* will store DerivedParameterNodes into the HDF file being
-processed. If we consider the following test::
+processed. If we consider the following test
 
 .. code-block:: python
     :linenos:
-    
+
     def test_process_flight(self):
         process_flight('test_data.hdf5', aircraft_info)
         with hdf_file('test_data.hdf5') as hdf:
@@ -129,32 +129,61 @@ processed. Changes to the AnalysisEngine codebase will no longer affect the
 result of this test.
 
 To avoid this problem, we should first copy the file and run process_flight
-against the copy::
+against the copy
 
 .. code-block:: python
     :linenos:
-    
+
     from utilities.filesystem_tools import copy_file
     
-    ...    
+    ...
     
-        def test_process_flight(self):
-            hdf_copy = copy_file('test_data.hdf5', postfix='_test_copy')
-            process_flight(hdf_copy, aircraft_info)
-            with hdf_file(hdf_copy) as hdf:
-                self.assertEqual(hdf['Altitude AAL'].array, expected_result)
+    def test_process_flight(self):
+        hdf_copy = copy_file('test_data.hdf5', postfix='_test_copy')
+        process_flight(hdf_copy, aircraft_info)
+        with hdf_file(hdf_copy) as hdf:
+            self.assertEqual(hdf['Altitude AAL'].array, expected_result)
 
 In this case *Altitude AAL* will be processed each time the test is run.
 
 
-usefull functions
+Usefull Functions
 =================
 
 
-assert_array_within_tolerance
+.. autodoc::tests.derived_parameter_tests.assert_array_within_tolerance
+    
+    useful for testing
 
-get_operational_combinations
+:py:method:`analysis_engine.node.Node.get_operational_combinations`
 
-node save
+    .. code-block:: python
 
-node load
+    from analysis_engine.derived_parameters import AltitudeAAL
+    alt_aal = AltitudeAAL()
+    alt_aal.get_operational_combinations()
+
+:py:method:`analysis_engine.node.Node.save`
+    Method for pickling and saving a node to file.
+
+    .. code-block:: python
+
+        import numpy as np
+        from analysis_engine.node import M
+        
+        spd_brk = M(name='Speedbrake Selected',
+                    array=np.ma.array([0, 1, 2, 0, 0] * 3),
+                    values_mapping={
+                        0: 'Stowed',
+                        1: 'Armed/Cmd Dn',
+                        2: 'Deployed/Cmd Up',
+                    },)
+        spd_brk.save('/home/parke1r/spd_brk.nod')
+
+:py:func:`analysis_engine.node.load`
+    Loads a prevously saved pickled node from a file.
+
+    .. code-block:: python
+
+        from analysis_engine.node import load
+        spd_brk2 = load('/home/parke1r/spd_brk.nod')

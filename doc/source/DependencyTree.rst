@@ -87,7 +87,7 @@ within the derive declaration) the Node can operate successfully with.::
                 ...
             ...
 
-See :ref:`can_operate` for more usage examples.
+See :ref:`can-operate` for more usage examples.
 
 
 The :py:meth:`~analysis_engine.Node.NodeManager.operational` method of the
