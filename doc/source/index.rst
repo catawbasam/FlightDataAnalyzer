@@ -2,24 +2,26 @@ Flight Data Analyser |release|
 ==============================
 
 Contents:
+---------
 
 .. toctree::
    :maxdepth: 2
 
    Introduction
-   Principles
    Install
-   Tutorial
+   Principles
    SplitSegments
-   Extending
-   Profiling
    ParameterNaming
-   HeightAndHeightRateComputation
    FlightTypes
+   Nodes
+   DependencyTree
    SectionNode
    KeyTimeInstance
    KeyPointValue
    Testing
+   HeightAndHeightRateComputation
+   Extending
+   Profiling
    Changes
    TODO
    Authors
