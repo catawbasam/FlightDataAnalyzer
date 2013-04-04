@@ -16,6 +16,7 @@ Contents:
    Nodes
    DependencyTree
    SectionNode
+   DerivedParameter
    KeyTimeInstance
    KeyPointValue
    Testing

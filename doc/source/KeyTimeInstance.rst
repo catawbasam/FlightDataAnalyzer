@@ -9,20 +9,31 @@ Description
 -----------
 
 A Key Time Instance is a point of interest on a flight. A KTI allows one time
-identification of an instance in a (flight eg. Touchdown) ensureing a
-consistent index is used. The key attribute of a KTI is the **index** which
-indicates how far into the flight in seconds the moment of interest occurred.
+identification of an instance in a (flight eg. Touchdown) allowing quick
+access to this point in the flight and ensureing a consistent index is used.
+The key attribute of a KTI is the **index** which indicates how far into the
+flight in seconds the moment of interest occurred.
 
+Boiler plate code
+
+.. code-block:: python
+
+    from analysis_engine.node import KeyTimeInstanceNode
+
+    class NodeName(KeyTimeInstanceNode):
+        '''
+        Docstring
+        '''
+        def derive(self, param1=P('Parameter One'), ...):
+            ...
 
 
 --------
 Benefits
 --------
 
-
-
-Can be used in Key Point Value (KPV) to look up value at that point
-Can be used to create phase eg. x -> touchdown
+* Can be used in Key Point Value (KPV) to look up value at that point
+* Can be used to create phase eg. x -> touchdown
 
 -------
 Example
@@ -30,7 +41,10 @@ Example
 
 A simple example of a Key Time Instance is LocalizerEstablishedStart, The index
 where ILS Localizer is first Established.
-    
+
+
+.. code-block:: python
+
     class LocalizerEstablishedStart(KeyTimeInstanceNode):
         '''
         The index where ILS Localizer is first Established.
@@ -43,6 +57,13 @@ where ILS Localizer is first Established.
 Helper Functions
 ----------------
 
- * create_kti
- * create_ktis_on_state_change
- * create_ktis_at_edges
+:py:meth:`analysis_engine.node.KeyTimeInstanceNode.create_kti`
+    Creates a KeyTimeInstance with the supplied index.
+
+:py:meth:`analysis_engine.node.KeyTimeInstanceNode.create_ktis_on_state_change`
+    Create KTIs from multistate parameters where data reaches and leaves given state.
+
+    Its logic operates on string representation of the multistate parameter, not on the raw data value.
+
+:py:meth:`analysis_engine.node.KeyTimeInstanceNode.create_ktis_at_edges`
+    Create one or more key time instances where a parameter rises or falls. Usually used with discrete parameters, e.g. Event marker pressed, it is suitable for multi-state or analogue parameters such as flap selections.
