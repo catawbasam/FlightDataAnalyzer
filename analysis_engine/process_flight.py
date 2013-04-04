@@ -264,12 +264,34 @@ def get_derived_nodes(module_names):
 
 
 def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
-                   achieved_flight_record={}, required_params=[]):
+                   achieved_flight_record={}, required_params=[],
+                   include_flight_attributes=True):
     '''
-    For development, the definitive API is located here:
+    Processes the HDF file (hdf_path) to derive the required_params (Nodes)
+    within python modules (settings.NODE_MODULES).
+    
+    Note: For Flight Data Services, the definitive API is located here:
         "PolarisTaskManagement.test.tasks_mask.process_flight"
         
-    sample aircraft_info API:
+    :param hdf_path: Path to HDF File
+    :type hdf_pat: String
+    :param aircraft: Aircraft specific attributes
+    :type aircraft: dict   
+    :param start_datetime: Datetime of the origin of the data (at index 0)
+    :type start_datetime: Datetime
+    :param achieved_flight_record: See API Below
+    :type achieved_flight_record: Dict
+    :param required_params: Parameters to fetch (dependencies will also be evaluated)
+    :type required_params: List of Strings
+    :param include_flight_attributes: Whether to include all flight attributes
+    :type include_flight_attributes: Boolean
+
+    :returns: See below:
+    :rtype: Dict
+    
+    
+    Sample aircraft_info
+    --------------------
     {
         'Tail Number':  # Aircraft Registration
         'Identifier':  # Aircraft Ident
@@ -283,24 +305,123 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         'Wing Span': # Distance in metres
     }
     
-    sample achieved_flight_record API:
+    Sample achieved_flight_record
+    -----------------------------
     {
-        # TODO!
+        # Simple values first, e.g. string, int, float, etc.
+        'AFR Flight ID': # e.g. 1
+        'AFR Flight Number': # e.g. 1234
+        'AFR Type': # 'POSITIONING'
+        'AFR Off Blocks Datetime': # datetime(2015,01,01,13,00)
+        'AFR Takeoff Datetime': # datetime(2015,01,01,13,15)
+        'AFR Takeoff Pilot': # 'Joe Bloggs'
+        'AFR Takeoff Gross Weight': # weight in kg
+        'AFR Takeoff Fuel': # fuel in kg
+        'AFR Landing Datetime': # datetime(2015,01,01,18,45)
+        'AFR Landing Pilot': # 'Joe Bloggs'
+        'AFR Landing Gross Weight': # weight in kg
+        'AFR Landing Fuel': # weight in kg
+        'AFR On Blocks Datetime': # datetime(2015,01,01,19,00)
+        'AFR V2': # V2 used at takeoff in kts
+        'AFR Vapp': # Vapp used in kts
+        'AFR Vref': # Vref used in kts
+        # More complex data that needs to be looked up next:
+        'AFR Takeoff Airport':  {
+            'id': 4904, # unique id
+            'name': 'Athens Intl Airport Elefterios Venizel',
+            'code': {'iata': 'ATH', 'icao': 'LGAV'},
+            'latitude': 37.9364,
+            'longitude': 23.9445,
+            'location': {'city': u'Athens', 'country': u'Greece'},
+            'elevation': 266, # ft
+            'magnetic_variation': 'E003186 0106',
+            }
+           },
+        'AFR Landing Aiport': {
+            'id': 1, # unique id
+            'name': 'Athens Intl Airport Elefterios Venizel',
+            'code': {'iata': 'ATH', 'icao': 'LGAV'},
+            'latitude': 37.9364,
+            'longitude': 23.9445,
+            'location': {'city': u'Athens', 'country': u'Greece'},
+            'elevation': 266, # ft
+            'magnetic_variation': 'E003186 0106',
+            }
+           },
+        'AFR Destination Airport': None, # if not required, or exclude this key
+        'AFR Takeoff Runway': {
+            'id': 1,
+            'identifier': '21L',
+            'magnetic_heading': 212.6,
+            'strip': {
+                'id': 1, 
+                'length': 13123, 
+                'surface': 'ASP', 
+                'width': 147},
+            'start': {
+                'elevation': 308, 
+                'latitude': 37.952425, 
+                'longitude': 23.970422},
+            'end': {
+                'elevation': 279, 
+                'latitude': 37.923511, 
+                'longitude': 23.943261},
+            'glideslope': {
+                'angle': 3.0,
+                'elevation': 282,
+                'latitude': 37.9473,
+                'longitude': 23.9676,
+                'threshold_distance': 999},
+            'localizer': {
+                'beam_width': 4.5,
+                'elevation': 256,
+                'frequency': 111100,
+                'heading': 213,
+                'latitude': 37.919281,
+                'longitude': 23.939294},
+            },
+        'AFR Landing Runway': {
+            'id': 1,
+            'identifier': '21L',
+            'magnetic_heading': 212.6,
+            'strip': {
+                'id': 1, 
+                'length': 13123, 
+                'surface': 'ASP', 
+                'width': 147},
+            'start': {
+                'elevation': 308, 
+                'latitude': 37.952425, 
+                'longitude': 23.970422},
+            'end': {
+                'elevation': 279, 
+                'latitude': 37.923511, 
+                'longitude': 23.943261},
+            'glideslope': {
+                'angle': 3.0,
+                'elevation': 282,
+                'latitude': 37.9473,
+                'longitude': 23.9676,
+                'threshold_distance': 999},
+            'localizer': {
+                'beam_width': 4.5,
+                'elevation': 256,
+                'frequency': 111100,
+                'heading': 213,
+                'latitude': 37.919281,
+                'longitude': 23.939294},
+            },
     }
     
-    :param hdf_path: Path to HDF File
-    :type hdf_pat: String
-    
-    :param aircraft: Aircraft specific attributes
-    :type aircraft: dict
-    
-    :returns: See below:
-    :rtype: Dict
+    Sample Return
+    -------------
     {
         'flight':[Attribute('name value')]  # sample: [Attribute('Takeoff Airport', {'id':1234, 'name':'Int. Airport'}, Attribute('Approaches', [4567,7890]), ...], 
         'kti':[GeoKeyTimeInstance('index name latitude longitude')] if lat/long available else [KeyTimeInstance('index name')]
         'kpv':[KeyPointValue('index value name slice')]
     }
+    
+    
     
     '''
     logger.info("Processing: %s", hdf_path)
@@ -314,9 +435,10 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         required_params = derived_nodes.keys()
     
     # include all flight attributes as required
-    required_params = list(set(
-        required_params + get_derived_nodes(
-            ['analysis_engine.flight_attribute']).keys()))
+    if include_flight_attributes:
+        required_params = list(set(
+            required_params + get_derived_nodes(
+                ['analysis_engine.flight_attribute']).keys()))
         
     # open HDF for reading
     with hdf_file(hdf_path) as hdf:
