@@ -3,12 +3,6 @@
 Principles of Flight Data Processing
 ====================================
 
-* Offsets
-* Aligning of parameters
-* Dependency tree
-* Testing
-* Inputs and Outputs
-
 Flight Data Characteristics
 ---------------------------
 
@@ -115,8 +109,8 @@ When increasing sample rate, linear interpolation is used to gain a
 statistically more probable value of the recorded parameter between the
 previous and next recorded samples.
 
-Offset
-~~~~~~
-
-As valids To ensure the accuracy of the data is maintained...
-of multiple parameters is best performed with Align of all dependencies to the first available dependency
+.. Offset
+   ~~~~~~
+   
+   As valids To ensure the accuracy of the data is maintained...
+   of multiple parameters is best performed with Align of all dependencies to the first available dependency
