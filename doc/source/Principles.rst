@@ -110,3 +110,45 @@ previous and next recorded samples.
    
    As valids To ensure the accuracy of the data is maintained...
    of multiple parameters is best performed with Align of all dependencies to the first available dependency
+
+
+Discrete and Multi-state parameters
+-----------------------------------
+
+Aligning parameter arrays with linear interpolation is not suitable in all cases.
+
+Discrete and Multi-state parameters record integer values which represent states. Linear interpolation is not applied to these parameters during alignment. Instead, the values are repeated when aligned to a parameter with a higher sample rate. If the alignment parameter has a lower sample rate, the array will be resampled at the alignment frequency. Typically, parameters are aligned to the highest available sample rate to avoid data loss.
+
+
+Manual Alignment
+----------------
+
+Another instance where linear interpolation would be detrimental is stepped parameters such as Flap. Stepped parameters are similar to Multi-state parameters in that they record a discrete number of integer values.
+
+.. image:: _images/align_flap.png
+
+Alignment can be disabled for a Node by assigning the static class attribute `align` to be False.
+
+.. code-block:: python
+   
+   class DerivedFromFlap(DerivedParameterNode):
+       align = False
+       
+       def derive(self, aileron=P('Aileron'), flap=P('Flap')):
+           ...
+
+An alternative to maintain the original array of a single parameter is to define it as the first dependency. All other parameters will be aligned to the first's sample rate and offset.
+
+.. code-block:: python
+   
+   class DerivedFromFlap(DerivedParameterNode):
+       align = False
+       
+       def derive(self, flap=P('Flap'), ...):
+           ...
+
+
+
+
+
+
