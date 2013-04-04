@@ -136,14 +136,14 @@ upon.::
 Graph Theory
 ------------
 
-Derived Parameter Nodes, Attribute Nodes, Key Time Instance Nodes, Key Point
-Value Nodes and Section Nodes are all objects which can have dependencies
-upon other Nodes or LFL Parameters.
+All Nodes (Derived Parameter Nodes, Attribute Nodes) are all objects which
+can have dependencies upon other Nodes or LFL Parameters.
 
 .. digraph:: foo
 
    "Mach Max" -> "Mach" -> "Airspeed";
    "Mach" -> "Altitude STD";
+   "Airspeed" -> "Mach";
  
  
 Each of these objects is a Node within a directional graph (`DiGraph`). The
@@ -179,6 +179,7 @@ This is the processing order:
 
    "5: root" -> "4: Mach Max" -> "3: Mach" -> "1: Airspeed";
    "3: Mach" -> "2: Altitude STD";
+
 
 Spanning Tree
 ~~~~~~~~~~~~~
