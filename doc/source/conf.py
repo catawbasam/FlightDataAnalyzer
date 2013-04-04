@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.abspath('../'))
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.intersphinx', 'sphinx.ext.todo', 'sphinx.ext.coverage', 'sphinx.ext.pngmath', 'sphinx.ext.viewcode', 'rst2pdf.pdfbuilder']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.intersphinx', 'sphinx.ext.todo', 'sphinx.ext.coverage', 'sphinx.ext.pngmath', 'sphinx.ext.viewcode', 'rst2pdf.pdfbuilder', 'sphinx.ext.graphviz']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -328,7 +328,7 @@ pdf_cover_template = 'sphinxcover.tmpl'
 
 # Enable rst2pdf extension modules (default is only vectorpdf)
 # you need vectorpdf if you want to use sphinx's graphviz support
-#pdf_extensions = ['vectorpdf']
+pdf_extensions = ['vectorpdf']
 
 # Page template name for "regular" pages
 #pdf_page_template = 'cutePage'
