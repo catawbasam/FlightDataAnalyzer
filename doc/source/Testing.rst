@@ -145,3 +145,16 @@ against the copy::
                 self.assertEqual(hdf['Altitude AAL'].array, expected_result)
 
 In this case *Altitude AAL* will be processed each time the test is run.
+
+
+usefull functions
+=================
+
+
+assert_array_within_tolerance
+
+get_operational_combinations
+
+node save
+
+node load

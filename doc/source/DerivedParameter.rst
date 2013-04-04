@@ -23,6 +23,7 @@ A derived parameter is a **calculated** parameter derived from one or more other
         def derive(self, param1=P('Parameter One'), ...):
             ...
 
+
 Units is the unit which gives the values stored in the parameter meaning.
 
 Aligning and First Dependancies
@@ -32,7 +33,7 @@ By default the derive method dependencies are aligned to the the first
 available dependency. The frequency and offset can be forced by providing
 align_frequency and/or align_offset attribtes to the Derived Parameters class.
 
-For example to force all dependancies to a frequency of one htz with a zero offset.
+For example to force all dependancies to a frequency of one Hz with a zero offset.
 
 .. code-block:: python
 
@@ -74,11 +75,42 @@ For example to not align dependancies and set the Derived Parameter to a frequen
             self.offset = 0
             ...
 
-see :ref:`aligning-of-parameters` for more details of Aligning
+.. warning::
+   Do not return anything from a derive method as this will raise a UserWarning exception.
+
+see :ref:`aligning-of-parameters` for more details on Aligning
 
 As a rule of thumb always align the most important part. for example if you want a measurement align to the parameter you wish to take the measurement from. If you want a value at a specific time, align to KTI or Section.
 There are exceptions to this rule.
 
+
+.. _can-operate:
+
+Can operate
+-----------
+
+The can_operate method is used to determine if the node (in this case the Derived Parameter) has all the dependancies it requires to operate.
+The default behaviour is to require all dependancies are avaliable to operate.
+
+The following code returns true if 'Altitude AAL' is in the list of available parameters, this will allow the Derived Parameter to operate.
+
+.. code-block:: python
+
+    @classmethod
+    def can_operate(cls, available):
+        return 'Altitude AAL' in available
+
+Multistate
+----------
+
+Multistate Derived Parameter Nodes have an additional values_mapping attribute which is used to map values in the array to states. An example of this is GearDown which which maps 0 to 'Up' and 1 to 'Down'.
+
+.. code-block:: python
+
+    values_mapping = {
+        0: 'Up',
+        1: 'Down',
+    }
 
 Tutorial
 ========
@@ -100,8 +132,13 @@ We will start by creating the class with a suitable name, in this case TrackTrue
         units = 'deg'
 
 We now need a derive method which will create the array of values based on some dependancies. As we have already identified we will use the 'Heading True Continuous' and the 'Drift' parameters.
-As we require both 'Heading True Continuous' and the 'Drift' parameters we do not require a can_operate method as the default behaviour is to require all dependancies are avaliable to run???.
+As we require both 'Heading True Continuous' and the 'Drift' parameters we do not require a can_operate method.
 Heading is primary parameter we are interested in so we will use this as the first dependancy which other dependancies will be aligned to.
+
+.. code-block:: python
+
+    def derive(self, heading=P('Heading True Continuous'), drift=P('Drift')):
+        ...
 
 .. note::
     We use a wrapper (**P()** here) to assist the programmer with IDE
@@ -110,17 +147,15 @@ Heading is primary parameter we are interested in so we will use this as the fir
     
     The name of the dependency is provided as a String.
 
-.. code-block:: python
-
-    def derive(self, heading=P('Heading True Continuous'), drift=P('Drift')):
-        ...
-
-All that is left is to assign self.array to the heading array plus the drift array. We use % (modulus) 360 as headings have a range of 0-360 degrees. It is good practive to add an inline comment here to inform other users of the reason for adding the arrays.
+All that is left is to assign self.array to the heading array plus the drift array. We use % (modulus) 360 as headings have a range of 0-360 degrees. It is good practice to add an inline comment here to inform other users of the reason for adding the arrays.
 
 .. code-block:: python
 
         #Note: drift is to the right of heading, so: Track = Heading + Drift
         self.array = (heading.array + drift.array) % 360
+
+.. warning::
+    derive methods must set self.array.
 
 The completed node will look as follows.
 
@@ -179,3 +214,12 @@ Below are some helpful ways to implement the can operate methods.
                    any_of(('Flap (L)', 'Flap (R)'), available)
 
 As you can see in this example we can accoumplish the same goal using either Functions. The correct function for the job therefore comes down to readablillity. For this example we would use the 'any_of' piece of code.
+
+Derive
+------
+
+:py:func:`analysis_engine.library.np_ma_masked_zeros_like`
+    Creates a masked array filled with masked values. The unmasked data values
+    are all zero. The array is the same length as the arrray passed in. This is
+    very useful for setting self.array in derive methods for derived parameters
+    which have no valid values.

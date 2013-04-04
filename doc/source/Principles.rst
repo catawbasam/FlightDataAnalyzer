@@ -81,6 +81,7 @@ and::
 We will see later how this affects the implementation of the algorithms, but suffice to say for now that the 
 implementation takes the effort away from the programmer and end users will just see more accurate answers.
 
+.. _aligning-of-parameters:
 
 Aligning of parameters
 ----------------------

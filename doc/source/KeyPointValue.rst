@@ -4,9 +4,8 @@
 Key Point Value (KPV)
 =====================
 
------------
 Description
------------
+===========
 
 A Key Point Value is a **Value** of interest measured at a point during a
 flight. The key attribute of a KPV is the **value** which represents a
@@ -48,18 +47,19 @@ Boilerplate code for a Key Point Value node
         def derive(self, param1=P('Parameter One'), ...):
             ...
 
---------
+.. warning::
+   do not return anything from a derive method as this will raise a UserWarning exception.
+
 Benefits
---------
+========
 
 * ensures a consistent measurement technique is employed accros all aircraft
 * allows direct comparisons(not dependent on thresolds/limits)
 * can be used to detect events with the use of thresolds/limits
 * can be used to produce statistical distributions/histograms
 
--------
-Example
--------
+Tutorial
+========
 
 A simple example of a Key Point Value would be the maximum altitude experianced during the flight, which we will call AltitudeMax. We will provide a docstring and the units the Key Point Value will be recorded in (ft).
 
@@ -112,11 +112,11 @@ The completed node will look as follows.
             self.create_kpvs_within_slices(alt_std.array, airborne, max_value)
 
 .. warning::
-   do not return anything from a derive method as this will raise a UserWarning exception.
+    derive methods must set self.array.
 
-----------------
+
 Helper Functions
-----------------
+================
 
 Key Point Value nodes have several helper methods to aid in the creating of Key Point Values.
 
@@ -140,9 +140,3 @@ Key Point Value nodes have several helper methods to aid in the creating of Key 
 
 :py:meth:`analysis_engine.node.KeyPointValueNode.create_kpvs_from_slice_durations`
     Creates KPVs from slices based only on the slice duration.
-
---------
-Tutorial
---------
-
-To Follow
