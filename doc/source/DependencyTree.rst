@@ -167,6 +167,18 @@ dependency to determine whether the level below is operational. If deemed
 operational, the Node is added to the set of active_nodes (so that we do not
 process the node again) and appended to the processing order.
 
+.. digraph:: foo
+
+   "root" -> "Mach Max" -> "Mach" -> "Airspeed";
+   "Mach" -> "Altitude STD";
+
+
+This is the processing order:
+
+.. digraph:: foo
+
+   "5: root" -> "4: Mach Max" -> "3: Mach" -> "1: Airspeed";
+   "3: Mach" -> "2: Altitude STD";
 
 Spanning Tree
 ~~~~~~~~~~~~~
