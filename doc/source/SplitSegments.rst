@@ -43,7 +43,8 @@ The Process
 Validate Aircraft
 ~~~~~~~~~~~~~~~~~
 
-`Not currently implemented.`
+.. note::
+    Not currently implemented.
 
 Using information known about the aircraft, validate that the data being
 processed has the same information. If not, `raise AircraftMismatch`.

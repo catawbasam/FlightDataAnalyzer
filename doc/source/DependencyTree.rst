@@ -20,9 +20,17 @@ have a failed sensor resulting in a recorded parameter being invalid.
 Often this can involve writing Aircraft Tail specific code exceptions when
 deriving parameters to account for all these exceptional cases.
 
+Keeping the Node modules small and ensuring a single node only serves a
+specific purpose means that programmers can write re-usable code that is easy
+to read.
+
 The dependency tree takes away those issues by establishing which Nodes are
 able to operate and in which order they need to be processed in order that
 the hierarchical set of dependencies will be met.
+
+The programmer need not worry about the order in which the code will be
+executed. If a parameter is set as a dependency (optional or required) it
+will have been evaluated by the time it enters the derive method.
 
 
 What are the dependencies?
@@ -62,8 +70,19 @@ dependency's dependency.
 
 The dependency tree will establish that Mach is a requirement of say the Key
 Point Value **Mach Max** and if Mach is recorded, no further calculations are
-performed. If Mach is not recorded it will establish whether the Mach
-dependencies are met (Airspeed and Altitude STD)
+performed.
+
+.. digraph:: MachRecorded
+
+   "Mach Max (KPV)" -> "Mach (Recorded)"
+   
+If Mach is not recorded it will establish whether the Mach dependencies are
+met (Airspeed and Altitude STD).
+
+.. digraph:: MachDerived
+
+   "Mach Max (KPV)" -> "Mach (Derived Parameter)" -> "Airspeed (Recorded)";
+   "Mach (Derived Parameter)" -> "Altitude STD (Recorded)";
 
 
 Can Operate
@@ -87,8 +106,27 @@ within the derive declaration) the Node can operate successfully with.::
                 ...
             ...
 
+So if Groundspeed is recorded in the LFL:
+
+.. digraph:: NewParameterWithGroundspeed
+
+   "New Parameter" -> "Airspeed";
+   "New Parameter" -> "Groundspeed";
+   "New Parameter" -> "Altitude AAL";
+
+If Groundspeed is not recorded, the following will still work:
+
+.. digraph:: NewParameterWithoutGroundspeed
+
+   "New Parameter" -> "Airspeed";
+   "New Parameter" -> "Altitude AAL";
+   
+   
 See :ref:`can-operate` for more usage examples.
 
+
+Debugging Can Operate
+^^^^^^^^^^^^^^^^^^^^^
 
 The :py:meth:`~analysis_engine.Node.NodeManager.operational` method of the
 NodeManager calls the **can_operate** method on the classes when traversing
@@ -105,7 +143,8 @@ upon.::
         def can_operate(cls, available):
             pass  # add a breakpoint here to inspect "available"
         
-        def derive(self, ...
+        def derive(self, ...):
+            ...
 
 .. 
     As an example, one may calculate a smoothed latitude and longitude location
@@ -133,26 +172,28 @@ upon.::
         optional: 
     
 
+
 Graph Theory
 ------------
 
-Derived Parameter Nodes, Attribute Nodes, Key Time Instance Nodes, Key Point
-Value Nodes and Section Nodes are all objects which can have dependencies
-upon other Nodes or LFL Parameters.
+All Nodes (Derived Parameter Nodes, Attribute Nodes) are all objects which
+can have dependencies upon other Nodes or LFL Parameters.
+
+.. digraph:: MachMax
+
+   "Mach Max" -> "Mach" -> "Airspeed";
+   "Mach" -> "Altitude STD";
+ 
  
 Each of these objects is a Node within a directional graph (`DiGraph`). The
 edges of the graph represents the dependency of one Node upon another.
-
-The `root` node is a special node which defines the starting point of the
-DiGraph for traversal of the dependency tree. It points to the top level
-parameters (those which have no predecessors).
 
 
 Processing Order
 ~~~~~~~~~~~~~~~~
 
 The processing order is established by recursively traversing down the
-DiGraph using Breadth First Search. 
+DiGraph using Depth First Search.
 
 :py:func:`analysis_engine.dependency_graph.dependencies3`
 
@@ -161,15 +202,40 @@ dependency to determine whether the level below is operational. If deemed
 operational, the Node is added to the set of active_nodes (so that we do not
 process the node again) and appended to the processing order.
 
+The **root** node is a special node which defines the starting point of the
+DiGraph for traversal of the dependency tree. It points to the top level
+parameters (those which have no predecessors).
+
+To evaluate a Key Point Value **Mach Max** and another "Mach At Flap
+Extension" the following graph may be created:
+
+.. digraph::
+
+   "root" -> "Mach Max" -> "Mach" -> "Airspeed";
+   "Mach" -> "Altitude STD";
+   "root" -> "Mach At Flap Extension" -> "Mach";
+   "Mach At Flap Extension" -> "Flap";
+
+
+This is the processing order:
+
+.. digraph:: MachMaxProcessingOrder  
+
+   "6: root" -> "4: Mach Max" -> "3: Mach" -> "1: Airspeed";
+   "3: Mach" -> "2: Altitude STD";
+   "7: root" -> "6: Mach At Flap Extension" -> "3: Mach";
+   "6: Mach At Flap Extension" -> "5: Flap";   
+
 
 Spanning Tree
 ~~~~~~~~~~~~~
 
-The Spanning Tree is the original Graph, excluding the inactive Nodes. It
-represents the actual tree to be used for analysis. These may be inactive due
-to being inoperable (the dependencies do not satisfy the can_operate method)
-or not being available (the NodeManager does not contain them, normally due
-to not being recorded in the LFL but possibly due to a naming error).
+The Spanning Tree is a copy of the original Graph, excluding the inactive
+Nodes. It represents the actual tree to be used for analysis. These may be
+inactive due to being inoperable (the dependencies do not satisfy the
+can_operate method) or not being available (the NodeManager does not contain
+them, normally due to not being recorded in the LFL but possibly due to a
+naming error).
 
 
 Visualising the Tree
@@ -189,10 +255,7 @@ large (often the case!).
 The numeric before the Node name represents the Nodes position in the
 processing order.
 
-
-
-
-Colours are used to represent the different types of parameters. ??????????????????????
+Colours are used to represent the different types of parameters.
 
 .. note::
 
@@ -202,8 +265,15 @@ Colours are used to represent the different types of parameters. ???????????????
 .. warning::
 
     A RuntimeError will be raised if there is a circular dependency found
-    within the digraph (which will cause infinite recursion when resolving
-    the depenency tree!).
+    within the digraph.
+    
+    .. digraph:: circular
+    
+        "Mach Max" -> "Mach" -> "Airspeed";
+        "Airspeed" -> "Mach Max";
 
+    Although DiGraphs support edges from A -> B and B -> A, this will cause
+    infinite recursion when resolving the processing order. It is not
+    programatically possible for a parameter to depend upon itself!
 
 How to view / identify problems

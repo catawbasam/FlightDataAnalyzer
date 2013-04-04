@@ -1,5 +1,6 @@
-To Do
-=====
+====
+TODO
+====
 
 * What to do if AUW is greater or less than the VREF/V2 tables allow? Should this be reported as more than just a warning in log file?
 * Review whether we should keep KeyPointValue slices which indicate which section of data a KPV was created within.
@@ -62,13 +63,16 @@ Discussions
 ===========
 
 * Re-assess dependency tree during processing when a node is determined as
-inoperable. This wouldn't be too slow as any params established so far will be
-cached in dicts or saved in HDF already. However it does make it harder to 
-predict the dependency tree for a given set of data and introduce an element
-of mystery and unpredictability.
+  inoperable. This wouldn't be too slow as any params established so far will be
+  cached in dicts or saved in HDF already. However it does make it harder to 
+  predict the dependency tree for a given set of data and introduce an element
+  of mystery and unpredictability.
+
 * What to do when getting a value at index, param[index], when the value is
-masked at that point. Can we scan a certain amount either side and repair
-mask for that section (interpolating the result)
+  masked at that point. Can we scan a certain amount either side and repair
+  mask for that section (interpolating the result)
+
+* Grouping of related KeyPointValue types e.g.: `related = ('AirspeedMax', ..)`
 
 
 
@@ -76,7 +80,7 @@ Analysis Engine
 ===============
 
 * Gear extending and retracting should be section nodes, as they last for a
-period, however the 737-5 data used for testing has inoperative undercarraige
-red warnings, so this change will be implemented later.
+  period, however the 737-5 data used for testing has inoperative undercarraige
+  red warnings, so this change will be implemented later.
 
 * Resolve the processing of different base sets of data

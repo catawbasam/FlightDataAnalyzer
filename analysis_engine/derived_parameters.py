@@ -2858,14 +2858,21 @@ class FlapSurface(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         return ('Altitude AAL' in available) and \
-               ('Flap (L)' in available or \
-                'Flap (R)' in available)
+               any_of(('Flap (L)', 'Flap (R)', 'Flap (L) Inboard',
+                       'Flap (R) Inboard'), available)
 
     def derive(self, flap_A=P('Flap (L)'), flap_B=P('Flap (R)'),
+               flap_A_inboard=P('Flap (L) Inboard'),
+               flap_B_inboard=P('Flap (R) Inboard'),
                frame=A('Frame'), apps=S('Approach'), alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else ''
-
-        if frame_name.startswith('737-') or frame_name in ['757-DHL', '767-232F_DELTA-85']:
+        
+        flap_A = flap_A or flap_A_inboard
+        flap_B = flap_B or flap_B_inboard
+        
+        if frame_name.startswith('737-') or frame_name in ['757-DHL',
+                                                           '767-232F_DELTA-85',
+                                                           '767-2227000-59B']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
 
@@ -4540,10 +4547,8 @@ class Aileron(DerivedParameterNode):
                ar=P('Aileron (R)'),
                alo=P('Aileron (L) Outboard'),
                aro=P('Aileron (R) Outboard')):
-        if not al and alo:
-            al = alo
-        if not ar and aro:
-            ar = aro
+        al = al or alo
+        ar = ar or aro
         if al and ar:
             self.array, self.frequency, self.offset = blend_two_parameters(al, ar)
         elif al or ar:

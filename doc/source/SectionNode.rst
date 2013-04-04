@@ -1,8 +1,8 @@
 .. _SectionNode:
 
-=============
-Section Nodes
-=============
+=============================
+Section Nodes (Flight Phases)
+=============================
 
 .. _interval-theory:
 ---------------
@@ -93,6 +93,8 @@ SectionNode
 Inheriting from IntervalSet, these provide the required base `Node`
 functionality including the `get_aligned` method.
 
+
+.. _FlightPhaseNode:
 
 FlightPhaseNode
 ---------------

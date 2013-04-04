@@ -218,12 +218,14 @@ def track_to_kml(hdf_path, kti_list, kpv_list, approach_list,
     return
 
 
-def plot_parameter(array, show=True, label=''):
+def plot_parameter(array, show=True, label='', marker=None):
     """
     For quickly plotting a single parameter to see its shape.
     
     :param array: Numpy array
     :type array: np.array
+    :param marker: Optional marker format character.
+    :type marker: str
     :param show: Whether to display the figure (and block)
     :type show: Boolean
     """
@@ -234,7 +236,7 @@ def plot_parameter(array, show=True, label=''):
         # if a non-np.array is passed in, make do
         plt.title("Length: %d | Min: %.2f | Max: %.2f" % (
             len(array), min(array), max(array)))
-    plt.plot(array, label=label)
+    plt.plot(array, marker=marker, label=label)
     if show:
         plt.show()
     return
