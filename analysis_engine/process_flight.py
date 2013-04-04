@@ -523,12 +523,13 @@ if __name__ == '__main__':
     aircraft_info = {
         'Tail Number': args.tail_number,
         'Model': 'B737-301',
-        'Series': 'B737-300',
-        'Family': 'B737',
+        'Series': 'B767-300',
+        'Family': 'B767',
         'Manufacturer': 'Boeing',
         'Precise Positioning': False,
         'Frame': args.frame,
         'Frame Qualifier': 'Altitude_Radio_EFIS',
+        'Engine Series': 'PW4000-94',
     }
     
     # Derive parameters to new HDF

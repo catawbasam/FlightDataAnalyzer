@@ -76,6 +76,7 @@ from analysis_engine.derived_parameters import (
     Eng_3_FuelBurn,
     Eng_4_FuelBurn,
     Flap,
+    FlapSurface,
     FuelQty,
     GearDownSelected,
     GearOnGround,
@@ -2460,8 +2461,8 @@ class TestWindAcrossLandingRunway(unittest.TestCase):
         self.assertEqual(len(walr.array.data), len(ws.array.data))
         self.assertEqual(walr.array.data[0],0.0)
         self.assertEqual(walr.array.mask[0],1)
-        
-                
+
+
 class TestAOA(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -2913,9 +2914,19 @@ class TestFlapLeverDetent(unittest.TestCase):
 
 
 class TestFlapSurface(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        combinations = FlapSurface.get_operational_combinations()
+        #self.assertTrue(all('Longitude Prepared' in c for c in combinations))
+        self.assertTrue(('Flap (L)', 'Altitude AAL') in combinations)
+        self.assertTrue(('Flap (R)', 'Altitude AAL') in combinations)
+        self.assertTrue(('Flap (L) Inboard', 'Altitude AAL') in combinations)
+        self.assertTrue(('Flap (R) Inboard', 'Altitude AAL') in combinations)
+        self.assertTrue(('Flap (L)', 'Flap (R)', 'Altitude AAL') in combinations)
+        self.assertTrue(('Flap (L) Inboard', 'Flap (R) Inboard', 'Altitude AAL') in combinations)
+        self.assertTrue(('Flap (L) Inboard', 'Flap (R) Inboard', 'Altitude AAL') in combinations)
+        self.assertTrue(('Flap (L)', 'Flap (R)', 'Flap (L) Inboard', 
+                         'Flap (R) Inboard', 'Frame', 'Approach', 
+                         'Altitude AAL') in combinations)
         
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
