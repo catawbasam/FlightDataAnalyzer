@@ -90,11 +90,7 @@ Matrix computation generally requires datasets of the same shape:
 
 
 Aligning parameters allows us to create arrays which have the same shape. 
-
-Another problem is that parameters are sampled at different points in time,
-either when it was sampled in the dataframe or due to a delay in the databus.
-Aligning ensures that at a particular index position the values across all
-arrays will have been sampled at the appropriate time.
+Aligning also solves the problem of time differences between parameters. An aligned parameter's data is linearly interpolated to produce accurate values relative to the parameter it is aligned to.
 
 
 Frequency
