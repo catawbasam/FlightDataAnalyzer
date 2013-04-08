@@ -8,6 +8,9 @@ import simplekml
 
 from copy import copy
 
+from hdfaccess.file import hdf_file
+from flightdatautilities.print_table import indent
+
 from analysis_engine.library import (
     bearing_and_distance, 
     latitudes_and_longitudes, 
@@ -16,9 +19,6 @@ from analysis_engine.library import (
 )
 from analysis_engine.node import derived_param_from_hdf, Parameter
 from analysis_engine.settings import METRES_TO_FEET
-
-from hdfaccess.file import hdf_file
-from utilities.print_table import indent
 
 
 logger = logging.getLogger(name=__name__)
