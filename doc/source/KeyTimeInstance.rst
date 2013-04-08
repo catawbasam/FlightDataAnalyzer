@@ -27,16 +27,13 @@ Boiler plate code
         def derive(self, param1=P('Parameter One'), ...):
             ...
 
-.. warning::
-    derive methods must set self.array.
-
 
 .. _ListNode
 
 List nodes
 ----------
 
-As Key Time Instance Nodes descend from List Nodes they are capable of
+As Key Time Instance Nodes inhierit from List Nodes they are capable of
 storing multiple occurrences of KTI's. An example would be creating indexes
 at Gear Down selections. This can occur several times per flight so the Key Time Instance Node will contain 
 
@@ -60,7 +57,7 @@ at Gear Down selections. This can occur several times per flight so the Key Time
 Formatted name nodes
 --------------------
 
-When using Formatted Name Nodes creates a name from applying a combination of
+KeyTimeInstanceNode Formatted Name Nodes creates a name from applying a combination of
 replace_values and kwargs as string formatting arguments to self.NAME_FORMAT.
 
 For example if you want to create indexes as a countdown on the minute for

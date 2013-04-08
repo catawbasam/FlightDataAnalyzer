@@ -111,9 +111,6 @@ The completed node will look as follows.
                airborne=S('Airborne')):
             self.create_kpvs_within_slices(alt_std.array, airborne, max_value)
 
-.. warning::
-    derive methods must set self.array.
-
 
 Helper Functions
 ================

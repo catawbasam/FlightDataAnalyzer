@@ -151,11 +151,12 @@ Usefull Functions
 =================
 
 
-.. autodoc::tests.derived_parameter_tests.assert_array_within_tolerance
+tests.derived_parameter_tests.assert_array_within_tolerance
     
-    useful for testing
+    Check that the actual array within tolerance of the desired array is
+    at least similarity percent.
 
-:py:method:`analysis_engine.node.Node.get_operational_combinations`
+:py:func:`analysis_engine.node.Node.get_operational_combinations`
 
     .. code-block:: python
 
@@ -163,7 +164,7 @@ Usefull Functions
     alt_aal = AltitudeAAL()
     alt_aal.get_operational_combinations()
 
-:py:method:`analysis_engine.node.Node.save`
+:py:func:`analysis_engine.node.Node.save`
     Method for pickling and saving a node to file.
 
     .. code-block:: python
