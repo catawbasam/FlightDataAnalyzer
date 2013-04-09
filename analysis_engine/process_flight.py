@@ -523,8 +523,8 @@ if __name__ == '__main__':
     aircraft_info = {
         'Tail Number': args.tail_number,
         'Model': 'B737-301',
-        'Series': 'B767-300',
-        'Family': 'B767',
+        'Series': 'B737-300',
+        'Family': 'B737',
         'Manufacturer': 'Boeing',
         'Precise Positioning': False,
         'Frame': args.frame,
