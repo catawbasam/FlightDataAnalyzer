@@ -221,7 +221,7 @@ This is the processing order:
 
 .. digraph:: MachMaxProcessingOrder  
 
-   "6: root" -> "4: Mach Max" -> "3: Mach" -> "1: Airspeed";
+   "7: root" -> "4: Mach Max" -> "3: Mach" -> "1: Airspeed";
    "3: Mach" -> "2: Altitude STD";
    "7: root" -> "6: Mach At Flap Extension" -> "3: Mach";
    "6: Mach At Flap Extension" -> "5: Flap";   

@@ -224,6 +224,7 @@ from analysis_engine.key_point_values import (
     MachWhileGearExtendingMax,
     MachWhileGearRetractingMax,
     MachMax,
+    MachWithFlapMax,
     MachWithGearDownMax,
     MagneticVariationAtTakeoffTurnOntoRunway,
     MagneticVariationAtLandingTurnOffRunway,
@@ -2357,7 +2358,7 @@ class TestILSLocalizerDeviationAtTouchdown(unittest.TestCase, ILSTest):
 
 
 ########################################
-# Mach: Landing Gear
+# Mach: General
 
 
 class TestMachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
@@ -2366,6 +2367,21 @@ class TestMachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.node_class = MachMax
         self.operational_combinations = [('Mach', 'Airborne')]
         self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+########################################
+# Mach: Flap
+
+
+class TestMachWithFlapMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = MachWithFlapMax
+        self.operational_combinations = [('Flap', 'Mach', 'Fast')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

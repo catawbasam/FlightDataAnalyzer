@@ -3526,6 +3526,29 @@ class MachMax(KeyPointValueNode):
 
 
 ########################################
+# Mach: Flap
+
+
+class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
+    '''
+    '''
+
+    NAME_FORMAT = 'Mach With Flap %(flap)d Max'
+    NAME_VALUES = NAME_VALUES_FLAP
+
+    units = 'kt'
+
+    def derive(self,
+               flap=P('Flap'),
+               mach=P('Mach'),
+               scope=S('Fast')):
+
+        # Fast scope traps flap changes very late on the approach and raising
+        # flaps before 80kn on the landing run.
+        self.flap_or_conf_max_or_min(flap, mach, max_value, scope=scope)
+
+
+########################################
 # Mach: Landing Gear
 
 

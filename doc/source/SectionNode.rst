@@ -13,7 +13,7 @@ A mathematical `interval` represents all the numbers between two given
 values. Much like a python slice represents a subset of data, only interval's
 bounds can be decimal and optionally include or exclude the bound values.
 
-Sections are single intervals which allows us many options:
+Sections are single intervals which allow us many options:
 
 .. code-block:: none
 

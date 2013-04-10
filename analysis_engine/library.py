@@ -1,5 +1,7 @@
 import numpy as np
 from scipy import optimize
+from scipy import interpolate as scipy_interpolate
+from math import ceil
 
 import logging
 
@@ -325,9 +327,14 @@ def align(slave, master, interpolate=True):
         # Either way, a is the residual part.
         a = 1 - b
 
-        # slave_array values do not exist in aligned array
         if h < 0:
-            slave_aligned[i+wm::wm] = a*slave_array[h+ws:-ws:ws] + b*slave_array[h1+ws::ws]
+            if h<-ws:
+                raise ValueError('Align called with excessive timing mismatch')
+            # slave_array values do not exist in aligned array
+            if ws==1:
+                slave_aligned[i+wm::wm] = a*slave_array[h+ws:-ws:ws] + b*slave_array[h1+ws::ws]
+            else:
+                slave_aligned[i+wm::wm] = a*slave_array[h+ws:-ws:ws] + b*slave_array[h1+ws:1-ws:ws]
             # We can't interpolate the inital values as we are outside the
             # range of the slave parameters.
             # Treat ends as "padding"; Value of 0 and Masked.
@@ -2696,7 +2703,7 @@ def slices_not(slice_list, begin_at=None, end_at=None):
     :type slice_list: list of Python slices.
     :param begin_at: optional starting index value, slices before this will be ignored
     :param begin_at: integer
-    :param end_at: optional ending index value, slices before this will be ignored
+    :param end_at: optional ending index value, slices after this will be ignored
     :param end_at: integer
 
     :returns: list of slices. If begin or end is specified, the range will extend to these points. Otherwise the scope is within the end slices.
@@ -2760,7 +2767,7 @@ def slices_or(*slice_lists, **kwargs):
             if not each_slice:
                 break
 
-            a = each_slice.start if a is None else min(a, each_slice.start)
+            a = each_slice.start or 0 if a is None else min(a, each_slice.start)
 
             if each_slice.stop is None:
                 break
@@ -2813,20 +2820,28 @@ def slices_remove_small_gaps(slice_list, time_limit=10, hz=1):
     return new_list
             
 
-def slices_remove_small_slices(slice_list, time_limit=10, hz=1):
+def slices_remove_small_slices(slice_list, time_limit=10, hz=1, count=None):
     '''
     Routine to remove small slices in a list of slices.
 
     :param slice_list: list of slices to be processed
     :type slice_list: list of Python slices.
+    
     :param time_limit: Tolerance below which slice will be rejected.
     :type time_limit: integer (sec)
     :param hz: sample rate for the parameter
     :type hz: float
 
+    :param count: Tolerance based on count, not time
+    :type count: integer (default = None)
+    
     :returns: slice list.
     '''
-    sample_limit = time_limit * hz
+    if count:
+        sample_limit = count
+    else:
+        sample_limit = time_limit * hz
+
     if slice_list is None :
         return slice_list
     new_list = []
@@ -3319,6 +3334,156 @@ def blend_two_parameters(param_one, param_two):
 
         return array, frequency, offset
 
+def blend_parameters_weighting(array, wt):
+    '''
+    A small function to relate masks to weights.
+    
+    :param array: array to compute weights for
+    :type array: numpy masked array
+    :param wt: weighting factor =  ratio of sample rates
+    :type wt: float
+    '''
+    mask = np.ma.getmaskarray(array)
+    param_weight = (1.0-mask)
+    result_weight = np_ma_masked_zeros_like(np.ma.arange(len(param_weight)*wt))
+    final_weight = np_ma_masked_zeros_like(np.ma.arange(len(param_weight)*wt))
+    result_weight[0]=param_weight[0]/wt
+    result_weight[-1]=param_weight[-1]/wt
+
+    for i in range(1, len(param_weight)-1):
+        if param_weight[i]==0.0:
+            result_weight[i*wt]=0.0
+            continue
+        if param_weight[i-1]==0.0 or param_weight[i+1]==0.0:
+            result_weight[i*wt]=0.1 # Low weight to tail of valid data. Non-zero to avoid problems of overlapping invalid sections.
+            continue
+        result_weight[i*wt]=1.0/wt
+
+    for i in range(1, len(result_weight)-1):
+        if result_weight[i-1]==0.0 or result_weight[i+1]==0.0:
+            final_weight[i]=result_weight[i]/2.0
+        else:
+            final_weight[i]=result_weight[i]
+    final_weight[0]=result_weight[0]
+    final_weight[-1]=result_weight[-1]
+
+    return repair_mask(final_weight, repair_duration=None)
+
+def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
+    '''
+    This most general form of the blend options allows for multiple sources
+    to be blended together even though the spacing, validity and even sample
+    rate may be different. Furthermore the offset and frequency of the output
+    parameter can be selected if required.
+    
+    This uses cubic spline interpolation for each of the component
+    parameters, then applies weighting to reflect both the frequency of
+    samples of the parameter and it's mask. The multiple cubic splines are
+    then summed at the points where new samples are required.
+    
+    :param params: the parameters to be merged
+    :type params: tuple of parameters 
+    :param offset: the offset of the resulting parameter
+    :type offset: float (sec)
+    :param frequency: the frequency of the resulting parameter
+    :type frequency: float (Hz)
+    
+    :param debug: flag to plot graphs for ease of testing
+    :type debug: boolean, default to False
+    '''
+    if debug:
+        import matplotlib.pyplot as plt
+        plt.figure()
+    assert frequency>0.0
+    
+    p_valid_slices=[]
+    p_offset=[]
+    p_freq=[]
+    
+    # Prepare a place for the output signal
+    length = len(params[0].array)*frequency/params[0].frequency
+    result =  np_ma_masked_zeros_like(np.ma.arange(length))
+    
+    # Find out about the parameters we have to deal with...
+    for seq, param in enumerate(params):
+        p_freq.append(param.frequency)
+        p_offset.append(param.offset)
+    min_ip_freq = min(p_freq)    
+    
+    # Slices of valid data are scaled to the lowest timebase and then or'd
+    # to find out when any valid data is available.
+    for seq, param in enumerate(params):
+        # We can only work on non-trivial slices which have four or more
+        # samples as below this level it's not possible to compute a cubic
+        # spline.
+        nts=slices_remove_small_slices(np.ma.clump_unmasked(param.array), count=4)        
+        # Now scale these non-trivial slices into the lowest timebase for collation.
+        p_valid_slices.append(slices_multiply(nts, min_ip_freq/p_freq[seq]))
+        
+    # To find the valid ranges I need to 'or' the slices at a high level, hence
+    # this list of lists of slices needs to be flattened. Don't ask me what
+    # this does, go to http://stackoverflow.com/questions/952914 for an
+    # explanation !
+    any_valid = slices_or([item for sublist in p_valid_slices for item in sublist])
+    
+    if any_valid is None:
+        # No useful chunks of data to process, so guve up now.
+        return
+    
+    # Now we can work through each period of valid data.
+    for this_valid in any_valid:
+        
+        result_slice = slice_multiply(this_valid, frequency/min_ip_freq)
+                                   
+        new_t = np.linspace(result_slice.start/frequency,
+                            result_slice.stop/frequency,
+                            num=(result_slice.stop-result_slice.start),
+                            endpoint=False)+offset
+        
+        # Make space for the computed curves
+        curves=[]
+        weights=[]
+
+        # Compute the individual splines
+        for seq, param in enumerate(params):
+            # The slice and timebase for this parameter...
+            my_slice = slice_multiply(this_valid, p_freq[seq]/min_ip_freq)
+            timebase=np.linspace(my_slice.start/p_freq[seq], 
+                                 my_slice.stop/p_freq[seq], 
+                                 num=my_slice.stop-my_slice.start,
+                                 endpoint=False)+p_offset[seq]
+            my_time = np.ma.array(data=timebase, 
+                                  mask=np.ma.getmaskarray(param.array[my_slice]))
+            if len(my_time.compressed())<4:
+                continue
+            my_curve = scipy_interpolate.splrep(my_time.compressed(),
+                                                param.array[my_slice].compressed(), 
+                                                s=0)
+            # my_curve is the spline knot array, now compute the values for
+            # the output timebase.
+            curves.append(scipy_interpolate.splev(new_t, my_curve, der=0, ext=0))
+
+            # Compute the weights 
+            weights.append(blend_parameters_weighting(param.array[my_slice], 
+                                                      frequency/param.frequency))
+            
+            if debug:
+                plt.plot(my_time,param.array[my_slice],'o')
+                plt.plot(new_t,curves[seq],'-.')
+                plt.plot(new_t,weights[seq])
+                
+        if curves==[]:
+            continue
+        a = np.vstack(tuple(curves))
+        result[result_slice] = np.average(a, axis=0, weights=weights)
+
+        if debug:
+            plt.plot(new_t,result[result_slice],'-')
+            plt.show()
+
+    return result
+    
+    
 
 def most_points_cost(coefs, x, y):
     '''
@@ -3529,7 +3694,7 @@ def np_ma_zeros_like(array, mask=False):
 
     :returns: Numpy masked array of unmasked zero values, length same as input array.
     """
-    return np.ma.array(np.zeros_like(array.data), mask=mask)
+    return np.ma.array(np.zeros_like(array.data), mask=mask, dtype=float)
 
 
 def np_ma_ones_like(array):
@@ -3554,7 +3719,6 @@ def np_ma_ones(length):
     :returns: Numpy masked array of unmasked 1.0 float values, length as specified.
     """
     return np_ma_zeros_like(np.ma.arange(length)) + 1.0
-
 
 def np_ma_masked_zeros_like(array):
     """
@@ -4066,7 +4230,17 @@ def slice_multiply(_slice, f):
     :returns: slice rescaled by factor f
     :rtype: integer
     '''
-    return slice(int(_slice.start*f) if _slice.start else None,
+    """
+    Original version replaced by less tidy version to maintain start=0 cases
+    and to ensure rounding for reductions in frequency does not extend into
+    earlier samples than those intended.
+    """
+    if _slice.start is None:
+        _start = None
+    else:
+        _start = ceil(_slice.start*f)
+
+    return slice(_start,
                  int(_slice.stop*f) if _slice.stop else None,
                  int(_slice.step*f) if _slice.step else None)
 
@@ -4649,6 +4823,11 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
 
     if len(test_array) == 0:
         # Q: Does this mean that value_passing_array is also empty?
+        return None
+
+    if (_slice.stop == _slice.start) and (_slice.start is not None):
+        # No range to scan across. Special case of slice(None, None, None)
+        # covers the whole array so is allowed.
         return None
 
     elif not np.ma.count(test_array):
