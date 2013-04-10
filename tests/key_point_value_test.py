@@ -2382,9 +2382,18 @@ class TestMachWithGearDownMax(unittest.TestCase, NodeTest):
         self.node_class = MachWithGearDownMax
         self.operational_combinations = [('Mach', 'Gear Down', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_basic(self):
+        mach = P('Mach', np.ma.arange(10))
+        gear = M('Gear Down', np.ma.masked_array([0,1,0,1,0,1,0,1,0,1]),
+                      values_mapping={0: 'Up', 1: 'Down'})
+        airs = buildsection('Airborne', 0, 7)
+        node = self.node_class()
+        node.derive(mach, gear, airs)
+        self.assertEqual(
+            node,
+            [KeyPointValue(2, 2.0, 'Mach With Gear Down Max'),
+             KeyPointValue(4, 4.0, 'Mach With Gear Down Max'),
+             KeyPointValue(6, 6.0, 'Mach With Gear Down Max')])
 
 
 class TestMachWhileGearRetractingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
