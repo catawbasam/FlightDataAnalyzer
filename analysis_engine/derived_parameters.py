@@ -1611,6 +1611,34 @@ class Eng_EPRMin(DerivedParameterNode):
 # Engine Fire
 
 
+class Eng_1_Fire(MultistateDerivedParameterNode):
+    '''
+    Combine On Ground and In Air fire warnings.
+    '''
+
+    name = 'Eng (1) Fire'
+    values_mapping = {0: '-', 1: 'Fire'}
+
+    def derive(self,
+               fire_on_ground=P('Eng (1) Fire On Ground'),
+               fire_in_air=P('Eng (1) Fire In Air')):
+        self.array = fire_on_ground | fire_in_air
+
+
+class Eng_2_Fire(MultistateDerivedParameterNode):
+    '''
+    Combine On Ground and In Air fire warnings.
+    '''
+
+    name = 'Eng (2) Fire'
+    values_mapping = {0: '-', 1: 'Fire'}
+
+    def derive(self,
+               fire_on_ground=P('Eng (2) Fire On Ground'),
+               fire_in_air=P('Eng (2) Fire In Air')):
+        self.array = fire_on_ground | fire_in_air
+
+
 class Eng_Fire(MultistateDerivedParameterNode):
     '''
     '''

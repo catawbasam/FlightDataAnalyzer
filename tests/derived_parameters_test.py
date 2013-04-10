@@ -71,6 +71,8 @@ from analysis_engine.derived_parameters import (
     Eng_VibN1Max,
     Eng_VibN2Max,
     Eng_VibN3Max,
+    Eng_1_Fire,
+    Eng_2_Fire,
     Eng_1_FuelBurn,
     Eng_2_FuelBurn,
     Eng_3_FuelBurn,
@@ -2662,11 +2664,22 @@ class TestEng_FuelFlow(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEng_1_FuelBurn(unittest.TestCase, NodeTest):
+class TestEng_1_Fire(unittest.TestCase, NodeTest):
 
     def setUp(self):
-        self.node_class = Eng_1_FuelBurn
-        self.operational_combinations = [('Eng (1) Fuel Flow', )]
+        self.node_class = Eng_1_Fire
+        self.operational_combinations = [('Eng (1) Fire On Ground', 'Eng (1) Fire In Air')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_2_Fire(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_2_Fire
+        self.operational_combinations = [('Eng (2) Fire On Ground', 'Eng (2) Fire In Air')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
