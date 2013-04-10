@@ -1376,17 +1376,11 @@ class AirspeedWithGearDownMax(KeyPointValueNode):
                air_spd=P('Airspeed'),
                gear=M('Gear Down'),
                airs=S('Airborne')):
-
-        state = gear.array.state['Up']
-        for air in airs:
-            air_start = int(air.slice.start or 0)
-            downs = np.ma.masked_equal(gear.array.raw[air.slice], state)
-            downs = np.ma.clump_unmasked(downs)
-            for down in downs:
-                chunk = air_spd.array[air.slice][down]
-                index = np.ma.argmax(chunk)
-                value = chunk[index]
-                self.create_kpv(air_start + down.start + index, value)
+        gear.array[gear.array == 'Up'] = np.ma.masked
+        gear_downs = np.ma.clump_unmasked(gear.array)
+        self.create_kpvs_within_slices(
+            air_spd.array, slices_and(airs.get_slices(), gear_downs),
+            max_value)
 
 
 class AirspeedWhileGearRetractingMax(KeyPointValueNode):
