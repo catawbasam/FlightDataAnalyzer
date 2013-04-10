@@ -1671,7 +1671,7 @@ class Eng_1_Fire(MultistateDerivedParameterNode):
     def derive(self,
                fire_on_ground=P('Eng (1) Fire On Ground'),
                fire_in_air=P('Eng (1) Fire In Air')):
-        self.array = fire_on_ground | fire_in_air
+        self.array = fire_on_ground.array | fire_in_air.array
 
 
 class Eng_2_Fire(MultistateDerivedParameterNode):
@@ -1685,7 +1685,7 @@ class Eng_2_Fire(MultistateDerivedParameterNode):
     def derive(self,
                fire_on_ground=P('Eng (2) Fire On Ground'),
                fire_in_air=P('Eng (2) Fire In Air')):
-        self.array = fire_on_ground | fire_in_air
+        self.array = fire_on_ground.array | fire_in_air.array
 
 
 class Eng_Fire(MultistateDerivedParameterNode):
