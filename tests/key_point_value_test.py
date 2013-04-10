@@ -93,6 +93,7 @@ from analysis_engine.key_point_values import (
     AirspeedWithFlapMax,
     AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
+    AirspeedWhileSpoilerExtendedMax,
     AltitudeAtFirstFlapChangeAfterLiftoff,
     AltitudeAtGearUpSelectionDuringGoAround,
     AltitudeDuringGoAroundMin,
@@ -1651,6 +1652,25 @@ class TestAirspeedDuringLevelFlightMax(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAirspeedWhileSpoilerExtendedMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWhileSpoilerExtendedMax
+        self.operational_combinations = [('Airspeed', 'Spoiler')]
+
+    def test_derive_basic(self):
+        airspeed = P('Airspeed', np.ma.arange(10))
+        spoiler = M('Spoiler', np.ma.masked_array([0,0,0,0,1,1,0,0,1,0]),
+                    values_mapping={0: '-', 1: 'Deployed'})
+        
+        node = self.node_class()
+        node.derive(airspeed, spoiler)
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=6, value=6.0, name='Airspeed While Spoiler Extended Max'),
+             KeyPointValue(index=9, value=9.0, name='Airspeed While Spoiler Extended Max')])
 
 
 ##############################################################################

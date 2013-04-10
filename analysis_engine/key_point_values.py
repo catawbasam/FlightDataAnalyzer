@@ -609,6 +609,23 @@ class AirspeedGustsDuringFinalApproach(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
+class AirspeedWhileSpoilerExtendedMax(KeyPointValueNode):
+    '''
+    '''
+    
+    units = 'kt'
+    
+    def derive(self,
+               air_spd=P('Airspeed'),
+               spoiler=M('Spoiler')):
+        spoiler_array = np.ma.where(spoiler.array != 'Deployed',
+                                    np.ma.masked,
+                                    spoiler.array)
+        spoiler_deployeds = np.ma.clump_unmasked(spoiler_array)
+        self.create_kpvs_within_slices(
+            air_spd.array, spoiler_deployeds, max_value)
+
+
 ########################################
 # Airspeed: Climbing
 
