@@ -114,6 +114,7 @@ from analysis_engine.key_point_values import (
     AltitudeLastUnStableDuringApproach,
     AltitudeMax,
     AltitudeWithFlapMax,
+    AltitudeWithGearDownMax,
     AOADuringGoAroundMax,
     AOAWithFlapMax,
     APDisengagedDuringCruiseDuration,

@@ -2151,6 +2151,23 @@ class AltitudeAtGearUpSelectionDuringGoAround(KeyPointValueNode):
                 self.create_kpv(gear_up.index, gear_up_ht)
 
 
+class AltitudeWithGearDownMax(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               gear=M('Gear Down'),
+               airs=S('Airborne')):
+        gear.array[gear.array == 'Up'] = np.ma.masked
+        gear_downs = np.ma.clump_unmasked(gear.array)
+        self.create_kpvs_within_slices(
+            alt_aal.array, slices_and(airs.get_slices(), gear_downs),
+            max_value)
+
+
 ########################################
 # Altitude: Automated Systems
 
