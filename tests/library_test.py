@@ -271,6 +271,40 @@ class TestAlign(unittest.TestCase):
                                                            11.9,12.15,12.4,12.65,
                                                            12.9, 0.0 , 0.0,0.0 ])
 
+    def test_align_decreasing_hz_delayed(self):
+        # Master at lower frequency than slave
+        master = P(array=np.ma.array([10,11,12,13],dtype=float),
+                  frequency=1,
+                  offset=0.25)
+        slave = P(array=np.ma.array([0,1,2,3,4,6,6,7],dtype=float),
+                   frequency=2,
+                   offset=0.0)
+        result = align(slave, master)
+        np.testing.assert_array_almost_equal(result.data, [0.5, 2.5, 5.0, 6.5])
+        np.testing.assert_array_equal(result.mask, [0,0,0,0])
+
+    def test_align_decreasing_hz_delayed_big_delay_in_master(self):
+        # Master at lower frequency than slave
+        master = P(array=np.ma.array([10,11,12,13],dtype=float),
+                  frequency=1,
+                  offset=-0.75)
+        slave = P(array=np.ma.array([0,1,2,3,4,6,6,7],dtype=float),
+                   frequency=2,
+                   offset=0.0)
+        result = align(slave, master)
+        np.testing.assert_array_almost_equal(result.data, [0.0, 0.5, 2.5, 5.0])
+        np.testing.assert_array_equal(result.mask, [1,0,0,0])
+        
+    def test_align_decreasing_hz_delayed_excessive_delay_in_master(self):
+        # Master at lower frequency than slave
+        master = P(array=np.ma.array([10,11,12,13],dtype=float),
+                  frequency=1,
+                  offset=-1.5)
+        slave = P(array=np.ma.array([0,1,2,3,4,6,6,7],dtype=float),
+                   frequency=2,
+                   offset=0.0)
+        self.assertRaises(ValueError, align, slave, master)
+
     def test_align_mask_propogation(self):
         """
         This is a "pretty bad case scenario" for masking. We essentially "lose"
@@ -1018,6 +1052,11 @@ class TestClip(unittest.TestCase):
         output_array = np.array([600.0,600.0,600.0,700.0,800.0,910.0,920.0,\
                                 890.0,840.0,730.0,730.0,730.0])
         result = clip(engine_egt,5)
+        import matplotlib.pyplot as plt
+        plt.plot(result)
+        plt.plot(engine_egt)
+        plt.show()
+        
         np.testing.assert_array_equal(result, output_array)
 
     def test_clip_correct_result(self):
@@ -2435,7 +2474,87 @@ class TestMinimumUnmasked(unittest.TestCase):
         result = minimum_unmasked(a1,a2)
         np.testing.assert_array_equal(expected, result)
 
+class TestBlendParameters(unittest.TestCase):
+    
+    # Reminder: blend_parameters(params, offset, frequency):
+    
+    # The setup and complex example provide the bulk of the evidence of
+    # satisfactory operation here. The other test cases are derived from the
+    # old BlendTwoParameters test to illustrate that we have replaced an
+    # existing technique with an equivalent.
+    def setUp(self):
+        # Here is genuine sample data from a 737 NG. On this type the higher
+        # sample rate parameter is delayed by about 900mS making the samples
+        # almost coincident with the other sources.
+        alt_a = [-4,-4,-4,-4,-4,-3,1,5,22,70,158,268,373,467,557,657,786,862,978,1099,
+                 1195,1317,1456,1508,1554,1597,1639,1680,1715,1751,1759,1723,1734,1839,
+                 1991,2090,2183,2269,2370,2473,2718,0]
+        p_alt_a=P('Altitude Radio (A)', array=alt_a, frequency=0.5, offset=0.1)
+        p_alt_a.array[-1]=np.ma.masked
+        
+        alt_b = [-4,-4,-3,4,65,260,461,652,851,1089,1304,1504,1594,1677,
+                 1749,1719,1815,2080,2260,2470,2830]
+        p_alt_b=P('Altitude Radio (B)', array=alt_b, frequency=0.25, offset=1.1)
 
+        alt_c = [-5,-5,1,20,152,367,552,786,968,1199,1454,1552,1639,1714,
+                 1767,1731,1995,2190,2390,2720,2880]
+        p_alt_c=P('Altitude Radio (C)', array=alt_c, frequency=0.25, offset=3.1)
+        p_alt_c.array.data[10:14]=0.0
+        p_alt_c.array[10:14]=np.ma.masked
+        
+        self.params = (p_alt_a, p_alt_b, p_alt_c)
+        
+    def test_blend_params_complex_example(self):
+        result = blend_parameters(self.params, offset=0.0, frequency=2.0, debug=True)
+        expected = []
+        ma_test.assert_almost_equal(result[30], 14.225, decimal=2)
+        ma_test.assert_almost_equal(result[80], 1208.451, decimal=2)
+        
+        
+    def test_blend_two_parameters_p2_before_p1_equal_spacing(self):
+        p1 = P(array=[0,0,0,1.0,2], frequency=1, offset=0.9)
+        p2 = P(array=[1,2,3,4.0,5], frequency=1, offset=0.4)
+        result = blend_parameters((p1, p2))
+        self.assertGreater(result[1], 0.75)
+        self.assertLess(result[1], 0.85)
+
+    def test_blend_two_parameters_offset_p2_before_p1_unequal_spacing(self):
+        p1 = P(array=[5,10,7,8.0,8], frequency=1, offset=0.1)
+        p2 = P(array=[1,2,3,4.0,5], frequency=1, offset=0.0)
+        result = blend_parameters((p1, p2))
+        self.assertGreater(result[2], 4.5)
+        self.assertLess(result[2], 5.5)
+        
+    def test_blend_two_parameters_offset_order_back_low_freq(self):
+        p1 = P(array=[5,10,7,8.0,8], frequency=0.25, offset=0.1)
+        p2 = P(array=[1,2,3,4.0,5], frequency=0.25, offset=0.0)
+        result = blend_parameters((p1, p2))
+        self.assertGreater(result[2], 4.5)
+        self.assertLess(result[2], 5.5)
+
+    def test_blend_two_parameters_param_one_rubbish(self):
+        p1 = P(array=[5,10,7,8,9], frequency=1, offset=0.1, name='First')
+        p2 = P(array=[1,2,3,4,5], frequency=1, offset=0.0, name='Second')
+        p1.array.mask = True
+        result = blend_parameters((p1, p2))
+        self.assertAlmostEqual(result[2], 3)
+
+
+class TestBlendParametersWeighting(unittest.TestCase):
+    def test_weighting(self):
+        array=np.ma.array(data=[0,0,0,0,0,0,0,0,0,0,0,0,0],
+                          mask=[1,1,0,1,0,0,0,1,1,1,0,0,0])
+        result = blend_parameters_weighting(array, 1.0)
+        expected = [0.0,0.0,0.05,0.0,0.05,1.0,0.05,0.0,0.0,0.0,0.05,1.0,1.0]
+        ma_test.assert_equal(result.data, expected)
+        
+    def test_weighting_increased_freq(self):
+        array=np.ma.array(data=[0,0,0,0,0,0],
+                          mask=[1,1,1,0,0,0])
+        result = blend_parameters_weighting(array, 2.0)
+        expected = [0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.1, 0.3, 0.5, 0.5, 0.5, 0.5]
+        ma_test.assert_almost_equal(result.data, expected)
+        
 class TestBlendTwoParameters(unittest.TestCase):
     def test_blend_two_parameters_p2_before_p1_equal_spacing(self):
         p1 = P(array=[0,0,0,1.0], frequency=1, offset=0.9)
@@ -3545,8 +3664,8 @@ class TestSliceMultiply(unittest.TestCase):
                          slice(2,4,6))
         self.assertEqual(slice_multiply(slice(None,None,None),1),
                          slice(None,None,None))
-        self.assertEqual(slice_multiply(slice(1,2,None),0.5),
-                         slice(0,1,None))
+        self.assertEqual(slice_multiply(slice(1,6,None),0.5),
+                         slice(1,3,None))
         self.assertEqual(slice_multiply(slice(1,2,0.5),-2),
                          slice(-2,-4,-1))
 
@@ -3556,7 +3675,11 @@ class TestSlicesMultiply(unittest.TestCase):
         slices = [slice(1,2,3),slice(None,None,None),slice(1,2,None)]
         result = [slice(3,6,9),slice(None,None,None),slice(3,6,None)]
         self.assertEqual(slices_multiply(slices,3),result)
-
+ 
+    def test_slices_multiply_with_zero_start(self):
+        slices = [slice(0,2,None)]
+        result = [slice(0,8,None)]
+        self.assertEqual(slices_multiply(slices,4),result)
 
 class TestSlicesOverlap(unittest.TestCase):
     def test_slices_overlap(self):
@@ -3665,6 +3788,17 @@ class TestSlicesRemoveSmallSlices(unittest.TestCase):
         expected = [slice(1, 13)]
         self.assertEqual(expected, newlist)
 
+    def test_slice_removal_time_set_different_freq(self):
+        slicelist = [slice(1, 13), slice(25, 27), slice(30, 33)]
+        newlist = slices_remove_small_slices(slicelist, time_limit=10, hz=0.5)
+        expected = [slice(1, 13)]
+        self.assertEqual(expected, newlist)
+
+    def test_slice_removal_count_set(self):
+        slicelist = [slice(1, 13), slice(25, 27), slice(30, 33)]
+        newlist = slices_remove_small_slices(slicelist, count=5)
+        expected = [slice(1, 13)]
+        self.assertEqual(expected, newlist)
 
 
 
@@ -3748,6 +3882,11 @@ class TestSlicesOr(unittest.TestCase):
 
     def test_slices_or_one_list(self):
         self.assertEqual(slices_or([slice(1,2)]), [slice(1,2)])
+
+    def test_slices_or_none_ends(self):
+        self.assertEqual(slices_or([slice(None,2)]), [slice(0,2)])
+        #self.assertEqual(slices_or([slice(1,None)]), [slice(1,-1)])
+        self.assertEqual(slices_or([slice(None,3), slice(1,None)]), [slice(0,3)])
 
     def test_slices_or_raises_with_none(self):
         self.assertRaises(slices_or([None]))

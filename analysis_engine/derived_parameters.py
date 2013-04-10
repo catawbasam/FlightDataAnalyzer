@@ -18,6 +18,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      alt2sat,
                                      bearing_and_distance,
                                      bearings_and_distances,
+                                     blend_parameters,
                                      blend_two_parameters,
                                      cas2dp,
                                      cas_alt2mach,
@@ -390,9 +391,10 @@ class AirspeedReference(DerivedParameterNode):
                     repaired_gw = repair_mask(gw.array, repair_duration=130,
                                           copy=True, extrapolate=True)
                 except:
-                    self.logger.warning(
-                        "'AirspeedReference' will be fully masked because "
-                        "'Gross Weight' array could not be repaired.")
+                    pass
+                    #self.logger.warning(
+                        #"'AirspeedReference' will be fully masked because "
+                        #"'Gross Weight' array could not be repaired.")
                     return
 
                 for approach in apps:
@@ -842,6 +844,54 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
         self.array = repair_mask(alt_aal.array, repair_duration=None)
 
 
+
+
+class AltitudeRadio(DerivedParameterNode):
+    """
+    There is a wide variety of radio altimeter installations with one, two or
+    three sensors recorded - each with different timing, sample rate and
+    inaccuracies to be compensated. This derive process gathers all the
+    available data and passes the blending task to blend_parameters where
+    multiple cubic splines are joined with variable weighting to provide an
+    optimal combination of the available data.
+
+    :param frame: The frame attribute, e.g. '737-i'
+    :type frame: An attribute
+    :param frame_qual: The frame qualifier, e.g. 'Altitude_Radio_D226A101_1_16D'
+    :type frame_qual: An attribute
+
+    :returns Altitude Radio with values typically taken as the mean between
+    two valid sensors.
+    :type parameter object.
+    """
+
+    units = 'ft'
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of([name for name in cls.get_dependency_names() \
+                       if name.startswith('Altitude')], available)
+
+    
+    def derive(self, frame = A('Frame'),
+               frame_qual = A('Frame Qualifier'),
+               source_A = P('Altitude Radio (A)'),
+               source_B = P('Altitude Radio (B)'),
+               source_C = P('Altitude Radio (C)'),
+               source_E = P('Altitude Radio EFIS'),
+               source_L = P('Altitude Radio EFIS (L)'),
+               source_R = P('Altitude Radio EFIS (R)')):
+        sources=[source_A, source_B, source_C, source_E, source_L, source_R]
+        params=[p for p in sources if p]
+        self.offset = 0.0
+        self.frequency = 1.0
+        self.array=blend_parameters(params, 
+                                    offset=self.offset, 
+                                    frequency=self.frequency)
+
+
+'''
 class AltitudeRadio(DerivedParameterNode):
     """
     There is a wide variety of radio altimeter installations including linear
@@ -949,7 +999,7 @@ class AltitudeRadio(DerivedParameterNode):
 
         else:
             raise DataFrameError(self.name, frame_name)
-
+'''
 
 class AltitudeSTDSmoothed(DerivedParameterNode):
     """
@@ -990,7 +1040,6 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             self.array = straighten_altitudes(fine.array, alt.array, 4096 * 1.220703125)
         else:
             self.array = alt.array
-
 
 # TODO: Account for 'Touch & Go' - need to adjust QNH for additional airfields!
 class AltitudeQNH(DerivedParameterNode):
@@ -2730,6 +2779,26 @@ class GearUpSelected(MultistateDerivedParameterNode):
 
 ################################################################################
 
+class GrossWeight(DerivedParameterNode):
+    '''
+    Merges alternate gross weight measurements. 757-DHK frame applies.
+    '''
+    units = 'kg'
+    align = False
+
+    def derive(self,
+               source_L = P('Gross Weight (L)'),
+               source_R = P('Gross Weight (R)'),
+               frame = A('Frame')):
+
+        if frame_name in ['757-DHL']:
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(source_A, source_B)
+
+        else:
+            raise DataFrameError(self.name, frame_name)
+
+    
 
 class GrossWeightSmoothed(DerivedParameterNode):
     '''
@@ -3208,24 +3277,45 @@ class ILSLocalizer(DerivedParameterNode):
 
 class ILSGlideslope(DerivedParameterNode):
 
-    # List the minimum acceptable parameters here
-    @classmethod
-    def can_operate(cls, available):
-        return ('ILS (1) Glideslope' in available and 'ILS (2) Glideslope' in available)\
-               or\
-               ('ILS Glideslope (Capt)' in available and 'ILS Glideslope (Elevation)' in available)
+    """
+    This derived parameter merges the available sources into a single
+    consolidated parameter. The more complex form of parameter blending is
+    used to allow for many permutations.
+    """
 
     name = "ILS Glideslope"
     units = 'dots'
     align = False
 
-    def derive(self, gs_1=P('ILS (1) Glideslope'),gs_2=P('ILS (2) Glideslope'),
-               gs_c=P('ILS Glideslope (Capt)'), gs_e=P('ILS Glideslope (Elevation)')):
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(cls.get_dependency_names(), available)
+    
+    def derive(self, 
+               source_A=P('ILS (1) Glideslope'),
+               source_B=P('ILS (2) Glideslope'),
+               source_C=P('ILS (3) Glideslope'),
+               
+               source_E=P('ILS (L) Glideslope'),
+               source_F=P('ILS (R) Glideslope'),
+               source_G=P('ILS (C) Glideslope'),
+               
+               source_J=P('ILS (EFIS) Glideslope'),
 
-        if gs_1:
-            self.array, self.frequency, self.offset = blend_two_parameters(gs_1, gs_2)
-        else:
-            self.array, self.frequency, self.offset = blend_two_parameters(gs_c, gs_e)
+               source_M=P('ILS Glideslope (Capt)'),
+               source_N=P('ILS Glideslope (FO)'),
+               ):
+        sources = [source_A, source_B, source_C,
+                   source_E, source_F, source_G,
+                   source_J,
+                   source_M, source_N
+                   ]
+        params=[p for p in sources if p]
+        self.offset = 0.0
+        self.frequency = 1.0
+        self.array=blend_parameters(params, 
+                                    offset=self.offset, 
+                                    frequency=self.frequency)
 
 
 class AimingPointRange(DerivedParameterNode):
@@ -4779,7 +4869,7 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         elif 'B737' in family_name:
             self.array = self.b737_speedbrake(spdbrk, handle)
 
-        elif family_name == 'B767':
+        elif family_name in ['B757', 'B767']:
             self.array = self.b767_speedbrake(handle)
 
         elif family_name == 'A320':
