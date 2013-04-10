@@ -2123,6 +2123,17 @@ class TestAltitudeAtATDisengagedSelection(unittest.TestCase, CreateKPVsAtKTIsTes
         self.assertTrue(False, msg='Test Not Implemented')
 
 
+class TestAltitudeWithGearDownMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeWithGearDownMax
+        self.operational_combinations = [('Altitude AAL', 'Gear Down', 'Airborne')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 ########################################
 # Altitude: Mach
 
