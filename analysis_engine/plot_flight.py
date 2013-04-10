@@ -1,12 +1,15 @@
 import argparse
 import csv
 import logging
-import matplotlib.pyplot as plt
 import numpy as np
 import os
+import platform
 import simplekml
 
 from copy import copy
+
+from hdfaccess.file import hdf_file
+from flightdatautilities.print_table import indent
 
 from analysis_engine.library import (
     bearing_and_distance, 
@@ -17,8 +20,14 @@ from analysis_engine.library import (
 from analysis_engine.node import derived_param_from_hdf, Parameter
 from analysis_engine.settings import METRES_TO_FEET
 
-from hdfaccess.file import hdf_file
-from utilities.print_table import indent
+if platform.system() == 'Windows':
+    # For built versions and Dave's pythonxy.
+    import wx
+    # Must appear before the importing plt
+    import matplotlib
+    matplotlib.use('WXAgg')
+
+import matplotlib.pyplot as plt
 
 
 logger = logging.getLogger(name=__name__)
@@ -218,12 +227,14 @@ def track_to_kml(hdf_path, kti_list, kpv_list, approach_list,
     return
 
 
-def plot_parameter(array, show=True, label=''):
+def plot_parameter(array, show=True, label='', marker=None):
     """
     For quickly plotting a single parameter to see its shape.
     
     :param array: Numpy array
     :type array: np.array
+    :param marker: Optional marker format character.
+    :type marker: str
     :param show: Whether to display the figure (and block)
     :type show: Boolean
     """
@@ -234,7 +245,7 @@ def plot_parameter(array, show=True, label=''):
         # if a non-np.array is passed in, make do
         plt.title("Length: %d | Min: %.2f | Max: %.2f" % (
             len(array), min(array), max(array)))
-    plt.plot(array, label=label)
+    plt.plot(array, marker=marker, label=label)
     if show:
         plt.show()
     return

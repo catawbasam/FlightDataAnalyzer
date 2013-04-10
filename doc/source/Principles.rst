@@ -3,12 +3,6 @@
 Principles of Flight Data Processing
 ====================================
 
-* Offsets
-* Aligning of parameters
-* Dependency tree
-* Testing
-* Inputs and Outputs
-
 Flight Data Characteristics
 ---------------------------
 
@@ -96,11 +90,7 @@ Matrix computation generally requires datasets of the same shape:
 
 
 Aligning parameters allows us to create arrays which have the same shape. 
-
-Another problem is that parameters are sampled at different points in time,
-either when it was sampled in the dataframe or due to a delay in the databus.
-Aligning ensures that at a particular index position the values across all
-arrays will have been sampled at the appropriate time.
+Aligning also solves the problem of time differences between parameters. An aligned parameter's data is linearly interpolated to produce accurate values relative to the parameter it is aligned to.
 
 
 Frequency
@@ -115,8 +105,50 @@ When increasing sample rate, linear interpolation is used to gain a
 statistically more probable value of the recorded parameter between the
 previous and next recorded samples.
 
-Offset
-~~~~~~
+.. Offset
+   ~~~~~~
+   
+   As valids To ensure the accuracy of the data is maintained...
+   of multiple parameters is best performed with Align of all dependencies to the first available dependency
 
-As valids To ensure the accuracy of the data is maintained...
-of multiple parameters is best performed with Align of all dependencies to the first available dependency
+
+Discrete and Multi-state parameters
+-----------------------------------
+
+Aligning parameter arrays with linear interpolation is not suitable in all cases.
+
+Discrete and Multi-state parameters record integer values which represent states. Linear interpolation is not applied to these parameters during alignment. Instead, the values are repeated when aligned to a parameter with a higher sample rate. If the alignment parameter has a lower sample rate, the array will be resampled at the alignment frequency. Typically, parameters are aligned to the highest available sample rate to avoid data loss.
+
+
+Manual Alignment
+----------------
+
+Another instance where linear interpolation would be detrimental is stepped parameters such as Flap. Stepped parameters are similar to Multi-state parameters in that they record a discrete number of integer values.
+
+.. image:: _images/align_flap.png
+
+Alignment can be disabled for a Node by assigning the static class attribute `align` to be False.
+
+.. code-block:: python
+   
+   class DerivedFromFlap(DerivedParameterNode):
+       align = False
+       
+       def derive(self, aileron=P('Aileron'), flap=P('Flap')):
+           ...
+
+An alternative to maintain the original array of a single parameter is to define it as the first dependency. All other parameters will be aligned to the first's sample rate and offset.
+
+.. code-block:: python
+   
+   class DerivedFromFlap(DerivedParameterNode):
+       align = False
+       
+       def derive(self, flap=P('Flap'), ...):
+           ...
+
+
+
+
+
+

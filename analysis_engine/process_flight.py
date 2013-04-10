@@ -529,6 +529,7 @@ if __name__ == '__main__':
         'Precise Positioning': False,
         'Frame': args.frame,
         'Frame Qualifier': 'Altitude_Radio_EFIS',
+        'Engine Series': 'PW4000-94',
     }
     
     # Derive parameters to new HDF

@@ -122,7 +122,7 @@ If Groundspeed is not recorded, the following will still work:
    "New Parameter" -> "Altitude AAL";
    
    
-See :ref:`can_operate` for more usage examples.
+See :ref:`can-operate` for more usage examples.
 
 
 Debugging Can Operate

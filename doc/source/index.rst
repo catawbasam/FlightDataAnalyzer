@@ -37,6 +37,8 @@ Derivations
    DerivedParameter
    KeyTimeInstance
    KeyPointValue
+   Attribute
+   Approach
    Testing
 
 Algorithms

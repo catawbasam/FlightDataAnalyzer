@@ -439,7 +439,7 @@ class TakeoffDatetime(FlightAttributeNode):
     to be used.
     '''
     name = 'FDR Takeoff Datetime'
-    def derive(self, liftoff=A('Liftoff'), start_dt=A('Start Datetime')):
+    def derive(self, liftoff=KTI('Liftoff'), start_dt=A('Start Datetime')):
         first_liftoff = liftoff.get_first()
         if not first_liftoff:
             self.set_flight_attr(None)
