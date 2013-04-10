@@ -609,6 +609,23 @@ class AirspeedGustsDuringFinalApproach(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
+class AirspeedWhileSpoilerExtendedMax(KeyPointValueNode):
+    '''
+    '''
+    
+    units = 'kt'
+    
+    def derive(self,
+               air_spd=P('Airspeed'),
+               spoiler=M('Spoiler')):
+        spoiler_array = np.ma.where(spoiler.array != 'Deployed',
+                                    np.ma.masked,
+                                    spoiler.array)
+        spoiler_deployeds = np.ma.clump_unmasked(spoiler_array)
+        self.create_kpvs_within_slices(
+            air_spd.array, spoiler_deployeds, max_value)
+
+
 ########################################
 # Airspeed: Climbing
 
@@ -1359,17 +1376,11 @@ class AirspeedWithGearDownMax(KeyPointValueNode):
                air_spd=P('Airspeed'),
                gear=M('Gear Down'),
                airs=S('Airborne')):
-
-        state = gear.array.state['Up']
-        for air in airs:
-            air_start = int(air.slice.start or 0)
-            downs = np.ma.masked_equal(gear.array.raw[air.slice], state)
-            downs = np.ma.clump_unmasked(downs)
-            for down in downs:
-                chunk = air_spd.array[air.slice][down]
-                index = np.ma.argmax(chunk)
-                value = chunk[index]
-                self.create_kpv(air_start + down.start + index, value)
+        gear.array[gear.array == 'Up'] = np.ma.masked
+        gear_downs = np.ma.clump_unmasked(gear.array)
+        self.create_kpvs_within_slices(
+            air_spd.array, slices_and(airs.get_slices(), gear_downs),
+            max_value)
 
 
 class AirspeedWhileGearRetractingMax(KeyPointValueNode):
@@ -2138,6 +2149,23 @@ class AltitudeAtGearUpSelectionDuringGoAround(KeyPointValueNode):
                     # Use zero if gear up selected before minimum height:
                     gear_up_ht = 0.0
                 self.create_kpv(gear_up.index, gear_up_ht)
+
+
+class AltitudeWithGearDownMax(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               gear=M('Gear Down'),
+               airs=S('Airborne')):
+        gear.array[gear.array == 'Up'] = np.ma.masked
+        gear_downs = np.ma.clump_unmasked(gear.array)
+        self.create_kpvs_within_slices(
+            alt_aal.array, slices_and(airs.get_slices(), gear_downs),
+            max_value)
 
 
 ########################################
@@ -3534,17 +3562,11 @@ class MachWithGearDownMax(KeyPointValueNode):
                mach=P('Mach'),
                gear=M('Gear Down'),
                airs=S('Airborne')):
-
-        state = gear.array.state['Up']
-        for air in airs:
-            air_start = int(air.slice.start or 0)
-            downs = np.ma.masked_equal(gear.array.raw[air.slice], state)
-            downs = np.ma.clump_unmasked(downs)
-            for down in downs:
-                chunk = mach.array[air.slice][down]
-                index = np.ma.argmax(chunk)
-                value = chunk[index]
-                self.create_kpv(air_start + down.start + index, value)
+        gear.array[gear.array == 'Up'] = np.ma.masked
+        gear_downs = np.ma.clump_unmasked(gear.array)
+        self.create_kpvs_within_slices(
+            mach.array, slices_and(airs.get_slices(), gear_downs),
+            max_value)
 
 
 class MachWhileGearRetractingMax(KeyPointValueNode):

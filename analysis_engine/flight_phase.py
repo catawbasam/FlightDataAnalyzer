@@ -121,12 +121,11 @@ class GoAroundAndClimbout(FlightPhaseNode):
                     # We have matched the cycle to the (possibly radio height
                     # based) go-around KTI.
                     start_slice = slice(index, alt_idxs[n_alt - 1], -1)
-                    start_array = moving_average(alt_aal.array[start_slice],
-                                                 window=15)
+                    start_array = alt_aal.array[start_slice]
                     ga_start = index_closest_value(start_array, value + 500)
+                    
                     stop_slice = slice(index, alt_idxs[n_alt + 1])
-                    stop_array = moving_average(alt_aal.array[stop_slice],
-                                                window=15)
+                    stop_array = alt_aal.array[stop_slice]
                     ga_stop = index_closest_value(stop_array, value + 2000)
 
                     ga_slice.append(slice(start_slice.start - ga_start,

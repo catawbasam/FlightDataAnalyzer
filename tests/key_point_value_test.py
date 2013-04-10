@@ -93,6 +93,7 @@ from analysis_engine.key_point_values import (
     AirspeedWithFlapMax,
     AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
+    AirspeedWhileSpoilerExtendedMax,
     AltitudeAtFirstFlapChangeAfterLiftoff,
     AltitudeAtGearUpSelectionDuringGoAround,
     AltitudeDuringGoAroundMin,
@@ -113,6 +114,7 @@ from analysis_engine.key_point_values import (
     AltitudeLastUnStableDuringApproach,
     AltitudeMax,
     AltitudeWithFlapMax,
+    AltitudeWithGearDownMax,
     AOADuringGoAroundMax,
     AOAWithFlapMax,
     APDisengagedDuringCruiseDuration,
@@ -1654,6 +1656,25 @@ class TestAirspeedDuringLevelFlightMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestAirspeedWhileSpoilerExtendedMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedWhileSpoilerExtendedMax
+        self.operational_combinations = [('Airspeed', 'Spoiler')]
+
+    def test_derive_basic(self):
+        airspeed = P('Airspeed', np.ma.arange(10))
+        spoiler = M('Spoiler', np.ma.masked_array([0,0,0,0,1,1,0,0,1,0]),
+                    values_mapping={0: '-', 1: 'Deployed'})
+        
+        node = self.node_class()
+        node.derive(airspeed, spoiler)
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=6, value=6.0, name='Airspeed While Spoiler Extended Max'),
+             KeyPointValue(index=9, value=9.0, name='Airspeed While Spoiler Extended Max')])
+
+
 ##############################################################################
 # Angle of Attack
 
@@ -2103,6 +2124,17 @@ class TestAltitudeAtATDisengagedSelection(unittest.TestCase, CreateKPVsAtKTIsTes
         self.assertTrue(False, msg='Test Not Implemented')
 
 
+class TestAltitudeWithGearDownMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeWithGearDownMax
+        self.operational_combinations = [('Altitude AAL', 'Gear Down', 'Airborne')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 ########################################
 # Altitude: Mach
 
@@ -2366,9 +2398,18 @@ class TestMachWithGearDownMax(unittest.TestCase, NodeTest):
         self.node_class = MachWithGearDownMax
         self.operational_combinations = [('Mach', 'Gear Down', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_basic(self):
+        mach = P('Mach', np.ma.arange(10))
+        gear = M('Gear Down', np.ma.masked_array([0,1,0,1,0,1,0,1,0,1]),
+                      values_mapping={0: 'Up', 1: 'Down'})
+        airs = buildsection('Airborne', 0, 7)
+        node = self.node_class()
+        node.derive(mach, gear, airs)
+        self.assertEqual(
+            node,
+            [KeyPointValue(2, 2.0, 'Mach With Gear Down Max'),
+             KeyPointValue(4, 4.0, 'Mach With Gear Down Max'),
+             KeyPointValue(6, 6.0, 'Mach With Gear Down Max')])
 
 
 class TestMachWhileGearRetractingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
