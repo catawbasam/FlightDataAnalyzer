@@ -3381,6 +3381,10 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
     samples of the parameter and it's mask. The multiple cubic splines are
     then summed at the points where new samples are required.
     
+    We may change to use a different form of interpolation in the
+    future, allowing for control of the first derivative at the ends of
+    the data, but that's in the future...
+
     :param params: the parameters to be merged
     :type params: tuple of parameters 
     :param offset: the offset of the resulting parameter
@@ -3427,7 +3431,7 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
     any_valid = slices_or([item for sublist in p_valid_slices for item in sublist])
     
     if any_valid is None:
-        # No useful chunks of data to process, so guve up now.
+        # No useful chunks of data to process, so give up now.
         return
     
     # Now we can work through each period of valid data.
@@ -3476,7 +3480,11 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
             continue
         a = np.vstack(tuple(curves))
         result[result_slice] = np.average(a, axis=0, weights=weights)
-
+        # The endpoints of a cubic spline are generally unreliable, so trim
+        # them back.
+        result[result_slice][0] = np.ma.masked
+        result[result_slice][-1] = np.ma.masked
+        
         if debug:
             plt.plot(new_t,result[result_slice],'-')
             plt.show()

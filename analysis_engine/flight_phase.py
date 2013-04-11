@@ -121,12 +121,11 @@ class GoAroundAndClimbout(FlightPhaseNode):
                     # We have matched the cycle to the (possibly radio height
                     # based) go-around KTI.
                     start_slice = slice(index, alt_idxs[n_alt - 1], -1)
-                    start_array = moving_average(alt_aal.array[start_slice],
-                                                 window=15)
+                    start_array = alt_aal.array[start_slice]
                     ga_start = index_closest_value(start_array, value + 500)
+                    
                     stop_slice = slice(index, alt_idxs[n_alt + 1])
-                    stop_array = moving_average(alt_aal.array[stop_slice],
-                                                window=15)
+                    stop_array = alt_aal.array[stop_slice]
                     ga_stop = index_closest_value(stop_array, value + 2000)
 
                     ga_slice.append(slice(start_slice.start - ga_start,
@@ -1145,17 +1144,22 @@ class TurningInAir(FlightPhaseNode):
 
 
 class TurningOnGround(FlightPhaseNode):
-    """
+    """ 
+    Turning on ground is computed during the two taxi phases. This\
+    avoids\ high speed turnoffs where the aircraft may be travelling at high\
+    speed\ at, typically, 30deg from the runway centreline. The landing\
+    phase\ turnoff angle is nominally 45 deg, so avoiding this period.
+    
     Rate of Turn is greater than +/- RATE_OF_TURN_FOR_TAXI_TURNS (%.2f) on the ground
     """ % RATE_OF_TURN_FOR_TAXI_TURNS
-    def derive(self, rate_of_turn=P('Rate Of Turn'), ground=S('Grounded')):
+    def derive(self, rate_of_turn=P('Rate Of Turn'), taxi=S('Taxiing')):
         turning = np.ma.masked_inside(repair_mask(rate_of_turn.array),
                                       -RATE_OF_TURN_FOR_TAXI_TURNS,
                                       RATE_OF_TURN_FOR_TAXI_TURNS)
         turn_slices = np.ma.clump_unmasked(turning)
         for turn_slice in turn_slices:
-            if any([is_slice_within_slice(turn_slice, gnd.slice)
-                    for gnd in ground]):
+            if any([is_slice_within_slice(turn_slice, txi.slice)
+                    for txi in taxi]):
                 self.create_phase(turn_slice, name="Turning On Ground")
 
 

@@ -1215,7 +1215,7 @@ class TestTurningInAir(unittest.TestCase):
 
 class TestTurningOnGround(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Rate Of Turn', 'Grounded')]
+        expected = [('Rate Of Turn', 'Taxiing')]
         self.assertEqual(TurningOnGround.get_operational_combinations(), expected)
 
     def test_turning_on_ground_phase_basic(self):

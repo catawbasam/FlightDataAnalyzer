@@ -407,7 +407,7 @@ class Fokker70(VelocitySpeed):
 
 AIRCRAFT_FAMILY_VELOCITY_SPEED_MAP = {
     'B767': B767,
-    'F70': Fokker70,
+    'F28': Fokker70,
 }
 
 
