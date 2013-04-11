@@ -2708,6 +2708,17 @@ class TestEng_2_Fire(unittest.TestCase, NodeTest):
         np.testing.assert_array_equal(eng_2_fire.array, [0,0,1,1,1,1])
 
 
+class TestEng_1_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_1_FuelBurn
+        self.operational_combinations = [('Eng (1) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestEng_2_FuelBurn(unittest.TestCase, NodeTest):
 
     def setUp(self):
