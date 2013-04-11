@@ -2670,9 +2670,20 @@ class TestEng_1_Fire(unittest.TestCase, NodeTest):
         self.node_class = Eng_1_Fire
         self.operational_combinations = [('Eng (1) Fire On Ground', 'Eng (1) Fire In Air')]
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        fire_on_ground = M(array=np.ma.array(data=[0,0,0,1,1,1]),
+                   values_mapping={0: '-', 1: 'Warning'},
+                   name='Eng (1) Fire On Ground',
+                   frequency=1,
+                   offset=0.1)
+        fire_in_air = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={0: '-', 1: 'Warning'},
+                   name='Eng (1) Fire On Ground',
+                   frequency=1,
+                   offset=0.1)
+        eng_1_fire=self.node_class()
+        eng_1_fire.derive(fire_on_ground, fire_in_air)
+        np.testing.assert_array_equal(eng_1_fire.array, [0,0,1,1,1,1])
 
 
 class TestEng_2_Fire(unittest.TestCase, NodeTest):
@@ -2681,9 +2692,20 @@ class TestEng_2_Fire(unittest.TestCase, NodeTest):
         self.node_class = Eng_2_Fire
         self.operational_combinations = [('Eng (2) Fire On Ground', 'Eng (2) Fire In Air')]
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        fire_on_ground = M(array=np.ma.array(data=[0,0,0,1,1,1]),
+                   values_mapping={0: '-', 1: 'Warning'},
+                   name='Eng (2) Fire On Ground',
+                   frequency=1,
+                   offset=0.1)
+        fire_in_air = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={0: '-', 1: 'Warning'},
+                   name='Eng (2) Fire On Ground',
+                   frequency=1,
+                   offset=0.1)
+        eng_2_fire=self.node_class()
+        eng_2_fire.derive(fire_on_ground, fire_in_air)
+        np.testing.assert_array_equal(eng_2_fire.array, [0,0,1,1,1,1])
 
 
 class TestEng_2_FuelBurn(unittest.TestCase, NodeTest):

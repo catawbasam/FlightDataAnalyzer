@@ -1669,9 +1669,15 @@ class Eng_1_Fire(MultistateDerivedParameterNode):
     values_mapping = {0: '-', 1: 'Fire'}
 
     def derive(self,
-               fire_on_ground=P('Eng (1) Fire On Ground'),
-               fire_in_air=P('Eng (1) Fire In Air')):
-        self.array = fire_on_ground.array | fire_in_air.array
+               fire_on_ground=M('Eng (1) Fire On Ground'),
+               fire_in_air=M('Eng (1) Fire In Air')):
+
+        v = vstack_params_where_state((
+            (fire_on_ground, 'Warning'),
+            (fire_in_air, 'Warning')
+        ))
+        fire = v.any(axis=0)
+        self.array = fire
 
 
 class Eng_2_Fire(MultistateDerivedParameterNode):
@@ -1683,9 +1689,14 @@ class Eng_2_Fire(MultistateDerivedParameterNode):
     values_mapping = {0: '-', 1: 'Fire'}
 
     def derive(self,
-               fire_on_ground=P('Eng (2) Fire On Ground'),
-               fire_in_air=P('Eng (2) Fire In Air')):
-        self.array = fire_on_ground.array | fire_in_air.array
+               fire_on_ground=M('Eng (2) Fire On Ground'),
+               fire_in_air=M('Eng (2) Fire In Air')):
+        v = vstack_params_where_state((
+            (fire_on_ground, 'Warning'),
+            (fire_in_air, 'Warning')
+        ))
+        fire = v.any(axis=0)
+        self.array = fire
 
 
 class Eng_Fire(MultistateDerivedParameterNode):
