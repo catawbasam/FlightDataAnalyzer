@@ -264,13 +264,13 @@ class B737_700(VelocitySpeed):
     }
 
 
-class B757_200(VelocitySpeed):
+class B757_200_RB211_535E4(VelocitySpeed):
     '''
-    Velocity speed tables for Boeing B757-200.
+    Velocity speed tables for Boeing B757-200 with Rolls Royce 
+    RB211-535E4 engines.
     '''
     interpolate = True
-    minimum_speed = 110
-    source = ''  # FIXME: Populate this attribute.
+    source = 'Boeing Manual'  # Original name of source unknown.
     weight_unit = 'kg'
     tables = {
         'v2': {
@@ -416,7 +416,6 @@ AIRCRAFT_SERIES_VELOCITY_SPEED_MAP = {
     'B737-300(QC)': B737_300,
     'B737-400': B737_400,
     'B737-500': B737_500,
-    'B757-200': B757_200,
     'F28-0070': F28_0070,
 }
 
@@ -428,6 +427,7 @@ AIRCRAFT_FAMILY_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
 AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
     # All combinations listed
     # TODO: better lookup solution needed
+    ('B757-200', 'RB211-535E4'): B757_200_RB211_535E4,
     ('B767-200', 'CF6-80A'): B767_200_CF6_80A,
     ('B767-200(F)', 'CF6-80A'): B767_200_CF6_80A,
     ('B767-200(ER)', 'CF6-80A'): B767_200_CF6_80A,
