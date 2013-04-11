@@ -120,7 +120,7 @@ class APDisengagedSelection(KeyTimeInstanceNode):
         self.create_ktis_on_state_change(
             '-',
             ap.array,
-            change='leaving',
+            change='entering',
             phase=phase
         )
 
