@@ -91,6 +91,8 @@ class AltitudePeak(KeyTimeInstanceNode):
 
 class APEngagedSelection(KeyTimeInstanceNode):
     '''
+    AP Engaged is defined as leaving the disengaged state, so that it works
+    for simplex, duplex or triplex engagement options.
     '''
 
     name = 'AP Engaged Selection'
@@ -98,15 +100,17 @@ class APEngagedSelection(KeyTimeInstanceNode):
     def derive(self, ap=M('AP Engaged'), phase=S('Airborne')):
 
         self.create_ktis_on_state_change(
-            'Engaged',
+            '-',
             ap.array,
-            change='entering',
+            change='leaving',
             phase=phase
         )
 
 
 class APDisengagedSelection(KeyTimeInstanceNode):
     '''
+    AP Disengaged is defined as entering the disengaged state, so that it works
+    for simplex, duplex or triplex engagement options.
     '''
 
     name = 'AP Disengaged Selection'
@@ -114,7 +118,7 @@ class APDisengagedSelection(KeyTimeInstanceNode):
     def derive(self, ap=M('AP Engaged'), phase=S('Airborne')):
 
         self.create_ktis_on_state_change(
-            'Engaged',
+            '-',
             ap.array,
             change='leaving',
             phase=phase
