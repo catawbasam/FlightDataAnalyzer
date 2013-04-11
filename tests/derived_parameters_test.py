@@ -73,6 +73,8 @@ from analysis_engine.derived_parameters import (
     Eng_VibN3Max,
     Eng_1_Fire,
     Eng_2_Fire,
+    Eng_3_Fire,
+    Eng_4_Fire,
     Eng_1_FuelBurn,
     Eng_2_FuelBurn,
     Eng_3_FuelBurn,
@@ -2671,19 +2673,23 @@ class TestEng_1_Fire(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Eng (1) Fire On Ground', 'Eng (1) Fire In Air')]
 
     def test_derive(self):
-        fire_on_ground = M(array=np.ma.array(data=[0,0,0,1,1,1]),
-                   values_mapping={0: '-', 1: 'Warning'},
-                   name='Eng (1) Fire On Ground',
-                   frequency=1,
-                   offset=0.1)
-        fire_in_air = M(array=np.ma.array(data=[0,0,1,1,0,0]),
-                   values_mapping={0: '-', 1: 'Warning'},
-                   name='Eng (1) Fire On Ground',
-                   frequency=1,
-                   offset=0.1)
-        eng_1_fire=self.node_class()
-        eng_1_fire.derive(fire_on_ground, fire_in_air)
-        np.testing.assert_array_equal(eng_1_fire.array, [0,0,1,1,1,1])
+        fire_gnd = M(
+            name='Eng (1) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 0, 1, 1, 1]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        fire_air = M(
+            name='Eng (1) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 1, 1, 0, 0]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        node = self.node_class()
+        node.derive(fire_gnd, fire_air)
+        np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
 
 
 class TestEng_2_Fire(unittest.TestCase, NodeTest):
@@ -2693,19 +2699,75 @@ class TestEng_2_Fire(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Eng (2) Fire On Ground', 'Eng (2) Fire In Air')]
 
     def test_derive(self):
-        fire_on_ground = M(array=np.ma.array(data=[0,0,0,1,1,1]),
-                   values_mapping={0: '-', 1: 'Warning'},
-                   name='Eng (2) Fire On Ground',
-                   frequency=1,
-                   offset=0.1)
-        fire_in_air = M(array=np.ma.array(data=[0,0,1,1,0,0]),
-                   values_mapping={0: '-', 1: 'Warning'},
-                   name='Eng (2) Fire On Ground',
-                   frequency=1,
-                   offset=0.1)
-        eng_2_fire=self.node_class()
-        eng_2_fire.derive(fire_on_ground, fire_in_air)
-        np.testing.assert_array_equal(eng_2_fire.array, [0,0,1,1,1,1])
+        fire_gnd = M(
+            name='Eng (2) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 0, 1, 1, 1]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        fire_air = M(
+            name='Eng (2) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 1, 1, 0, 0]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        node = self.node_class()
+        node.derive(fire_gnd, fire_air)
+        np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
+
+
+class TestEng_3_Fire(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_3_Fire
+        self.operational_combinations = [('Eng (3) Fire On Ground', 'Eng (3) Fire In Air')]
+
+    def test_derive(self):
+        fire_gnd = M(
+            name='Eng (3) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 0, 1, 1, 1]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        fire_air = M(
+            name='Eng (3) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 1, 1, 0, 0]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        node = self.node_class()
+        node.derive(fire_gnd, fire_air)
+        np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
+
+
+class TestEng_4_Fire(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_4_Fire
+        self.operational_combinations = [('Eng (4) Fire On Ground', 'Eng (4) Fire In Air')]
+
+    def test_derive(self):
+        fire_gnd = M(
+            name='Eng (4) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 0, 1, 1, 1]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        fire_air = M(
+            name='Eng (4) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 1, 1, 0, 0]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        node = self.node_class()
+        node.derive(fire_gnd, fire_air)
+        np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
 
 
 class TestEng_1_FuelBurn(unittest.TestCase, NodeTest):

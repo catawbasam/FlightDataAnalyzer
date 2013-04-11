@@ -1662,41 +1662,74 @@ class Eng_EPRMin(DerivedParameterNode):
 
 class Eng_1_Fire(MultistateDerivedParameterNode):
     '''
-    Combine On Ground and In Air fire warnings.
+    Combine on ground and in air fire warnings.
     '''
 
     name = 'Eng (1) Fire'
     values_mapping = {0: '-', 1: 'Fire'}
 
     def derive(self,
-               fire_on_ground=M('Eng (1) Fire On Ground'),
-               fire_in_air=M('Eng (1) Fire In Air')):
+               fire_gnd=M('Eng (1) Fire On Ground'),
+               fire_air=M('Eng (1) Fire In Air')):
 
-        v = vstack_params_where_state((
-            (fire_on_ground, 'Warning'),
-            (fire_in_air, 'Warning')
-        ))
-        fire = v.any(axis=0)
-        self.array = fire
+        self.array = vstack_params_where_state((
+            (fire_gnd, 'Fire'),
+            (fire_air, 'Fire'),
+        )).any(axis=0)
 
 
 class Eng_2_Fire(MultistateDerivedParameterNode):
     '''
-    Combine On Ground and In Air fire warnings.
+    Combine on ground and in air fire warnings.
     '''
 
     name = 'Eng (2) Fire'
     values_mapping = {0: '-', 1: 'Fire'}
 
     def derive(self,
-               fire_on_ground=M('Eng (2) Fire On Ground'),
-               fire_in_air=M('Eng (2) Fire In Air')):
-        v = vstack_params_where_state((
-            (fire_on_ground, 'Warning'),
-            (fire_in_air, 'Warning')
-        ))
-        fire = v.any(axis=0)
-        self.array = fire
+               fire_gnd=M('Eng (2) Fire On Ground'),
+               fire_air=M('Eng (2) Fire In Air')):
+
+        self.array = vstack_params_where_state((
+            (fire_gnd, 'Fire'),
+            (fire_air, 'Fire'),
+        )).any(axis=0)
+
+
+class Eng_3_Fire(MultistateDerivedParameterNode):
+    '''
+    Combine on ground and in air fire warnings.
+    '''
+
+    name = 'Eng (3) Fire'
+    values_mapping = {0: '-', 1: 'Fire'}
+
+    def derive(self,
+               fire_gnd=M('Eng (3) Fire On Ground'),
+               fire_air=M('Eng (3) Fire In Air')):
+
+        self.array = vstack_params_where_state((
+            (fire_gnd, 'Fire'),
+            (fire_air, 'Fire'),
+        )).any(axis=0)
+
+
+class Eng_4_Fire(MultistateDerivedParameterNode):
+    '''
+    Combine on ground and in air fire warnings.
+    '''
+
+    name = 'Eng (4) Fire'
+    values_mapping = {0: '-', 1: 'Fire'}
+
+    def derive(self,
+               fire_gnd=M('Eng (4) Fire On Ground'),
+               fire_air=M('Eng (4) Fire In Air')):
+
+        self.array = vstack_params_where_state((
+            (fire_gnd, 'Fire'),
+            (fire_air, 'Fire'),
+        )).any(axis=0)
 
 
 class Eng_Fire(MultistateDerivedParameterNode):
