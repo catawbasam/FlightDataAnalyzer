@@ -2165,6 +2165,7 @@ class AltitudeWithGearDownMax(KeyPointValueNode):
                alt_aal=P('Altitude AAL'),
                gear=M('Gear Down'),
                airs=S('Airborne')):
+
         gear.array[gear.array == 'Up'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
         self.create_kpvs_within_slices(
@@ -3566,6 +3567,7 @@ class MachWithGearDownMax(KeyPointValueNode):
                mach=P('Mach'),
                gear=M('Gear Down'),
                airs=S('Airborne')):
+
         gear.array[gear.array == 'Up'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
         self.create_kpvs_within_slices(

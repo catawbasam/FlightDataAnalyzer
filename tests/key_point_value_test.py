@@ -1519,9 +1519,24 @@ class TestAirspeedWithGearDownMax(unittest.TestCase, NodeTest):
         self.node_class = AirspeedWithGearDownMax
         self.operational_combinations = [('Airspeed', 'Gear Down', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_basic(self):
+        air_spd = P(
+            name='Airspeed',
+            array=np.ma.arange(10),
+        )
+        gear = M(
+            name='Gear Down',
+            array=np.ma.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1]),
+            values_mapping={0: 'Up', 1: 'Down'},
+        )
+        airs = buildsection('Airborne', 0, 7)
+        node = self.node_class()
+        node.derive(air_spd, gear, airs)
+        self.assertItemsEqual(node, [
+            KeyPointValue(index=2, value=2.0, name='Airspeed With Gear Down Max'),
+            KeyPointValue(index=4, value=4.0, name='Airspeed With Gear Down Max'),
+            KeyPointValue(index=6, value=6.0, name='Airspeed With Gear Down Max'),
+        ])
 
 
 class TestAirspeedWhileGearRetractingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
@@ -1669,7 +1684,7 @@ class TestAirspeedWithSpoilerDeployedMax(unittest.TestCase, NodeTest):
         )
         spoiler = M(
             name='Spoiler',
-            array=np.ma.masked_array([0, 0, 0, 0, 1, 1, 0, 0, 1, 0]),
+            array=np.ma.array([0, 0, 0, 0, 1, 1, 0, 0, 1, 0]),
             values_mapping={0: '-', 1: 'Deployed'},
         )
         node = self.node_class()
@@ -2135,9 +2150,24 @@ class TestAltitudeWithGearDownMax(unittest.TestCase, NodeTest):
         self.node_class = AltitudeWithGearDownMax
         self.operational_combinations = [('Altitude AAL', 'Gear Down', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_basic(self):
+        alt_aal = P(
+            name='Altitude',
+            array=np.ma.arange(10),
+        )
+        gear = M(
+            name='Gear Down',
+            array=np.ma.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1]),
+            values_mapping={0: 'Up', 1: 'Down'},
+        )
+        airs = buildsection('Airborne', 0, 7)
+        node = self.node_class()
+        node.derive(alt_aal, gear, airs)
+        self.assertItemsEqual(node, [
+            KeyPointValue(index=2, value=2.0, name='Altitude With Gear Down Max'),
+            KeyPointValue(index=4, value=4.0, name='Altitude With Gear Down Max'),
+            KeyPointValue(index=6, value=6.0, name='Altitude With Gear Down Max'),
+        ])
 
 
 ########################################
@@ -2404,17 +2434,23 @@ class TestMachWithGearDownMax(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Mach', 'Gear Down', 'Airborne')]
 
     def test_derive_basic(self):
-        mach = P('Mach', np.ma.arange(10))
-        gear = M('Gear Down', np.ma.masked_array([0,1,0,1,0,1,0,1,0,1]),
-                      values_mapping={0: 'Up', 1: 'Down'})
+        mach = P(
+            name='Mach',
+            array=np.ma.arange(10),
+        )
+        gear = M(
+            name='Gear Down',
+            array=np.ma.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1]),
+            values_mapping={0: 'Up', 1: 'Down'},
+        )
         airs = buildsection('Airborne', 0, 7)
         node = self.node_class()
         node.derive(mach, gear, airs)
-        self.assertEqual(
-            node,
-            [KeyPointValue(2, 2.0, 'Mach With Gear Down Max'),
-             KeyPointValue(4, 4.0, 'Mach With Gear Down Max'),
-             KeyPointValue(6, 6.0, 'Mach With Gear Down Max')])
+        self.assertItemsEqual(node, [
+            KeyPointValue(index=2, value=2.0, name='Mach With Gear Down Max'),
+            KeyPointValue(index=4, value=4.0, name='Mach With Gear Down Max'),
+            KeyPointValue(index=6, value=6.0, name='Mach With Gear Down Max'),
+        ])
 
 
 class TestMachWhileGearRetractingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
