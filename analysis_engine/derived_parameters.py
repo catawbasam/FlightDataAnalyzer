@@ -2967,7 +2967,8 @@ class FlapSurface(DerivedParameterNode):
         flap_A = flap_A or flap_A_inboard
         flap_B = flap_B or flap_B_inboard
         
-        if frame_name.startswith('737-') or frame_name in ['757-DHL',
+        if frame_name.startswith('737-') or frame_name in ['757-2227000-59A',
+                                                           '757-DHL',
                                                            '767-232F_DELTA-85',
                                                            '767-2227000-59B']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
