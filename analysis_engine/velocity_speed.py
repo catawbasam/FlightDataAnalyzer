@@ -220,6 +220,7 @@ class B737_500(VelocitySpeed):
     '''
     interpolate = True
     minimum_speed = 109
+    source = ''  # FIXME: Populate this attribute.
     weight_unit = 't'
     tables = {
         'v2': {
@@ -269,7 +270,7 @@ class B757_200(VelocitySpeed):
     '''
     interpolate = True
     minimum_speed = 110
-    source = '??' # TODO
+    source = ''  # FIXME: Populate this attribute.
     weight_unit = 'kg'
     tables = {
         'v2': {
@@ -315,7 +316,7 @@ class B767_200_CF6_80A(VelocitySpeed):
     Velocity speed tables for Boeing B767-200 w/ GE CF6-80A.
     '''
     interpolate = True
-    source = ''  # FIXME: Populate this attribute.
+    source = 'FDS Customer #78'
     weight_unit = 'lb'
     tables = {
         'v2': {
@@ -339,7 +340,7 @@ class B767_300_CF6_80C2(VelocitySpeed):
     Velocity speed tables for Boeing B767-300 w/ GE CF6-80C2.
     '''
     interpolate = True
-    source = ''  # FIXME: Populate this attribute.
+    source = 'FDS Customer #78'
     weight_unit = 't'
     tables = {
         'v2': {
@@ -362,7 +363,7 @@ class B767_300_PW4000_94(VelocitySpeed):
     Velocity speed tables for Boeing B767-300 w/ P&W 4000-94.
     '''
     interpolate = True
-    source = ''  # FIXME: Populate this attribute.
+    source = 'FDS Customer #78'
     weight_unit = 't'
     tables = {
         'v2': {
@@ -379,9 +380,9 @@ class B767_300_PW4000_94(VelocitySpeed):
         },
     }
 
-class Fokker70(VelocitySpeed):
+class F28_0070(VelocitySpeed):
     '''
-    Velocity speed tables for Fokker 70.
+    Velocity speed tables for Fokker F28-0070 (Fokker 70).
     '''
     interpolate = True
     source = ''
@@ -407,7 +408,6 @@ class Fokker70(VelocitySpeed):
 
 AIRCRAFT_FAMILY_VELOCITY_SPEED_MAP = {
     'B767': B767,
-    'F28': Fokker70,
 }
 
 
@@ -417,6 +417,7 @@ AIRCRAFT_SERIES_VELOCITY_SPEED_MAP = {
     'B737-400': B737_400,
     'B737-500': B737_500,
     'B757-200': B757_200,
+    'F28-0070': F28_0070,
 }
 
 
