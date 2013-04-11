@@ -609,23 +609,6 @@ class AirspeedGustsDuringFinalApproach(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-class AirspeedWhileSpoilerExtendedMax(KeyPointValueNode):
-    '''
-    '''
-    
-    units = 'kt'
-    
-    def derive(self,
-               air_spd=P('Airspeed'),
-               spoiler=M('Spoiler')):
-        spoiler_array = np.ma.where(spoiler.array != 'Deployed',
-                                    np.ma.masked,
-                                    spoiler.array)
-        spoiler_deployeds = np.ma.clump_unmasked(spoiler_array)
-        self.create_kpvs_within_slices(
-            air_spd.array, spoiler_deployeds, max_value)
-
-
 ########################################
 # Airspeed: Climbing
 
@@ -1376,6 +1359,7 @@ class AirspeedWithGearDownMax(KeyPointValueNode):
                air_spd=P('Airspeed'),
                gear=M('Gear Down'),
                airs=S('Airborne')):
+
         gear.array[gear.array == 'Up'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
         self.create_kpvs_within_slices(
@@ -1433,6 +1417,26 @@ class AirspeedAtGearDownSelection(KeyPointValueNode):
                gear_dn_sel=KTI('Gear Down Selection')):
 
         self.create_kpvs_at_ktis(air_spd.array, gear_dn_sel)
+
+
+########################################
+# Airspeed: Spoilers
+
+
+class AirspeedWithSpoilerDeployedMax(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'kt'
+
+    def derive(self,
+               air_spd=P('Airspeed'),
+               spoiler=M('Spoiler')):
+
+        spoiler.array[spoiler.array != 'Deployed'] = np.ma.masked
+        spoiler_deployeds = np.ma.clump_unmasked(spoiler.array)
+        self.create_kpvs_within_slices(
+            air_spd.array, spoiler_deployeds, max_value)
 
 
 ########################################
