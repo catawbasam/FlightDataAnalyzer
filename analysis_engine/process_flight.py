@@ -1,11 +1,18 @@
+import argparse
 import logging
 import numpy as np
+import os
 import sys
 
 from datetime import datetime, timedelta
 from inspect import isclass
 
+from flightdatautilities.filesystem_tools import copy_file
+
+from hdfaccess.file import hdf_file
+
 from analysis_engine import hooks, settings, __version__
+from analysis_engine.api_handler import get_api_handler
 from analysis_engine.dependency_graph import dependency_order, graph_adjacencies
 from analysis_engine.library import np_ma_masked_zeros_like
 from analysis_engine.node import (ApproachNode, Attribute,
@@ -15,7 +22,6 @@ from analysis_engine.node import (ApproachNode, Attribute,
                                   KeyPointValueNode,
                                   KeyTimeInstanceNode, Node,
                                   NodeManager, P, Section, SectionNode)
-from hdfaccess.file import hdf_file
 
 
 logger = logging.getLogger(__name__)
@@ -421,10 +427,20 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         'kpv':[KeyPointValue('index value name slice')]
     }
     
-    
-    
     '''
     logger.info("Processing: %s", hdf_path)
+    
+    if aircraft_info.keys() == ['Tail Number']:
+        # Fetch aircraft info through the API.
+        api_handler = get_api_handler(settings.API_HANDLER)
+        aircraft_info = api_handler.get_aircraft[aircraft_info['Tail Number']]
+    elif 'Tail Number' in aircraft_info.keys():
+        # Aircraft info has already been provided.
+        pass
+    else:
+        # 'Tail Number' key is required.
+        raise ValueError("Aircraft info must include a 'Tail Number' key.")
+    
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(settings.NODE_MODULES)
     required_params = \
@@ -494,43 +510,74 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
             'phases' : section_list}
 
 
-if __name__ == '__main__':
+def main():
     print 'FlightDataAnalyzer (c) Copyright 2013 Flight Data Services, Ltd.'
     print '  - Powered by POLARIS'
     print '  - http://www.flightdatacommunity.com'
     print ''
-    import argparse, os
-    from flightdatautilities.filesystem_tools import copy_file
     from analysis_engine.plot_flight import csv_flight_details, track_to_kml
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logger.addHandler(logging.StreamHandler(stream=sys.stdout))
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
-            help='Path of file to process.')
+                        help='Path of file to process.')
     parser.add_argument('-tail', dest='tail_number', type=str, 
                         default='G-FDSL', # as per flightdatacommunity file
-            help='Aircraft Tail Number for processing.')
-    parser.add_argument('-frame', dest='frame', type=str, 
-                        default='737-5', # as per flightdatacommunity file
-            help='Data frame name.')
+                        help='Aircraft Tail Number for processing.')
+    help = 'Write CSV of processing results. Set "False" to disable.'
     parser.add_argument('-csv', dest='write_csv', type=str, default='True', 
-            help='Write CSV of processing results. Set "False" to disable.')
+                        help=help)
+    help = 'Write KML of flight track. Set "False" to disable.'
     parser.add_argument('-kml', dest='write_kml', type=str, default='True', 
-            help='Write KML of flight track. Set "False" to disable.')
+                        help=help)
+    parser.add_argument('-tail', dest='tail_number',
+                        default='G-FDSL', # as per flightdatacommunity file
+                        help='Aircraft tail number.')
+    parser.add_argument('-aircraft-model', dest='aircraft_model', type=str,
+                        help='Aircraft model.')
+    parser.add_argument('-aircraft-family', dest='aircraft_family', type=str,
+                        help='Aircraft family.')
+    parser.add_argument('-aircraft-series', dest='aircraft_series', type=str,
+                        help='Aircraft series.')
+    parser.add_argument('-aircraft-manufacturer', dest='aircraft_manufacturer',
+                        type=str, help='Aircraft manufacturer.')
+    help = 'Whether or not the aircraft records precise positioning parameters.'
+    parser.add_argument('-precise-positioning', dest='precise_positioning',
+                        type=str, help=help)
+    parser.add_argument('-frame', dest='frame', type=str, 
+                        help='Data frame name.')
+    parser.add_argument('-frame-qualifier', dest='frame_qualifier', type=str, 
+                        help='Data frame qualifier.')
+    parser.add_argument('-engine-manufacturer', dest='engine_manufacturer',
+                        type=str, help='Engine manufacturer.')
+    parser.add_argument('-engine-series', dest='engine_series', type=str,
+                        help='Engine series.')
+    parser.add_argument('-engine-type', dest='engine_type', type=str,
+                        help='Engine type.')
     
     args = parser.parse_args()
-    aircraft_info = {
-        'Tail Number': args.tail_number,
-        'Model': 'B737-301',
-        'Series': 'B737-300',
-        'Family': 'B737',
-        'Manufacturer': 'Boeing',
-        'Precise Positioning': False,
-        'Frame': args.frame,
-        'Frame Qualifier': 'Altitude_Radio_EFIS',
-        'Engine Series': 'PW4000-94',
-    }
+    aircraft_info = {'Tail Number': args.tail_number}
+    if args.aircraft_model:
+        aircraft_info['Model'] = args.aircraft_model
+    if args.aircraft_family:
+        aircraft_info['Series'] = args.aircraft_series
+    if args.aircraft_manufacturer:
+        aircraft_info['Manufacturer'] = args.aircraft_manufacturer
+    if args.precise_positioning:
+        aircraft_info['Precise Positioning'] = args.precise_positioning
+    if args.frame:
+        aircraft_info['Frame'] = args.frame
+    if args.frame_qualifier:
+        aircraft_info['Frame Qualifier'] = args.frame_qualifier
+    if args.engine_series:
+        aircraft_info['Engine Series'] = args.engine_series
+    if args.engine_manufacturer:
+        aircraft_info['Engine Manufacturer'] = args.engine_manufacturer
+    if args.engine_series:
+        aircraft_info['Engine Series'] = args.engine_series
+    if args.engine_type:
+        aircraft_info['Engine Type'] = args.engine_type
     
     # Derive parameters to new HDF
     hdf_copy = copy_file(args.file, postfix='_process')
@@ -551,3 +598,6 @@ if __name__ == '__main__':
     
     # - END -
     
+
+if __name__ == '__main__':
+    main()

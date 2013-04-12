@@ -4532,6 +4532,7 @@ class TAWSAlert(MultistateDerivedParameterNode):
     Merging all available TAWS alert signals into a single parameter for
     subsequent monitoring.
     '''
+    name = 'TAWS Alert'
     values_mapping = {
         0: '-',
         1: 'Alert'}
