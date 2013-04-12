@@ -531,9 +531,6 @@ def main():
     help = 'Write KML of flight track. Set "False" to disable.'
     parser.add_argument('-kml', dest='write_kml', type=str, default='True', 
                         help=help)
-    parser.add_argument('-tail', dest='tail_number',
-                        default='G-FDSL', # as per flightdatacommunity file
-                        help='Aircraft tail number.')
     parser.add_argument('-aircraft-model', dest='aircraft_model', type=str,
                         help='Aircraft model.')
     parser.add_argument('-aircraft-family', dest='aircraft_family', type=str,
