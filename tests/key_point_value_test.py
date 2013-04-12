@@ -149,6 +149,7 @@ from analysis_engine.key_point_values import (
     EngN2DuringTakeoff5MinRatingMax,
     EngN2DuringGoAround5MinRatingMax,
     EngN2DuringMaximumContinuousPowerMax,
+    EngN2CyclesDuringFinalApproach,
     EngN3DuringTaxiMax,
     EngN3DuringTakeoff5MinRatingMax,
     EngN3DuringGoAround5MinRatingMax,
@@ -321,6 +322,7 @@ from analysis_engine.key_point_values import (
     WindDirectionAtAltitudeDuringDescent,
     WindSpeedAtAltitudeDuringDescent,
     ZeroFuelWeight,
+    MasterWarningDuration,
     MasterWarningDuringTakeoffDuration,
     MasterCautionDuringTakeoffDuration,
     TakeoffConfigurationWarningDuration,
@@ -3043,6 +3045,17 @@ class TestEngN2MaximumContinuousPowerMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestEngN2CyclesDuringFinalApproach(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngN2CyclesDuringFinalApproach
+        self.operational_combinations = [('Eng (*) N2 Avg', 'Final Approach')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 ##############################################################################
 # Engine N3
 
@@ -5183,6 +5196,18 @@ class TestTailwind100FtToTouchdownMax(unittest.TestCase, NodeTest):
 
 ##############################################################################
 # Warnings: Takeoff Configuration Warning
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestMasterWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = MasterWarningDuration
+        self.operational_combinations = [('Master Warning',)]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 # TODO: Need a CreateKPVsWhereStateTest super class!

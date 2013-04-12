@@ -4,6 +4,10 @@
 ##############################################################################
 
 
+import os
+import sys
+
+
 # Note: Create an analyser_custom_settings.py module to override settings for
 # your local environment and append customised modules.
 
@@ -26,6 +30,15 @@ NODE_MODULES = ['analysis_engine.approaches',
 # API Handler Configuration:
 API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
 BASE_URL = ''  # Must be configured to use HTTP API handler.
+
+ANALYZER_PATH = os.path.dirname(os.path.realpath(
+    sys.executable if getattr(sys, 'frozen', False) else __file__))
+
+CONFIG_PATH = os.path.join(ANALYZER_PATH, 'config')
+
+LOCAL_API_AIRCRAFT_PATH = os.path.join(CONFIG_PATH, 'aircraft.yaml')
+LOCAL_API_AIRPORT_PATH = os.path.join(CONFIG_PATH, 'airports.yaml')
+LOCAL_API_RUNWAY_PATH = os.path.join(CONFIG_PATH, 'runways.yaml')
 
 # Location of the CA certificates to be used by the HTTP API handler:
 # Note: This is the system-wide default location on Ubuntu.

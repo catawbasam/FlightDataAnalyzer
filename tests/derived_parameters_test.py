@@ -98,6 +98,7 @@ from analysis_engine.derived_parameters import (
     LongitudePrepared,
     LongitudeSmoothed,
     Mach,
+    MasterWarning,
     Pitch,
     SpeedbrakeSelected,
     StableApproach,
@@ -4058,6 +4059,36 @@ class TestStableApproach(unittest.TestCase):
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
                [0, 1, 1, 4, 9, 2, 7, 7, 7, 7, 7, 3, 3, 7, 7, 7, 7, 9, 9, 9, 0])
+
+
+class TestMasterWarning(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = MasterWarning
+        self.operational_combinations = [
+            ('Master Warning (Capt)',),
+            ('Master Warning (FO)',),
+            ('Master Warning (Capt)', 'Master Warning (FO)'),
+        ]
+
+    def test_derive(self):
+        warn_capt = M(
+            name='Master Warning (Capt)',
+            array=np.ma.array(data=[0, 0, 0, 1, 1, 1]),
+            values_mapping={0: '-', 1: 'Warning'},
+            frequency=1,
+            offset=0.1,
+        )
+        warn_fo = M(
+            name='Master Warning (FO)',
+            array=np.ma.array(data=[0, 0, 1, 1, 0, 0]),
+            values_mapping={0: '-', 1: 'Warning'},
+            frequency=1,
+            offset=0.1,
+        )
+        node = self.node_class()
+        node.derive(warn_capt, warn_fo)
+        np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
 
 
 if __name__ == '__main__':

@@ -269,9 +269,9 @@ def get_derived_nodes(module_names):
     return nodes
 
 
-def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
-                   achieved_flight_record={}, required_params=[],
-                   include_flight_attributes=True):
+def process_flight(hdf_path, tail_number, aircraft_info={},
+                   start_datetime=datetime.now(), achieved_flight_record={},
+                   required_params=[], include_flight_attributes=True):
     '''
     Processes the HDF file (hdf_path) to derive the required_params (Nodes)
     within python modules (settings.NODE_MODULES).
@@ -430,16 +430,17 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
     '''
     logger.info("Processing: %s", hdf_path)
     
-    if aircraft_info.keys() == ['Tail Number']:
+    if aircraft_info:
+        # Aircraft info has already been provided.
+        logger.info(
+            "Using aircraft_info dictionary passed into process_flight '%s'." %
+            aircraft_info)
+    else:
         # Fetch aircraft info through the API.
         api_handler = get_api_handler(settings.API_HANDLER)
-        aircraft_info = api_handler.get_aircraft[aircraft_info['Tail Number']]
-    elif 'Tail Number' in aircraft_info.keys():
-        # Aircraft info has already been provided.
-        pass
-    else:
-        # 'Tail Number' key is required.
-        raise ValueError("Aircraft info must include a 'Tail Number' key.")
+        aircraft_info = api_handler.get_aircraft(tail_number)
+        logger.info("Using aircraft_info provided by '%s' '%s'.",
+                    api_handler.__class__.__name__, aircraft_info)
     
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(settings.NODE_MODULES)
@@ -461,9 +462,9 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         if hooks.PRE_FLIGHT_ANALYSIS:
             logger.info("Performing PRE_FLIGHT_ANALYSIS actions: %s", 
                          hooks.PRE_FLIGHT_ANALYSIS.func_name)
-            hooks.PRE_FLIGHT_ANALYSIS(hdf, aircraft_info)
+            hooks.PRE_FLIGHT_ANALYSIS(hdf, tail_number)
         else:
-            logger.info("No PRE_FLIGHT_ANALYSIS actions to perform")        
+            logger.info("No PRE_FLIGHT_ANALYSIS actions to perform")
         
         # Track nodes. Assume that all params in HDF are from LFL(!)
         node_mgr = NodeManager(
@@ -475,7 +476,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
         if settings.CACHE_PARAMETER_MIN_USAGE:
             # find params used more than
             for node in gr_st.nodes():
-                if node in node_mgr.derived_nodes:  
+                if node in node_mgr.derived_nodes:
                     # this includes KPV/KTIs but they'll be ignored by HDF
                     qty = len(gr_st.predecessors(node))
                     if qty > settings.CACHE_PARAMETER_MIN_USAGE:
@@ -522,21 +523,24 @@ def main():
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')
-    parser.add_argument('-tail', dest='tail_number', type=str, 
-                        default='G-FDSL', # as per flightdatacommunity file
-                        help='Aircraft Tail Number for processing.')
     help = 'Write CSV of processing results. Set "False" to disable.'
     parser.add_argument('-csv', dest='write_csv', type=str, default='True', 
                         help=help)
     help = 'Write KML of flight track. Set "False" to disable.'
     parser.add_argument('-kml', dest='write_kml', type=str, default='True', 
                         help=help)
-    parser.add_argument('-aircraft-model', dest='aircraft_model', type=str,
-                        help='Aircraft model.')
+
+    parser.add_argument('-tail', dest='tail_number',
+                        default='G-FDSL', # as per flightdatacommunity file
+                        help='Aircraft tail number.')
+    
+    # Aircraft info
     parser.add_argument('-aircraft-family', dest='aircraft_family', type=str,
                         help='Aircraft family.')
     parser.add_argument('-aircraft-series', dest='aircraft_series', type=str,
                         help='Aircraft series.')
+    parser.add_argument('-aircraft-model', dest='aircraft_model', type=str,
+                        help='Aircraft model.')    
     parser.add_argument('-aircraft-manufacturer', dest='aircraft_manufacturer',
                         type=str, help='Aircraft manufacturer.')
     help = 'Whether or not the aircraft records precise positioning parameters.'
@@ -546,6 +550,27 @@ def main():
                         help='Data frame name.')
     parser.add_argument('-frame-qualifier', dest='frame_qualifier', type=str, 
                         help='Data frame qualifier.')
+    parser.add_argument('-identifier', dest='identifier', type=str,
+                        help='Aircraft identifier.')
+    parser.add_argument('-manufacturer-serial-number',
+                        dest='manufacturer_serial_number', type=str,
+                        help="Manufacturer's serial number of the aircraft.")
+    parser.add_argument('-qar-serial-number', dest='qar_serial_number',
+                        type=str, help='QAR serial number.')
+    help = 'Main gear to radio altimeter antenna in metres.'
+    parser.add_argument('-main-gear-to-radio-altimeter-antenna',
+                        dest='main_gear_to_alt_rad',
+                        type=float, help=help)
+    help = 'Main gear to lowest point of tail in metres.'
+    parser.add_argument('-main-gear-to-lowest-point-of-tail',
+                        dest='main_gear_to_tail',
+                        type=float, help=help)
+    help = 'Ground to lowest point of tail in metres.'
+    parser.add_argument('-ground-to-lowest-point-of-tail',
+                        dest='ground_to_tail',
+                        type=float, help=help)
+    parser.add_argument('-engine-count', dest='engine_count',
+                        type=int, help='Number of engines.')
     parser.add_argument('-engine-manufacturer', dest='engine_manufacturer',
                         type=str, help='Engine manufacturer.')
     parser.add_argument('-engine-series', dest='engine_series', type=str,
@@ -554,7 +579,7 @@ def main():
                         help='Engine type.')
     
     args = parser.parse_args()
-    aircraft_info = {'Tail Number': args.tail_number}
+    aircraft_info = {}
     if args.aircraft_model:
         aircraft_info['Model'] = args.aircraft_model
     if args.aircraft_family:
@@ -567,6 +592,20 @@ def main():
         aircraft_info['Frame'] = args.frame
     if args.frame_qualifier:
         aircraft_info['Frame Qualifier'] = args.frame_qualifier
+    if args.identifier:
+        aircraft_info['Identifier'] = args.identifier
+    if args.manufacturer_serial_number:
+        aircraft_info['Manufacturer Serial Number'] = args.manufacturer_serial_number
+    if args.qar_serial_number:
+        aircraft_info['QAR Serial Number'] = args.qar_serial_number
+    if args.main_gear_to_alt_rad:
+        aircraft_info['Main Gear To Radio Altimeter Antenna'] = args.main_gear_to_alt_rad
+    if args.main_gear_to_tail:
+        aircraft_info['Main Gear To Lowest Point Of Tail'] = args.main_gear_to_tail
+    if args.ground_to_tail:
+        aircraft_info['Ground To Lowest Point Of Tail'] = args.ground_to_tail
+    if args.engine_count:
+        aircraft_info['Engine Count'] = args.engine_count
     if args.engine_series:
         aircraft_info['Engine Series'] = args.engine_series
     if args.engine_manufacturer:
@@ -578,7 +617,7 @@ def main():
     
     # Derive parameters to new HDF
     hdf_copy = copy_file(args.file, postfix='_process')
-    res = process_flight(hdf_copy, aircraft_info)
+    res = process_flight(hdf_copy, args.tail_number, aircraft_info=aircraft_info)
     logger.info("Derived parameters stored in hdf: %s", hdf_copy)
     # Write CSV file
     if args.write_csv.lower() == 'true':
