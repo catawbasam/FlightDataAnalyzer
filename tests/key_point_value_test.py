@@ -159,7 +159,7 @@ from analysis_engine.key_point_values import (
     EngOilQtyMax,
     EngOilQtyMin,
     EngOilTempMax,
-    EngOilTempFor15MinMax,
+    EngOilTempForXMinMax,
     EngTorqueDuringTaxiMax,
     EngTorqueDuringTakeoff5MinRatingMax,
     EngTorqueDuringGoAround5MinRatingMax,
@@ -3193,11 +3193,15 @@ class TestEngOilTempMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestEngOilTemp15MinuteMax(unittest.TestCase, NodeTest):
+class TestEngOilTempForXMinMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
-        self.node_class = EngOilTempFor15MinMax
+        self.node_class = EngOilTempForXMinMax
         self.operational_combinations = [('Eng (*) Oil Temp Max', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
 
     def test_derive_all_oil_data_masked(self):
         # This has been a specific problem, hence this test.
@@ -3205,9 +3209,9 @@ class TestEngOilTemp15MinuteMax(unittest.TestCase, NodeTest):
             name='Eng (*) Oil Temp Max',
             array=np.ma.array(data=range(123, 128), dtype=float, mask=True),
         )
-        node = EngOilTempFor15MinMax()
+        node = EngOilTempForXMinMax()
         node.derive(oil_temp)
-        self.assertEqual(node, KPV('Eng Oil Temp For 15 Min Max', items=[]))
+        self.assertEqual(node, KPV('Eng Oil Temp For X Min Max', items=[]))
 
 
 ##############################################################################

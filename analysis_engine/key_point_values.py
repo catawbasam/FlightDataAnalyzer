@@ -4452,11 +4452,13 @@ class EngOilTempMax(KeyPointValueNode):
         self.create_kpvs_within_slices(oil_temp.array, airborne, max_value)
 
 
-class EngOilTempFor15MinMax(KeyPointValueNode):
+class EngOilTempForXMinMax(KeyPointValueNode):
     '''
-    Maximum oil temperature sustained for 15 minutes.
+    Maximum oil temperature sustained for X minutes.
     '''
 
+    NAME_FORMAT = 'Eng Oil Temp For %(minutes)d Min Max'
+    NAME_VALUES = {'minutes': [15, 20]}
     units = 'C'
 
     def derive(self,
@@ -4467,12 +4469,15 @@ class EngOilTempFor15MinMax(KeyPointValueNode):
         # future:
         if np.ma.count(oil_temp.array) == 0:
             return
-        oil_15 = clip(oil_temp.array, 15 * 60, oil_temp.hz)
-        # There have been cases where there were no valid oil temperature
-        # measurements throughout the flight, in which case there's no point
-        # testing for a maximum:
-        if oil_15 is not None:
-            self.create_kpv(*max_value(oil_15))
+
+        for minutes in self.NAME_VALUES['minutes']:
+
+            oil_sustained = clip(oil_temp.array, minutes * 60, oil_temp.hz)
+            # There have been cases where there were no valid oil temperature
+            # measurements throughout the flight, in which case there's no
+            # point testing for a maximum:
+            if oil_sustained is not None:
+                self.create_kpv(*max_value(oil_sustained), minutes=minutes)
 
 
 ##############################################################################
