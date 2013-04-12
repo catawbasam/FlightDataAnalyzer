@@ -1000,6 +1000,9 @@ def clip(array, period, hz=1.0, remove='peaks'):
     :param remove: type of data to clip.
     :type remove: string, default to 'peaks' option 'troughs'
     '''
+    if remove not in ['peaks', 'troughs']:
+        raise ValueError('Clip called with unrecognised removal mode')
+
     if hz <= 0.01:
         raise ValueError('Duration called with sample rate outside permitted range')
 
@@ -1007,10 +1010,9 @@ def clip(array, period, hz=1.0, remove='peaks'):
     # Trap low values. This can occur, for an example, where a parameter has
     # a lower sample rate than expected.
     if delay < 1:
-        raise ValueError('Duration called with period too short to have an effect')
-    if remove not in ['peaks', 'troughs']:
-        raise ValueError('Clip called with unrecognised removal mode')
-
+        logger.warning('Duration called with period too short to have an effect')
+        return array
+    
     # Width is the number of samples to be computed, allowing for delay
     # period before and after.
     width = len(array) - 2*delay

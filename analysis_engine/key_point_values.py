@@ -3959,7 +3959,7 @@ class EngGasTempDuringEngStartForXSecMax(KeyPointValueNode):
                 continue
 
             array = clip(eng_egt_max.array, seconds, hz=eng_egt_max.hz)
-            self.create_kpvs_within_slices(array, slices, max_value)
+            self.create_kpvs_within_slices(array, slices, max_value, seconds=seconds)
 
 
 class EngGasTempDuringFlightMin(KeyPointValueNode):
