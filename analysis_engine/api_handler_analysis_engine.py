@@ -125,7 +125,25 @@ class AnalysisEngineAPIHandlerDummy(AnalysisEngineAPI):
 class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
     '''
     '''
-
+    
+    def get_aircraft(self, tail_number):
+        '''
+        Will either return an aircraft matching the tail number or raise an
+        exception if one cannot be found.
+        
+        :param tail_number: Aircraft tail number.
+        :type tail_number: str
+        :raises NotFoundError: If the aircraft cannot be found.
+        :returns: Aircraft info dictionary
+        :rtype: dict
+        '''
+        from analysis_engine.settings import BASE_URL
+        url = '%(base_url)s/api/aircraft/%(tail_number)s/' % {
+            'base_url': BASE_URL.rstrip('/'),
+            'tail_number': tail_number,
+        }
+        return self._attempt_request(url)['aircraft']
+    
     def get_airport(self, code):
         '''
         Will either return an airport matching the code or raise an exception
@@ -133,7 +151,7 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
 
         :param code: Either the id, ICAO or IATA of the airport.
         :type code: int or str
-        :raises NotFoundError: If airport cannot be found.
+        :raises NotFoundError: If the airport cannot be found.
         :returns: Airport info dictionary.
         :rtype: dict
         '''
@@ -153,7 +171,6 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         :type latitude: float
         :param longitude: Longitude in decimal degrees.
         :type longitude: float
-        :raises NotFoundError: If airport cannot be found.
         :raises InvalidAPIInputError: If latitude or longitude are out of
                 bounds.
         :returns: Airport info dictionary.
@@ -185,7 +202,7 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         :param hint: Whether we are looking up a runway for 'takeoff',
                 'landing', or 'approach'.
         :type hint: str
-        :raises NotFoundError: If runway cannot be found.
+        :raises NotFoundError: If the runway cannot be found.
         :raises InvalidAPIInputError: If latitude, longitude or heading are out
                 of bounds.
         :returns: Runway info in the format {'ident': '27*', 'items': [{# ...},
@@ -210,7 +227,9 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
         url += '?' + urllib.urlencode(params)
         runway = self._attempt_request(url)['runway']
         if not runway.get('end'):
-            raise IncompleteEntryError("Runway ident '%s' at '%s' has no end" % (runway.get('identifier', 'unknown'), airport))
+            raise IncompleteEntryError(
+                "Runway ident '%s' at '%s' has no end" %
+                (runway.get('identifier', 'unknown'), airport))
         return runway
 
 
@@ -219,111 +238,141 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
 
 class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
     
-    airports = [
-        {'code': {
-            'iata': 'KRS',
-            'icao': 'ENCN',
-            },
-         'elevation': 43,
-         'id': 2456,
-         'latitude': 58.2042,
-         'location': {
-             'city': 'Kjevik',
-             'country': 'Norway',
-             },         
-         'longitude': 8.08537,
-         'magnetic_variation': 'E000091 0106',
-         'name': 'Kristiansand Lufthavn Kjevik',
-         },
-        {'code': {
-             'iata': 'OSL',
-             'icao': 'ENGM',
-             },
-         'elevation': 689,
-         'id': 2461,
-         'latitude': 60.1939,
-         'location': {
-             'city': 'Oslo',
-             'country': 'Norway'
-             },
-         'longitude': 11.1004,
-         'magnetic_variation': 'E001226 0106',
-         'name': 'Oslo Gardermoen',
-         },
-    ]
-    runways = [
-        {'end': {
-            'elevation': 43,
-            'latitude': 58.211678,
-            'longitude': 8.095269,
-            },
-         'glideslope': {
-             'angle': 3.4, 
-             'elevation': 39, 
-             'latitude': 58.198664, 
-             'longitude': 8.080164, 
-             'threshold_distance': 720
-             },
-         'id': 8127,
-         'identifier': '04',
-         'localizer': {
-             'beam_width': 4.5,
-             'elevation': 43,
-             'frequency': 110300.0,
-             'heading': 36,
-             'latitude': 58.212397,
-             'longitude': 8.096228,
-             },         
-         'magnetic_heading': 33.9,
-         'start': {
-             'elevation': 26,
-             'latitude': 58.196703,
-             'longitude': 8.075406,
-             },         
-         'strip': {
-             'id': 4064,
-             'length': 6660,
-             'surface': 'ASP',
-             'width': 147,
-             },         
-         },
-        {'end': {
-            'elevation': 682,
-            'latitude': 60.216092,
-            'longitude': 11.091397,
-            },
-         'glideslope': {
-             'angle': 3.0,
-             'elevation': 669,
-             'latitude':  60.186858,
-             'longitude':  11.072234,
-             'threshold_distance': 943
-             },
-         'id': 8151,
-         'identifier': '01L',
-         'localizer': {
-             'beam_width': 4.5,
-             'elevation': 686,
-             'frequency': 110300.0,
-             'heading': 16,
-             'latitude': 60.219775,
-             'longitude': 11.093536,
-             },
-         'magnetic_heading': 13.7,
-         'start': {
-             'latitude': 60.185019,
-             'elevation': 650,
-             'longitude': 11.073491,
-             },
+    #airports = [
+        #{'code': {
+            #'iata': 'KRS',
+            #'icao': 'ENCN',
+            #},
+         #'elevation': 43,
+         #'id': 2456,
+         #'latitude': 58.2042,
+         #'location': {
+             #'city': 'Kjevik',
+             #'country': 'Norway',
+             #},         
+         #'longitude': 8.08537,
+         #'magnetic_variation': 'E000091 0106',
+         #'name': 'Kristiansand Lufthavn Kjevik',
+         #},
+        #{'code': {
+             #'iata': 'OSL',
+             #'icao': 'ENGM',
+             #},
+         #'elevation': 689,
+         #'id': 2461,
+         #'latitude': 60.1939,
+         #'location': {
+             #'city': 'Oslo',
+             #'country': 'Norway'
+             #},
+         #'longitude': 11.1004,
+         #'magnetic_variation': 'E001226 0106',
+         #'name': 'Oslo Gardermoen',
+         #},
+    #]
+    #runways = [
+        #{'end': {
+            #'elevation': 43,
+            #'latitude': 58.211678,
+            #'longitude': 8.095269,
+            #},
+         #'glideslope': {
+             #'angle': 3.4, 
+             #'elevation': 39, 
+             #'latitude': 58.198664, 
+             #'longitude': 8.080164, 
+             #'threshold_distance': 720
+             #},
+         #'id': 8127,
+         #'identifier': '04',
+         #'localizer': {
+             #'beam_width': 4.5,
+             #'elevation': 43,
+             #'frequency': 110300.0,
+             #'heading': 36,
+             #'latitude': 58.212397,
+             #'longitude': 8.096228,
+             #},         
+         #'magnetic_heading': 33.9,
+         #'start': {
+             #'elevation': 26,
+             #'latitude': 58.196703,
+             #'longitude': 8.075406,
+             #},         
+         #'strip': {
+             #'id': 4064,
+             #'length': 6660,
+             #'surface': 'ASP',
+             #'width': 147,
+             #},         
+         #},
+        #{'end': {
+            #'elevation': 682,
+            #'latitude': 60.216092,
+            #'longitude': 11.091397,
+            #},
+         #'glideslope': {
+             #'angle': 3.0,
+             #'elevation': 669,
+             #'latitude':  60.186858,
+             #'longitude':  11.072234,
+             #'threshold_distance': 943
+             #},
+         #'id': 8151,
+         #'identifier': '01L',
+         #'localizer': {
+             #'beam_width': 4.5,
+             #'elevation': 686,
+             #'frequency': 110300.0,
+             #'heading': 16,
+             #'latitude': 60.219775,
+             #'longitude': 11.093536,
+             #},
+         #'magnetic_heading': 13.7,
+         #'start': {
+             #'latitude': 60.185019,
+             #'elevation': 650,
+             #'longitude': 11.073491,
+             #},
          
-         'strip': {
-             'width': 147,
-             'length': 11811,
-             'id': 4076,
-             'surface': 'ASP',
-             }, 
-         },
-    ]
+         #'strip': {
+             #'width': 147,
+             #'length': 11811,
+             #'id': 4076,
+             #'surface': 'ASP',
+             #}, 
+         #},
+    #]
+    
+    def __init__(self):
+        '''
+        Load aircraft, airports and runways from yaml config files.
+        '''
+        from analysis_engine.settings import (
+            LOCAL_API_AIRCRAFT_PATH,
+            LOCAL_API_AIRPORT_PATH,
+            LOCAL_API_RUNWAY_PATH,
+        )
+        self.aircraft = yaml.safe_load(LOCAL_API_AIRCRAFT_PATH)
+        self.airports = yaml.safe_load(LOCAL_API_AIRPORT_PATH)
+        self.runways = yaml.safe_load(LOCAL_API_RUNWAY_PATH)
+    
+    def get_aircraft(self, tail_number):
+        '''
+        Will either return an aircraft matching the tail number or raise an
+        exception if one cannot be found.
+        
+        :param tail_number: Aircraft tail number.
+        :type tail_number: str
+        :raises NotFoundError: If the aircraft cannot be found.
+        :returns: Aircraft info dictionary
+        :rtype: dict
+        '''
+        try:
+            return self.aircraft[tail_number]
+        except KeyError:
+            raise NotFoundError("Local API Handler: Aircraft with tail number "
+                                "'%s' could not be found." % tail_number)
     
     def get_airport(self, code):
         '''
@@ -341,8 +390,8 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
                         airport['code'].get('icao')):
                 break
         else:
-            raise NotFoundError("Local API Handler: Airport with code '%s' could not be found." % 
-                                code)
+            raise NotFoundError("Local API Handler: Airport with code '%s' "
+                                "could not be found." % code)
         return airport
         
     
@@ -389,7 +438,7 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
             if hint == 'landing':
                 return self.runways[1]
         
-            raise NotFoundError('Local API Handler: Runway not found')
+            raise NotFoundError('Local API Handler: Runway could not be found')
         runways = []
         for runway in self.runways:
             runway = copy(runway)
