@@ -494,7 +494,7 @@ def process_flight(hdf_path, aircraft_info, start_datetime=datetime.now(),
             'phases' : section_list}
 
 
-if __name__ == '__main__':
+def main():
     print 'FlightDataAnalyzer (c) Copyright 2013 Flight Data Services, Ltd.'
     print '  - Powered by POLARIS'
     print '  - http://www.flightdatacommunity.com'
@@ -551,3 +551,6 @@ if __name__ == '__main__':
     
     # - END -
     
+
+if __name__ == '__main__':
+    main()
