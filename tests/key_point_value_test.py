@@ -133,6 +133,9 @@ from analysis_engine.key_point_values import (
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
     EngGasTempDuringMaximumContinuousPowerMax,
+    EngGasTempDuringMaximumContinuousPowerForXMinMax,
+    EngGasTempDuringEngStartMax,
+    EngGasTempDuringEngStartForXSecMax,
     EngGasTempDuringFlightMin,
     EngN1DuringTaxiMax,
     EngN1DuringApproachMax,
@@ -2819,11 +2822,33 @@ class TestEngGasTempDuringMaximumContinuousPowerMax(unittest.TestCase, NodeTest)
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngGasTempDuringEngStartMax(unittest.TestCase):
+class TestEngGasTempDuringMaximumContinuousPowerForXMinMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngGasTempDuringMaximumContinuousPowerForXMinMax
+        self.operational_combinations = [('Eng (*) Gas Temp Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
+    def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngGasTempDuringEngStartMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngGasTempDuringEngStartMax
+        self.operational_combinations = [('Eng (*) Gas Temp Max', 'Eng (*) N2 Min', 'Takeoff Turn Onto Runway')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngGasTempDuringEngStartForXSecMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngGasTempDuringEngStartForXSecMax
+        self.operational_combinations = [('Eng (*) Gas Temp Max', 'Eng (*) N2 Min', 'Takeoff Turn Onto Runway')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
