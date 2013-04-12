@@ -41,6 +41,14 @@ setup(
     extras_require=requirements.extras_require,
     dependency_links=requirements.dependency_links,
     test_suite='nose.collector',
+    entry_points={
+        'console_scripts': [
+            'FlightDataSplitter = analysis_engine.split_hdf_to_segments:main',
+            'FlightDataAnalyzer = analysis_engine.process_flight:main',
+        ],
+        'gui_scripts' : [],
+    },
+    
 )
 
 ################################################################################

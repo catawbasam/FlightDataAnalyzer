@@ -511,7 +511,7 @@ def process_flight(hdf_path, tail_number, aircraft_info={},
             'phases' : section_list}
 
 
-if __name__ == '__main__':
+def main():
     print 'FlightDataAnalyzer (c) Copyright 2013 Flight Data Services, Ltd.'
     print '  - Powered by POLARIS'
     print '  - http://www.flightdatacommunity.com'
@@ -529,6 +529,7 @@ if __name__ == '__main__':
     help = 'Write KML of flight track. Set "False" to disable.'
     parser.add_argument('-kml', dest='write_kml', type=str, default='True', 
                         help=help)
+
     parser.add_argument('-tail', dest='tail_number',
                         default='G-FDSL', # as per flightdatacommunity file
                         help='Aircraft tail number.')
@@ -633,3 +634,6 @@ if __name__ == '__main__':
     
     # - END -
     
+
+if __name__ == '__main__':
+    main()
