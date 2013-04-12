@@ -5490,3 +5490,26 @@ class ElevatorActuatorMismatch(DerivedParameterNode):
         
         self.array = amm
 
+
+class MasterWarning(MultistateDerivedParameterNode):
+    '''
+    Combine master warning for captain and first officer.
+    '''
+
+    values_mapping = {0: '-', 1: 'Warning'}
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               warn_capt=M('Master Warning (Capt)'),
+               warn_fo=M('Master Warning (FO)')):
+
+        self.array = vstack_params_where_state((
+            (warn_capt, 'Warning'),
+            (warn_fo, 'Warning'),
+        )).any(axis=0)
+
+
