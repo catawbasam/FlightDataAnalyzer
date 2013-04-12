@@ -321,6 +321,7 @@ from analysis_engine.key_point_values import (
     WindDirectionAtAltitudeDuringDescent,
     WindSpeedAtAltitudeDuringDescent,
     ZeroFuelWeight,
+    MasterWarningDuration,
     MasterWarningDuringTakeoffDuration,
     MasterCautionDuringTakeoffDuration,
     TakeoffConfigurationWarningDuration,
@@ -5183,6 +5184,18 @@ class TestTailwind100FtToTouchdownMax(unittest.TestCase, NodeTest):
 
 ##############################################################################
 # Warnings: Takeoff Configuration Warning
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestMasterWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = MasterWarningDuration
+        self.operational_combinations = [('Master Warning',)]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 # TODO: Need a CreateKPVsWhereStateTest super class!

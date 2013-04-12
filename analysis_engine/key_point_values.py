@@ -6402,6 +6402,26 @@ class Tailwind100FtToTouchdownMax(KeyPointValueNode):
 # Warnings: Master Caution/Warning
 
 
+class MasterWarningDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Master Caution or Master Warning
+    triggered during takeoff. The idea of this is to inform the analyst of
+    any possible distractions to the pilot"
+    '''
+
+    units = 's'
+
+    def derive(self,
+               warning=M('Master Warning')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            warning.array,
+            warning.hz,
+        )
+
+
 class MasterWarningDuringTakeoffDuration(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
