@@ -406,29 +406,18 @@ class F28_0070(VelocitySpeed):
 ##############################################################################
 # Constants
 
-
-AIRCRAFT_FAMILY_VELOCITY_SPEED_MAP = {
-    'B767': B767,
-}
-
-
-AIRCRAFT_SERIES_VELOCITY_SPEED_MAP = {
-    'B737-300': B737_300,
-    'B737-300(QC)': B737_300,
-    'B737-400': B737_400,
-    'B737-500': B737_500,
-    'F28-0070': F28_0070,
-}
-
-
-AIRCRAFT_FAMILY_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
-}
-
-
-AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
+VELOCITY_SPEED_MAP = {
     # All combinations listed
-    # TODO: better lookup solution needed
+    # Boeing
+    ('B737-300', None): B737_300,
+    ('B737-300(QC)', None): B737_300,
+    ('B737-400', None): B737_400,
+    ('B737-500', None): B737_500,
+
     ('B757-200', 'RB211-535'): B757_200_RB211_535,
+    ('B757-200', 'RB211-535C-37'): B757_200_RB211_535C_37,
+
+    ('B767', None): B767,
     ('B767-200', 'CF6-80A'): B767_200_CF6_80A,
     ('B767-200(F)', 'CF6-80A'): B767_200_CF6_80A,
     ('B767-200(ER)', 'CF6-80A'): B767_200_CF6_80A,
@@ -441,6 +430,9 @@ AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
     ('B767-300(ER)', 'PW4000-94'): B767_300_PW4000_94,
     ('B767-300F(ER)', 'PW4000-94'): B767_300_PW4000_94,
     ('B767-300(ER/F)', 'PW4000-94'): B767_300_PW4000_94,
+    
+    # Fokker
+    ('F28-0070', None): F28_0070,
 }
 
 
@@ -448,7 +440,7 @@ AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
 # Functions
 
 
-def get_vspeed_map(series=None, family=None, engine=None):
+def get_vspeed_map(series=None, family=None, engine_series=None, engine_type=None):
     '''
     Accessor for fetching velocity speed table classes.
 
@@ -456,23 +448,22 @@ def get_vspeed_map(series=None, family=None, engine=None):
     :type series: string
     :param family: An aircraft family e.g. B737
     :type family: string
-    :param engine: An engine series e.g. CF6-80C2
-    :type engine: string
+    :param engine_series: An engine series e.g. CF6-80C2
+    :type engine_series: string
     :returns: associated VelocitySpeed class
     :rtype: VelocitySpeed
     :raises: KeyError -- if no velocity speed mapping found.
     '''
-    if (series, engine) in AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP:
-        return AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP[(series, engine)]
+    lookup_combinations = ((series, engine_type),
+                           (family, engine_type),
+                           (series, engine_series),
+                           (family, engine_series),
+                           (series, None),
+                           (family, None))
 
-    if (family, engine) in AIRCRAFT_FAMILY_ENGINE_SERIES_VELOCITY_SPEED_MAP:
-        return AIRCRAFT_FAMILY_ENGINE_SERIES_VELOCITY_SPEED_MAP[(family, engine)]
-
-    if series in AIRCRAFT_SERIES_VELOCITY_SPEED_MAP:
-        return AIRCRAFT_SERIES_VELOCITY_SPEED_MAP[series]
-
-    if family in AIRCRAFT_FAMILY_VELOCITY_SPEED_MAP:
-        return AIRCRAFT_FAMILY_VELOCITY_SPEED_MAP[family]
+    for combination in lookup_combinations:
+        if combination in VELOCITY_SPEED_MAP:
+            return VELOCITY_SPEED_MAP[combination]
 
     msg = "No velocity speed table mapping for series '%s' or family '%s'."
     raise KeyError(msg % (series, family))

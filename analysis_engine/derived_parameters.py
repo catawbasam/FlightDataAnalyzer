@@ -351,7 +351,8 @@ class AirspeedReference(DerivedParameterNode):
                tdwn=KTI('Touchdown'),
                series=A('Series'),
                family=A('Family'),
-               engine=A('Engine Series')):
+               engine=A('Engine Series'),
+               engine_type=A('Engine Type')):
         '''
         Raises KeyError if no entires for Family/Series in vspeed lookup map.
         '''
@@ -379,7 +380,7 @@ class AirspeedReference(DerivedParameterNode):
             # Better:
             self.array = np_ma_masked_zeros_like(spd.array)
 
-            x = map(lambda x: x.value if x else None, (series, family, engine))
+            x = map(lambda x: x.value if x else None, (series, family, engine, engine_type))
             vspeed_class = get_vspeed_map(*x)
 
             if vspeed_class:
@@ -4635,7 +4636,8 @@ class V2(DerivedParameterNode):
                weight_liftoff=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
                family=A('Family'),
-               engine=A('Engine Series')):
+               engine=A('Engine Series'),
+               engine_type=A('Engine Type')):
 
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(spd.array)
@@ -4649,7 +4651,7 @@ class V2(DerivedParameterNode):
             # Airbus
             self.array = np.ma.where(spd_ctrl.array==1,spd_sel.array,np.ma.masked)
         elif weight_liftoff:
-            x = map(lambda x: x.value if x else None, (series, family, engine))
+            x = map(lambda x: x.value if x else None, (series, family, engine, engine_type))
             vspeed_class = get_vspeed_map(*x)
             setting_param = flap or conf
             if vspeed_class:
