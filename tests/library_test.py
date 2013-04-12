@@ -1052,11 +1052,12 @@ class TestClip(unittest.TestCase):
         output_array = np.array([600.0,600.0,600.0,700.0,800.0,910.0,920.0,\
                                 890.0,840.0,730.0,730.0,730.0])
         result = clip(engine_egt,5)
+        '''
         import matplotlib.pyplot as plt
         plt.plot(result)
         plt.plot(engine_egt)
         plt.show()
-        
+        '''
         np.testing.assert_array_equal(result, output_array)
 
     def test_clip_correct_result(self):
@@ -1065,7 +1066,7 @@ class TestClip(unittest.TestCase):
 
     def test_clip_rejects_negative_period(self):
         an_array = np.array([0,1])
-        self.assertRaises(ValueError, clip, an_array, -0.2)
+        np.testing.assert_array_equal(clip(an_array, -1.0), an_array)
 
     def test_clip_rejects_negative_hz(self):
         an_array = np.array([0,1])
@@ -1073,7 +1074,7 @@ class TestClip(unittest.TestCase):
 
     def test_clip_rejects_zero_period(self):
         an_array = np.array([0,1])
-        self.assertRaises(ValueError, clip, an_array, 0.0)
+        np.testing.assert_array_equal(clip(an_array, 0.0), an_array)
 
     def test_clip_rejects_zero_hz(self):
         an_array = np.array([0,1])
@@ -2505,7 +2506,7 @@ class TestBlendParameters(unittest.TestCase):
         self.params = (p_alt_a, p_alt_b, p_alt_c)
         
     def test_blend_params_complex_example(self):
-        result = blend_parameters(self.params, offset=0.0, frequency=2.0, debug=True)
+        result = blend_parameters(self.params, offset=0.0, frequency=2.0, debug=False)
         expected = []
         ma_test.assert_almost_equal(result[30], 14.225, decimal=2)
         ma_test.assert_almost_equal(result[80], 1208.451, decimal=2)
