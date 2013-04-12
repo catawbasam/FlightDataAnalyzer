@@ -4249,6 +4249,25 @@ class EngN2DuringMaximumContinuousPowerMax(KeyPointValueNode):
         self.create_kpv_outside_slices(eng_n2_max.array, slices, max_value)
 
 
+class EngN2CyclesDuringFinalApproach(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng N2 Cycles During Final Approach'
+    units = 'cycles'
+
+    def derive(self,
+               eng_n2_avg=P('Eng (*) N2 Avg'),
+               fin_apps=S('Final Approach')):
+
+        for fin_app in fin_apps:
+            self.create_kpv(*cycle_counter(
+                eng_n2_avg.array[fin_app.slice],
+                10.0, 10.0, eng_n2_avg.hz,
+                fin_app.slice.start,
+            ))
+
+
 ##############################################################################
 # Engine N3
 
