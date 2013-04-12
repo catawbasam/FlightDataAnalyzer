@@ -9,6 +9,7 @@
 
 
 import urllib
+import yaml
 
 from abc import ABCMeta, abstractmethod
 from copy import copy
@@ -34,6 +35,24 @@ class AnalysisEngineAPI(object):
     '''
 
     __metaclass__ = ABCMeta
+    
+    @abstractmethod
+    def get_aircraft(self, tail_number):
+        '''
+        Will either return an aircraft matching the tail number or raise an
+        exception if one cannot be found.
+        
+        :param tail_number: Aircraft tail number.
+        :type tail_number: str
+        :raises NotFoundError: If the aircraft cannot be found.
+        :returns: Aircraft info dictionary
+        :rtype: dict
+        '''
+        try:
+            return self.aircraft[tail_number]
+        except KeyError:
+            raise NotFoundError("Local API Handler: Aircraft with tail number "
+                                "'%s' could not be found." % tail_number)
 
     @abstractmethod
     def get_airport(self, code):
@@ -238,112 +257,6 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
 
 class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
     
-    #airports = [
-        #{'code': {
-            #'iata': 'KRS',
-            #'icao': 'ENCN',
-            #},
-         #'elevation': 43,
-         #'id': 2456,
-         #'latitude': 58.2042,
-         #'location': {
-             #'city': 'Kjevik',
-             #'country': 'Norway',
-             #},         
-         #'longitude': 8.08537,
-         #'magnetic_variation': 'E000091 0106',
-         #'name': 'Kristiansand Lufthavn Kjevik',
-         #},
-        #{'code': {
-             #'iata': 'OSL',
-             #'icao': 'ENGM',
-             #},
-         #'elevation': 689,
-         #'id': 2461,
-         #'latitude': 60.1939,
-         #'location': {
-             #'city': 'Oslo',
-             #'country': 'Norway'
-             #},
-         #'longitude': 11.1004,
-         #'magnetic_variation': 'E001226 0106',
-         #'name': 'Oslo Gardermoen',
-         #},
-    #]
-    #runways = [
-        #{'end': {
-            #'elevation': 43,
-            #'latitude': 58.211678,
-            #'longitude': 8.095269,
-            #},
-         #'glideslope': {
-             #'angle': 3.4, 
-             #'elevation': 39, 
-             #'latitude': 58.198664, 
-             #'longitude': 8.080164, 
-             #'threshold_distance': 720
-             #},
-         #'id': 8127,
-         #'identifier': '04',
-         #'localizer': {
-             #'beam_width': 4.5,
-             #'elevation': 43,
-             #'frequency': 110300.0,
-             #'heading': 36,
-             #'latitude': 58.212397,
-             #'longitude': 8.096228,
-             #},         
-         #'magnetic_heading': 33.9,
-         #'start': {
-             #'elevation': 26,
-             #'latitude': 58.196703,
-             #'longitude': 8.075406,
-             #},         
-         #'strip': {
-             #'id': 4064,
-             #'length': 6660,
-             #'surface': 'ASP',
-             #'width': 147,
-             #},         
-         #},
-        #{'end': {
-            #'elevation': 682,
-            #'latitude': 60.216092,
-            #'longitude': 11.091397,
-            #},
-         #'glideslope': {
-             #'angle': 3.0,
-             #'elevation': 669,
-             #'latitude':  60.186858,
-             #'longitude':  11.072234,
-             #'threshold_distance': 943
-             #},
-         #'id': 8151,
-         #'identifier': '01L',
-         #'localizer': {
-             #'beam_width': 4.5,
-             #'elevation': 686,
-             #'frequency': 110300.0,
-             #'heading': 16,
-             #'latitude': 60.219775,
-             #'longitude': 11.093536,
-             #},
-         #'magnetic_heading': 13.7,
-         #'start': {
-             #'latitude': 60.185019,
-             #'elevation': 650,
-             #'longitude': 11.073491,
-             #},
-         
-         #'strip': {
-             #'width': 147,
-             #'length': 11811,
-             #'id': 4076,
-             #'surface': 'ASP',
-             #}, 
-         #},
-    #]
-    
     def __init__(self):
         '''
         Load aircraft, airports and runways from yaml config files.
@@ -353,9 +266,9 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
             LOCAL_API_AIRPORT_PATH,
             LOCAL_API_RUNWAY_PATH,
         )
-        self.aircraft = yaml.safe_load(LOCAL_API_AIRCRAFT_PATH)
-        self.airports = yaml.safe_load(LOCAL_API_AIRPORT_PATH)
-        self.runways = yaml.safe_load(LOCAL_API_RUNWAY_PATH)
+        self.aircraft = yaml.safe_load(open(LOCAL_API_AIRCRAFT_PATH, 'rb'))
+        self.airports = yaml.safe_load(open(LOCAL_API_AIRPORT_PATH, 'rb'))
+        self.runways = yaml.safe_load(open(LOCAL_API_RUNWAY_PATH, 'rb'))
     
     def get_aircraft(self, tail_number):
         '''

@@ -1,0 +1,24 @@
+- code:
+    iata: KRS
+    icao: ENCN
+  elevation: 43
+  id: 2456
+  latitude: 58.2042
+  location:
+    city: Kjevik
+    country: Norway
+  longitude: 8.08537
+  magnetic_variation: E000091 0106
+  name: Kristiansand Lufthavn Kjevik
+- code:
+    iata: OSL
+    icao: ENGM
+  elevation: 689
+  id: 2461
+  latitude: 60.1939
+  location:
+    city: Oslo
+    country: Norway
+  longitude: 11.1004
+  magnetic_variation: E001226 0106
+  name: Oslo Gardermoen
