@@ -4847,8 +4847,11 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             # Rescan the data to find the last point where the array data is
             # closing.
             diff = np.ma.ediff1d(array[_slice])
-            value = closest_unmasked_value(array, _slice.start or 0,
-                                           _slice=_slice)[1]
+            try:
+                value = closest_unmasked_value(array, _slice.start or 0,
+                                               _slice=_slice)[1]
+            except:
+                return None
             if threshold >= value:
                 diff_where = np.ma.where(diff < 0)
             else:
