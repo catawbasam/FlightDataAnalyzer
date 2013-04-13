@@ -4145,7 +4145,7 @@ def rms_noise(array, ignore_pc=None):
     diffs = local_diff[1:-1]
     if np.ma.count(diffs) == 0:
         return None
-    elif ignore_pc == None:
+    elif ignore_pc == None or ignore_pc/100.0*len(array)<1.0:
         to_rms = diffs
     else:
         monitor = slice(0, floor(len(diffs) * (1-ignore_pc/100.0)))

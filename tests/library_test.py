@@ -3244,6 +3244,14 @@ class TestRMSNoise(unittest.TestCase):
         expected = 11.2666
         self.assertAlmostEqual(result, expected, places=3)
 
+    def test_rms_noise_gave_nan(self):
+        # This case caused a significant failure when Altitude STD failed its
+        # noise test! Code changed to only remove extreme values when the
+        # array is long enough.
+        array = np.ma.array([-77.0, -61.0, -47.0])
+        result = rms_noise(array, ignore_pc=10)
+        expected = 1.0
+        self.assertEqual(result, expected)
 
 class TestRunwayDistanceFromEnd(unittest.TestCase):
     def test_null(self):
