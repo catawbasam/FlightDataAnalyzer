@@ -2682,9 +2682,15 @@ class FuelQty(DerivedParameterNode):
             else:
                 params.append(param)
 
-        stacked_params = vstack_params(*params)
-        self.array = np.ma.sum(stacked_params, axis=0)
-        self.offset = offset_select('mean', params)
+        try:
+            stacked_params = vstack_params(*params)
+            self.array = np.ma.sum(stacked_params, axis=0)
+            self.offset = offset_select('mean', params)
+        except:
+            # In the case where params are all invalid or empty, return an
+            # empty array like the last (inherently recorded) array.
+            self.array = np_ma_masked_zeros_like(param.array)
+            self.offset = 0.0
 
 
 ###############################################################################
@@ -4367,6 +4373,11 @@ class ThrustReversers(MultistateDerivedParameterNode):
             'Eng (1) Thrust Reverser Deployed',
             'Eng (2) Thrust Reverser Unlocked',
             'Eng (2) Thrust Reverser Deployed',
+        ), available) or all_of((
+            'Eng (1) Thrust Reverser In Transit',
+            'Eng (1) Thrust Reverser Deployed',
+            'Eng (2) Thrust Reverser In Transit',
+            'Eng (2) Thrust Reverser Deployed',        
         ), available)
 
     def derive(self,
