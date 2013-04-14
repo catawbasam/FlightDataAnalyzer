@@ -2276,7 +2276,7 @@ class AltitudeFirstStableDuringApproach(KeyPointValueNode):
                 continue
 
 
-class AltitudeLastUnStableDuringApproach(KeyPointValueNode):
+class AltitudeLastUnstableDuringApproach(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
 
