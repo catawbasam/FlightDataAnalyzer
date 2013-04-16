@@ -430,6 +430,7 @@ def process_flight(hdf_path, tail_number, aircraft_info={},
     '''
     logger.info("Processing: %s", hdf_path)
     
+    
     if aircraft_info:
         # Aircraft info has already been provided.
         logger.info(
@@ -441,6 +442,8 @@ def process_flight(hdf_path, tail_number, aircraft_info={},
         aircraft_info = api_handler.get_aircraft(tail_number)
         logger.info("Using aircraft_info provided by '%s' '%s'.",
                     api_handler.__class__.__name__, aircraft_info)
+    
+    aircraft_info['Tail Number'] = tail_number
     
     # go through modules to get derived nodes
     derived_nodes = get_derived_nodes(settings.NODE_MODULES)
