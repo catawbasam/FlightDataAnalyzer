@@ -28,7 +28,8 @@ NODE_MODULES = ['analysis_engine.approaches',
                 'analysis_engine.flight_phase',]
 
 # API Handler Configuration:
-API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
+LOCAL_API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
+API_HANDLER = LOCAL_API_HANDLER
 BASE_URL = ''  # Must be configured to use HTTP API handler.
 
 ANALYZER_PATH = os.path.dirname(os.path.realpath(

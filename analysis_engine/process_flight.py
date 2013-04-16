@@ -12,7 +12,7 @@ from flightdatautilities.filesystem_tools import copy_file
 from hdfaccess.file import hdf_file
 
 from analysis_engine import hooks, settings, __version__
-from analysis_engine.api_handler import get_api_handler
+from analysis_engine.api_handler import APIError, get_api_handler
 from analysis_engine.dependency_graph import dependency_order, graph_adjacencies
 from analysis_engine.library import np_ma_masked_zeros_like
 from analysis_engine.node import (ApproachNode, Attribute,
@@ -439,7 +439,20 @@ def process_flight(hdf_path, tail_number, aircraft_info={},
     else:
         # Fetch aircraft info through the API.
         api_handler = get_api_handler(settings.API_HANDLER)
-        aircraft_info = api_handler.get_aircraft(tail_number)
+        
+        try:
+            aircraft_info = api_handler.get_aircraft(tail_number)
+        except APIError:
+            if settings.API_HANDLER == settings.LOCAL_API_HANDLER:
+                raise
+            # Fallback to the local API handler.
+            logger.info(
+                "Aircraft '%s' could not be found with '%s' API handler. "
+                "Falling back to '%s'.", tail_number, settings.API_HANDLER,
+                settings.LOCAL_API_HANDLER)
+            api_handler = get_api_handler(settings.LOCAL_API_HANDLER)
+            aircraft_info = api_handler.get_aircraft(tail_number)
+        
         logger.info("Using aircraft_info provided by '%s' '%s'.",
                     api_handler.__class__.__name__, aircraft_info)
     
