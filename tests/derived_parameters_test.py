@@ -2369,9 +2369,12 @@ class TestV2(unittest.TestCase):
                 P(**hdf['Airspeed'].__dict__),
                 None,
                 None,
+                None,
+                None,
                 gw,
                 A('Series', value='B737-300'),
                 A('Family', value='B737 Classic'),
+                None,
                 None,
             ]
             param = V2()
