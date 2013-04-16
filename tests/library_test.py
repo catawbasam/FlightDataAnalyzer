@@ -1052,11 +1052,12 @@ class TestClip(unittest.TestCase):
         output_array = np.array([600.0,600.0,600.0,700.0,800.0,910.0,920.0,\
                                 890.0,840.0,730.0,730.0,730.0])
         result = clip(engine_egt,5)
+        '''
         import matplotlib.pyplot as plt
         plt.plot(result)
         plt.plot(engine_egt)
         plt.show()
-        
+        '''
         np.testing.assert_array_equal(result, output_array)
 
     def test_clip_correct_result(self):
@@ -1065,7 +1066,7 @@ class TestClip(unittest.TestCase):
 
     def test_clip_rejects_negative_period(self):
         an_array = np.array([0,1])
-        self.assertRaises(ValueError, clip, an_array, -0.2)
+        np.testing.assert_array_equal(clip(an_array, -1.0), an_array)
 
     def test_clip_rejects_negative_hz(self):
         an_array = np.array([0,1])
@@ -1073,7 +1074,7 @@ class TestClip(unittest.TestCase):
 
     def test_clip_rejects_zero_period(self):
         an_array = np.array([0,1])
-        self.assertRaises(ValueError, clip, an_array, 0.0)
+        np.testing.assert_array_equal(clip(an_array, 0.0), an_array)
 
     def test_clip_rejects_zero_hz(self):
         an_array = np.array([0,1])
@@ -1931,7 +1932,11 @@ class TestIndexAtValue(unittest.TestCase):
         array = np.ma.array([0,1,2,3,2,1,2,1])
         self.assertEquals (index_at_value(array, 3.1, slice(7, 0, -1), endpoint='nearest'), 3.0)
 
-
+    def test_index_at_value_all_masked(self):
+        array = np.ma.array(data=[1.,2.,3.],mask=[1,1,1])
+        self.assertEqual(index_at_value(array,2.5, slice(0,3), endpoint='closing'), None)
+        
+        
 class TestIndexClosestValue(unittest.TestCase):
     def test_index_closest_value(self):
         array = np.ma.array([1, 2, 3, 4, 5, 4, 3])
@@ -2508,7 +2513,7 @@ class TestBlendParameters(unittest.TestCase):
         self.params = (p_alt_a, p_alt_b, p_alt_c)
         
     def test_blend_params_complex_example(self):
-        result = blend_parameters(self.params, offset=0.0, frequency=2.0, debug=True)
+        result = blend_parameters(self.params, offset=0.0, frequency=2.0, debug=False)
         expected = []
         ma_test.assert_almost_equal(result[30], 14.225, decimal=2)
         ma_test.assert_almost_equal(result[80], 1208.451, decimal=2)
@@ -3246,6 +3251,14 @@ class TestRMSNoise(unittest.TestCase):
         expected = 11.2666
         self.assertAlmostEqual(result, expected, places=3)
 
+    def test_rms_noise_gave_nan(self):
+        # This case caused a significant failure when Altitude STD failed its
+        # noise test! Code changed to only remove extreme values when the
+        # array is long enough.
+        array = np.ma.array([-77.0, -61.0, -47.0])
+        result = rms_noise(array, ignore_pc=10)
+        expected = 1.0
+        self.assertEqual(result, expected)
 
 class TestRunwayDistanceFromEnd(unittest.TestCase):
     def test_null(self):

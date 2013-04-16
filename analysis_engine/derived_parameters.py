@@ -2683,9 +2683,15 @@ class FuelQty(DerivedParameterNode):
             else:
                 params.append(param)
 
-        stacked_params = vstack_params(*params)
-        self.array = np.ma.sum(stacked_params, axis=0)
-        self.offset = offset_select('mean', params)
+        try:
+            stacked_params = vstack_params(*params)
+            self.array = np.ma.sum(stacked_params, axis=0)
+            self.offset = offset_select('mean', params)
+        except:
+            # In the case where params are all invalid or empty, return an
+            # empty array like the last (inherently recorded) array.
+            self.array = np_ma_masked_zeros_like(param.array)
+            self.offset = 0.0
 
 
 ###############################################################################
@@ -4368,6 +4374,11 @@ class ThrustReversers(MultistateDerivedParameterNode):
             'Eng (1) Thrust Reverser Deployed',
             'Eng (2) Thrust Reverser Unlocked',
             'Eng (2) Thrust Reverser Deployed',
+        ), available) or all_of((
+            'Eng (1) Thrust Reverser In Transit',
+            'Eng (1) Thrust Reverser Deployed',
+            'Eng (2) Thrust Reverser In Transit',
+            'Eng (2) Thrust Reverser Deployed',        
         ), available)
 
     def derive(self,
@@ -4533,6 +4544,7 @@ class TAWSAlert(MultistateDerivedParameterNode):
     Merging all available TAWS alert signals into a single parameter for
     subsequent monitoring.
     '''
+    name = 'TAWS Alert'
     values_mapping = {
         0: '-',
         1: 'Alert'}
@@ -5491,4 +5503,27 @@ class ElevatorActuatorMismatch(DerivedParameterNode):
                                 self.frequency)
         
         self.array = amm
+
+
+class MasterWarning(MultistateDerivedParameterNode):
+    '''
+    Combine master warning for captain and first officer.
+    '''
+
+    values_mapping = {0: '-', 1: 'Warning'}
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               warn_capt=M('Master Warning (Capt)'),
+               warn_fo=M('Master Warning (FO)')):
+
+        self.array = vstack_params_where_state((
+            (warn_capt, 'Warning'),
+            (warn_fo, 'Warning'),
+        )).any(axis=0)
+
 

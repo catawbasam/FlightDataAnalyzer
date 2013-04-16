@@ -1000,6 +1000,9 @@ def clip(array, period, hz=1.0, remove='peaks'):
     :param remove: type of data to clip.
     :type remove: string, default to 'peaks' option 'troughs'
     '''
+    if remove not in ['peaks', 'troughs']:
+        raise ValueError('Clip called with unrecognised removal mode')
+
     if hz <= 0.01:
         raise ValueError('Duration called with sample rate outside permitted range')
 
@@ -1007,10 +1010,9 @@ def clip(array, period, hz=1.0, remove='peaks'):
     # Trap low values. This can occur, for an example, where a parameter has
     # a lower sample rate than expected.
     if delay < 1:
-        raise ValueError('Duration called with period too short to have an effect')
-    if remove not in ['peaks', 'troughs']:
-        raise ValueError('Clip called with unrecognised removal mode')
-
+        logger.warning('Duration called with period too short to have an effect')
+        return array
+    
     # Width is the number of samples to be computed, allowing for delay
     # period before and after.
     width = len(array) - 2*delay
@@ -4147,7 +4149,7 @@ def rms_noise(array, ignore_pc=None):
     diffs = local_diff[1:-1]
     if np.ma.count(diffs) == 0:
         return None
-    elif ignore_pc == None:
+    elif ignore_pc == None or ignore_pc/100.0*len(array)<1.0:
         to_rms = diffs
     else:
         monitor = slice(0, floor(len(diffs) * (1-ignore_pc/100.0)))
@@ -4849,8 +4851,11 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             # Rescan the data to find the last point where the array data is
             # closing.
             diff = np.ma.ediff1d(array[_slice])
-            value = closest_unmasked_value(array, _slice.start or 0,
-                                           _slice=_slice)[1]
+            try:
+                value = closest_unmasked_value(array, _slice.start or 0,
+                                               _slice=_slice)[1]
+            except:
+                return None
             if threshold >= value:
                 diff_where = np.ma.where(diff < 0)
             else:
