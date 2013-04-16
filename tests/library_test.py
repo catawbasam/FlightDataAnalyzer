@@ -14,7 +14,7 @@ from analysis_engine.flight_attribute import LandingRunway
 import flightdatautilities.masked_array_testutils as ma_test
 
 from analysis_engine.library import *
-from analysis_engine.node import (A, P, S, M, KTI, KeyTimeInstance)
+from analysis_engine.node import (A, P, S, M, KTI, KeyTimeInstance, Section)
 from analysis_engine.settings import METRES_TO_FEET
 from flight_phase_test import buildsections
 
@@ -1750,17 +1750,20 @@ class TestHashArray(unittest.TestCase):
         '''
 
         '''
-        self.assertEqual(hash_array(np.ma.arange(10)),
-                         hash_array(np.ma.arange(10)))
-        self.assertNotEqual(hash_array(np.ma.arange(10)),
-                            hash_array(np.ma.arange(1,11)))
+        section = [slice(0,10)]
+        self.assertEqual(hash_array(np.ma.arange(10), section, 5),
+                         hash_array(np.ma.arange(10), section, 5))
+        self.assertNotEqual(hash_array(np.ma.arange(10), section, 5),
+                            hash_array(np.ma.arange(1,11), section, 5))
         # Tests that mask contents affect the generated hash.
+        
         ma1 = np.ma.array(np.ma.arange(100,200), mask=[False] * 100)
         ma2 = np.ma.array(np.ma.arange(100,200),
                           mask=[False] * 50 + [True] + 49 * [False])
-        self.assertNotEqual(hash_array(ma1), hash_array(ma2))
-        self.assertEqual(hash_array(ma2), hash_array(ma2))
-        self.assertEqual(hash_array(np.ma.arange(10, dtype=np.float_)),
+        section = [slice(0,100)]
+        self.assertNotEqual(hash_array(ma1, section, 5), hash_array(ma2, section, 5))
+        self.assertEqual(hash_array(ma2, section, 5), hash_array(ma2, section, 5))
+        self.assertEqual(hash_array(np.ma.arange(10, dtype=np.float_), [slice(0,10)], 5),
             'c29605eb4e50fbb653a19f1a28c4f0955721419f989f1ffd8cb2ed6f4914bbea')
 
 

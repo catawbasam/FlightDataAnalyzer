@@ -85,6 +85,10 @@ AIRBORNE_THRESHOLD_TIME = 60  # secs
 # An airspeed below which you just can't possibly be flying.
 AIRSPEED_THRESHOLD = 80  # kts
 
+# Min number of samples to use when creating hash of airspeed
+# 32 samples is enough to exceed arinc and short enough to filter 
+AIRSPEED_HASH_MIN_SAMPLES = 32
+
 # Altitude AAL complementary filter timeconstant
 ALTITUDE_AAL_LAG_TC = 3.0
 

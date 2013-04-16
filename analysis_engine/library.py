@@ -2149,12 +2149,16 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     return lat_return, lon_return, wt
 
 
-def hash_array(array):
+def hash_array(array, sections, min_samples):
     '''
-    Creates a sha256 hash from the array's tostring() method.
+    Creates a sha256 hash from the array's tostring() method .
     '''
     checksum = sha256()
-    checksum.update(array.tostring())
+    for section in sections:
+        if section.stop - section.start < min_samples:
+            continue
+        checksum.update(array[section].tostring())
+
     return checksum.hexdigest()
 
 
