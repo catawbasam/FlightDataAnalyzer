@@ -3263,18 +3263,12 @@ class HeadingTrue(DerivedParameterNode):
     """
     Compensates for magnetic variation, which will have been computed previously.
     """
-    @classmethod
-    def can_operate(cls, available):
-        return 'Heading Continuous' in available
 
     units = 'deg'
     def derive(self, head=P('Heading Continuous'),
                var = P('Magnetic Variation')):
-        if var:
-            self.array = (head.array + var.array) % 360.0
-        else:
-            # Default to magnetic if we know no better.
-            self.array = head.array
+
+        self.array = (head.array + var.array) % 360.0
 
 
 class ILSFrequency(DerivedParameterNode):

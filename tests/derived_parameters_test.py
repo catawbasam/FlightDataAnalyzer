@@ -2140,8 +2140,7 @@ class TestHeadingTrueTrack(unittest.TestCase):
 class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(HeadingTrue.get_operational_combinations(),
-            [('Heading Continuous',),
-             ('Heading Continuous', 'Magnetic Variation')])
+            [('Heading Continuous', 'Magnetic Variation')])
         
     def test_basic(self):
         head = P('Heading Continuous', np.ma.array([0,5,6,355,356]))
