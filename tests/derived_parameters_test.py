@@ -1997,10 +1997,25 @@ class TestTrackDeviationFromRunway(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             TrackDeviationFromRunway.get_operational_combinations(),
-            [('Track True', 'Approach Information'),
+            [('Track True', 'FDR Takeoff Runway'),
+             ('Track True', 'Approach Information'),
+             ('Track', 'FDR Takeoff Runway'),
+             ('Track', 'Approach Information'),
+             ('Track True', 'Track', 'FDR Takeoff Runway'),
+             ('Track True', 'Track', 'Approach Information'),
              ('Track True', 'Takeoff', 'FDR Takeoff Runway'),
-             ('Track True', 'Takeoff', 'FDR Takeoff Runway',
-              'Approach Information')])
+             ('Track True', 'Takeoff', 'Approach Information'),
+             ('Track True', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track', 'Takeoff', 'FDR Takeoff Runway'),
+             ('Track', 'Takeoff', 'Approach Information'),
+             ('Track', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True', 'Track', 'Takeoff', 'FDR Takeoff Runway'),
+             ('Track True', 'Track', 'Takeoff', 'Approach Information'),
+             ('Track True', 'Track', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True', 'Track', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information')]
+        )
         
     def test_deviation(self):
         apps = App(items=[ApproachItem(
@@ -2038,7 +2053,7 @@ class TestTrackDeviationFromRunway(unittest.TestCase):
         takeoff = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_takeoff.nod'))
 
         deviation = TrackDeviationFromRunway()
-        deviation.get_derived((heading_track, takeoff, to_runway, apps))
+        deviation.get_derived((heading_track, None, takeoff, to_runway, apps))
         # check average stays close to 0
         self.assertAlmostEqual(np.ma.average(deviation.array[8775:8975]), 1.5, places = 1)
         self.assertAlmostEqual(np.ma.min(deviation.array[8775:8975]), -10.5, places = 1)
@@ -2436,7 +2451,14 @@ class TestHeadwind(unittest.TestCase):
 class TestWindAcrossLandingRunway(unittest.TestCase):
     def test_can_operate(self):
         opts = WindAcrossLandingRunway.get_operational_combinations()
-        self.assertEqual(opts, [('Wind Speed', 'Wind Direction Continuous', 'FDR Landing Runway')])
+        expected = [('Wind Speed', 'Wind Direction True Continuous', 'FDR Landing Runway'),
+                    ('Wind Speed', 'Wind Direction Continuous', 'Heading During Landing'),
+                    ('Wind Speed', 'Wind Direction True Continuous', 'Wind Direction Continuous', 'FDR Landing Runway'),
+                    ('Wind Speed', 'Wind Direction True Continuous', 'Wind Direction Continuous', 'Heading During Landing'),
+                    ('Wind Speed', 'Wind Direction True Continuous', 'FDR Landing Runway', 'Heading During Landing'),
+                    ('Wind Speed', 'Wind Direction Continuous', 'FDR Landing Runway', 'Heading During Landing'),
+                    ('Wind Speed', 'Wind Direction True Continuous', 'Wind Direction Continuous', 'FDR Landing Runway', 'Heading During Landing')]
+        self.assertEqual(opts, expected)
     
     def test_real_example(self):
         ws = P('Wind Speed', np.ma.array([84.0]))
@@ -2448,18 +2470,18 @@ class TestWindAcrossLandingRunway(unittest.TestCase):
                                   'longitude': 11.091663999999993}}
         
         walr = WindAcrossLandingRunway()
-        walr.derive(ws,wd,land_rwy)
+        walr.derive(ws,wd,None,land_rwy,None)
         expected = np.ma.array([50.55619778])
         self.assertAlmostEqual(walr.array.data, expected.data)
         
     def test_error_cases(self):
         ws = P('Wind Speed', np.ma.array([84.0]))
-        wd = P('Wind Direction Continuous', np.ma.array([-21]))
+        wd = P('Wind Direction True Continuous', np.ma.array([-21]))
         land_rwy = A('FDR Landing Runway')
         land_rwy.value = {}
         walr = WindAcrossLandingRunway()
 
-        walr.derive(ws,wd,land_rwy)
+        walr.derive(ws,wd,None,land_rwy,None)
         self.assertEqual(len(walr.array.data), len(ws.array.data))
         self.assertEqual(walr.array.data[0],0.0)
         self.assertEqual(walr.array.mask[0],1)
@@ -3960,13 +3982,13 @@ class TestApproachRange(TemporaryFileTest, unittest.TestCase):
 
     def test_range_basic(self):
         with hdf_file(self.test_file_path) as hdf:
-            hdg = hdf['Heading True Continuous']
+            hdg = hdf['Heading True']
             tas = hdf['Airspeed True']
             alt = hdf['Altitude AAL']
             glide = hdf['ILS Glideslope']
         
         ar = ApproachRange()    
-        ar.derive(None, None, glide, hdg, tas, alt, self.approaches)
+        ar.derive(None, glide, None, None, None, hdg, tas, alt, self.approaches)
         result = ar.array
         chunks = np.ma.clump_unmasked(result)
         self.assertEqual(len(chunks),2)
@@ -3975,15 +3997,14 @@ class TestApproachRange(TemporaryFileTest, unittest.TestCase):
         
     def test_range_full_param_set(self):
         with hdf_file(self.test_file_path) as hdf:
-            hdg = hdf['Heading True Continuous']
+            hdg = hdf['Track True']
             tas = hdf['Airspeed True']
             alt = hdf['Altitude AAL']
             glide = hdf['ILS Glideslope']
             gspd = hdf['Groundspeed']
-            drift = hdf['Drift']
         
         ar = ApproachRange()    
-        ar.derive(gspd, drift, glide, hdg, tas, alt, self.approaches)
+        ar.derive(gspd, glide, None, None, hdg, None, tas, alt, self.approaches)
         result = ar.array
         chunks = np.ma.clump_unmasked(result)
         self.assertEqual(len(chunks),2)

@@ -3781,23 +3781,24 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
             'Longitude Prepared',
             'Heading Continuous',
             'Approach Range',
-            'Heading True Continuous',
             'Airspeed True',
             'Precise Positioning',
             'Takeoff',
             'FDR Takeoff Runway',
             'Touchdown',
             'Approach Information',
-            'Mobile'), available)
+            'Mobile'), available) \
+               and any_of(('Heading True Continuous',
+                           'Heading Continuous'), available)
 
     units = 'deg'
 
     def derive(self, lat=P('Latitude Prepared'),
                lon=P('Longitude Prepared'),
-               head_mag=P('Heading Continuous'),
+               hdg_mag=P('Heading Continuous'),
                ils_loc=P('ILS Localizer'),
                app_range=P('Approach Range'),
-               hdg=P('Heading True Continuous'),
+               hdg_true=P('Heading True Continuous'),
                gspd=P('Groundspeed'),
                tas=P('Airspeed True'),
                precise=A('Precise Positioning'),
@@ -3809,8 +3810,10 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                ):
         precision = bool(getattr(precise, 'value', False))
 
-        if hdg is None:
-            hdg = head_mag
+        if hdg_true:
+            hdg = hdg_true
+        else:
+            hdg = hdg_mag
 
         lat_adj, lon_adj = self._adjust_track(
             lon, lat, ils_loc, app_range, hdg, gspd, tas, toff, toff_rwy, tdwns,
@@ -3845,10 +3848,10 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
 
     def derive(self, lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
-               head_mag=P('Heading Continuous'),
+               hdg_mag=P('Heading Continuous'),
                ils_loc = P('ILS Localizer'),
                app_range = P('Approach Range'),
-               hdg = P('Heading True Continuous'),
+               hdg_true = P('Heading True Continuous'),
                gspd = P('Groundspeed'),
                tas = P('Airspeed True'),
                precise =A('Precise Positioning'),
@@ -3860,8 +3863,11 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                ):
         precision = bool(getattr(precise, 'value', False))
 
-        if hdg == None:
-            hdg = head_mag
+        if hdg_true:
+            hdg = hdg_true
+        else:
+            hdg = hdg_mag
+
         lat_adj, lon_adj = self._adjust_track(lon, lat, ils_loc, app_range, hdg,
                                             gspd, tas, toff, toff_rwy,
                                             tdwns, approaches, mobile, precision)
@@ -3893,6 +3899,9 @@ class MagneticVariation(DerivedParameterNode):
     Africa or post-war zones. Also, by using the aircraft compass values to
     work out the variation, we inherently accommodate compass drift for that
     day.
+    
+    TODO: Can we calulate Magnetic Variation from the difference between
+    Heading and True Heading if both are recorded?
     """
 
     units = 'deg'
@@ -4164,19 +4173,20 @@ class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
 
     @classmethod
     def can_operate(cls, available):
-        return ('Longitude' in available and 'Latitude' in available) or\
-               ('Airspeed True' in available and \
-                'Heading True' in available and \
-                'Latitude At Liftoff' in available and \
-                'Longitude At Liftoff' in available and \
-                'Latitude At Touchdown' in available and \
-                'Longitude At Touchdown' in available)
+        return all_of(('Latitude', 'Longitude'), available) or\
+               (all_of(('Airspeed True',
+                       'Latitude At Liftoff',
+                       'Longitude At Liftoff',
+                       'Latitude At Touchdown',
+                       'Longitude At Touchdown'), available) and any_of(('Heading', 'Heading True'), available))
 
     # Note hdg is alignment master to force 1Hz operation when latitude &
     # longitude are only recorded at 0.25Hz.
     def derive(self,
                lat=P('Latitude'), lon=P('Longitude'),
-               hdg=P('Heading True'),tas=P('Airspeed True'),
+               hdg_mag=P('Heading'),
+               hdg_true=P('Heading True'),
+               tas=P('Airspeed True'),
                lat_lift=KPV('Latitude At Liftoff'),
                lon_lift=KPV('Longitude At Liftoff'),
                lat_land=KPV('Latitude At Touchdown'),
@@ -4189,6 +4199,10 @@ class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
             """
             self.array = self._smooth_coordinates(lon, lat)
         else:
+            if hdg_true:
+                hdg = hdg_true
+            else:
+                hdg = hdg_mag
             _, lon_array = air_track(lat_lift.get_first().value, lon_lift.get_first().value,
                                      lat_land.get_last().value, lon_land.get_last().value,
                                      tas.array, hdg.array, tas.frequency)
@@ -4203,19 +4217,20 @@ class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
 
     @classmethod
     def can_operate(cls, available):
-        return ('Latitude' in available and 'Longitude' in available) or\
-               ('Airspeed True' in available and \
-                'Heading True' in available and \
-                'Latitude At Liftoff' in available and \
-                'Longitude At Liftoff' in available and \
-                'Latitude At Touchdown' in available and \
-                'Longitude At Touchdown' in available)
+        return all_of(('Latitude', 'Longitude'), available) or\
+               (all_of(('Airspeed True',
+                       'Latitude At Liftoff',
+                       'Longitude At Liftoff',
+                       'Latitude At Touchdown',
+                       'Longitude At Touchdown'), available) and any_of(('Heading', 'Heading True'), available))
 
     # Note hdg is alignment master to force 1Hz operation when latitude &
     # longitude are only recorded at 0.25Hz.
     def derive(self,
                lat=P('Latitude'),lon=P('Longitude'),
-               hdg=P('Heading True'),tas=P('Airspeed True'),
+               hdg_mag=P('Heading'),
+               hdg_true=P('Heading True'),
+               tas=P('Airspeed True'),
                lat_lift=KPV('Latitude At Liftoff'),
                lon_lift=KPV('Longitude At Liftoff'),
                lat_land=KPV('Latitude At Touchdown'),
@@ -4224,6 +4239,10 @@ class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
         if lat and lon:
             self.array = self._smooth_coordinates(lat, lon)
         else:
+            if hdg_true:
+                hdg = hdg_true
+            else:
+                hdg = hdg_mag
             lat_array, _ = air_track(lat_lift.get_first().value, lon_lift.get_first().value,
                                      lat_land.get_last().value, lon_land.get_last().value,
                                      tas.array, hdg.array, tas.frequency)
@@ -4466,6 +4485,13 @@ class WindDirectionContinuous(DerivedParameterNode):
     def derive(self, wind_head=P('Wind Direction')):
         self.array = straighten_headings(wind_head.array)
 
+class WindDirectionTrueContinuous(DerivedParameterNode):
+    """
+    Like the aircraft heading, this does not jump as it passes through North.
+    """
+    units = 'deg'
+    def derive(self, wind_head=P('Wind Direction True')):
+        self.array = straighten_headings(wind_head.array)
 
 class Headwind(DerivedParameterNode):
     """
@@ -4681,20 +4707,34 @@ class WindAcrossLandingRunway(DerivedParameterNode):
     This is the windspeed across the final landing runway, positive wind from left to right.
     """
 
+    @classmethod
+    def can_operate(cls, available):
+        return all_of(('Wind Speed', 'Wind Direction True Continuous', 'FDR Landing Runway'), available) \
+               or \
+               all_of(('Wind Speed', 'Wind Direction Continuous', 'Heading During Landing',), available)
+
     units = 'kts'
 
-    def derive(self, windspeed=P('Wind Speed'), wind_dir=P('Wind Direction Continuous'),
-               land_rwy = A('FDR Landing Runway')):
+    def derive(self, windspeed=P('Wind Speed'),
+               wind_dir_true=P('Wind Direction True Continuous'),
+               wind_dir_mag=P('Wind Direction Continuous'),
+               land_rwy=A('FDR Landing Runway'),
+               land_hdg=KPV('Heading During Landing')):
 
-        if land_rwy and land_rwy.value:
+        if wind_dir_true and land_rwy and land_rwy.value:
+            # proceed with "True" values
+            wind_dir = wind_dir_true
             land_heading = runway_heading(land_rwy.value)
+        elif wind_dir_mag and land_hdg:
+            # proceed with "Magnetic" values
+            wind_dir = wind_dir_mag
+            land_heading = land_hdg
         else:
-            land_heading = None
+            # raise error if unable to calculate like for like whilst monitor how often this occurs
+            # self.array = np_ma_masked_zeros_like(windspeed.array)
+            raise ValueError("%s Cannot operate with available parameters", self.name)
 
-        if land_heading:
-            self.array = windspeed.array * np.ma.sin((land_heading - wind_dir.array)*deg2rad)
-        else:
-            self.array = np_ma_masked_zeros_like(wind_dir.array)
+        self.array = windspeed.array * np.ma.sin((land_heading - wind_dir.array)*deg2rad)
 
 
 class Aileron(DerivedParameterNode):
@@ -5024,22 +5064,40 @@ class ApproachRange(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        a = set(['Heading True Continuous','Airspeed True','Altitude AAL',
-                 'Approach Information'])
-        x = set(available)
-        return not (a - x)
+        return all_of((
+                    'Airspeed True',
+                    'Altitude AAL',
+                    'Approach Information'), available) \
+                       and any_of(('Heading True', 'Track True', 'Track'
+                                   'Heading'), available)
 
     def derive(self, gspd=P('Groundspeed'),
-               drift=P('Drift'),
                glide=P('ILS Glideslope'),
-               head=P('Heading True Continuous'),
+               trk_mag=P('Track'),
+               trk_true=P('Track True'),
+               hdg_mag=P('Heading'),
+               hdg_true=P('Heading True'),
                tas=P('Airspeed True'),
                alt_aal=P('Altitude AAL'),
                approaches=App('Approach Information'),
                ):
 
-        app_range = np_ma_masked_zeros_like(head.array)
-        freq = head.frequency
+        # Order Assumes Drift is more important than Magnetic Variation
+        if trk_true:
+            hdg = trk_true
+            magnetic = False
+        elif trk_mag:
+            hdg = trk_mag
+            magnetic = True
+        elif hdg_true:
+            hdg = hdg_true
+            magnetic = False
+        else:
+            hdg = hdg_mag
+            magnetic = True
+
+        app_range = np_ma_masked_zeros_like(hdg.array)
+        freq = hdg.frequency
 
         for approach in approaches:
             # We are going to reference the approach to a runway touchdown
@@ -5051,20 +5109,27 @@ class ApproachRange(DerivedParameterNode):
             # Retrieve the approach slice
             this_app_slice = approach.slice
 
+            kwargs = {'runway': runway}
+            
+            if magnetic:
+                try:
+                    # If magnetic heading is being used get magnetic heading
+                    # of runway
+                    kwargs = {'heading': runway['magnetic_heading']}
+                except KeyError:
+                    # If magnetic heading is not know for runway fallback to
+                    # true heading
+                    pass
+
             # What is the heading with respect to the runway centreline for this approach?
-            off_cl = (head.array[this_app_slice] - \
-                      runway_heading(approach.runway)) % 360.0
+            off_cl = runway_deviation(hdg.array[this_app_slice], **kwargs)
 
             # Use recorded groundspeed where available, otherwise
             # estimate range using true airspeed. This is because there
             # are aircraft which record ILS but not groundspeed data. In
             # either case the speed is referenced to the runway heading
             # in case of large deviations on the approach or runway.
-            if gspd and drift:
-                speed = gspd.array[this_app_slice] * \
-                    np.cos(np.radians(off_cl + drift.array[this_app_slice]))
-                freq = gspd.frequency
-            elif gspd:
+            if gspd:
                 speed = gspd.array[this_app_slice] * \
                     np.cos(np.radians(off_cl))
                 freq = gspd.frequency
@@ -5189,29 +5254,15 @@ class WindSpeed(DerivedParameterNode):
 
 class WindDirection(DerivedParameterNode):
     '''
-    Many aircraft have wind direction stored in true (not magnetic)
-    coordinates. Rather than making a distinction, we merge true and magnetic
-    wind into a single (albeit slightly ambiguous) parameter.
-
-    The Embraer 135-145 data frame includes two sources, hence the
-    alternative form.
+    The Embraer 135-145 data frame includes two sources
     '''
-    @classmethod
-    def can_operate(cls, available):
-        return 'Wind Direction True' in available or \
-               ('Wind Direction (1)' in available and\
-                'Wind Direction (2)' in available)
 
     units = 'deg'
 
-    def derive(self, wind_true=P('Wind Direction True'),
-               wind_1=P('Wind Direction (1)'),
-               wind_2=P('Wind Direction (2)')):
-        if wind_true:
-            self.array = wind_true.array
-        else:
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(wind_1, wind_2)
+    def derive(self, wind_1=P('Wind Direction (1)'),
+                       wind_2=P('Wind Direction (2)')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(wind_1, wind_2)
 
 
 class WheelSpeedInboard(DerivedParameterNode):
@@ -5286,35 +5337,44 @@ class TrackDeviationFromRunway(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return (('Track True', 'Approach Information') == available) or \
-                all_of(('Track True', 'Takeoff', 'FDR Takeoff Runway'),
-                       available)
+        return any_of(('Approach Information', 'FDR Takeoff Runway'), available) \
+               and any_of(('Track', 'Track True'), available)
 
-    def derive(self, heading_track=P('Track True'),
+    def _track_deviation(self, array, _slice, rwy, magnetic=False):
+        kwargs = {'runway': rwy}
+
+        if magnetic:
+            try:
+                # If magnetic heading is being used get magnetic heading
+                # of runway
+                kwargs = {'heading': rwy['magnetic_heading']}
+            except KeyError:
+                # If magnetic heading is not know for runway fallback to
+                # true heading
+                pass
+
+        self.array[_slice] = runway_deviation(array[_slice], **kwargs)
+
+    def derive(self, track_true=P('Track True'),
+               track_mag=P('Track'),
                takeoff=S('Takeoff'),
                to_rwy=A('FDR Takeoff Runway'),
                apps=App('Approach Information')):
+        
+        if track_true:
+            magnetic = False
+            track = track_true
+        else:
+            magnetic = True
+            track = track_mag
 
-        self.array = np_ma_masked_zeros_like(heading_track.array)
+        self.array = np_ma_masked_zeros_like(track.array)
 
         for approach in apps:
-            _slice = approach.slice
-            try:
-                self.array[_slice] = \
-                    runway_deviation(heading_track.array[_slice],
-                                     approach.runway)
-            except (KeyError, ValueError):
-                # no runway identified in approach
-                continue
+            self._track_deviation(track.array, approach.slice, approach.runway, magnetic)
 
         if to_rwy:
-            try:
-                self.array[takeoff[0].slice] = \
-                    runway_deviation(heading_track.array[takeoff[0].slice],
-                                     to_rwy.value)
-            except (KeyError, ValueError):
-                # no runway identified during Takeoff
-                pass
+            self._track_deviation(track.array, takeoff[0].slice, to_rwy.value, magnetic)
 
 
 class StableApproach(MultistateDerivedParameterNode):
