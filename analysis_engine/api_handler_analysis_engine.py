@@ -7,7 +7,8 @@
 ##############################################################################
 # Imports
 
-
+import os
+import simplejson
 import urllib
 import yaml
 
@@ -257,6 +258,17 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
 
 class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
     
+    
+    @staticmethod
+    def _load_data(path):
+        '''
+        Support loading both yaml and json. yaml is too slow for large files.
+        '''
+        if os.path.splitext(path)[1] == '.json':
+            return simplejson.load(open(path, 'rb'))
+        else:
+            return yaml.load(open(path, 'rb'))
+    
     def __init__(self):
         '''
         Load aircraft, airports and runways from yaml config files.
@@ -266,9 +278,9 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
             LOCAL_API_AIRPORT_PATH,
             LOCAL_API_RUNWAY_PATH,
         )
-        self.aircraft = yaml.safe_load(open(LOCAL_API_AIRCRAFT_PATH, 'rb'))
-        self.airports = yaml.safe_load(open(LOCAL_API_AIRPORT_PATH, 'rb'))
-        self.runways = yaml.safe_load(open(LOCAL_API_RUNWAY_PATH, 'rb'))
+        self.aircraft = self._load_data(LOCAL_API_AIRCRAFT_PATH)
+        self.airports = self._load_data(LOCAL_API_AIRPORT_PATH)
+        self.runways = self._load_data(LOCAL_API_RUNWAY_PATH)
     
     def get_aircraft(self, tail_number):
         '''
