@@ -25,14 +25,14 @@ Source Code
 
 Source code is available from `GitHub`_:
 
-* https://github.com/FlightDataServices/FlightDataAnalyser
+* https://github.com/FlightDataServices/FlightDataAnalyzer
 
 Documentation
 -------------
 
 Documentation is available from the `Python Package Index`_:
 
-* http://packages.python.org/FlightDataAnalyser/
+* http://packages.python.org/FlightDataAnalyzer/
 
 .. _Flight Data Services: http://www.flightdataservices.com/
 .. _Flight Data Community: http://www.flightdatacommunity.com/

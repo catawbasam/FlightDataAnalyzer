@@ -1000,6 +1000,9 @@ def clip(array, period, hz=1.0, remove='peaks'):
     :param remove: type of data to clip.
     :type remove: string, default to 'peaks' option 'troughs'
     '''
+    if remove not in ['peaks', 'troughs']:
+        raise ValueError('Clip called with unrecognised removal mode')
+
     if hz <= 0.01:
         raise ValueError('Duration called with sample rate outside permitted range')
 
@@ -1007,10 +1010,9 @@ def clip(array, period, hz=1.0, remove='peaks'):
     # Trap low values. This can occur, for an example, where a parameter has
     # a lower sample rate than expected.
     if delay < 1:
-        raise ValueError('Duration called with period too short to have an effect')
-    if remove not in ['peaks', 'troughs']:
-        raise ValueError('Clip called with unrecognised removal mode')
-
+        logger.warning('Duration called with period too short to have an effect')
+        return array
+    
     # Width is the number of samples to be computed, allowing for delay
     # period before and after.
     width = len(array) - 2*delay
@@ -1661,7 +1663,7 @@ def runway_distance_from_end(runway, *args, **kwds):
     else:
         return None
 
-def runway_deviation(array, runway={}, heading=0.0):
+def runway_deviation(array, runway={}, heading=None):
     '''
     Computes an array of heading deviations from the selected runway
     centreline calculated from latitude/longitude coordinates. For use with
@@ -1682,7 +1684,7 @@ def runway_deviation(array, runway={}, heading=0.0):
     :returns dev: array of heading deviations
     :type dev: Numpy masked array.
     '''
-    if heading:
+    if heading is not None:
         rwy_hdg = heading
     else:
         rwy_hdg = runway_heading(runway)
@@ -2149,12 +2151,16 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     return lat_return, lon_return, wt
 
 
-def hash_array(array):
+def hash_array(array, sections, min_samples):
     '''
-    Creates a sha256 hash from the array's tostring() method.
+    Creates a sha256 hash from the array's tostring() method .
     '''
     checksum = sha256()
-    checksum.update(array.tostring())
+    for section in sections:
+        if section.stop - section.start < min_samples:
+            continue
+        checksum.update(array[section].tostring())
+
     return checksum.hexdigest()
 
 
@@ -4143,7 +4149,7 @@ def rms_noise(array, ignore_pc=None):
     diffs = local_diff[1:-1]
     if np.ma.count(diffs) == 0:
         return None
-    elif ignore_pc == None:
+    elif ignore_pc == None or ignore_pc/100.0*len(array)<1.0:
         to_rms = diffs
     else:
         monitor = slice(0, floor(len(diffs) * (1-ignore_pc/100.0)))
@@ -4845,8 +4851,11 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             # Rescan the data to find the last point where the array data is
             # closing.
             diff = np.ma.ediff1d(array[_slice])
-            value = closest_unmasked_value(array, _slice.start or 0,
-                                           _slice=_slice)[1]
+            try:
+                value = closest_unmasked_value(array, _slice.start or 0,
+                                               _slice=_slice)[1]
+            except:
+                return None
             if threshold >= value:
                 diff_where = np.ma.where(diff < 0)
             else:

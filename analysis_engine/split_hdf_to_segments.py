@@ -9,8 +9,8 @@ from analysis_engine.datastructures import Segment
 from analysis_engine.node import P
 from analysis_engine.library import (align, calculate_timebase, hash_array,
                                      min_value, normalise, repair_mask,
-                                     rate_of_change, straighten_headings,
-                                     vstack_params)
+                                     rate_of_change, runs_of_ones, 
+                                     straighten_headings, vstack_params)
 
 from hdfaccess.file import hdf_file
 from hdfaccess.utils import write_segment
@@ -440,9 +440,10 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part,
         go_fast_index = spd_above_threshold[0][0]
         go_fast_datetime = \
             start_datetime + timedelta(seconds=int(go_fast_index))
-        # Identification of raw data airspeed hash (including all spikes etc)
-        airspeed_hash = hash_array(airspeed.data[airspeed.data > 
-                                                 settings.AIRSPEED_THRESHOLD])
+        # Identification of raw data airspeed hash
+        airspeed_hash_sections = runs_of_ones(airspeed.data > settings.AIRSPEED_THRESHOLD)
+        airspeed_hash = hash_array(airspeed.data,airspeed_hash_sections,
+                                   settings.AIRSPEED_HASH_MIN_SAMPLES)
     else:
         go_fast_index = None
         go_fast_datetime = None
@@ -516,8 +517,8 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
          
     return segments
 
-      
-if __name__ == '__main__':
+
+def main():
     print 'FlightDataSplitter (c) Copyright 2013 Flight Data Services, Ltd.'
     print '  - Powered by POLARIS'
     print '  - http://www.flightdatacommunity.com'
@@ -531,7 +532,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')
-    parser.add_argument('-tail', dest='tail_number', type=str, default='G-ABCD',
+    parser.add_argument('-tail', dest='tail_number', type=str, default='G-FDSL',
                         help='Aircraft Tail Number for processing.')
     args = parser.parse_args()
 
@@ -542,3 +543,6 @@ if __name__ == '__main__':
                                  draw=False)    
     pprint.pprint(segs)
 
+      
+if __name__ == '__main__':
+    main()

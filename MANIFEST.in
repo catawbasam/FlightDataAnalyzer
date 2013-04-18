@@ -17,4 +17,5 @@ exclude coverage.xml
 exclude nosetests.xml
 
 # Project specific
+recursive-include analysis_engine/config *
 exclude tests/AnalysisEngine_tests/*

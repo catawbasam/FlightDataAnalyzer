@@ -33,7 +33,7 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.coverage', 
               'sphinx.ext.pngmath', 
               'sphinx.ext.viewcode', 
-              'rst2pdf.pdfbuilder', 
+              #'rst2pdf.pdfbuilder',
               'sphinx.ext.graphviz',
               'sphinx.ext.inheritance_diagram',
               ]

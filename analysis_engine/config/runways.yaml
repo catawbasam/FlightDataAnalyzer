@@ -1,0 +1,58 @@
+- end:
+    elevation: 43
+    latitude: 58.211678
+    longitude: 8.095269
+  glideslope:
+    angle: 3.4
+    elevation: 39
+    latitude: 58.198664
+    longitude: 8.080164
+    threshold_distance: 720
+  id: 8127
+  identifier: '04'
+  localizer:
+    beam_width: 4.5
+    elevation: 43
+    frequency: 110300.0
+    heading: 36
+    latitude: 58.212397
+    longitude: 8.096228
+  magnetic_heading: 33.9
+  start:
+    elevation: 26
+    latitude: 58.196703
+    longitude: 8.075406
+  strip:
+    id: 4064
+    length: 6660
+    surface: ASP
+    width: 147
+- end:
+    elevation: 682
+    latitude: 60.216092
+    longitude: 11.091397
+  glideslope:
+    angle: 3.0
+    elevation: 669
+    latitude: 60.186858
+    longitude: 11.072234
+    threshold_distance: 943
+  id: 8151
+  identifier: 01L
+  localizer:
+    beam_width: 4.5
+    elevation: 686
+    frequency: 110300.0
+    heading: 16
+    latitude: 60.219775
+    longitude: 11.093536
+  magnetic_heading: 13.7
+  start:
+    elevation: 650
+    latitude: 60.185019
+    longitude: 11.073491
+  strip:
+    id: 4076
+    length: 11811
+    surface: ASP
+    width: 147

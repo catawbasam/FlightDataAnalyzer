@@ -73,6 +73,8 @@ from analysis_engine.derived_parameters import (
     Eng_VibN3Max,
     Eng_1_Fire,
     Eng_2_Fire,
+    Eng_3_Fire,
+    Eng_4_Fire,
     Eng_1_FuelBurn,
     Eng_2_FuelBurn,
     Eng_3_FuelBurn,
@@ -96,6 +98,7 @@ from analysis_engine.derived_parameters import (
     LongitudePrepared,
     LongitudeSmoothed,
     Mach,
+    MasterWarning,
     Pitch,
     SpeedbrakeSelected,
     StableApproach,
@@ -1994,10 +1997,25 @@ class TestTrackDeviationFromRunway(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             TrackDeviationFromRunway.get_operational_combinations(),
-            [('Track True', 'Approach Information'),
+            [('Track True', 'FDR Takeoff Runway'),
+             ('Track True', 'Approach Information'),
+             ('Track', 'FDR Takeoff Runway'),
+             ('Track', 'Approach Information'),
+             ('Track True', 'Track', 'FDR Takeoff Runway'),
+             ('Track True', 'Track', 'Approach Information'),
              ('Track True', 'Takeoff', 'FDR Takeoff Runway'),
-             ('Track True', 'Takeoff', 'FDR Takeoff Runway',
-              'Approach Information')])
+             ('Track True', 'Takeoff', 'Approach Information'),
+             ('Track True', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track', 'Takeoff', 'FDR Takeoff Runway'),
+             ('Track', 'Takeoff', 'Approach Information'),
+             ('Track', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True', 'Track', 'Takeoff', 'FDR Takeoff Runway'),
+             ('Track True', 'Track', 'Takeoff', 'Approach Information'),
+             ('Track True', 'Track', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True', 'Track', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information')]
+        )
         
     def test_deviation(self):
         apps = App(items=[ApproachItem(
@@ -2035,7 +2053,7 @@ class TestTrackDeviationFromRunway(unittest.TestCase):
         takeoff = load(os.path.join(test_data_path, 'HeadingDeviationFromRunway_takeoff.nod'))
 
         deviation = TrackDeviationFromRunway()
-        deviation.get_derived((heading_track, takeoff, to_runway, apps))
+        deviation.get_derived((heading_track, None, takeoff, to_runway, apps))
         # check average stays close to 0
         self.assertAlmostEqual(np.ma.average(deviation.array[8775:8975]), 1.5, places = 1)
         self.assertAlmostEqual(np.ma.min(deviation.array[8775:8975]), -10.5, places = 1)
@@ -2137,8 +2155,7 @@ class TestHeadingTrueTrack(unittest.TestCase):
 class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(HeadingTrue.get_operational_combinations(),
-            [('Heading Continuous',),
-             ('Heading Continuous', 'Magnetic Variation')])
+            [('Heading Continuous', 'Magnetic Variation')])
         
     def test_basic(self):
         head = P('Heading Continuous', np.ma.array([0,5,6,355,356]))
@@ -2367,9 +2384,12 @@ class TestV2(unittest.TestCase):
                 P(**hdf['Airspeed'].__dict__),
                 None,
                 None,
+                None,
+                None,
                 gw,
                 A('Series', value='B737-300'),
                 A('Family', value='B737 Classic'),
+                None,
                 None,
             ]
             param = V2()
@@ -2431,7 +2451,14 @@ class TestHeadwind(unittest.TestCase):
 class TestWindAcrossLandingRunway(unittest.TestCase):
     def test_can_operate(self):
         opts = WindAcrossLandingRunway.get_operational_combinations()
-        self.assertEqual(opts, [('Wind Speed', 'Wind Direction Continuous', 'FDR Landing Runway')])
+        expected = [('Wind Speed', 'Wind Direction True Continuous', 'FDR Landing Runway'),
+                    ('Wind Speed', 'Wind Direction Continuous', 'Heading During Landing'),
+                    ('Wind Speed', 'Wind Direction True Continuous', 'Wind Direction Continuous', 'FDR Landing Runway'),
+                    ('Wind Speed', 'Wind Direction True Continuous', 'Wind Direction Continuous', 'Heading During Landing'),
+                    ('Wind Speed', 'Wind Direction True Continuous', 'FDR Landing Runway', 'Heading During Landing'),
+                    ('Wind Speed', 'Wind Direction Continuous', 'FDR Landing Runway', 'Heading During Landing'),
+                    ('Wind Speed', 'Wind Direction True Continuous', 'Wind Direction Continuous', 'FDR Landing Runway', 'Heading During Landing')]
+        self.assertEqual(opts, expected)
     
     def test_real_example(self):
         ws = P('Wind Speed', np.ma.array([84.0]))
@@ -2443,18 +2470,18 @@ class TestWindAcrossLandingRunway(unittest.TestCase):
                                   'longitude': 11.091663999999993}}
         
         walr = WindAcrossLandingRunway()
-        walr.derive(ws,wd,land_rwy)
+        walr.derive(ws,wd,None,land_rwy,None)
         expected = np.ma.array([50.55619778])
         self.assertAlmostEqual(walr.array.data, expected.data)
         
     def test_error_cases(self):
         ws = P('Wind Speed', np.ma.array([84.0]))
-        wd = P('Wind Direction Continuous', np.ma.array([-21]))
+        wd = P('Wind Direction True Continuous', np.ma.array([-21]))
         land_rwy = A('FDR Landing Runway')
         land_rwy.value = {}
         walr = WindAcrossLandingRunway()
 
-        walr.derive(ws,wd,land_rwy)
+        walr.derive(ws,wd,None,land_rwy,None)
         self.assertEqual(len(walr.array.data), len(ws.array.data))
         self.assertEqual(walr.array.data[0],0.0)
         self.assertEqual(walr.array.mask[0],1)
@@ -2671,19 +2698,23 @@ class TestEng_1_Fire(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Eng (1) Fire On Ground', 'Eng (1) Fire In Air')]
 
     def test_derive(self):
-        fire_on_ground = M(array=np.ma.array(data=[0,0,0,1,1,1]),
-                   values_mapping={0: '-', 1: 'Warning'},
-                   name='Eng (1) Fire On Ground',
-                   frequency=1,
-                   offset=0.1)
-        fire_in_air = M(array=np.ma.array(data=[0,0,1,1,0,0]),
-                   values_mapping={0: '-', 1: 'Warning'},
-                   name='Eng (1) Fire On Ground',
-                   frequency=1,
-                   offset=0.1)
-        eng_1_fire=self.node_class()
-        eng_1_fire.derive(fire_on_ground, fire_in_air)
-        np.testing.assert_array_equal(eng_1_fire.array, [0,0,1,1,1,1])
+        fire_gnd = M(
+            name='Eng (1) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 0, 1, 1, 1]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        fire_air = M(
+            name='Eng (1) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 1, 1, 0, 0]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        node = self.node_class()
+        node.derive(fire_gnd, fire_air)
+        np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
 
 
 class TestEng_2_Fire(unittest.TestCase, NodeTest):
@@ -2693,19 +2724,86 @@ class TestEng_2_Fire(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Eng (2) Fire On Ground', 'Eng (2) Fire In Air')]
 
     def test_derive(self):
-        fire_on_ground = M(array=np.ma.array(data=[0,0,0,1,1,1]),
-                   values_mapping={0: '-', 1: 'Warning'},
-                   name='Eng (2) Fire On Ground',
-                   frequency=1,
-                   offset=0.1)
-        fire_in_air = M(array=np.ma.array(data=[0,0,1,1,0,0]),
-                   values_mapping={0: '-', 1: 'Warning'},
-                   name='Eng (2) Fire On Ground',
-                   frequency=1,
-                   offset=0.1)
-        eng_2_fire=self.node_class()
-        eng_2_fire.derive(fire_on_ground, fire_in_air)
-        np.testing.assert_array_equal(eng_2_fire.array, [0,0,1,1,1,1])
+        fire_gnd = M(
+            name='Eng (2) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 0, 1, 1, 1]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        fire_air = M(
+            name='Eng (2) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 1, 1, 0, 0]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        node = self.node_class()
+        node.derive(fire_gnd, fire_air)
+        np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
+
+
+class TestEng_3_Fire(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_3_Fire
+        self.operational_combinations = [('Eng (3) Fire On Ground', 'Eng (3) Fire In Air')]
+
+    def test_derive(self):
+        fire_gnd = M(
+            name='Eng (3) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 0, 1, 1, 1]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        fire_air = M(
+            name='Eng (3) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 1, 1, 0, 0]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        node = self.node_class()
+        node.derive(fire_gnd, fire_air)
+        np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
+
+
+class TestEng_4_Fire(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_4_Fire
+        self.operational_combinations = [('Eng (4) Fire On Ground', 'Eng (4) Fire In Air')]
+
+    def test_derive(self):
+        fire_gnd = M(
+            name='Eng (4) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 0, 1, 1, 1]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        fire_air = M(
+            name='Eng (4) Fire On Ground',
+            array=np.ma.array(data=[0, 0, 1, 1, 0, 0]),
+            values_mapping={0: '-', 1: 'Fire'},
+            frequency=1,
+            offset=0.1,
+        )
+        node = self.node_class()
+        node.derive(fire_gnd, fire_air)
+        np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
+
+
+class TestEng_1_FuelBurn(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_1_FuelBurn
+        self.operational_combinations = [('Eng (1) Fuel Flow', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_2_FuelBurn(unittest.TestCase, NodeTest):
@@ -3884,13 +3982,13 @@ class TestApproachRange(TemporaryFileTest, unittest.TestCase):
 
     def test_range_basic(self):
         with hdf_file(self.test_file_path) as hdf:
-            hdg = hdf['Heading True Continuous']
+            hdg = hdf['Heading True']
             tas = hdf['Airspeed True']
             alt = hdf['Altitude AAL']
             glide = hdf['ILS Glideslope']
         
         ar = ApproachRange()    
-        ar.derive(None, None, glide, hdg, tas, alt, self.approaches)
+        ar.derive(None, glide, None, None, None, hdg, tas, alt, self.approaches)
         result = ar.array
         chunks = np.ma.clump_unmasked(result)
         self.assertEqual(len(chunks),2)
@@ -3899,15 +3997,14 @@ class TestApproachRange(TemporaryFileTest, unittest.TestCase):
         
     def test_range_full_param_set(self):
         with hdf_file(self.test_file_path) as hdf:
-            hdg = hdf['Heading True Continuous']
+            hdg = hdf['Track True']
             tas = hdf['Airspeed True']
             alt = hdf['Altitude AAL']
             glide = hdf['ILS Glideslope']
             gspd = hdf['Groundspeed']
-            drift = hdf['Drift']
         
         ar = ApproachRange()    
-        ar.derive(gspd, drift, glide, hdg, tas, alt, self.approaches)
+        ar.derive(gspd, glide, None, None, hdg, None, tas, alt, self.approaches)
         result = ar.array
         chunks = np.ma.clump_unmasked(result)
         self.assertEqual(len(chunks),2)
@@ -3985,6 +4082,36 @@ class TestStableApproach(unittest.TestCase):
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
                [0, 1, 1, 4, 9, 2, 7, 7, 7, 7, 7, 3, 3, 7, 7, 7, 7, 9, 9, 9, 0])
+
+
+class TestMasterWarning(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = MasterWarning
+        self.operational_combinations = [
+            ('Master Warning (Capt)',),
+            ('Master Warning (FO)',),
+            ('Master Warning (Capt)', 'Master Warning (FO)'),
+        ]
+
+    def test_derive(self):
+        warn_capt = M(
+            name='Master Warning (Capt)',
+            array=np.ma.array(data=[0, 0, 0, 1, 1, 1]),
+            values_mapping={0: '-', 1: 'Warning'},
+            frequency=1,
+            offset=0.1,
+        )
+        warn_fo = M(
+            name='Master Warning (FO)',
+            array=np.ma.array(data=[0, 0, 1, 1, 0, 0]),
+            values_mapping={0: '-', 1: 'Warning'},
+            frequency=1,
+            offset=0.1,
+        )
+        node = self.node_class()
+        node.derive(warn_capt, warn_fo)
+        np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
 
 
 if __name__ == '__main__':

@@ -4,6 +4,10 @@
 ##############################################################################
 
 
+import os
+import sys
+
+
 # Note: Create an analyser_custom_settings.py module to override settings for
 # your local environment and append customised modules.
 
@@ -24,8 +28,18 @@ NODE_MODULES = ['analysis_engine.approaches',
                 'analysis_engine.flight_phase',]
 
 # API Handler Configuration:
-API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
+LOCAL_API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
+API_HANDLER = LOCAL_API_HANDLER
 BASE_URL = ''  # Must be configured to use HTTP API handler.
+
+ANALYZER_PATH = os.path.dirname(os.path.realpath(
+    sys.executable if getattr(sys, 'frozen', False) else __file__))
+
+CONFIG_PATH = os.path.join(ANALYZER_PATH, 'config')
+
+LOCAL_API_AIRCRAFT_PATH = os.path.join(CONFIG_PATH, 'aircraft.yaml')
+LOCAL_API_AIRPORT_PATH = os.path.join(CONFIG_PATH, 'airports.yaml')
+LOCAL_API_RUNWAY_PATH = os.path.join(CONFIG_PATH, 'runways.yaml')
 
 # Location of the CA certificates to be used by the HTTP API handler:
 # Note: This is the system-wide default location on Ubuntu.
@@ -84,6 +98,10 @@ AIRBORNE_THRESHOLD_TIME = 60  # secs
 
 # An airspeed below which you just can't possibly be flying.
 AIRSPEED_THRESHOLD = 80  # kts
+
+# Min number of samples to use when creating hash of airspeed
+# 32 samples is enough to exceed arinc and short enough to filter 
+AIRSPEED_HASH_MIN_SAMPLES = 32
 
 # Altitude AAL complementary filter timeconstant
 ALTITUDE_AAL_LAG_TC = 3.0

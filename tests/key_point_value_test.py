@@ -93,7 +93,7 @@ from analysis_engine.key_point_values import (
     AirspeedWithFlapMax,
     AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
-    AirspeedWhileSpoilerExtendedMax,
+    AirspeedWithSpoilerDeployedMax,
     AltitudeAtFirstFlapChangeAfterLiftoff,
     AltitudeAtGearUpSelectionDuringGoAround,
     AltitudeDuringGoAroundMin,
@@ -133,6 +133,9 @@ from analysis_engine.key_point_values import (
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
     EngGasTempDuringMaximumContinuousPowerMax,
+    EngGasTempDuringMaximumContinuousPowerForXMinMax,
+    EngGasTempDuringEngStartMax,
+    EngGasTempDuringEngStartForXSecMax,
     EngGasTempDuringFlightMin,
     EngN1DuringTaxiMax,
     EngN1DuringApproachMax,
@@ -149,6 +152,7 @@ from analysis_engine.key_point_values import (
     EngN2DuringTakeoff5MinRatingMax,
     EngN2DuringGoAround5MinRatingMax,
     EngN2DuringMaximumContinuousPowerMax,
+    EngN2CyclesDuringFinalApproach,
     EngN3DuringTaxiMax,
     EngN3DuringTakeoff5MinRatingMax,
     EngN3DuringGoAround5MinRatingMax,
@@ -158,7 +162,7 @@ from analysis_engine.key_point_values import (
     EngOilQtyMax,
     EngOilQtyMin,
     EngOilTempMax,
-    EngOilTempFor15MinMax,
+    EngOilTempForXMinMax,
     EngShutdownDuration,
     EngTorqueDuringTaxiMax,
     EngTorqueDuringTakeoff5MinRatingMax,
@@ -322,6 +326,7 @@ from analysis_engine.key_point_values import (
     WindDirectionAtAltitudeDuringDescent,
     WindSpeedAtAltitudeDuringDescent,
     ZeroFuelWeight,
+    MasterWarningDuration,
     MasterWarningDuringTakeoffDuration,
     MasterCautionDuringTakeoffDuration,
     TakeoffConfigurationWarningDuration,
@@ -1520,9 +1525,24 @@ class TestAirspeedWithGearDownMax(unittest.TestCase, NodeTest):
         self.node_class = AirspeedWithGearDownMax
         self.operational_combinations = [('Airspeed', 'Gear Down', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_basic(self):
+        air_spd = P(
+            name='Airspeed',
+            array=np.ma.arange(10),
+        )
+        gear = M(
+            name='Gear Down',
+            array=np.ma.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1]),
+            values_mapping={0: 'Up', 1: 'Down'},
+        )
+        airs = buildsection('Airborne', 0, 7)
+        node = self.node_class()
+        node.derive(air_spd, gear, airs)
+        self.assertItemsEqual(node, [
+            KeyPointValue(index=2, value=2.0, name='Airspeed With Gear Down Max'),
+            KeyPointValue(index=4, value=4.0, name='Airspeed With Gear Down Max'),
+            KeyPointValue(index=6, value=6.0, name='Airspeed With Gear Down Max'),
+        ])
 
 
 class TestAirspeedWhileGearRetractingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
@@ -1657,23 +1677,28 @@ class TestAirspeedDuringLevelFlightMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeedWhileSpoilerExtendedMax(unittest.TestCase, NodeTest):
+class TestAirspeedWithSpoilerDeployedMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
-        self.node_class = AirspeedWhileSpoilerExtendedMax
+        self.node_class = AirspeedWithSpoilerDeployedMax
         self.operational_combinations = [('Airspeed', 'Spoiler')]
 
     def test_derive_basic(self):
-        airspeed = P('Airspeed', np.ma.arange(10))
-        spoiler = M('Spoiler', np.ma.masked_array([0,0,0,0,1,1,0,0,1,0]),
-                    values_mapping={0: '-', 1: 'Deployed'})
-        
+        air_spd = P(
+            name='Airspeed',
+            array=np.ma.arange(10),
+        )
+        spoiler = M(
+            name='Spoiler',
+            array=np.ma.array([0, 0, 0, 0, 1, 1, 0, 0, 1, 0]),
+            values_mapping={0: '-', 1: 'Deployed'},
+        )
         node = self.node_class()
-        node.derive(airspeed, spoiler)
-        self.assertEqual(
-            node,
-            [KeyPointValue(index=6, value=6.0, name='Airspeed While Spoiler Extended Max'),
-             KeyPointValue(index=9, value=9.0, name='Airspeed While Spoiler Extended Max')])
+        node.derive(air_spd, spoiler)
+        self.assertItemsEqual(node, [
+            KeyPointValue(index=6, value=6.0, name='Airspeed With Spoiler Deployed Max'),
+            KeyPointValue(index=9, value=9.0, name='Airspeed With Spoiler Deployed Max'),
+        ])
 
 
 ##############################################################################
@@ -2131,9 +2156,24 @@ class TestAltitudeWithGearDownMax(unittest.TestCase, NodeTest):
         self.node_class = AltitudeWithGearDownMax
         self.operational_combinations = [('Altitude AAL', 'Gear Down', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_basic(self):
+        alt_aal = P(
+            name='Altitude',
+            array=np.ma.arange(10),
+        )
+        gear = M(
+            name='Gear Down',
+            array=np.ma.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1]),
+            values_mapping={0: 'Up', 1: 'Down'},
+        )
+        airs = buildsection('Airborne', 0, 7)
+        node = self.node_class()
+        node.derive(alt_aal, gear, airs)
+        self.assertItemsEqual(node, [
+            KeyPointValue(index=2, value=2.0, name='Altitude With Gear Down Max'),
+            KeyPointValue(index=4, value=4.0, name='Altitude With Gear Down Max'),
+            KeyPointValue(index=6, value=6.0, name='Altitude With Gear Down Max'),
+        ])
 
 
 ########################################
@@ -2400,17 +2440,23 @@ class TestMachWithGearDownMax(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Mach', 'Gear Down', 'Airborne')]
 
     def test_derive_basic(self):
-        mach = P('Mach', np.ma.arange(10))
-        gear = M('Gear Down', np.ma.masked_array([0,1,0,1,0,1,0,1,0,1]),
-                      values_mapping={0: 'Up', 1: 'Down'})
+        mach = P(
+            name='Mach',
+            array=np.ma.arange(10),
+        )
+        gear = M(
+            name='Gear Down',
+            array=np.ma.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1]),
+            values_mapping={0: 'Up', 1: 'Down'},
+        )
         airs = buildsection('Airborne', 0, 7)
         node = self.node_class()
         node.derive(mach, gear, airs)
-        self.assertEqual(
-            node,
-            [KeyPointValue(2, 2.0, 'Mach With Gear Down Max'),
-             KeyPointValue(4, 4.0, 'Mach With Gear Down Max'),
-             KeyPointValue(6, 6.0, 'Mach With Gear Down Max')])
+        self.assertItemsEqual(node, [
+            KeyPointValue(index=2, value=2.0, name='Mach With Gear Down Max'),
+            KeyPointValue(index=4, value=4.0, name='Mach With Gear Down Max'),
+            KeyPointValue(index=6, value=6.0, name='Mach With Gear Down Max'),
+        ])
 
 
 class TestMachWhileGearRetractingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
@@ -2795,11 +2841,33 @@ class TestEngGasTempDuringMaximumContinuousPowerMax(unittest.TestCase, NodeTest)
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngGasTempDuringEngStartMax(unittest.TestCase):
+class TestEngGasTempDuringMaximumContinuousPowerForXMinMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngGasTempDuringMaximumContinuousPowerForXMinMax
+        self.operational_combinations = [('Eng (*) Gas Temp Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Airborne')]
 
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
+    def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngGasTempDuringEngStartMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngGasTempDuringEngStartMax
+        self.operational_combinations = [('Eng (*) Gas Temp Max', 'Eng (*) N2 Min', 'Takeoff Turn Onto Runway')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngGasTempDuringEngStartForXSecMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngGasTempDuringEngStartForXSecMax
+        self.operational_combinations = [('Eng (*) Gas Temp Max', 'Eng (*) N2 Min', 'Takeoff Turn Onto Runway')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -3021,6 +3089,17 @@ class TestEngN2MaximumContinuousPowerMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestEngN2CyclesDuringFinalApproach(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngN2CyclesDuringFinalApproach
+        self.operational_combinations = [('Eng (*) N2 Avg', 'Final Approach')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 ##############################################################################
 # Engine N3
 
@@ -3158,11 +3237,15 @@ class TestEngOilTempMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestEngOilTemp15MinuteMax(unittest.TestCase, NodeTest):
+class TestEngOilTempForXMinMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
-        self.node_class = EngOilTempFor15MinMax
+        self.node_class = EngOilTempForXMinMax
         self.operational_combinations = [('Eng (*) Oil Temp Max', )]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
 
     def test_derive_all_oil_data_masked(self):
         # This has been a specific problem, hence this test.
@@ -3170,9 +3253,9 @@ class TestEngOilTemp15MinuteMax(unittest.TestCase, NodeTest):
             name='Eng (*) Oil Temp Max',
             array=np.ma.array(data=range(123, 128), dtype=float, mask=True),
         )
-        node = EngOilTempFor15MinMax()
+        node = EngOilTempForXMinMax()
         node.derive(oil_temp)
-        self.assertEqual(node, KPV('Eng Oil Temp For 15 Min Max', items=[]))
+        self.assertEqual(node, KPV('Eng Oil Temp For X Min Max', items=[]))
 
 
 ##############################################################################
@@ -5161,6 +5244,18 @@ class TestTailwind100FtToTouchdownMax(unittest.TestCase, NodeTest):
 
 ##############################################################################
 # Warnings: Takeoff Configuration Warning
+
+
+# TODO: Need a CreateKPVsWhereStateTest super class!
+class TestMasterWarningDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = MasterWarningDuration
+        self.operational_combinations = [('Master Warning',)]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 # TODO: Need a CreateKPVsWhereStateTest super class!

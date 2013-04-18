@@ -1,6 +1,5 @@
 import numpy as np
 
-from operator import itemgetter
 from math import ceil
 from flightdatautilities.geometry import midpoint
 
@@ -45,7 +44,6 @@ from analysis_engine.library import (ambiguous_runway,
                                      repair_mask,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
-                                     rate_of_change,
                                      runs_of_ones,
                                      runway_deviation,
                                      runway_distance_from_end,
@@ -57,6 +55,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      slices_not,
                                      slices_overlap,
                                      slices_and,
+                                     slices_remove_small_slices,
                                      touchdown_inertial,
                                      value_at_index,
                                      vstack_params)
@@ -607,23 +606,6 @@ class AirspeedGustsDuringFinalApproach(KeyPointValueNode):
                 value = peak.value - trough.value
                 index = ((peak.index + trough.index) / 2.0) + scope.start
                 self.create_kpv(index, value)
-
-
-class AirspeedWhileSpoilerExtendedMax(KeyPointValueNode):
-    '''
-    '''
-    
-    units = 'kt'
-    
-    def derive(self,
-               air_spd=P('Airspeed'),
-               spoiler=M('Spoiler')):
-        spoiler_array = np.ma.where(spoiler.array != 'Deployed',
-                                    np.ma.masked,
-                                    spoiler.array)
-        spoiler_deployeds = np.ma.clump_unmasked(spoiler_array)
-        self.create_kpvs_within_slices(
-            air_spd.array, spoiler_deployeds, max_value)
 
 
 ########################################
@@ -1376,6 +1358,7 @@ class AirspeedWithGearDownMax(KeyPointValueNode):
                air_spd=P('Airspeed'),
                gear=M('Gear Down'),
                airs=S('Airborne')):
+
         gear.array[gear.array == 'Up'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
         self.create_kpvs_within_slices(
@@ -1433,6 +1416,26 @@ class AirspeedAtGearDownSelection(KeyPointValueNode):
                gear_dn_sel=KTI('Gear Down Selection')):
 
         self.create_kpvs_at_ktis(air_spd.array, gear_dn_sel)
+
+
+########################################
+# Airspeed: Spoilers
+
+
+class AirspeedWithSpoilerDeployedMax(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'kt'
+
+    def derive(self,
+               air_spd=P('Airspeed'),
+               spoiler=M('Spoiler')):
+
+        spoiler.array[spoiler.array != 'Deployed'] = np.ma.masked
+        spoiler_deployeds = np.ma.clump_unmasked(spoiler.array)
+        self.create_kpvs_within_slices(
+            air_spd.array, spoiler_deployeds, max_value)
 
 
 ########################################
@@ -2161,6 +2164,7 @@ class AltitudeWithGearDownMax(KeyPointValueNode):
                alt_aal=P('Altitude AAL'),
                gear=M('Gear Down'),
                airs=S('Airborne')):
+
         gear.array[gear.array == 'Up'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
         self.create_kpvs_within_slices(
@@ -2272,7 +2276,7 @@ class AltitudeFirstStableDuringApproach(KeyPointValueNode):
                 continue
 
 
-class AltitudeLastUnStableDuringApproach(KeyPointValueNode):
+class AltitudeLastUnstableDuringApproach(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
 
@@ -3562,6 +3566,7 @@ class MachWithGearDownMax(KeyPointValueNode):
                mach=P('Mach'),
                gear=M('Gear Down'),
                airs=S('Airborne')):
+
         gear.array[gear.array == 'Up'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
         self.create_kpvs_within_slices(
@@ -3845,7 +3850,41 @@ class EngGasTempDuringMaximumContinuousPowerMax(KeyPointValueNode):
         )
 
 
-# TODO: Extract out code to create 'Eng Start' KTIs?
+class EngGasTempDuringMaximumContinuousPowerForXMinMax(KeyPointValueNode):
+    '''
+    We assume maximum continuous power applies whenever takeoff or go-around
+    power settings are not in force. So, by collecting all the high power
+    periods and inverting these from the start of the first airborne section to
+    the end of the last, we have the required periods of flight.
+    '''
+
+    NAME_FORMAT = 'Eng Gas Temp During Maximum Continuous Power For %(minutes)d Min Max'
+    NAME_VALUES = {'minutes': [3, 5]}
+    units = 'C'
+
+    def derive(self,
+               eng_egt_max=P('Eng (*) Gas Temp Max'),
+               to_ratings=S('Takeoff 5 Min Rating'),
+               ga_ratings=S('Go Around 5 Min Rating'),
+               airborne=S('Airborne')):
+
+        if not airborne:
+            return
+        high_power_ratings = to_ratings.get_slices() + ga_ratings.get_slices()
+        max_cont_rating = slices_not(
+            high_power_ratings,
+            begin_at=min(air.slice.start for air in airborne),
+            end_at=max(air.slice.stop for air in airborne),
+        )
+        for minutes in self.NAME_VALUES['minutes']:
+            self.create_kpvs_within_slices(
+                clip(eng_egt_max.array, minutes * 60, eng_egt_max.hz),
+                max_cont_rating,
+                max_value,
+                minutes=minutes,
+            )
+
+
 class EngGasTempDuringEngStartMax(KeyPointValueNode):
     '''
     One key point value for maximum engine gas temperature at engine start for
@@ -3854,73 +3893,73 @@ class EngGasTempDuringEngStartMax(KeyPointValueNode):
 
     units = 'C'
 
-    @classmethod
-    def can_operate(self, available):
-        return all((
-            any_of(('Eng (%d) Gas Temp' % n for n in range(1, 5)), available),
-            any_of(('Eng (%d) N2' % n for n in range(1, 5)), available),
-            'Takeoff Turn Onto Runway' in available,
-        ))
-
-    def peak_start_egt(self, egt, n2, idx):
-        # We can't have started less than 20 seconds before takeoff:
-        if idx < 20:
-            return None, None
-        # Ideally we'd use a shorter timebase, e.g. 2 seconds, but N2 is only
-        # sampled at 1/4Hz on some aircraft:
-        n2_rate = rate_of_change(n2, 8)
-        # The engine only accelerates through 30% when starting. Let's find the
-        # last time it did this before taking off:
-        passing_30 = index_at_value(n2.array, 30.0, slice(idx, 0, -1))
-        if not passing_30:
-            return None, None
-        # After which it will peak and the rate will fall below zero at the
-        # overswing, which must happen within 30 seconds:
-        started_up = index_at_value(n2_rate, 0.0,
-                                    slice(passing_30, passing_30 + 30))
-        # Track back to where the temperature started to increase:
-        ignition = peak_curvature(egt.array, slice(passing_30, 0, -1))
-        return ignition, started_up
-
     def derive(self,
-               eng_1_egt=P('Eng (1) Gas Temp'),
-               eng_2_egt=P('Eng (2) Gas Temp'),
-               eng_3_egt=P('Eng (3) Gas Temp'),
-               eng_4_egt=P('Eng (4) Gas Temp'),
-               eng_1_n2=P('Eng (1) N2'),
-               eng_2_n2=P('Eng (2) N2'),
-               eng_3_n2=P('Eng (3) N2'),
-               eng_4_n2=P('Eng (4) N2'),
+               eng_egt_max=P('Eng (*) Gas Temp Max'),
+               eng_n2_min=P('Eng (*) N2 Min'),
                toff_turn_rwy=KTI('Takeoff Turn Onto Runway')):
 
         # We never see engine start if data started after aircraft is airborne:
         if not toff_turn_rwy:
             return
-        
+
+        # Where the egt is in a superframe, let's give up now:
+        if eng_egt_max.frequency < 0.25:
+            return
+
         # Extract the index for the first turn onto the runway:
         fto_idx = toff_turn_rwy.get_first().index
-        # Determine the value of interest for each engine:
-        data = []
-        for n in range(1, 5):
-            # Determine which engine parameters we are looking at:
-            egt = locals().get('eng_%d_egt' % n)
-            n2 = locals().get('eng_%d_n2' % n)
-            
-            # Skip this engine if missing any of the parameters:
-            if not egt or not n2:
+
+        # Mask out sections with N2 > 60%, i.e. all engines running:
+        n2_data = eng_n2_min.array[0:fto_idx]
+        n2_data[n2_data > 60.0] = np.ma.masked
+        chunks = np.ma.clump_unmasked(n2_data)
+
+        if not chunks:
+            return
+
+        self.create_kpvs_within_slices(eng_egt_max.array, chunks, max_value)
+
+
+class EngGasTempDuringEngStartForXSecMax(KeyPointValueNode):
+    '''
+    One key point value for maximum engine gas temperature at engine start for
+    all engines. The value is taken from the engine with the largest value.
+    '''
+
+    NAME_FORMAT = 'Eng Gas Temp During Eng Start For %(seconds)d Sec Max'
+    NAME_VALUES = {'seconds': [10, 40]}
+    units = 'C'
+
+    def derive(self,
+               eng_egt_max=P('Eng (*) Gas Temp Max'),
+               eng_n2_min=P('Eng (*) N2 Min'),
+               toff_turn_rwy=KTI('Takeoff Turn Onto Runway')):
+
+        # We never see engine start if data started after aircraft is airborne:
+        if not toff_turn_rwy:
+            return
+
+        # Where the egt is in a superframe, let's give up now:
+        if eng_egt_max.frequency < 0.25:
+            return
+
+        # Extract the index for the first turn onto the runway:
+        fto_idx = toff_turn_rwy.get_first().index
+
+        # Mask out sections with N2 > 60%, i.e. all engines running:
+        n2_data = eng_n2_min.array[0:fto_idx]
+        n2_data[n2_data > 60.0] = np.ma.masked
+        chunks = np.ma.clump_unmasked(n2_data)
+
+        for seconds in self.NAME_VALUES['seconds']:
+
+            # Remove chunks of data that are too small to clip:
+            slices = slices_remove_small_slices(chunks, seconds, eng_egt_max.hz)
+            if not slices:
                 continue
-            if egt and egt.frequency < 0.25:
-                # Where the egt is in a superframe, let's give up now.
-                continue
-            
-            # Determine the peak start engine gas temperature:
-            ignition, started_up = self.peak_start_egt(egt, n2, fto_idx)
-            if started_up:
-                data.append(max_value(egt.array, slice(ignition, started_up)))
-        # Create the KPV:
-        data = filter(lambda t: None not in t, data)
-        if data:
-            self.create_kpv(*max(data, key=itemgetter(1)))
+
+            array = clip(eng_egt_max.array, seconds, hz=eng_egt_max.hz)
+            self.create_kpvs_within_slices(array, slices, max_value, seconds=seconds)
 
 
 class EngGasTempDuringFlightMin(KeyPointValueNode):
@@ -4243,6 +4282,25 @@ class EngN2DuringMaximumContinuousPowerMax(KeyPointValueNode):
         self.create_kpv_outside_slices(eng_n2_max.array, slices, max_value)
 
 
+class EngN2CyclesDuringFinalApproach(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng N2 Cycles During Final Approach'
+    units = 'cycles'
+
+    def derive(self,
+               eng_n2_avg=P('Eng (*) N2 Avg'),
+               fin_apps=S('Final Approach')):
+
+        for fin_app in fin_apps:
+            self.create_kpv(*cycle_counter(
+                eng_n2_avg.array[fin_app.slice],
+                10.0, 10.0, eng_n2_avg.hz,
+                fin_app.slice.start,
+            ))
+
+
 ##############################################################################
 # Engine N3
 
@@ -4427,11 +4485,13 @@ class EngOilTempMax(KeyPointValueNode):
         self.create_kpvs_within_slices(oil_temp.array, airborne, max_value)
 
 
-class EngOilTempFor15MinMax(KeyPointValueNode):
+class EngOilTempForXMinMax(KeyPointValueNode):
     '''
-    Maximum oil temperature sustained for 15 minutes.
+    Maximum oil temperature sustained for X minutes.
     '''
 
+    NAME_FORMAT = 'Eng Oil Temp For %(minutes)d Min Max'
+    NAME_VALUES = {'minutes': [15, 20]}
     units = 'C'
 
     def derive(self,
@@ -4442,12 +4502,15 @@ class EngOilTempFor15MinMax(KeyPointValueNode):
         # future:
         if np.ma.count(oil_temp.array) == 0:
             return
-        oil_15 = clip(oil_temp.array, 15 * 60, oil_temp.hz)
-        # There have been cases where there were no valid oil temperature
-        # measurements throughout the flight, in which case there's no point
-        # testing for a maximum:
-        if oil_15 is not None:
-            self.create_kpv(*max_value(oil_15))
+
+        for minutes in self.NAME_VALUES['minutes']:
+
+            oil_sustained = clip(oil_temp.array, minutes * 60, oil_temp.hz)
+            # There have been cases where there were no valid oil temperature
+            # measurements throughout the flight, in which case there's no
+            # point testing for a maximum:
+            if oil_sustained is not None:
+                self.create_kpv(*max_value(oil_sustained), minutes=minutes)
 
 
 ##############################################################################
@@ -6421,6 +6484,26 @@ class Tailwind100FtToTouchdownMax(KeyPointValueNode):
 
 ##############################################################################
 # Warnings: Master Caution/Warning
+
+
+class MasterWarningDuration(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+    "Excursions - Take-Off (Longitudinal), Master Caution or Master Warning
+    triggered during takeoff. The idea of this is to inform the analyst of
+    any possible distractions to the pilot"
+    '''
+
+    units = 's'
+
+    def derive(self,
+               warning=M('Master Warning')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            warning.array,
+            warning.hz,
+        )
 
 
 class MasterWarningDuringTakeoffDuration(KeyPointValueNode):

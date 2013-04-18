@@ -220,6 +220,7 @@ class B737_500(VelocitySpeed):
     '''
     interpolate = True
     minimum_speed = 109
+    source = ''  # FIXME: Populate this attribute.
     weight_unit = 't'
     tables = {
         'v2': {
@@ -263,6 +264,52 @@ class B737_700(VelocitySpeed):
     }
 
 
+# FIXME: This is only applicable to RR RB211-535E4 engines!
+class B757_200_RB211_535(VelocitySpeed):
+    '''
+    Velocity speed tables for Boeing B757-200 with Rolls Royce 
+    RB211-535E4 engines.
+    '''
+    interpolate = True
+    source = 'Boeing Manual'  # Original name of source unknown.
+    weight_unit = 't'
+    tables = {
+        'v2': {
+            'weight': (  62,   64,   66,   68,  70,  72,  74,  76,  78,  80,  82,  84,  86,  88,  90,  92,  94,  96,  98, 100, 102, 104, 106, 108, 110, 112, 114, 116),
+                   5: (None, None, None, None, 130, 132, 134, 135, 137, 139, 141, 142, 144, 146, 147, 149, 150, 152, 154, 155, 157, 158, 159, 161, 163, 165, 166, 168),
+                  15: ( 124,  124,  124,  124, 123, 125, 126, 128, 130, 131, 133, 135, 136, 138, 140, 141, 143, 144, 146, 147, 149, 151, 152, 153, 154, 156, 157, 159),
+        },
+        'vref': {
+            'weight': (  62,   64,   66,   68,  70,  72,  74,  76,  78,  80,  82,  84,  86,  88,  90,  92,  94,  96,  98, 100, 102, 104, 106, 108, 110, 112, 114, 116),
+                   5: (None, None, None, None, 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 141, 143, 145, 147, 149, 151, 153, 155, 157, 158, 160, 162, 164),
+                  15: ( 111,  117,  117,  117, 114, 116, 118, 120, 122, 123, 125, 127, 129, 131, 133, 135, 137, 139, 140, 141, 143, 145, 147, 149, 150, 152, 154, 156),
+                  30: ( 107,  109,  111,  113, 115, 116, 118, 120, 122, 123, 125, 127, 129, 131, 132, 134, 136, 137, 139, 141, 142, 144, 146, 147, 149, 150, 152, 154),
+        },
+    }
+
+class B757_200_RB211_535C_37(VelocitySpeed):
+    '''
+    Velocity speed tables for Boeing B757-200 with Rolls Royce 
+    RB211-535C-37 engines.
+    '''
+    interpolate = True
+    source = 'Customer 20 ticket #243'
+    weight_unit = 't'
+    tables = {
+        'v2': { # TODO: this is copy of 575 v2 table above, update once v2 table received.
+            'weight': (  62,   64,   66,   68,  70,  72,  74,  76,  78,  80,  82,  84,  86,  88,  90,  92,  94,  96,  98, 100, 102, 104, 106, 108, 110, 112, 114, 116),
+                   5: (None, None, None, None, 130, 132, 134, 135, 137, 139, 141, 142, 144, 146, 147, 149, 150, 152, 154, 155, 157, 158, 159, 161, 163, 165, 166, 168),
+                  15: ( 124,  124,  124,  124, 123, 125, 126, 128, 130, 131, 133, 135, 136, 138, 140, 141, 143, 144, 146, 147, 149, 151, 152, 153, 154, 156, 157, 159),
+        },
+        'vref': {
+            'weight': ( 60,  70,  80,  90, 100, 110, 120),
+                  20: (115, 121, 127, 133, 139, 145, 150),
+                  25: (111, 117, 123, 129, 134, 140, 144),
+                  30: (108, 114, 120, 126, 132, 137, 142),
+        },
+    }
+
+
 class B767(VelocitySpeed):
     '''
     Velocity speed tables for Boeing B767.
@@ -292,7 +339,7 @@ class B767_200_CF6_80A(VelocitySpeed):
     Velocity speed tables for Boeing B767-200 w/ GE CF6-80A.
     '''
     interpolate = True
-    source = ''  # FIXME: Populate this attribute.
+    source = 'FDS Customer #78'
     weight_unit = 'lb'
     tables = {
         'v2': {
@@ -316,7 +363,7 @@ class B767_300_CF6_80C2(VelocitySpeed):
     Velocity speed tables for Boeing B767-300 w/ GE CF6-80C2.
     '''
     interpolate = True
-    source = ''  # FIXME: Populate this attribute.
+    source = 'FDS Customer #78'
     weight_unit = 't'
     tables = {
         'v2': {
@@ -339,7 +386,7 @@ class B767_300_PW4000_94(VelocitySpeed):
     Velocity speed tables for Boeing B767-300 w/ P&W 4000-94.
     '''
     interpolate = True
-    source = ''  # FIXME: Populate this attribute.
+    source = 'FDS Customer #78'
     weight_unit = 't'
     tables = {
         'v2': {
@@ -356,9 +403,9 @@ class B767_300_PW4000_94(VelocitySpeed):
         },
     }
 
-class Fokker70(VelocitySpeed):
+class F28_0070(VelocitySpeed):
     '''
-    Velocity speed tables for Fokker 70.
+    Velocity speed tables for Fokker F28-0070 (Fokker 70).
     '''
     interpolate = True
     source = ''
@@ -381,28 +428,18 @@ class Fokker70(VelocitySpeed):
 ##############################################################################
 # Constants
 
-
-AIRCRAFT_FAMILY_VELOCITY_SPEED_MAP = {
-    'B767': B767,
-    'F28': Fokker70,
-}
-
-
-AIRCRAFT_SERIES_VELOCITY_SPEED_MAP = {
-    'B737-300': B737_300,
-    'B737-300(QC)': B737_300,
-    'B737-400': B737_400,
-    'B737-500': B737_500,
-}
-
-
-AIRCRAFT_FAMILY_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
-}
-
-
-AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
+VELOCITY_SPEED_MAP = {
     # All combinations listed
-    # TODO: better lookup solution needed
+    # Boeing
+    ('B737-300', None): B737_300,
+    ('B737-300(QC)', None): B737_300,
+    ('B737-400', None): B737_400,
+    ('B737-500', None): B737_500,
+
+    ('B757-200', 'RB211-535'): B757_200_RB211_535,
+    ('B757-200', 'RB211-535C-37'): B757_200_RB211_535C_37,
+
+    ('B767', None): B767,
     ('B767-200', 'CF6-80A'): B767_200_CF6_80A,
     ('B767-200(F)', 'CF6-80A'): B767_200_CF6_80A,
     ('B767-200(ER)', 'CF6-80A'): B767_200_CF6_80A,
@@ -415,6 +452,9 @@ AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
     ('B767-300(ER)', 'PW4000-94'): B767_300_PW4000_94,
     ('B767-300F(ER)', 'PW4000-94'): B767_300_PW4000_94,
     ('B767-300(ER/F)', 'PW4000-94'): B767_300_PW4000_94,
+    
+    # Fokker
+    ('F28-0070', None): F28_0070,
 }
 
 
@@ -422,7 +462,7 @@ AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP = {
 # Functions
 
 
-def get_vspeed_map(series=None, family=None, engine=None):
+def get_vspeed_map(series=None, family=None, engine_series=None, engine_type=None):
     '''
     Accessor for fetching velocity speed table classes.
 
@@ -430,23 +470,22 @@ def get_vspeed_map(series=None, family=None, engine=None):
     :type series: string
     :param family: An aircraft family e.g. B737
     :type family: string
-    :param engine: An engine series e.g. CF6-80C2
-    :type engine: string
+    :param engine_series: An engine series e.g. CF6-80C2
+    :type engine_series: string
     :returns: associated VelocitySpeed class
     :rtype: VelocitySpeed
     :raises: KeyError -- if no velocity speed mapping found.
     '''
-    if (series, engine) in AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP:
-        return AIRCRAFT_SERIES_ENGINE_SERIES_VELOCITY_SPEED_MAP[(series, engine)]
+    lookup_combinations = ((series, engine_type),
+                           (family, engine_type),
+                           (series, engine_series),
+                           (family, engine_series),
+                           (series, None),
+                           (family, None))
 
-    if (family, engine) in AIRCRAFT_FAMILY_ENGINE_SERIES_VELOCITY_SPEED_MAP:
-        return AIRCRAFT_FAMILY_ENGINE_SERIES_VELOCITY_SPEED_MAP[(family, engine)]
-
-    if series in AIRCRAFT_SERIES_VELOCITY_SPEED_MAP:
-        return AIRCRAFT_SERIES_VELOCITY_SPEED_MAP[series]
-
-    if family in AIRCRAFT_FAMILY_VELOCITY_SPEED_MAP:
-        return AIRCRAFT_FAMILY_VELOCITY_SPEED_MAP[family]
+    for combination in lookup_combinations:
+        if combination in VELOCITY_SPEED_MAP:
+            return VELOCITY_SPEED_MAP[combination]
 
     msg = "No velocity speed table mapping for series '%s' or family '%s'."
     raise KeyError(msg % (series, family))
