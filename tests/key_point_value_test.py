@@ -159,6 +159,7 @@ from analysis_engine.key_point_values import (
     EngOilQtyMin,
     EngOilTempMax,
     EngOilTempFor15MinMax,
+    EngShutdownDuration,
     EngTorqueDuringTaxiMax,
     EngTorqueDuringTakeoff5MinRatingMax,
     EngTorqueDuringGoAround5MinRatingMax,
@@ -2735,7 +2736,25 @@ class TestEngFireWarningDuration(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+        
+        
+class TestEngShutdownDuration(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(EngShutdownDuration.get_operational_combinations(),
+                         [('Eng (*) All Running', 'Airborne')])
 
+    def test_derive(self):
+        eng_off = EngShutdownDuration(frequency=2)
+        eng_running = M(array=np.ma.array(
+            [0,0,1,1,1,1,0,1,1,1,0,0,0,0,0,0,0,1,1,1]),
+            values_mapping={0: 'Not Running',
+                            1: 'Running'})
+        airborne = S(items=[Section('', slice(4, 20), 4.1, 20.1)])
+        eng_off.derive(eng_running=eng_running, airborne=airborne)
+        self.assertEqual(len(eng_off), 1)  # detected second longer one only
+        self.assertEqual(eng_off[0].index, 10)
+        self.assertEqual(eng_off[0].value, 3.5)
+        
 
 ##############################################################################
 # Engine Gas Temperature

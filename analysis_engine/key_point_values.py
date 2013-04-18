@@ -4590,6 +4590,33 @@ class EngVibN3Max(KeyPointValueNode):
 
 
 ##############################################################################
+# Engine Shutdown
+
+
+class EngShutdownDuration(KeyPointValueNode):
+    '''
+    This KPV measures the duration the engines are not all running while
+    airborne - i.e. Expected engine shutdown during flight.
+    
+    Based upon "Eng (*) All Running" which uses the best of the available N2
+    and Fuel Flow to determine whether the engines are all running.
+    '''
+    units = 'secs'
+
+    def derive(self, eng_running=P('Eng (*) All Running'),
+               airborne=S('Airborne')):
+        eng_off = eng_running.array == 'Not Running'
+        for air in airborne:
+            for _slice in runs_of_ones(eng_off[air.slice]):
+                dur = float(_slice.stop - _slice.start) / self.frequency
+                if dur > 2:
+                    # must be at least 2 seconds not running
+                    self.create_kpv(_slice.start + air.slice.start, dur)
+                continue
+            continue
+        return
+
+##############################################################################
 
 
 class EventMarkerPressed(KeyPointValueNode):
