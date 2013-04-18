@@ -4728,7 +4728,7 @@ class WindAcrossLandingRunway(DerivedParameterNode):
         elif wind_dir_mag and land_hdg:
             # proceed with "Magnetic" values
             wind_dir = wind_dir_mag
-            land_heading = land_hdg
+            land_heading = land_hdg.get_last().value
         else:
             # raise error if unable to calculate like for like whilst monitor how often this occurs
             # self.array = np_ma_masked_zeros_like(windspeed.array)
