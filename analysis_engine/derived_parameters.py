@@ -1585,6 +1585,40 @@ class PackValvesOpen(MultistateDerivedParameterNode):
 
 
 ################################################################################
+# Engine Running
+
+class Eng_AllRunning(MultistateDerivedParameterNode):
+    '''
+    Discrete parameter describing when all available engines are running.
+    
+    TODO: Include Fuel cut-off switch if recorded?
+    
+    TODO: Confirm that all engines were recording for the N2 Min / Fuel Flow
+    Min parameters - theoretically there could be only three engines in the
+    frame for a four engine aircraft. Use "Engine Count".
+    '''
+    name = 'Eng (*) All Running'
+    values_mapping = {
+        0 : 'Not Running',
+        1 : 'Running',
+        }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return 'Eng (*) N2 Min' in available or \
+               'Eng (*) Fuel Flow Min' in available
+    
+    def derive(self,
+               eng_n2=P('Eng (*) N2 Min'),
+               fuel_flow=P('Eng (*) Fuel Flow Min')):
+        # TODO: move values to settings
+        n2_running = eng_n2.array > 10 if eng_n2 else np.ones_like(fuel_flow.array)
+        fuel_flowing = fuel_flow.array > 50 if fuel_flow else np.ones_like(eng_n2.array)
+        # must have N2 and Fuel Flow if both are available
+        self.array = n2_running & fuel_flowing
+
+
+################################################################################
 # Engine EPR
 
 
@@ -1779,12 +1813,38 @@ class Eng_FuelFlow(DerivedParameterNode):
                eng2=P('Eng (2) Fuel Flow'),
                eng3=P('Eng (3) Fuel Flow'),
                eng4=P('Eng (4) Fuel Flow')):
-
+        # assume all engines Fuel Flow are record at the same frequency
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.sum(engines, axis=0)
         self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
+class Eng_FuelFlowMin(DerivedParameterNode):
+    '''
+    The minimum recorded Fuel Flow across all engines.
+    
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
+    '''
+
+    name = 'Eng (*) Fuel Flow Min'
+    units = 'kg/h'
+    align_frequency = 4
+    align_offset = 0
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) Fuel Flow'),
+               eng2=P('Eng (2) Fuel Flow'),
+               eng3=P('Eng (3) Fuel Flow'),
+               eng4=P('Eng (4) Fuel Flow')):
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+        
 ###############################################################################
 # Fuel Burn
 
