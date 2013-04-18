@@ -883,11 +883,11 @@ class AltitudeRadio(DerivedParameterNode):
                source_E = P('Altitude Radio EFIS'),
                source_L = P('Altitude Radio EFIS (L)'),
                source_R = P('Altitude Radio EFIS (R)')):
-        sources=[source_A, source_B, source_C, source_E, source_L, source_R]
-        params=[p for p in sources if p]
+        sources = [source_A, source_B, source_C, source_E, source_L, source_R]
+        params = [p for p in sources if p]
         self.offset = 0.0
         self.frequency = 1.0
-        self.array=blend_parameters(params, 
+        self.array = blend_parameters(params, 
                                     offset=self.offset, 
                                     frequency=self.frequency)
 
@@ -4002,6 +4002,7 @@ class MagneticVariation(DerivedParameterNode):
 
         self.array = interpolate(dev)
 
+
 class VerticalSpeedInertial(DerivedParameterNode):
     '''
     See 'Vertical Speed' for pressure altitude based derived parameter.
@@ -5401,19 +5402,21 @@ class TrackDeviationFromRunway(DerivedParameterNode):
                and any_of(('Track', 'Track True'), available)
 
     def _track_deviation(self, array, _slice, rwy, magnetic=False):
-        kwargs = {'runway': rwy}
-
         if magnetic:
             try:
                 # If magnetic heading is being used get magnetic heading
                 # of runway
-                kwargs = {'heading': rwy['magnetic_heading']}
+                self.array[_slice] = runway_deviation(
+                     array[_slice], heading=rwy['magnetic_heading'])
             except KeyError:
                 # If magnetic heading is not know for runway fallback to
                 # true heading
                 pass
-
-        self.array[_slice] = runway_deviation(array[_slice], **kwargs)
+        try:
+            self.array[_slice] = runway_deviation(array[_slice], runway=rwy)
+        except ValueError:
+            # could not determine runway information
+            return
 
     def derive(self, track_true=P('Track True'),
                track_mag=P('Track'),
@@ -5430,8 +5433,8 @@ class TrackDeviationFromRunway(DerivedParameterNode):
 
         self.array = np_ma_masked_zeros_like(track.array)
 
-        for approach in apps:
-            self._track_deviation(track.array, approach.slice, approach.runway, magnetic)
+        for app in apps:
+            self._track_deviation(track.array, app.slice, app.runway, magnetic)
 
         if to_rwy:
             self._track_deviation(track.array, takeoff[0].slice, to_rwy.value, magnetic)
