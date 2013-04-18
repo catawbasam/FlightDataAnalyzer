@@ -4782,14 +4782,18 @@ class WindAcrossLandingRunway(DerivedParameterNode):
                land_rwy=A('FDR Landing Runway'),
                land_hdg=KPV('Heading During Landing')):
 
-        if wind_dir_true and land_rwy and land_rwy.value:
-            # proceed with "True" values
-            wind_dir = wind_dir_true
-            land_heading = runway_heading(land_rwy.value)
+        if wind_dir_true and land_rwy:
+            if land_rwy.value:
+                # proceed with "True" values
+                wind_dir = wind_dir_true
+                land_heading = runway_heading(land_rwy.value)
+            else:
+                self.array = np_ma_masked_zeros_like(wind_dir_true.array)
+                return
         elif wind_dir_mag and land_hdg:
             # proceed with "Magnetic" values
             wind_dir = wind_dir_mag
-            land_heading = land_hdg
+            land_heading = land_hdg.get_last().value
         else:
             # raise error if unable to calculate like for like whilst monitor how often this occurs
             # self.array = np_ma_masked_zeros_like(windspeed.array)
