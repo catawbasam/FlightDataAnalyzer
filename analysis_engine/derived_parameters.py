@@ -883,11 +883,11 @@ class AltitudeRadio(DerivedParameterNode):
                source_E = P('Altitude Radio EFIS'),
                source_L = P('Altitude Radio EFIS (L)'),
                source_R = P('Altitude Radio EFIS (R)')):
-        sources=[source_A, source_B, source_C, source_E, source_L, source_R]
-        params=[p for p in sources if p]
+        sources = [source_A, source_B, source_C, source_E, source_L, source_R]
+        params = [p for p in sources if p]
         self.offset = 0.0
         self.frequency = 1.0
-        self.array=blend_parameters(params, 
+        self.array = blend_parameters(params, 
                                     offset=self.offset, 
                                     frequency=self.frequency)
 
@@ -4002,6 +4002,7 @@ class MagneticVariation(DerivedParameterNode):
 
         self.array = interpolate(dev)
 
+
 class VerticalSpeedInertial(DerivedParameterNode):
     '''
     See 'Vertical Speed' for pressure altitude based derived parameter.
@@ -4766,14 +4767,13 @@ class WindAcrossLandingRunway(DerivedParameterNode):
     """
     This is the windspeed across the final landing runway, positive wind from left to right.
     """
-
+    units = 'kts'
+    
     @classmethod
     def can_operate(cls, available):
         return all_of(('Wind Speed', 'Wind Direction True Continuous', 'FDR Landing Runway'), available) \
                or \
-               all_of(('Wind Speed', 'Wind Direction Continuous', 'Heading During Landing',), available)
-
-    units = 'kts'
+               all_of(('Wind Speed', 'Wind Direction Continuous', 'Heading During Landing'), available)
 
     def derive(self, windspeed=P('Wind Speed'),
                wind_dir_true=P('Wind Direction True Continuous'),
@@ -4782,23 +4782,22 @@ class WindAcrossLandingRunway(DerivedParameterNode):
                land_hdg=KPV('Heading During Landing')):
 
         if wind_dir_true and land_rwy:
-            if land_rwy.value:
-                # proceed with "True" values
-                wind_dir = wind_dir_true
-                land_heading = runway_heading(land_rwy.value)
-            else:
-                self.array = np_ma_masked_zeros_like(wind_dir_true.array)
-                return
+            # proceed with "True" values
+            wind_dir = wind_dir_true
+            land_heading = runway_heading(land_rwy.value)
+            self.array = np_ma_masked_zeros_like(wind_dir_true.array)
         elif wind_dir_mag and land_hdg:
             # proceed with "Magnetic" values
             wind_dir = wind_dir_mag
             land_heading = land_hdg.get_last().value
         else:
-            # raise error if unable to calculate like for like whilst monitor how often this occurs
-            # self.array = np_ma_masked_zeros_like(windspeed.array)
-            raise ValueError("%s Cannot operate with available parameters", self.name)
-
-        self.array = windspeed.array * np.ma.sin((land_heading - wind_dir.array)*deg2rad)
+            # either no landing runway detected or no landing heading detected
+            self.array = np_ma_masked_zeros_like(windspeed.array)
+            self.warning('Cannot calculate without landing runway (%s) or landing heading (%s)',
+                         bool(land_rwy), bool(land_hdg))
+            return
+        diff = (land_heading - wind_dir.array) * deg2rad
+        self.array = windspeed.array * np.ma.sin(diff)
 
 
 class Aileron(DerivedParameterNode):
@@ -5405,19 +5404,21 @@ class TrackDeviationFromRunway(DerivedParameterNode):
                and any_of(('Track', 'Track True'), available)
 
     def _track_deviation(self, array, _slice, rwy, magnetic=False):
-        kwargs = {'runway': rwy}
-
         if magnetic:
             try:
                 # If magnetic heading is being used get magnetic heading
                 # of runway
-                kwargs = {'heading': rwy['magnetic_heading']}
+                self.array[_slice] = runway_deviation(
+                     array[_slice], heading=rwy['magnetic_heading'])
             except KeyError:
                 # If magnetic heading is not know for runway fallback to
                 # true heading
                 pass
-
-        self.array[_slice] = runway_deviation(array[_slice], **kwargs)
+        try:
+            self.array[_slice] = runway_deviation(array[_slice], runway=rwy)
+        except ValueError:
+            # could not determine runway information
+            return
 
     def derive(self, track_true=P('Track True'),
                track_mag=P('Track'),
@@ -5434,8 +5435,8 @@ class TrackDeviationFromRunway(DerivedParameterNode):
 
         self.array = np_ma_masked_zeros_like(track.array)
 
-        for approach in apps:
-            self._track_deviation(track.array, approach.slice, approach.runway, magnetic)
+        for app in apps:
+            self._track_deviation(track.array, app.slice, app.runway, magnetic)
 
         if to_rwy:
             self._track_deviation(track.array, takeoff[0].slice, to_rwy.value, magnetic)
