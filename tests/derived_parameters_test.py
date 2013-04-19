@@ -813,20 +813,41 @@ class TestAltitudeAAL(unittest.TestCase):
         hdf_copy = copy_file(os.path.join(test_data_path,
                                           'alt_aal_faulty_alt_rad.hdf5'),
                              postfix='_test_copy')
-        process_flight(hdf_copy, {
-            'engine': {'classification': 'JET',
-                       'quantity': 2},
-            'frame': {'doubled': False, 'name': '737-3C'},
-            'id': 1,
-            'identifier': '1000',
-            'model': {'family': 'B737 NG',
-                      'interpolate_vspeeds': True,
-                      'manufacturer': 'Boeing',
-                      'model': 'B737-86N',
-                      'precise_positioning': True,
-                      'series': 'B737-800'},
-            'recorder': {'name': 'SAGEM', 'serial': '123456'},
-            'tail_number': 'G-DEMA'})
+        process_flight(hdf_copy, 'G-DEMA', {
+            'Engine Count': 2,
+            'Frame': '737-3C', # TODO: Change.
+            'Manufacturer': 'Boeing',
+            'Model': 'B737-86N',
+            'Precise Positioning': True,
+            'Series': 'B767-300',
+        })
+        with hdf_file(hdf_copy) as hdf:
+            hdf['Altitude AAL']
+            self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')
+    def test_alt_aal_without_alt_rad(self):
+        '''
+        When 'Altitude Radio' is not available, 'Altitude AAL' is created from
+        'Altitude STD' using the cycle_finder and peak_curvature algorithms.
+        Currently, cycle_finder is accurately locating the index where the
+        aircraft begins to climb. This section of data is passed into 
+        peak_curvature, which is designed to find the first curve in a piece of
+        data. The problem is that data from before the first curve, where the 
+        aircraft starts climbing, is not included, and peak_curvature detects
+        the second curve at approximately 120 feet.
+        '''
+        hdf_copy = copy_file(os.path.join(test_data_path,
+                                          'alt_aal_without_alt_rad.hdf5'),
+                             postfix='_test_copy')
+        process_flight(hdf_copy, 'G-DEMA', {
+            'Engine Count': 2,
+            'Frame': '737-3C', # TODO: Change.
+            'Manufacturer': 'Boeing',
+            'Model': 'B737-86N',
+            'Precise Positioning': True,
+            'Series': 'B767-300',
+        })
         with hdf_file(hdf_copy) as hdf:
             hdf['Altitude AAL']
             self.assertTrue(False, msg='Test not implemented.')
@@ -858,6 +879,7 @@ class TestAltitudeAAL(unittest.TestCase):
         index, value = max_value(np.abs(difs))
         # Check to test that the step occurs during cruse and not the go-around
         self.assertTrue(index in range(1290, 1850))
+    
 
 
 class TestAimingPointRange(unittest.TestCase):
