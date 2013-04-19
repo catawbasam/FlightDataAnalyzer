@@ -888,8 +888,8 @@ class AltitudeRadio(DerivedParameterNode):
         self.offset = 0.0
         self.frequency = 1.0
         self.array = blend_parameters(params, 
-                                    offset=self.offset, 
-                                    frequency=self.frequency)
+                                      offset=self.offset, 
+                                      frequency=self.frequency)
 
 
 '''
