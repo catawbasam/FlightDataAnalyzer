@@ -333,6 +333,8 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
         '''
         airports = []
         for airport in self.airports:
+            if 'latitude' not in airport or 'longitude' not in airport:
+                continue
             airport = copy(airport)
             airport['distance'] = bearing_and_distance(latitude, longitude,
                                                        airport['latitude'],
