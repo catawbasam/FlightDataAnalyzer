@@ -583,7 +583,7 @@ class AltitudeAAL(DerivedParameterNode):
             '''
             try:
                 # Test case => NAX_8_LN-NOE_20120109063858_02_L3UQAR___dev__sdb.002.hdf5
-                # Look over the first 500ft of climb (or less if the data doesnt' get that high).
+                # Look over the first 500ft of climb (or less if the data doesn't get that high).
                 to = index_at_value(alt_std, min(alt_std[0]+500, np.ma.max(alt_std)))
                 # Seek the point where the altitude first curves upwards.
                 idx = int(peak_curvature(alt_std, slice(None,to)))
@@ -653,9 +653,9 @@ class AltitudeAAL(DerivedParameterNode):
                         alt_std[begin_index:] - up_diff
         return alt_result
 
-    def derive(self, alt_std = P('Altitude STD Smoothed'),
-               alt_rad = P('Altitude Radio'),
-               speedies = S('Fast')):
+    def derive(self, alt_std=P('Altitude STD Smoothed'),
+               alt_rad=P('Altitude Radio'),
+               speedies=S('Fast')):
         # Altitude Radio was taken as the prime reference to ensure the
         # minimum ground clearance passing peaks is accurately reflected.
         # However, when the Altitude Radio signal is sampled at a lower rate
@@ -1002,6 +1002,7 @@ class AltitudeRadio(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 '''
 
+
 class AltitudeSTDSmoothed(DerivedParameterNode):
     """
     :param frame: The frame attribute, e.g. '737-i'
@@ -1016,8 +1017,7 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        if 'Altitude STD' in available:
-            return True
+        return 'Altitude STD' in available
 
     def derive(self, fine = P('Altitude STD (Fine)'), alt = P('Altitude STD'),
                frame = A('Frame')):
@@ -1041,6 +1041,7 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             self.array = straighten_altitudes(fine.array, alt.array, 4096 * 1.220703125)
         else:
             self.array = alt.array
+
 
 # TODO: Account for 'Touch & Go' - need to adjust QNH for additional airfields!
 class AltitudeQNH(DerivedParameterNode):
