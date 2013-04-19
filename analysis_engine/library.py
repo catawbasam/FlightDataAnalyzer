@@ -1663,7 +1663,7 @@ def runway_distance_from_end(runway, *args, **kwds):
     else:
         return None
 
-def runway_deviation(array, runway={}, heading=0.0):
+def runway_deviation(array, runway={}, heading=None):
     '''
     Computes an array of heading deviations from the selected runway
     centreline calculated from latitude/longitude coordinates. For use with
@@ -1684,7 +1684,7 @@ def runway_deviation(array, runway={}, heading=0.0):
     :returns dev: array of heading deviations
     :type dev: Numpy masked array.
     '''
-    if heading:
+    if heading is not None:
         rwy_hdg = heading
     else:
         rwy_hdg = runway_heading(runway)
