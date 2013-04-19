@@ -5410,6 +5410,7 @@ class TrackDeviationFromRunway(DerivedParameterNode):
                 # of runway
                 self.array[_slice] = runway_deviation(
                      array[_slice], heading=rwy['magnetic_heading'])
+                return
             except KeyError:
                 # If magnetic heading is not know for runway fallback to
                 # true heading

@@ -1600,9 +1600,10 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     figures to set event thresholds, but a threshold based on in-service data
     may suffice.
     '''
-
     NAME_FORMAT = 'AOA With Flap %(flap)d Max'
     NAME_VALUES = NAME_VALUES_FLAP
+    
+    name = 'AOA With Flap Max'
     units = 'deg'
 
     def derive(self, flap=P('Flap'), aoa=P('AOA'), scope=S('Fast')):
