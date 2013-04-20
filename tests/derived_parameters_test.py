@@ -98,6 +98,7 @@ from analysis_engine.derived_parameters import (
     LongitudePrepared,
     LongitudeSmoothed,
     Mach,
+    MagneticVariation,
     MasterWarning,
     Pitch,
     SpeedbrakeSelected,
@@ -3305,13 +3306,38 @@ class TestLongitudeSmoothed(unittest.TestCase):
 
 
 class TestMagneticVariation(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        combinations = MagneticVariation.get_operational_combinations()
+        self.assertTrue(
+            ('Latitude', 'Longitude', 'Altitude AAL', 'Start Datetime') in combinations)
+        self.assertTrue(
+            ('Latitude (Coarse)', 'Longitude (Coarse)', 'Altitude AAL', 'Start Datetime') in combinations)
+        self.assertTrue(
+            ('Latitude', 'Latitude (Coarse)', 'Longitude', 'Longitude (Coarse)', 'Altitude AAL', 'Start Datetime') in combinations)        
         
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        mag_var = MagneticVariation()
+        lat = P('Latitude', array=np.ma.array(
+            [10.0, 10.1, 10.2, 10.3, 10.4, 10.5],
+            mask=[False, False, False, True, False, False]))
+        lon = P('Longitude', array=np.ma.array(
+            [-10.0, -10.1, -10.2, -10.3, -10.4, -10.5],
+            mask=[False, False, True, True, False, False]))
+        alt_aal = P('Altitude AAL', array=np.ma.array(
+            [20000, 20100, 20200, 20300, 20400, 20500],
+            mask=[False, False, False, False, True, False]))
+        start_datetime = A('Start Datetime',
+                           value=datetime.datetime(2013, 3, 23))
+        mag_var.derive(lat, None, lon, None, alt_aal, start_datetime)
+        expected_result = np.ma.array(
+            [-6.06444546099, -6.07639239453, 0, 0, 0, -6.12614056456],
+            mask=[False, False, True, True, True, False])
+        ma_test.assert_almost_equal(mag_var.array, expected_result)
+        # Test with Coarse parameters.
+        mag_var.derive(None, lat, None, lon, alt_aal, start_datetime)
+        expected_result = np.ma.array(
+            [-6.06444546099, -6.07639239453, 0, 0, 0, -6.12614056456],
+            mask=[False, False, True, True, True, False])        
 
 
 class TestPackValvesOpen(unittest.TestCase):

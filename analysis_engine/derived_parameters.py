@@ -1,5 +1,7 @@
 import numpy as np
-from math import ceil, floor, radians
+import geomag
+
+from math import ceil, radians
 
 from analysis_engine.exceptions import DataFrameError
 
@@ -47,7 +49,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      machtat2sat,
                                      mask_inside_slices,
                                      mask_outside_slices,
-                                     merge_sources,
                                      merge_two_parameters,
                                      moving_average,
                                      np_ma_ones_like,
@@ -3322,12 +3323,13 @@ class HeadingTrueContinuous(DerivedParameterNode):
 
 class Heading(DerivedParameterNode):
     """
-    Temporary fix for missing Heading.
+    Compensates for magnetic variation, which will have been computed previously.
     """
 
     units = 'deg'
-    def derive(self, head_true=P('Heading True')):
-        self.array = head_true.array
+    def derive(self, head_true=P('Heading True Continuous'),
+               var=P('Magnetic Variation')):
+        self.array = (head_true.array - var.array) % 360.0
 
 
 class HeadingTrue(DerivedParameterNode):
@@ -3337,8 +3339,7 @@ class HeadingTrue(DerivedParameterNode):
 
     units = 'deg'
     def derive(self, head=P('Heading Continuous'),
-               var = P('Magnetic Variation')):
-
+               var=P('Magnetic Variation')):
         self.array = (head.array + var.array) % 360.0
 
 
@@ -3850,7 +3851,6 @@ class LatitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
         return all_of((
             'Latitude Prepared',
             'Longitude Prepared',
-            'Heading Continuous',
             'Approach Range',
             'Airspeed True',
             'Precise Positioning',
@@ -3906,16 +3906,16 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
         return all_of((
             'Latitude Prepared',
             'Longitude Prepared',
-            'Heading Continuous',
             'Approach Range',
-            'Heading True Continuous',
             'Airspeed True',
             'Precise Positioning',
             'Takeoff',
             'FDR Takeoff Runway',
             'Touchdown',
             'Approach Information',
-            'Mobile'), available)
+            'Mobile'), available) \
+               and any_of(('Heading True Continuous',
+                           'Heading Continuous'), available)
 
     def derive(self, lat = P('Latitude Prepared'),
                lon = P('Longitude Prepared'),
@@ -3960,58 +3960,40 @@ class Mach(DerivedParameterNode):
 
 class MagneticVariation(DerivedParameterNode):
     """
-    This computes local magnetic deviation values on the runways and
-    interpolates between one airport and the next. The values at each airport
-    are kept constant.
-
-    The main idea here is that we can easily identify the ends of the runway
-    and the heading on the runway, but it is far harder to find data on the
-    magnetic variation at an airport. Especially in difficult locations like
-    Africa or post-war zones. Also, by using the aircraft compass values to
-    work out the variation, we inherently accommodate compass drift for that
-    day.
-    
-    TODO: Can we calulate Magnetic Variation from the difference between
-    Heading and True Heading if both are recorded?
+    This computes magnetic declination values from latitude, longitude,
+    altitude and date. Uses Latitude/Longitude or
+    Latitude (Coarse)/Longitude (Coarse) parameters instead of Prepared or
+    Smoothed to avoid cyclical dependencies.
     """
 
     units = 'deg'
+    
+    align_frequency = 1/64.0
+    align_offset = 0.0
 
-    def derive(self, head=P('Heading Continuous'),
-               head_land = KPV('Heading During Landing'),
-               head_toff = KPV('Heading During Takeoff'),
-               toff_rwy = A('FDR Takeoff Runway'),
-               land_rwy = A('FDR Landing Runway')):
+    @classmethod
+    def can_operate(cls, available):
+        lat = any_of(('Latitude', 'Latitude (Coarse)'), available)
+        lon = any_of(('Longitude', 'Longitude (Coarse)'), available)
+        return lat and lon and all_of(('Altitude AAL', 'Start Datetime'),
+                                      available)
 
-        def first_turn(x):
-            # Heading continuous can be huge after a few turns in the hold,
-            # so we need this to straighten things out! I bet there's a more
-            # Pythonic way to do this, but at least it's simple.
-            return x - floor(x/180.0 + 0.5)*180.0
-
-        # Make a masked copy of the heading array, then insert deviations at
-        # just the points we know. "interpolate" is designed to
-        # replace the masked values with linearly interpolated values between
-        # two known points, and extrapolate to the ends of the array. It also
-        # substitutes a zero array in case neither is available.
-        dev = np.ma.masked_all_like(head.array)
-        if head_toff:
-            takeoff_heading = head_toff.get_first()
-            try:
-                dev[takeoff_heading.index] = first_turn(\
-                    runway_heading(toff_rwy.value) - takeoff_heading.value)
-            except:
-                dev[takeoff_heading.index] = 0.0
-
-        if land_rwy:
-            landing_heading = head_land.get_last()
-            try:
-                dev[landing_heading.index] = first_turn( \
-                    runway_heading(land_rwy.value) - landing_heading.value)
-            except:
-                dev[landing_heading.index] = 0.0
-
-        self.array = interpolate(dev)
+    def derive(self, lat=P('Latitude'), lat_coarse=P('Latitude (Coarse)'),
+               lon=P('Longitude'), lon_coarse=P('Longitude (Coarse)'),
+               alt_aal=P('Altitude AAL'), start_datetime=A('Start Datetime')):
+        
+        lat = lat or lat_coarse
+        lon = lon or lon_coarse
+        array = np.zeros_like(lat.array)
+        start_date = start_datetime.value.date()
+        # Exclude masked values.
+        mask = lat.array.mask | lon.array.mask | alt_aal.array.mask
+        array = np.ma.masked_where(mask, array)
+        for index in np.where(~mask)[0]:
+            array[index] = geomag.declination(
+                lat.array[index], lon.array[index],
+                alt_aal.array[index], time=start_date)
+        self.array = array
 
 
 class VerticalSpeedInertial(DerivedParameterNode):
@@ -4247,10 +4229,11 @@ class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
     def can_operate(cls, available):
         return all_of(('Latitude', 'Longitude'), available) or\
                (all_of(('Airspeed True',
-                       'Latitude At Liftoff',
-                       'Longitude At Liftoff',
-                       'Latitude At Touchdown',
-                       'Longitude At Touchdown'), available) and any_of(('Heading', 'Heading True'), available))
+                        'Latitude At Liftoff',
+                        'Longitude At Liftoff',
+                        'Latitude At Touchdown',
+                        'Longitude At Touchdown'), available) and\
+                any_of(('Heading', 'Heading True'), available))
 
     # Note hdg is alignment master to force 1Hz operation when latitude &
     # longitude are only recorded at 0.25Hz.
@@ -4289,17 +4272,18 @@ class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
 
     @classmethod
     def can_operate(cls, available):
-        return all_of(('Latitude', 'Longitude'), available) or\
+        return all_of(('Latitude', 'Longitude'), available) or \
                (all_of(('Airspeed True',
-                       'Latitude At Liftoff',
-                       'Longitude At Liftoff',
-                       'Latitude At Touchdown',
-                       'Longitude At Touchdown'), available) and any_of(('Heading', 'Heading True'), available))
+                        'Latitude At Liftoff',
+                        'Longitude At Liftoff',
+                        'Latitude At Touchdown',
+                        'Longitude At Touchdown'), available) and \
+                any_of(('Heading', 'Heading True'), available))
 
     # Note hdg is alignment master to force 1Hz operation when latitude &
     # longitude are only recorded at 0.25Hz.
     def derive(self,
-               lat=P('Latitude'),lon=P('Longitude'),
+               lat=P('Latitude'), lon=P('Longitude'),
                hdg_mag=P('Heading'),
                hdg_true=P('Heading True'),
                tas=P('Airspeed True'),

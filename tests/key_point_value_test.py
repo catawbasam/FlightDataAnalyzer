@@ -3796,6 +3796,10 @@ class TestLongitudeAtLowestAltitudeDuringApproach(unittest.TestCase, CreateKPVsA
         self.assertTrue(False, msg='Test not implemented.')
 
 
+################################################################################
+# Magnetic Variation
+
+
 class TestMagneticVariationAtTakeoffTurnOntoRunway(unittest.TestCase, CreateKPVsAtKTIsTest):
 
     def setUp(self):
@@ -3817,6 +3821,8 @@ class TestMagneticVariationAtLandingTurnOffRunway(unittest.TestCase, CreateKPVsA
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
+
+###############################################################################
 
 class TestIsolationValveOpenAtLiftoff(unittest.TestCase, NodeTest):
 
