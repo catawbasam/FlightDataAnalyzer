@@ -8,5 +8,6 @@ matplotlib
 simplekml
 simplejson
 argparse
+geomag
 FlightDataUtilities
 HDFAccess
