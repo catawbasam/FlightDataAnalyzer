@@ -87,6 +87,7 @@ from analysis_engine.derived_parameters import (
     GearUpSelected,
     GrossWeightSmoothed,
     #GroundspeedAlongTrack,
+    Heading,
     HeadingContinuous,
     HeadingIncreasing,
     HeadingTrue,
@@ -2173,7 +2174,21 @@ class TestHeadingTrueTrack(unittest.TestCase):
         # compare IRU Track Angle True (recorded) against the derived
         track_rec = load(os.path.join(test_data_path, 'HeadingTrack_IRU_Track_Angle_Recorded.nod'))
         assert_array_within_tolerance(head_track.array, track_rec.array, 10, 98)
+
+
+class TestHeading(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(Heading.get_operational_combinations(),
+            [('Heading True Continuous', 'Magnetic Variation')])
         
+    def test_basic(self):
+        true = P('Heading True Continuous', np.ma.array([0,5,6,355,356]))
+        var = P('Magnetic Variation',np.ma.array([2,3,-8,-7,9]))
+        head = Heading()
+        head.derive(true, var)
+        expected = P('Heading True', np.ma.array([358.0, 2.0, 14.0, 2.0, 347.0]))
+        ma_test.assert_array_equal(head.array, expected.array)
+
 
 class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):
@@ -2185,9 +2200,9 @@ class TestHeadingTrue(unittest.TestCase):
         var = P('Magnetic Variation',np.ma.array([2,3,-8,-7,9]))
         true = HeadingTrue()
         true.derive(head, var)
-        expected = P('HeadingTrue', np.ma.array([2.0, 8.0, 358.0, 348.0, 5.0]))
+        expected = P('Heading True', np.ma.array([2.0, 8.0, 358.0, 348.0, 5.0]))
         ma_test.assert_array_equal(true.array, expected.array)
-                 
+
 
 class TestILSFrequency(unittest.TestCase):
     def test_can_operate(self):
