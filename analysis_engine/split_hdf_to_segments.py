@@ -180,7 +180,11 @@ def split_segments(hdf):
     slow_slices = np.ma.clump_masked(slow_array)
     
     heading = hdf['Heading']
-    rate_of_turn = _rate_of_turn(heading)
+    
+    if heading.invalid:
+        rate_of_turn = None
+    else:
+        rate_of_turn = _rate_of_turn(heading)
     
     split_params_min, \
     split_params_frequency = _get_normalised_split_params(hdf)
@@ -283,6 +287,8 @@ def split_segments(hdf):
         
         # Split using rate of turn. Q: Should this be considered in other
         # splitting methods.
+        if rate_of_turn is None:
+            continue
         rot_slice = slice(slice_start_secs * heading.frequency,
                           slice_stop_secs * heading.frequency)
         stopped_slices = np.ma.clump_unmasked(rate_of_turn[rot_slice])
