@@ -3971,6 +3971,8 @@ class EngGasTempDuringFlightMin(KeyPointValueNode):
     To detect a possible engine shutdown in flight, we look for the minimum
     gas temperature recorded during the flight. The event will then be computed
     later, testing against a suitable minimum value for a running engine.
+
+    Note that the gas temperature can increase on an engine run down.
     '''
 
     units = 'C'
@@ -4657,7 +4659,7 @@ class EngVibN3Max(KeyPointValueNode):
 # Engine Shutdown
 
 
-class EngShutdownDuration(KeyPointValueNode):
+class EngShutdownDuringFlightDuration(KeyPointValueNode):
     '''
     This KPV measures the duration the engines are not all running while
     airborne - i.e. Expected engine shutdown during flight.
@@ -4665,20 +4667,21 @@ class EngShutdownDuration(KeyPointValueNode):
     Based upon "Eng (*) All Running" which uses the best of the available N2
     and Fuel Flow to determine whether the engines are all running.
     '''
-    units = 'secs'
 
-    def derive(self, eng_running=P('Eng (*) All Running'),
+    units = 's'
+
+    def derive(self,
+               eng_running=P('Eng (*) All Running'),
                airborne=S('Airborne')):
+
         eng_off = eng_running.array == 'Not Running'
         for air in airborne:
             for _slice in runs_of_ones(eng_off[air.slice]):
                 dur = float(_slice.stop - _slice.start) / self.frequency
                 if dur > 2:
-                    # must be at least 2 seconds not running
+                    # Must be at least 2 seconds not running:
                     self.create_kpv(_slice.start + air.slice.start, dur)
-                continue
-            continue
-        return
+
 
 ##############################################################################
 
