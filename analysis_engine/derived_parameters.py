@@ -508,7 +508,7 @@ class AirspeedTrue(DerivedParameterNode):
             np.ma.array(data=tas, mask=combined_mask), 50)
         tas_valids = np.ma.clump_unmasked(tas_from_airspeed)
 
-        if gspd:
+        if all([gspd, toffs, lands]):
             # Now see if we can extend this during the takeoff phase, using
             # either recorded groundspeed or failing that integrating
             # acceleration:

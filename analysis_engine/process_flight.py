@@ -651,7 +651,7 @@ def main():
         logger.info("Flight Track with attributes writen to kml: %s", kml_dest)
     
     # - END -
-    
+
 
 if __name__ == '__main__':
     main()
