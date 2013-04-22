@@ -111,7 +111,7 @@ from analysis_engine.key_point_values import (
     AltitudeFirstStableDuringApproach,
     AltitudeAtFlapExtension,
     AltitudeAtFirstFlapRetractionDuringGoAround,
-    AltitudeLastUnStableDuringApproach,
+    AltitudeLastUnstableDuringApproach,
     AltitudeMax,
     AltitudeWithFlapMax,
     AltitudeWithGearDownMax,
@@ -163,7 +163,7 @@ from analysis_engine.key_point_values import (
     EngOilQtyMin,
     EngOilTempMax,
     EngOilTempForXMinMax,
-    EngShutdownDuration,
+    EngShutdownDuringFlightDuration,
     EngTorqueDuringTaxiMax,
     EngTorqueDuringTakeoff5MinRatingMax,
     EngTorqueDuringGoAround5MinRatingMax,
@@ -2784,23 +2784,29 @@ class TestEngFireWarningDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
         
         
-class TestEngShutdownDuration(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(EngShutdownDuration.get_operational_combinations(),
-                         [('Eng (*) All Running', 'Airborne')])
+##############################################################################
+# Engine Shutdown
+
+
+class TestEngShutdownDuringFlightDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngShutdownDuringFlightDuration
+        self.operational_combinations = [('Eng (*) All Running', 'Airborne')]
 
     def test_derive(self):
-        eng_off = EngShutdownDuration(frequency=2)
-        eng_running = M(array=np.ma.array(
-            [0,0,1,1,1,1,0,1,1,1,0,0,0,0,0,0,0,1,1,1]),
-            values_mapping={0: 'Not Running',
-                            1: 'Running'})
+        eng_running = M(
+            array=np.ma.array([0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1]),
+            values_mapping={0: 'Not Running', 1: 'Running'},
+        )
         airborne = S(items=[Section('', slice(4, 20), 4.1, 20.1)])
-        eng_off.derive(eng_running=eng_running, airborne=airborne)
-        self.assertEqual(len(eng_off), 1)  # detected second longer one only
-        self.assertEqual(eng_off[0].index, 10)
-        self.assertEqual(eng_off[0].value, 3.5)
-        
+        node = self.node_class(frequency=2)
+        node.derive(eng_running=eng_running, airborne=airborne)
+        # Note: Should only be single KPV (as must be greater than one second)
+        self.assertEqual(node, [
+            KeyPointValue(index=10, value=3.5, name='Eng Shutdown During Flight Duration'),
+        ])
+
 
 ##############################################################################
 # Engine Gas Temperature
