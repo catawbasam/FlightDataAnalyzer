@@ -3320,6 +3320,16 @@ class HeadingTrueContinuous(DerivedParameterNode):
         self.array = straighten_headings(hdg.array)
 
 
+class Heading(DerivedParameterNode):
+    """
+    Temporary fix for missing Heading.
+    """
+
+    units = 'deg'
+    def derive(self, head_true=P('Heading True')):
+        self.array = head_true.array
+
+
 class HeadingTrue(DerivedParameterNode):
     """
     Compensates for magnetic variation, which will have been computed previously.
