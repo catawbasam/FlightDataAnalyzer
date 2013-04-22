@@ -1612,8 +1612,10 @@ class Eng_AllRunning(MultistateDerivedParameterNode):
                eng_n2=P('Eng (*) N2 Min'),
                fuel_flow=P('Eng (*) Fuel Flow Min')):
         # TODO: move values to settings
-        n2_running = eng_n2.array > 10 if eng_n2 else np.ones_like(fuel_flow.array)
-        fuel_flowing = fuel_flow.array > 50 if fuel_flow else np.ones_like(eng_n2.array)
+        n2_running = eng_n2.array > 10 if eng_n2 \
+            else np.ones_like(fuel_flow.array, dtype=bool)
+        fuel_flowing = fuel_flow.array > 50 if fuel_flow \
+            else np.ones_like(eng_n2.array, dtype=bool)
         # must have N2 and Fuel Flow if both are available
         self.array = n2_running & fuel_flowing
 
