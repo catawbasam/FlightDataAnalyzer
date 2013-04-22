@@ -111,7 +111,7 @@ from analysis_engine.key_point_values import (
     AltitudeFirstStableDuringApproach,
     AltitudeAtFlapExtension,
     AltitudeAtFirstFlapRetractionDuringGoAround,
-    AltitudeLastUnStableDuringApproach,
+    AltitudeLastUnstableDuringApproach,
     AltitudeMax,
     AltitudeWithFlapMax,
     AltitudeWithGearDownMax,
