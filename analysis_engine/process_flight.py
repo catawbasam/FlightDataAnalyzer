@@ -520,11 +520,13 @@ def process_flight(hdf_path, tail_number, aircraft_info={},
         hdf.set_attr('aircraft_info', aircraft_info)
         hdf.set_attr('achieved_flight_record', achieved_flight_record)
         
-    return {'flight' : flight_attrs, 
-            'kti' : kti_list, 
-            'kpv' : kpv_list,
-            'approach': approach_list,
-            'phases' : section_list}
+    return {
+        'flight' : flight_attrs, 
+        'kti' : kti_list, 
+        'kpv' : kpv_list,
+        'approach': approach_list,
+        'phases' : section_list,
+    }
 
 
 def main():
@@ -649,7 +651,7 @@ def main():
         logger.info("Flight Track with attributes writen to kml: %s", kml_dest)
     
     # - END -
-    
+
 
 if __name__ == '__main__':
     main()

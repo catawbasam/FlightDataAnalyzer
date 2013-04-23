@@ -87,6 +87,7 @@ from analysis_engine.derived_parameters import (
     GearUpSelected,
     GrossWeightSmoothed,
     #GroundspeedAlongTrack,
+    Heading,
     HeadingContinuous,
     HeadingIncreasing,
     HeadingTrue,
@@ -98,6 +99,7 @@ from analysis_engine.derived_parameters import (
     LongitudePrepared,
     LongitudeSmoothed,
     Mach,
+    MagneticVariation,
     MasterWarning,
     Pitch,
     SpeedbrakeSelected,
@@ -813,20 +815,41 @@ class TestAltitudeAAL(unittest.TestCase):
         hdf_copy = copy_file(os.path.join(test_data_path,
                                           'alt_aal_faulty_alt_rad.hdf5'),
                              postfix='_test_copy')
-        process_flight(hdf_copy, {
-            'engine': {'classification': 'JET',
-                       'quantity': 2},
-            'frame': {'doubled': False, 'name': '737-3C'},
-            'id': 1,
-            'identifier': '1000',
-            'model': {'family': 'B737 NG',
-                      'interpolate_vspeeds': True,
-                      'manufacturer': 'Boeing',
-                      'model': 'B737-86N',
-                      'precise_positioning': True,
-                      'series': 'B737-800'},
-            'recorder': {'name': 'SAGEM', 'serial': '123456'},
-            'tail_number': 'G-DEMA'})
+        process_flight(hdf_copy, 'G-DEMA', {
+            'Engine Count': 2,
+            'Frame': '737-3C', # TODO: Change.
+            'Manufacturer': 'Boeing',
+            'Model': 'B737-86N',
+            'Precise Positioning': True,
+            'Series': 'B767-300',
+        })
+        with hdf_file(hdf_copy) as hdf:
+            hdf['Altitude AAL']
+            self.assertTrue(False, msg='Test not implemented.')
+    
+    @unittest.skip('Test Not Implemented')
+    def test_alt_aal_without_alt_rad(self):
+        '''
+        When 'Altitude Radio' is not available, 'Altitude AAL' is created from
+        'Altitude STD' using the cycle_finder and peak_curvature algorithms.
+        Currently, cycle_finder is accurately locating the index where the
+        aircraft begins to climb. This section of data is passed into 
+        peak_curvature, which is designed to find the first curve in a piece of
+        data. The problem is that data from before the first curve, where the 
+        aircraft starts climbing, is not included, and peak_curvature detects
+        the second curve at approximately 120 feet.
+        '''
+        hdf_copy = copy_file(os.path.join(test_data_path,
+                                          'alt_aal_without_alt_rad.hdf5'),
+                             postfix='_test_copy')
+        process_flight(hdf_copy, 'G-DEMA', {
+            'Engine Count': 2,
+            'Frame': '737-3C', # TODO: Change.
+            'Manufacturer': 'Boeing',
+            'Model': 'B737-86N',
+            'Precise Positioning': True,
+            'Series': 'B767-300',
+        })
         with hdf_file(hdf_copy) as hdf:
             hdf['Altitude AAL']
             self.assertTrue(False, msg='Test not implemented.')
@@ -858,6 +881,7 @@ class TestAltitudeAAL(unittest.TestCase):
         index, value = max_value(np.abs(difs))
         # Check to test that the step occurs during cruse and not the go-around
         self.assertTrue(index in range(1290, 1850))
+    
 
 
 class TestAimingPointRange(unittest.TestCase):
@@ -2150,7 +2174,21 @@ class TestHeadingTrueTrack(unittest.TestCase):
         # compare IRU Track Angle True (recorded) against the derived
         track_rec = load(os.path.join(test_data_path, 'HeadingTrack_IRU_Track_Angle_Recorded.nod'))
         assert_array_within_tolerance(head_track.array, track_rec.array, 10, 98)
+
+
+class TestHeading(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(Heading.get_operational_combinations(),
+            [('Heading True Continuous', 'Magnetic Variation')])
         
+    def test_basic(self):
+        true = P('Heading True Continuous', np.ma.array([0,5,6,355,356]))
+        var = P('Magnetic Variation',np.ma.array([2,3,-8,-7,9]))
+        head = Heading()
+        head.derive(true, var)
+        expected = P('Heading True', np.ma.array([358.0, 2.0, 14.0, 2.0, 347.0]))
+        ma_test.assert_array_equal(head.array, expected.array)
+
 
 class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):
@@ -2162,9 +2200,9 @@ class TestHeadingTrue(unittest.TestCase):
         var = P('Magnetic Variation',np.ma.array([2,3,-8,-7,9]))
         true = HeadingTrue()
         true.derive(head, var)
-        expected = P('HeadingTrue', np.ma.array([2.0, 8.0, 358.0, 348.0, 5.0]))
+        expected = P('Heading True', np.ma.array([2.0, 8.0, 358.0, 348.0, 5.0]))
         ma_test.assert_array_equal(true.array, expected.array)
-                 
+
 
 class TestILSFrequency(unittest.TestCase):
     def test_can_operate(self):
@@ -3283,13 +3321,38 @@ class TestLongitudeSmoothed(unittest.TestCase):
 
 
 class TestMagneticVariation(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        combinations = MagneticVariation.get_operational_combinations()
+        self.assertTrue(
+            ('Latitude', 'Longitude', 'Altitude AAL', 'Start Datetime') in combinations)
+        self.assertTrue(
+            ('Latitude (Coarse)', 'Longitude (Coarse)', 'Altitude AAL', 'Start Datetime') in combinations)
+        self.assertTrue(
+            ('Latitude', 'Latitude (Coarse)', 'Longitude', 'Longitude (Coarse)', 'Altitude AAL', 'Start Datetime') in combinations)        
         
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        mag_var = MagneticVariation()
+        lat = P('Latitude', array=np.ma.array(
+            [10.0, 10.1, 10.2, 10.3, 10.4, 10.5],
+            mask=[False, False, False, True, False, False]))
+        lon = P('Longitude', array=np.ma.array(
+            [-10.0, -10.1, -10.2, -10.3, -10.4, -10.5],
+            mask=[False, False, True, True, False, False]))
+        alt_aal = P('Altitude AAL', array=np.ma.array(
+            [20000, 20100, 20200, 20300, 20400, 20500],
+            mask=[False, False, False, False, True, False]))
+        start_datetime = A('Start Datetime',
+                           value=datetime.datetime(2013, 3, 23))
+        mag_var.derive(lat, None, lon, None, alt_aal, start_datetime)
+        expected_result = np.ma.array(
+            [-6.06444546099, -6.07639239453, 0, 0, 0, -6.12614056456],
+            mask=[False, False, True, True, True, False])
+        ma_test.assert_almost_equal(mag_var.array, expected_result)
+        # Test with Coarse parameters.
+        mag_var.derive(None, lat, None, lon, alt_aal, start_datetime)
+        expected_result = np.ma.array(
+            [-6.06444546099, -6.07639239453, 0, 0, 0, -6.12614056456],
+            mask=[False, False, True, True, True, False])        
 
 
 class TestPackValvesOpen(unittest.TestCase):
