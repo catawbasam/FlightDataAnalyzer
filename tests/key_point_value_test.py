@@ -2518,12 +2518,12 @@ class TestAltitudeFirstStableDuringApproach(unittest.TestCase):
 
 class TestAltitudeLastUnstableDuringApproach(unittest.TestCase):
     def test_can_operate(self):
-        ops = AltitudeLastUnStableDuringApproach.get_operational_combinations()
+        ops = AltitudeLastUnstableDuringApproach.get_operational_combinations()
         self.assertEqual(ops, [('Stable Approach', 'Altitude AAL')])
 
     def test_derive_two_approaches(self):
         # two approaches
-        lastunstable = AltitudeLastUnStableDuringApproach()
+        lastunstable = AltitudeLastUnstableDuringApproach()
         #                                                 stable tooshort stable
         stable = StableApproach(array=np.ma.array([1,4,9,9,  3,2,9,   2,9,9,1,1],
                                                    mask=[0,0,0,0,  1,0,0,   0,0,0,0,0]))
