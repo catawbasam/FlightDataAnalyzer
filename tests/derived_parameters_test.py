@@ -4013,6 +4013,13 @@ class TestApproachRange(TemporaryFileTest, unittest.TestCase):
         
         
 class TestStableApproach(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            StableApproach.get_operational_combinations(),
+            [('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min', 'Altitude AAL'),
+             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min', 'Altitude AAL'),
+                ])
+        
     def test_stable_approach(self):
         stable = StableApproach()
         
