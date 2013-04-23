@@ -5558,7 +5558,7 @@ class StableApproach(MultistateDerivedParameterNode):
             stable_heading = abs(heading) < STABLE_HEADING
             stable &= stable_heading.filled(False)  #Q: Should masked values assumed on track ???
 
-            if airspeed:
+            if aspd:
                 #== 4. Airspeed Relative ==
                 self.array[_slice][stable] = 4
                 STABLE_AIRSPEED_ABOVE_REF = 20
