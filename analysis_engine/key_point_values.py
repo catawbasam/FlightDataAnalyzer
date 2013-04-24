@@ -22,6 +22,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      bearings_and_distances,
                                      bump,
                                      clip,
+                                     closest_unmasked_value,
                                      clump_multistate,
                                      coreg,
                                      cycle_counter,
@@ -3159,7 +3160,12 @@ class LatitudeAtTouchdown(KeyPointValueNode):
             return
 
         if lat_c:
-            self.create_kpvs_at_ktis(lat_c.array, tdwns)
+            for tdwn in tdwns:
+                # Touchdown may be masked for Coarse parameter.
+                self.create_kpv(
+                    tdwn.index,
+                    closest_unmasked_value(lat_c.array, tdwn.index).value,
+                )
             return
 
         value = None
@@ -3224,7 +3230,12 @@ class LongitudeAtTouchdown(KeyPointValueNode):
             return
 
         if lon_c:
-            self.create_kpvs_at_ktis(lon_c.array, tdwns)
+            for tdwn in tdwns:
+                # Touchdown may be masked for Coarse parameter.
+                self.create_kpv(
+                    tdwn.index,
+                    closest_unmasked_value(lon_c.array, tdwn.index).value,
+                )
             return
 
         value = None
