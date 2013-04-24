@@ -4299,9 +4299,10 @@ class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
                 hdg = hdg_true
             else:
                 hdg = hdg_mag
-            lat_array, _ = air_track(lat_lift.get_first().value, lon_lift.get_first().value,
-                                     lat_land.get_last().value, lon_land.get_last().value,
-                                     tas.array, hdg.array, tas.frequency)
+            lat_array, _ = air_track(
+                lat_lift.get_first().value, lon_lift.get_first().value,
+                lat_land.get_last().value, lon_land.get_last().value,
+                tas.array, hdg.array, tas.frequency)
             self.array = lat_array
 
 
