@@ -41,18 +41,32 @@ class TestAnyOf(unittest.TestCase):
 
 
 class TestAirTrack(unittest.TestCase):
+    
     def test_air_track_basic(self):
         spd = np.ma.array([260,260,260,260,260,260,260], dtype=float)
         hdg = np.ma.array([0,0,0,90,90,90,270], dtype=float)
         lat, lon = air_track(0.0, 0.0, 0.0035, 0.0035, spd, hdg, 1.0)
-        np.testing.assert_array_almost_equal(0.0035, lat[-1])
-        np.testing.assert_array_almost_equal(0.0035, lon[-1])
+        np.testing.assert_array_almost_equal(0.0035, lat[-1], decimal=4)
+        np.testing.assert_array_almost_equal(0.0035, lon[-1], decimal=4)
+        
     def test_air_track_arrays_too_short(self):
         spd = np.ma.array([60,60])
         hdg = np.ma.array([0,0])
         lat, lon = air_track(0.0, 0.0, 1.0, 1.0, spd, hdg, 1.0)
         self.assertEqual(lat, None)
         self.assertEqual(lon, None)
+    
+    def test_air_track_masked_end(self):
+        spd = np.ma.load(open('/home/glen/air_track_spd.npy'))
+        hdg = np.ma.load(open('/home/glen/air_track_hdg.npy'))
+        lat, lon = air_track(25.751953125, -80.332374, 9.052734375, -79.453464,
+                             spd, hdg, 1.0)
+        self.assertEqual(lat[0], 25.751953125)
+        self.assertEqual(lon[0], -80.332374000000002)
+        self.assertEqual(lat[5000], 17.175493224321155)
+        self.assertEqual(lon[5000], -79.51891417137719)
+        self.assertEqual(lat[-1], 9.0492517693791772)
+        self.assertEqual(lon[-1], -79.530753090869467)
 
 
 class TestIsPower2(unittest.TestCase):
@@ -964,11 +978,16 @@ class TestClosestUnmaskedValue(unittest.TestCase):
         array = np.ma.arange(10)
         self.assertEqual(closest_unmasked_value(array, 5), Value(5, 5))
         self.assertEqual(closest_unmasked_value(array, 20), Value(9, 9))
-        self.assertEqual(closest_unmasked_value(array, -10), Value(0, 0))
+        self.assertEqual(closest_unmasked_value(array, -3), Value(7, 7))
         array[5:8] = np.ma.masked
         self.assertEqual(closest_unmasked_value(array, 6), Value(4, 4))
         array[5:8] = np.ma.masked
         self.assertEqual(closest_unmasked_value(array, 7), Value(8, 8))
+        self.assertEqual(closest_unmasked_value(array, 1, _slice=slice(2, 5)),
+                         Value(3, 3))
+        self.assertEqual(closest_unmasked_value(array, -1, _slice=slice(2, 5)),
+                                 Value(4, 4))
+
 
 class TestActuatorMismatch(unittest.TestCase):
     '''

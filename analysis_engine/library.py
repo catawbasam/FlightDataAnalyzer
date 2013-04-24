@@ -171,8 +171,11 @@ def air_track(lat_start, lon_start, lat_end, lon_end, spd, hdg, frequency):
 
     # The delta U north and east (dun & due) correct for the integration over
     # (N-1) sample intervals.
-    dun = (north_final - north[-1]) / ((len(north)-1) * KTS_TO_MPS)
-    due = (east_final - east[-1]) / ((len(east)-1) * KTS_TO_MPS)
+    closest_north = closest_unmasked_value(north, -1)
+    closest_east = closest_unmasked_value(east, -1)
+    
+    dun = (north_final - closest_north.value) / ((closest_north.index-1) * KTS_TO_MPS)
+    due = (east_final - closest_east.value) / ((closest_east.index-1) * KTS_TO_MPS)
 
     north = integrate(spd_north+dun, frequency, scale=KTS_TO_MPS)
     east = integrate(spd_east+due, frequency, scale=KTS_TO_MPS)
@@ -180,9 +183,8 @@ def air_track(lat_start, lon_start, lat_end, lon_end, spd, hdg, frequency):
     bearings = np.ma.array(np.rad2deg(np.arctan2(east, north)))
     distances = np.ma.array(np.ma.sqrt(north**2 + east**2))
 
-    lat[valid_slice],lon[valid_slice] = latitudes_and_longitudes(bearings, distances,
-                                                                 {'latitude':lat_start,
-                                                                  'longitude':lon_start})
+    lat[valid_slice],lon[valid_slice] = latitudes_and_longitudes(
+        bearings, distances, {'latitude':lat_start, 'longitude':lon_start})
 
     repair_mask(lat, repair_duration=None, extrapolate=True)
     repair_mask(lon, repair_duration=None, extrapolate=True)
@@ -1089,7 +1091,8 @@ def closest_unmasked_value(array, index, _slice=slice(None)):
     :rtype: Value
     '''
     array = array[_slice]
-    index -= _slice.start or 0
+    if index < 0:
+        index = abs(len(array) + index)
     if not np.ma.count(array):
         return None
     indices = np.ma.arange(len(array))
