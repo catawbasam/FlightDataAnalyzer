@@ -228,7 +228,7 @@ def process_order(gr_all, node_mgr):
         gr_all.node[node]['label'] = '%d: %s' % (n, node)
         
     inactive_nodes = set(gr_all.nodes()) - set(process_order)
-    logger.info("Inactive nodes: %s", list(sorted(inactive_nodes)))
+    logger.debug("Inactive nodes: %s", list(sorted(inactive_nodes)))
     gr_st = gr_all.copy()
     gr_st.remove_nodes_from(inactive_nodes)
     
@@ -236,6 +236,26 @@ def process_order(gr_all, node_mgr):
         gr_all.node[node]['color'] = 'Silver'
         inactive_edges = gr_all.in_edges(node)
         gr_all.add_edges_from(inactive_edges, color='Silver')
+        
+    inoperable_required = list(set(node_mgr.requested) - set(process_order))
+    if inoperable_required:
+        logger.warning("Found %s inoperable required parameters.",
+                        len(inoperable_required))
+        items = []
+        for p in sorted(inoperable_required):
+            available = []
+            unavailable = []
+            for d in sorted(gr_all[p].keys()):
+                if d in inactive_nodes:
+                    unavailable.append(d)
+                else:
+                    available.append(d)
+            deps_avail = "'%s'\n - Available: %s\n - Unavailable: %s" % (p,
+                ', '.join(available),
+                ', '.join(unavailable))
+            items.append(deps_avail)
+        logger.info("Inoperable required parameters: \n%s",
+                    '\n'.join(items))
     
     return gr_all, gr_st, process_order[:-1] # exclude 'root'
 
@@ -273,12 +293,7 @@ def dependency_order(node_mgr, draw=not_windows):
     if draw:
         from json import dumps
         logger.info("JSON Graph Representation:\n%s", dumps( graph_adjacencies(gr_st), indent=2))
-    inoperable_required = list(set(node_mgr.requested) - set(order))
-    if inoperable_required:
-        logger.warning("Found %s inoperable required parameters.",
-                        len(inoperable_required))
-        logger.info("Inoperable required parameters: %s",
-                     inoperable_required)
+    
     if draw:
         draw_graph(gr_st, 'Active Nodes in Spanning Tree')
         # reduce number of nodes by removing floating ones
