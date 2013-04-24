@@ -3547,18 +3547,18 @@ class CoordinatesSmoothed(object):
         '''
         if len(speed):
             lat_in, lon_in = ground_track(lat_adj[0],
-                                      lon_adj[0],
-                                      speed,
-                                      hdg,
-                                      freq,
-                                      'landing')
+                                          lon_adj[0],
+                                          speed,
+                                          hdg,
+                                          freq,
+                                          'landing')
             return lat_in, lon_in
         else:
             return [],[]
 
     def _adjust_track(self, lon, lat, ils_loc, app_range, hdg, gspd, tas,
                       toff, toff_rwy, tdwns, approaches, mobile, precise):
-
+        
         # Set up a working space.
         lat_adj = np_ma_masked_zeros_like(hdg.array)
         lon_adj = np_ma_masked_zeros_like(hdg.array)
