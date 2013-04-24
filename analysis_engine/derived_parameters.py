@@ -5142,13 +5142,13 @@ class ApproachRange(DerivedParameterNode):
                ):
 
         # Order Assumes Drift is more important than Magnetic Variation
-        if trk_true:
+        if trk_true and np.ma.count(trk_true.array):
             hdg = trk_true
             magnetic = False
-        elif trk_mag:
+        elif trk_mag and np.ma.count(trk_mag.array):
             hdg = trk_mag
             magnetic = True
-        elif hdg_true:
+        elif hdg_true and np.ma.count(hdg_true.array):
             hdg = hdg_true
             magnetic = False
         else:
@@ -5192,7 +5192,7 @@ class ApproachRange(DerivedParameterNode):
                 speed = gspd.array[this_app_slice] * \
                     np.cos(np.radians(off_cl))
                 freq = gspd.frequency
-            else:
+            if not gspd or not np.ma.count(speed):
                 speed = tas.array[this_app_slice] * \
                     np.cos(np.radians(off_cl))
                 freq = tas.frequency
