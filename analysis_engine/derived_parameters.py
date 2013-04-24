@@ -5440,10 +5440,16 @@ class TrackDeviationFromRunway(DerivedParameterNode):
         self.array = np_ma_masked_zeros_like(track.array)
 
         for app in apps:
+            if not app.runway:
+                self.warning("Cannot calculate TrackDeviationFromRunway for "
+                             "approach as there is no runway.")
+                continue
             self._track_deviation(track.array, app.slice, app.runway, magnetic)
 
         if to_rwy:
-            self._track_deviation(track.array, takeoff[0].slice, to_rwy.value, magnetic)
+            # Q: Is this duplicating the final iteration of the loop above?
+            self._track_deviation(track.array, takeoff[0].slice, to_rwy.value,
+                                  magnetic)
 
 
 class StableApproach(MultistateDerivedParameterNode):
