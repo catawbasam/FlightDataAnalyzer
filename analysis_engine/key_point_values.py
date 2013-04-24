@@ -6996,7 +6996,7 @@ class TCASRAToAPDisengagedDuration(KeyPointValueNode):
             ras_local = tcas.array[air.slice].any_of('Drop Track',
                                                      'Altitude Lost',
                                                      'Up Advisory Corrective',
-                                                     'Down Advisory Corrective')            
+                                                     'Down Advisory Corrective')
             ras = shift_slices(runs_of_ones(ras_local), air.slice.start)
             # Assume that the reaction takes place during the TCAS RA period:
             for ra in ras:
