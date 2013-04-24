@@ -1614,8 +1614,10 @@ class Eng_AllRunning(MultistateDerivedParameterNode):
                eng_n2=P('Eng (*) N2 Min'),
                fuel_flow=P('Eng (*) Fuel Flow Min')):
         # TODO: move values to settings
-        n2_running = eng_n2.array > 10 if eng_n2 else np.ones_like(fuel_flow.array)
-        fuel_flowing = fuel_flow.array > 50 if fuel_flow else np.ones_like(eng_n2.array)
+        n2_running = eng_n2.array > 10 if eng_n2 \
+            else np.ones_like(fuel_flow.array, dtype=bool)
+        fuel_flowing = fuel_flow.array > 50 if fuel_flow \
+            else np.ones_like(eng_n2.array, dtype=bool)
         # must have N2 and Fuel Flow if both are available
         self.array = n2_running & fuel_flowing
 
@@ -5479,6 +5481,15 @@ class StableApproach(MultistateDerivedParameterNode):
 
     align_frequency = 1  # force to 1Hz
 
+    @classmethod
+    def can_operate(cls, available):
+        deps = ['Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway',
+                'Airspeed Relative', 'Vertical Speed', 'ILS Glideslope', 
+                'ILS Localizer', 'Eng (*) N1 Min', 'Altitude AAL']
+        # Allow Airspeed Relative to not exist
+        deps.remove('Airspeed Relative')
+        return all_of(deps, available)
+    
     def derive(self,
                apps=S('Approach'),
                gear=M('Gear Down'),
@@ -5514,7 +5525,7 @@ class StableApproach(MultistateDerivedParameterNode):
             gear_down = repair(gear.array, _slice)
             flap_lever = repair(flap.array, _slice)
             heading = repair(head.array, _slice)
-            airspeed = repair(aspd.array, _slice)
+            airspeed = repair(aspd.array, _slice) if aspd else None  # optional
             glideslope = repair(gdev.array, _slice)
             localizer = repair(ldev.array, _slice)
             # apply quite a large moving average to smooth over peaks and troughs
@@ -5548,11 +5559,12 @@ class StableApproach(MultistateDerivedParameterNode):
             stable_heading = abs(heading) < STABLE_HEADING
             stable &= stable_heading.filled(False)  #Q: Should masked values assumed on track ???
 
-            #== 4. Airspeed Relative ==
-            self.array[_slice][stable] = 4
-            STABLE_AIRSPEED_ABOVE_REF = 20
-            stable_airspeed = (airspeed < STABLE_AIRSPEED_ABOVE_REF) | (altitude < 100)
-            stable &= stable_airspeed.filled(True)  # if no V Ref speed, values are masked so consider stable as one is not flying to the vref speed??
+            if aspd:
+                #== 4. Airspeed Relative ==
+                self.array[_slice][stable] = 4
+                STABLE_AIRSPEED_ABOVE_REF = 20
+                stable_airspeed = (airspeed < STABLE_AIRSPEED_ABOVE_REF) | (altitude < 100)
+                stable &= stable_airspeed.filled(True)  # if no V Ref speed, values are masked so consider stable as one is not flying to the vref speed??
 
             if glide_est_at_1000ft:
                 #== 5. Glideslope Deviation ==

@@ -1785,13 +1785,12 @@ class KeyPointValueNode(FormattedNameNode):
             for each_period in phase:
                 try:
                     # phase as Section nodes
-                    to_scan = array[each_period.slice]
-                    find_events(state, to_scan, each_period.slice.start or 0)
-                except:
+                    _slice = each_period.slice
+                except AttributeError:
                     # phase as list of slices
-                    to_scan=array[each_period]
-                    find_events(state, to_scan, each_period.start or 0)
-
+                    _slice = each_period
+                to_scan = array[_slice]
+                find_events(state, to_scan, _slice.start or 0)
         return
 
 
