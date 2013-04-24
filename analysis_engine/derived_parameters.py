@@ -4062,7 +4062,8 @@ class VerticalSpeedInertial(DerivedParameterNode):
             climbs = slices_from_to(alt_rad_repair, 0, 100)[1]
             for climb in climbs:
                 # From 5 seconds before lift to 100ft
-                up = slice(climb.start-5*hz, climb.stop)
+                lift_m5s = climb.start - 5 * hz
+                up = slice(lift_m5s if lift_m5s >= 0 else 0, climb.stop)
                 up_slope = integrate(az_washout[up], hz)
                 blend = roc[climb.stop-1] - up_slope[-1]
                 blend_slope = np.linspace(0.0, blend, len(up_slope))
