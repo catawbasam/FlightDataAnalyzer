@@ -3547,18 +3547,18 @@ class CoordinatesSmoothed(object):
         '''
         if len(speed):
             lat_in, lon_in = ground_track(lat_adj[0],
-                                      lon_adj[0],
-                                      speed,
-                                      hdg,
-                                      freq,
-                                      'landing')
+                                          lon_adj[0],
+                                          speed,
+                                          hdg,
+                                          freq,
+                                          'landing')
             return lat_in, lon_in
         else:
             return [],[]
 
     def _adjust_track(self, lon, lat, ils_loc, app_range, hdg, gspd, tas,
                       toff, toff_rwy, tdwns, approaches, mobile, precise):
-
+        
         # Set up a working space.
         lat_adj = np_ma_masked_zeros_like(hdg.array)
         lon_adj = np_ma_masked_zeros_like(hdg.array)
@@ -3804,20 +3804,22 @@ class CoordinatesSmoothed(object):
                             lat_join = first_valid_sample(lat_adj[scan_back])
                             lon_join = first_valid_sample(lon_adj[scan_back])
                             join_idx -= max(lat_join.index, lon_join.index) # step back to make sure the join location is not masked.
-                            lat_in, lon_in = self.taxi_in_track(lat_adj[join_idx:end],
-                                                                lon_adj[join_idx:end],
-                                                                speed[join_idx:end],
-                                                                hdg.array[join_idx:end],
-                                                                freq)
+                            lat_in, lon_in = self.taxi_in_track(
+                                lat_adj[join_idx:end],
+                                lon_adj[join_idx:end],
+                                speed[join_idx:end],
+                                hdg.array[join_idx:end],
+                                freq,
+                            )
 
                     # If we have an array of taxi in track values, we use
                     # this, otherwise we hold at the end of the landing.
-                    if lat_in is not None and lat_in.size:
+                    if lat_in is not None and np.ma.count(lat_in):
                         lat_adj[join_idx:end] = lat_in
                     else:
                         lat_adj[join_idx:end] = lat_adj[join_idx]
                         
-                    if lon_in is not None and lon_in.size:
+                    if lon_in is not None and np.ma.count(lon_in):
                         lon_adj[join_idx:end] = lon_in
                     else:
                         lon_adj[join_idx:end] = lon_adj[join_idx]
@@ -4062,7 +4064,8 @@ class VerticalSpeedInertial(DerivedParameterNode):
             climbs = slices_from_to(alt_rad_repair, 0, 100)[1]
             for climb in climbs:
                 # From 5 seconds before lift to 100ft
-                up = slice(climb.start-5*hz, climb.stop)
+                lift_m5s = climb.start - 5 * hz
+                up = slice(lift_m5s if lift_m5s >= 0 else 0, climb.stop)
                 up_slope = integrate(az_washout[up], hz)
                 blend = roc[climb.stop-1] - up_slope[-1]
                 blend_slope = np.linspace(0.0, blend, len(up_slope))
@@ -4260,9 +4263,10 @@ class LongitudePrepared(DerivedParameterNode, CoordinatesStraighten):
                 hdg = hdg_true
             else:
                 hdg = hdg_mag
-            _, lon_array = air_track(lat_lift.get_first().value, lon_lift.get_first().value,
-                                     lat_land.get_last().value, lon_land.get_last().value,
-                                     tas.array, hdg.array, tas.frequency)
+            _, lon_array = air_track(
+                lat_lift.get_first().value, lon_lift.get_first().value,
+                lat_land.get_last().value, lon_land.get_last().value,
+                tas.array, hdg.array, tas.frequency)
             self.array = lon_array
 
 class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
@@ -4301,9 +4305,10 @@ class LatitudePrepared(DerivedParameterNode, CoordinatesStraighten):
                 hdg = hdg_true
             else:
                 hdg = hdg_mag
-            lat_array, _ = air_track(lat_lift.get_first().value, lon_lift.get_first().value,
-                                     lat_land.get_last().value, lon_land.get_last().value,
-                                     tas.array, hdg.array, tas.frequency)
+            lat_array, _ = air_track(
+                lat_lift.get_first().value, lon_lift.get_first().value,
+                lat_land.get_last().value, lon_land.get_last().value,
+                tas.array, hdg.array, tas.frequency)
             self.array = lat_array
 
 
@@ -5143,13 +5148,13 @@ class ApproachRange(DerivedParameterNode):
                ):
 
         # Order Assumes Drift is more important than Magnetic Variation
-        if trk_true:
+        if trk_true and np.ma.count(trk_true.array):
             hdg = trk_true
             magnetic = False
-        elif trk_mag:
+        elif trk_mag and np.ma.count(trk_mag.array):
             hdg = trk_mag
             magnetic = True
-        elif hdg_true:
+        elif hdg_true and np.ma.count(hdg_true.array):
             hdg = hdg_true
             magnetic = False
         else:
@@ -5193,14 +5198,15 @@ class ApproachRange(DerivedParameterNode):
                 speed = gspd.array[this_app_slice] * \
                     np.cos(np.radians(off_cl))
                 freq = gspd.frequency
-            else:
+            if not gspd or not np.ma.count(speed):
                 speed = tas.array[this_app_slice] * \
                     np.cos(np.radians(off_cl))
                 freq = tas.frequency
 
             # Estimate range by integrating back from zero at the end of the
             # phase to high range values at the start of the phase.
-            spd_repaired = repair_mask(speed, extrapolate=True)
+            spd_repaired = repair_mask(speed, repair_duration=None,
+                                       extrapolate=True)
             app_range[this_app_slice] = integrate(spd_repaired, freq,
                                                   scale=KTS_TO_MPS,
                                                   direction='reverse')
@@ -5434,10 +5440,15 @@ class TrackDeviationFromRunway(DerivedParameterNode):
         self.array = np_ma_masked_zeros_like(track.array)
 
         for app in apps:
+            if not app.runway:
+                self.warning("Cannot calculate TrackDeviationFromRunway for "
+                             "approach as there is no runway.")
+                continue
             self._track_deviation(track.array, app.slice, app.runway, magnetic)
 
         if to_rwy:
-            self._track_deviation(track.array, takeoff[0].slice, to_rwy.value, magnetic)
+            self._track_deviation(track.array, takeoff[0].slice, to_rwy.value,
+                                  magnetic)
 
 
 class StableApproach(MultistateDerivedParameterNode):
