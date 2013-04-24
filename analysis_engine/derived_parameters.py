@@ -5447,7 +5447,6 @@ class TrackDeviationFromRunway(DerivedParameterNode):
             self._track_deviation(track.array, app.slice, app.runway, magnetic)
 
         if to_rwy:
-            # Q: Is this duplicating the final iteration of the loop above?
             self._track_deviation(track.array, takeoff[0].slice, to_rwy.value,
                                   magnetic)
 
