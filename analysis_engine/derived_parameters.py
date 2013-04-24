@@ -5205,7 +5205,8 @@ class ApproachRange(DerivedParameterNode):
 
             # Estimate range by integrating back from zero at the end of the
             # phase to high range values at the start of the phase.
-            spd_repaired = repair_mask(speed, extrapolate=True)
+            spd_repaired = repair_mask(speed, repair_duration=None,
+                                       extrapolate=True)
             app_range[this_app_slice] = integrate(spd_repaired, freq,
                                                   scale=KTS_TO_MPS,
                                                   direction='reverse')
