@@ -527,6 +527,7 @@ class AirspeedMax(KeyPointValueNode):
         self.create_kpvs_within_slices(air_spd.array, airborne, max_value)
 
 
+
 class AirspeedDuringCruiseMax(KeyPointValueNode):
     '''
     '''
@@ -4505,7 +4506,7 @@ class EngOilTempForXMinMax(KeyPointValueNode):
     '''
 
     NAME_FORMAT = 'Eng Oil Temp For %(minutes)d Min Max'
-    NAME_VALUES = {'minutes': [15, 20]}
+    NAME_VALUES = {'minutes': [15, 20, 45]}
     units = 'C'
 
     def derive(self,
@@ -7588,3 +7589,24 @@ class TwoDegPitchTo35FtDuration(KeyPointValueNode):
         )
 
 
+class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
+    '''
+    Time between the last flap change during takeoff roll and the end of
+    takeoff roll.
+
+    The idea is that the flaps should not be changed when the aircraft has
+    started accelerating down the runway.
+
+    We detect the last change of flap position during the takeoff roll phase
+    and calculate the time between this instant and the end of takeoff roll.
+    '''
+    units = 's'
+
+    def derive(self, flap=P('Flap'), rolls=S('Takeoff Roll')):
+        for roll in rolls:
+            changes = find_edges(flap.array, roll.slice, 'all_edges')
+            if changes:
+                roll_end = roll.slice.stop
+                last_change = changes[-1]
+                time_from_liftoff = (roll_end - last_change) / self.frequency
+                self.create_kpv(last_change, time_from_liftoff)

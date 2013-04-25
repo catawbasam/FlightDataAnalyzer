@@ -74,6 +74,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      step_values,
                                      straighten_altitudes,
                                      straighten_headings,
+                                     three_sample_window,
                                      track_linking,
                                      value_at_index,
                                      vstack_params,
@@ -290,11 +291,15 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
     '''
 
     units = 'kts'
+    
+    align_frequency = 1
+    align_offset = 0
 
     def derive(self, spd_v2=P('Airspeed Minus V2')):
         '''
         '''
-        self.array = clip(spd_v2.array, 3.0, spd_v2.frequency)
+        self.array = three_sample_window(spd_v2.array)
+        #self.array = clip(spd_v2.array, 3.0, spd_v2.frequency)
 
 
 ################################################################################
