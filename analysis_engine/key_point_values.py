@@ -4506,7 +4506,7 @@ class EngOilTempForXMinMax(KeyPointValueNode):
     '''
 
     NAME_FORMAT = 'Eng Oil Temp For %(minutes)d Min Max'
-    NAME_VALUES = {'minutes': [15, 20]}
+    NAME_VALUES = {'minutes': [15, 20, 45]}
     units = 'C'
 
     def derive(self,
