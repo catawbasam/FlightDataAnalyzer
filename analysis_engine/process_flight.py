@@ -547,6 +547,8 @@ def main():
     help = 'Write KML of flight track. Set "False" to disable.'
     parser.add_argument('-kml', dest='write_kml', type=str, default='True', 
                         help=help)
+    parser.add_argument('-r', '--required', type=str, nargs='+', dest='required_params',
+                       help='Required parameters.')
 
     parser.add_argument('-tail', dest='tail_number',
                         default='G-FDSL', # as per flightdatacommunity file
@@ -635,7 +637,9 @@ def main():
     
     # Derive parameters to new HDF
     hdf_copy = copy_file(args.file, postfix='_process')
-    res = process_flight(hdf_copy, args.tail_number, aircraft_info=aircraft_info)
+    res = process_flight(
+        hdf_copy, args.tail_number, aircraft_info=aircraft_info,
+        required_params=args.required_params or [])
     logger.info("Derived parameters stored in hdf: %s", hdf_copy)
     # Write CSV file
     if args.write_csv.lower() == 'true':
