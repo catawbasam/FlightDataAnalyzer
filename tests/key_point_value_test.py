@@ -216,6 +216,7 @@ from analysis_engine.key_point_values import (
     ILSLocalizerDeviation1000To500FtMax,
     ILSLocalizerDeviation500To200FtMax,
     ILSLocalizerDeviationAtTouchdown,
+    LastFlapChangeToTakeoffRollEndDuration,
     LatitudeAtLiftoff,
     LatitudeAtTouchdown,
     LatitudeSmoothedAtLiftoff,
@@ -5910,3 +5911,25 @@ class TestTwoDegPitchTo35FtDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestLastFlapChangeToTakeoffRollEndDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = LastFlapChangeToTakeoffRollEndDuration
+        self.operational_combinations = [
+            ('Flap', 'Takeoff Roll')
+        ]
+
+    def test_derive(self):
+        flap = P(
+            name='Altitude STD',
+            array=np.ma.array([15, 15, 20, 20, 15, 15]),
+        )
+        takeoff_roll = S(items=[Section('Takeoff Roll', slice(0, 5), 0, 5)])
+        node = self.node_class()
+        node.derive(flap, takeoff_roll)
+        expected = [
+            KeyPointValue(
+                index=3.5, value=1.5,
+                name='Last Flap Change To Takeoff Roll End Duration')
+        ]
+        self.assertEqual(list(node), expected)
