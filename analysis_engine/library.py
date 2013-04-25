@@ -5029,6 +5029,60 @@ def vstack_params_where_state(*param_states):
     return np.ma.vstack(param_arrays)
 
 
+def three_sample_window(array):
+    '''
+    Only include values which are maintained for three samples, shorter
+    exceedances are excluded.
+    
+    e.g. [0, 1, 2, 3, 2, 1, 2, 3] -> [0, 1, 2, 2, 2, 2, 2, 2]
+    
+    :type array: np.ma.masked_array
+    '''
+    positive_roll = np.roll(array, 1)
+    negative_roll = np.roll(array, -1)
+    positive_roll[0] = np.ma.masked
+    negative_roll[-1] = np.ma.masked
+    combined = np.ma.array([array, positive_roll, negative_roll])
+    min_array = np.ma.min(combined, axis=0)
+    max_array = np.ma.max(combined, axis=0)
+    window_array = np_ma_masked_zeros_like(array)
+    try:
+        first_index = np.ma.clump_unmasked(array)[0].start
+    except IndexError:
+        # array is entirely masked?
+        return window_array
+    #np.ma.array([array, max_array, min_array])
+    
+    window_array[first_index] = last_value = array[first_index]
+    
+    for index, (array_value,
+                min_window,
+                max_window) in enumerate(zip(array[first_index + 1:],
+                                             min_array[first_index + 1:],
+                                             max_array[first_index + 1:]),
+                                         start=first_index):
+        ##stacked_array = np.ma.array([array, max_array, min_array])
+        ###for index, values in enumerate(tacked_array[], start=first_index):
+        ##for index in xrange(first_index, stacked_array.shape[1]):
+        ##values = stacked_array[...,index]
+        ##array_value, max_window, min_window = values.tolist()
+        if array_value is np.ma.masked:
+            continue
+        if min_window < last_value < max_window:
+            # Mixed
+            window_array[index] = last_value
+        elif max_window > last_value:
+            # All greater than.
+            window_array[index] = last_value = min_window
+        elif min_window < last_value:
+            # All less than
+            window_array[index] = last_value = max_window
+        else:
+            window_array[index] = last_value
+    
+    return np.ma.array(window_array)
+
+
 #---------------------------------------------------------------------------
 # Air data calculations adapted from AeroCalc V0.11 to suit POLARIS Numpy
 # data format. For increased speed, only standard POLARIS units used.

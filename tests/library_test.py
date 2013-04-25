@@ -4547,6 +4547,50 @@ class TestIsDay(unittest.TestCase):
         self.assertEqual(is_day(datetime(2012,6,4,1,12), lat, lon), True)
 
 
+class TestThreeSampleWindow(unittest.TestCase):
+    
+    def test_three_sample_window_incrementing(self):
+        ma_test.assert_almost_equal(
+            three_sample_window(np.ma.arange(10)),
+            np.ma.masked_array([0, 1, 2, 3, 4, 5, 6, 7, 8, 0],
+                               mask=[False] * 9 + [True]))
+        
+    def test_three_sample_window_decrementing(self):
+        ma_test.assert_almost_equal(
+            three_sample_window(np.ma.arange(10, 0, -1)),
+            np.ma.masked_array([10, 9, 8, 7, 6, 5, 4, 3, 2, 0],
+                               mask=[False] * 9 + [True]))
+    
+    def test_three_sample_window_peak(self):
+        ma_test.assert_almost_equal(
+            three_sample_window(np.ma.concatenate([np.ma.arange(10),
+                                                   np.ma.arange(10, 0, -1)])),
+            np.ma.masked_array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 8, 7, 6, 5, 4, 3, 2, 0],
+                               mask=[False] * 19 + [True]))
+    
+    def test_three_sample_window_basic_trough(self):
+        ma_test.assert_almost_equal(
+            three_sample_window(np.ma.concatenate([np.ma.arange(10, 0, -1),
+                                                   np.ma.arange(10)])),
+            np.ma.masked_array([10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 1, 1, 2, 3, 4, 5, 6, 7, 8, 0],
+                               mask=[False] * 19 + [True]))
+    
+    def test_three_sample_window_trough(self):
+        ma_test.assert_almost_equal(
+            three_sample_window(np.ma.concatenate([np.ma.arange(10, 0, -1),
+                                                   np.ma.arange(0, 20, 2)])),
+            np.ma.array([10, 9, 8, 7, 6, 5, 4, 3, 2, 2, 2, 2, 4, 6, 8, 10,
+                         12, 14, 16, 0], mask=[False] * 19 + [True]))
+    
+    @unittest.skip('Not Implemented')
+    def test_three_sample_window(self):
+        self.assertTrue(False)
+        amv2 = np.ma.load('...airspeed_minus_v2.npy')
+        ma_test.assert_almost_equal(
+            three_sample_window(amv2),
+            [10, 10, 9, 8, 7, 6, 5, 4, 3, 2, 2, 2, 2, 4, 6, 8, 10, 12, 14, 16])
+
+
 if __name__ == '__main__':
     suite = unittest.TestSuite()
     suite.addTest(TestIndexAtValue('test_index_at_value_slice_beyond_top_end_of_data'))
