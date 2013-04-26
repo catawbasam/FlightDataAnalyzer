@@ -1540,9 +1540,9 @@ class TestAirspeedWithGearDownMax(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(air_spd, gear, airs)
         self.assertItemsEqual(node, [
-            KeyPointValue(index=2, value=2.0, name='Airspeed With Gear Down Max'),
-            KeyPointValue(index=4, value=4.0, name='Airspeed With Gear Down Max'),
-            KeyPointValue(index=6, value=6.0, name='Airspeed With Gear Down Max'),
+            KeyPointValue(index=1, value=1.0, name='Airspeed With Gear Down Max'),
+            KeyPointValue(index=3, value=3.0, name='Airspeed With Gear Down Max'),
+            KeyPointValue(index=5, value=5.0, name='Airspeed With Gear Down Max'),
         ])
 
 
@@ -1697,8 +1697,8 @@ class TestAirspeedWithSpoilerDeployedMax(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(air_spd, spoiler)
         self.assertItemsEqual(node, [
-            KeyPointValue(index=6, value=6.0, name='Airspeed With Spoiler Deployed Max'),
-            KeyPointValue(index=9, value=9.0, name='Airspeed With Spoiler Deployed Max'),
+            KeyPointValue(index=5, value=5.0, name='Airspeed With Spoiler Deployed Max'),
+            KeyPointValue(index=8, value=8.0, name='Airspeed With Spoiler Deployed Max'),
         ])
 
 
@@ -2171,9 +2171,9 @@ class TestAltitudeWithGearDownMax(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(alt_aal, gear, airs)
         self.assertItemsEqual(node, [
-            KeyPointValue(index=2, value=2.0, name='Altitude With Gear Down Max'),
-            KeyPointValue(index=4, value=4.0, name='Altitude With Gear Down Max'),
-            KeyPointValue(index=6, value=6.0, name='Altitude With Gear Down Max'),
+            KeyPointValue(index=1, value=1.0, name='Altitude With Gear Down Max'),
+            KeyPointValue(index=3, value=3.0, name='Altitude With Gear Down Max'),
+            KeyPointValue(index=5, value=5.0, name='Altitude With Gear Down Max'),
         ])
 
 
@@ -2454,9 +2454,9 @@ class TestMachWithGearDownMax(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(mach, gear, airs)
         self.assertItemsEqual(node, [
-            KeyPointValue(index=2, value=2.0, name='Mach With Gear Down Max'),
-            KeyPointValue(index=4, value=4.0, name='Mach With Gear Down Max'),
-            KeyPointValue(index=6, value=6.0, name='Mach With Gear Down Max'),
+            KeyPointValue(index=1, value=1.0, name='Mach With Gear Down Max'),
+            KeyPointValue(index=3, value=3.0, name='Mach With Gear Down Max'),
+            KeyPointValue(index=5, value=5.0, name='Mach With Gear Down Max'),
         ])
 
 
