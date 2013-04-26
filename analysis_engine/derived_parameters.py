@@ -2939,12 +2939,12 @@ class GrossWeight(DerivedParameterNode):
                source_R = P('Gross Weight (R)'),
                frame = A('Frame')):
 
-        if frame_name in ['757-DHL']:
+        if frame.value in ['757-DHL']:
             self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_A, source_B)
+                blend_two_parameters(source_L, source_R)
 
         else:
-            raise DataFrameError(self.name, frame_name)
+            raise DataFrameError(self.name, frame.value)
 
     
 
