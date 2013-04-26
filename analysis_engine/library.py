@@ -1,15 +1,12 @@
-import numpy as np
-from scipy import optimize
-from scipy import interpolate as scipy_interpolate
-from math import ceil
-
 import logging
+import numpy as np
 
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
 from math import asin, atan2, ceil, cos, degrees, floor, radians, sin, sqrt
+from scipy import interpolate as scipy_interpolate, optimize
 
 from hdfaccess.parameter import MappedArray
 
@@ -5046,39 +5043,50 @@ def three_sample_window(array):
     min_array = np.ma.min(combined, axis=0)
     max_array = np.ma.max(combined, axis=0)
     window_array = np_ma_masked_zeros_like(array)
-    try:
-        first_index = np.ma.clump_unmasked(array)[0].start
-    except IndexError:
-        # array is entirely masked?
-        return window_array
-    #np.ma.array([array, max_array, min_array])
-    
-    window_array[first_index] = last_value = array[first_index]
-    
-    for index, (array_value,
-                min_window,
-                max_window) in enumerate(zip(array[first_index + 1:],
-                                             min_array[first_index + 1:],
-                                             max_array[first_index + 1:]),
-                                         start=first_index):
+    unmasked_slices = np.ma.clump_unmasked(array)
+    for unmasked_slice in unmasked_slices:
+        last_value = array[unmasked_slice.start]
+        algo_slice = slice(unmasked_slice.start + 1, unmasked_slice.stop)
+        zipped_arrays = zip(array[algo_slice],
+                            min_array[algo_slice],
+                            max_array[algo_slice])
+        for index, (array_value,
+                    min_window,
+                    max_window) in enumerate(zipped_arrays,
+                                             start=unmasked_slice.start):
+            if array_value is np.ma.masked:
+                continue
+            if min_window < last_value < max_window:
+                # Mixed
+                window_array[index] = last_value
+            elif max_window > last_value:
+                # All greater than.
+                window_array[index] = last_value = min_window
+            elif min_window < last_value:
+                # All less than
+                window_array[index] = last_value = max_window
+            else:
+                window_array[index] = last_value
+        #try:
+            #first_index = np.ma.clump_unmasked(array)[0].start
+        #except IndexError:
+            ## array is entirely masked?
+            #return window_array
+        ##np.ma.array([array, max_array, min_array])
+        
+        #window_array[first_index] = last_value = array[first_index]
+        
+        #for index, (array_value,
+                    #min_window,
+                    #max_window) in enumerate(zip(array[first_index + 1:],
+                                                 #min_array[first_index + 1:],
+                                                 #max_array[first_index + 1:]),
+                                             #start=first_index):
         ##stacked_array = np.ma.array([array, max_array, min_array])
         ###for index, values in enumerate(tacked_array[], start=first_index):
         ##for index in xrange(first_index, stacked_array.shape[1]):
         ##values = stacked_array[...,index]
         ##array_value, max_window, min_window = values.tolist()
-        if array_value is np.ma.masked:
-            continue
-        if min_window < last_value < max_window:
-            # Mixed
-            window_array[index] = last_value
-        elif max_window > last_value:
-            # All greater than.
-            window_array[index] = last_value = min_window
-        elif min_window < last_value:
-            # All less than
-            window_array[index] = last_value = max_window
-        else:
-            window_array[index] = last_value
     
     return np.ma.array(window_array)
 

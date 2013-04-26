@@ -4582,6 +4582,15 @@ class TestThreeSampleWindow(unittest.TestCase):
             np.ma.array([10, 9, 8, 7, 6, 5, 4, 3, 2, 2, 2, 2, 4, 6, 8, 10,
                          12, 14, 16, 0], mask=[False] * 19 + [True]))
     
+    def test_three_sample_window_masked(self):
+        masked_data = np.ma.arange(10, 0, -1)
+        masked_data[4:7] = np.ma.masked
+        ma_test.assert_almost_equal(
+            three_sample_window(masked_data),
+            np.ma.array([10, 9, 8, 0, 0, 0, 0, 3, 2, 0],
+                        mask=[False, False, False, True, True, True, True, False, False, True])
+        )
+    
     @unittest.skip('Not Implemented')
     def test_three_sample_window(self):
         self.assertTrue(False)
