@@ -123,10 +123,14 @@ class GoAroundAndClimbout(FlightPhaseNode):
                     start_slice = slice(index, alt_idxs[n_alt - 1], -1)
                     start_array = alt_aal.array[start_slice]
                     ga_start = index_closest_value(start_array, value + 500)
+                    if ga_start is None:
+                        continue
                     
                     stop_slice = slice(index, alt_idxs[n_alt + 1])
                     stop_array = alt_aal.array[stop_slice]
                     ga_stop = index_closest_value(stop_array, value + 2000)
+                    if ga_stop is None:
+                        continue
 
                     ga_slice.append(slice(start_slice.start - ga_start,
                                           ga_stop + stop_slice.start))
