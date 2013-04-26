@@ -5036,9 +5036,8 @@ def second_window(array, frequency, seconds):
     '''
     if int(seconds) != seconds:
         raise ValueError('Only whole seconds are currently supported.')
-    if seconds % 2 == 0 and not frequency % 2 == 1:
-        raise ValueError('Invalid seconds for frequency')
-    if seconds % 2 == 1 and not frequency % 2 == 0:
+    if ((seconds % 2 == 0 and not frequency % 2 == 1) or
+        (seconds % 2 == 1 and not frequency % 2 == 0)):
         raise ValueError('Invalid seconds for frequency')
     
     samples = (seconds * frequency) + 1
