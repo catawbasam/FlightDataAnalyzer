@@ -450,12 +450,7 @@ class AirspeedRelativeFor3Sec(DerivedParameterNode):
     def derive(self, spd_vref=P('Airspeed Relative')):
         '''
         '''
-        try:
-            self.array = clip(spd_vref.array, 3.0, spd_vref.frequency)
-        except ValueError:
-            self.warning("'%s' is completely masked within '%s'. Output array "
-                         "will also be masked.", spd_vref.name, self.name)
-            self.array = np_ma_zeros_like(spd_vref.array, mask=True)
+        self.array = three_sample_window(spd_vref.array)
 
 
 ################################################################################
