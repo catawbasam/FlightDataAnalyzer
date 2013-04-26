@@ -573,6 +573,7 @@ class AltitudeAAL(DerivedParameterNode):
     """
     name = "Altitude AAL"
     units = 'ft'
+    align_frequency = 2
 
     @classmethod
     def can_operate(cls, available):
@@ -659,15 +660,12 @@ class AltitudeAAL(DerivedParameterNode):
                         alt_std[begin_index:] - up_diff
         return alt_result
 
-    def derive(self, alt_std=P('Altitude STD Smoothed'),
-               alt_rad=P('Altitude Radio'),
+    def derive(self, alt_rad=P('Altitude Radio'),
+               alt_std=P('Altitude STD Smoothed'),
                speedies=S('Fast')):
-        # Altitude Radio was taken as the prime reference to ensure the
-        # minimum ground clearance passing peaks is accurately reflected.
-        # However, when the Altitude Radio signal is sampled at a lower rate
-        # than the Altitude STD Smoothed, this results in a lower sample rate
-        # for a primary analysis parameter, and this is why Altitude STD
-        # Smoothed is now the primary reference.
+        # Altitude Radio taken as the prime reference to ensure the minimum
+        # ground clearance passing peaks is accurately reflected. Alt AAL
+        # forced to 2htz
 
         # alt_aal will be zero on the airfield, so initialise to zero.
         alt_aal = np_ma_zeros_like(alt_std.array)
@@ -862,11 +860,6 @@ class AltitudeRadio(DerivedParameterNode):
     multiple cubic splines are joined with variable weighting to provide an
     optimal combination of the available data.
 
-    :param frame: The frame attribute, e.g. '737-i'
-    :type frame: An attribute
-    :param frame_qual: The frame qualifier, e.g. 'Altitude_Radio_D226A101_1_16D'
-    :type frame_qual: An attribute
-
     :returns Altitude Radio with values typically taken as the mean between
     two valid sensors.
     :type parameter object.
@@ -881,8 +874,7 @@ class AltitudeRadio(DerivedParameterNode):
                        if name.startswith('Altitude')], available)
 
     
-    def derive(self, frame = A('Frame'),
-               frame_qual = A('Frame Qualifier'),
+    def derive(self,
                source_A = P('Altitude Radio (A)'),
                source_B = P('Altitude Radio (B)'),
                source_C = P('Altitude Radio (C)'),
