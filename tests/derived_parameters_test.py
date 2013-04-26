@@ -34,8 +34,10 @@ from analysis_engine.derived_parameters import (
     Aileron,
     AimingPointRange,
     AirspeedForFlightPhases,
+    AirspeedMinusV2For3Sec,
     AirspeedReference,
     AirspeedRelative,
+    AirspeedRelativeFor3Sec,
     AirspeedTrue,
     AltitudeAAL,
     AltitudeAALForFlightPhases,
@@ -2625,9 +2627,9 @@ class TestAileronTrim(unittest.TestCase):
 
 
 class TestAirspeedMinusV2For3Sec(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = AirspeedMinusV2For3Sec.get_operational_combinations()
+        self.assertEqual(opts, [('Airspeed Minus V2',)])
         
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -2635,9 +2637,9 @@ class TestAirspeedMinusV2For3Sec(unittest.TestCase):
 
 
 class TestAirspeedRelativeFor3Sec(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = AirspeedRelativeFor3Sec.get_operational_combinations()
+        self.assertEqual(opts, [('Airspeed Relative',)])
         
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
