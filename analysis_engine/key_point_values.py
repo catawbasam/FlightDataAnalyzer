@@ -2479,8 +2479,11 @@ class DecelerationToAbortTakeoffAtRotation(KeyPointValueNode):
                                                lat.array[rot_idx],
                                                lon.array[rot_idx])
 
-            lift_speed = value_at_index(speed, rot_idx) * KTS_TO_MPS
-            mu = (lift_speed**2.0) / (2.0 * GRAVITY_METRIC * rot_end)
+            lift_speed = value_at_index(speed, rot_idx)
+            if lift_speed is None:
+                continue
+            lift_speed *= KTS_TO_MPS
+            mu = (lift_speed ** 2) / (2.0 * GRAVITY_METRIC * rot_end)
             self.create_kpv(rot_idx, mu)
 
 """
@@ -2515,9 +2518,12 @@ class DecelerationToAbortTakeoffBeforeV1(KeyPointValueNode):
                                                lat.array[v1_idx ],
                                                lon.array[v1_idx ])
 
-            v1_mps = value_at_index(speed, v1.value) * KTS_TO_MPS
-            mu = (v1_mps**2.0) / (2.0 * GRAVITY_METRIC * rot_end)
-            self.create_kpv(vi_idx, mu)
+            v1_speed = value_at_index(speed, v1.value)
+            if v1_speed is None:
+                continue
+            v1_speed *= KTS_TO_MPS
+            mu = (v1_speed ** 2) / (2.0 * GRAVITY_METRIC * rot_end)
+            self.create_kpv(v1_idx, mu)
 """
             
 ##############################################################################
@@ -2638,8 +2644,11 @@ class DecelerationFromTouchdownToStopOnRunway(KeyPointValueNode):
                     runway_distance_from_end(rwy.value,
                                              lat_tdn.get_last().value,
                                              lon_tdn.get_last().value)
-                speed = value_at_index(gspd.array,index) * KTS_TO_MPS
-                mu = (speed*speed) / (2.0 * GRAVITY_METRIC * (distance_at_tdn))
+                speed = value_at_index(gspd.array, index)
+                if speed is None:
+                    continue
+                speed *= KTS_TO_MPS
+                mu = (speed ** 2) / (2.0 * GRAVITY_METRIC * (distance_at_tdn))
                 self.create_kpv(index, mu)
 
 
