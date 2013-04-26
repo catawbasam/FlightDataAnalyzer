@@ -349,6 +349,7 @@ from analysis_engine.key_point_values import (
     TAWSPullUpWarningDuration,
     TAWSDontSinkWarningDuration,
     TAWSWindshearWarningBelow1500FtDuration,
+    ThrustReversersDeployedDuration,
     PackValvesOpenAtLiftoff,
     IsolationValveOpenAtLiftoff,
 )
@@ -1745,6 +1746,30 @@ class TestAPDisengagedDuringCruiseDuration(unittest.TestCase, NodeTest):
 
 
 ##############################################################################
+
+class TestThrustReversersDeployedDuration(unittest.TestCase):
+    
+    def test_can_operate(self):
+        ops = ThrustReversersDeployedDuration.get_operational_combinations()
+        self.assertEqual(ops, [('Thrust Reversers', 'Landing')])
+        
+    def test_derive(self):
+        rev = M(array=np.ma.zeros(30), values_mapping={
+            0: 'Stowed', 1: 'In Transit', 2: 'Deployed',}, frequency=2)
+        ldg = S(frequency=2)
+        ldg.create_section(slice(5, 25))
+        # no deployment
+        dur = ThrustReversersDeployedDuration()
+        dur.derive(rev, ldg)
+        self.assertEqual(dur[0].index, 5)
+        self.assertEqual(dur[0].value, 0)
+
+        # deployed for a while
+        rev.array[6:13] = 'Deployed'
+        dur = ThrustReversersDeployedDuration()
+        dur.derive(rev, ldg)
+        self.assertEqual(dur[0].index, 5.5)
+        self.assertEqual(dur[0].value, 3.5)
 
 
 class TestTouchdownToThrustReversersDeployedDuration(unittest.TestCase, NodeTest):

@@ -74,7 +74,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      step_values,
                                      straighten_altitudes,
                                      straighten_headings,
-                                     three_sample_window,
+                                     second_window,
                                      track_linking,
                                      value_at_index,
                                      vstack_params,
@@ -292,13 +292,13 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
 
     units = 'kts'
     
-    align_frequency = 1
+    align_frequency = 2
     align_offset = 0
 
     def derive(self, spd_v2=P('Airspeed Minus V2')):
         '''
         '''
-        self.array = three_sample_window(spd_v2.array)
+        self.array = second_window(spd_v2.array, self.frequency, 3)
         #self.array = clip(spd_v2.array, 3.0, spd_v2.frequency)
 
 
@@ -446,16 +446,13 @@ class AirspeedRelativeFor3Sec(DerivedParameterNode):
     '''
 
     units = 'kts'
+    align_frequency = 2
+    align_offset = 0
 
     def derive(self, spd_vref=P('Airspeed Relative')):
         '''
         '''
-        try:
-            self.array = clip(spd_vref.array, 3.0, spd_vref.frequency)
-        except ValueError:
-            self.warning("'%s' is completely masked within '%s'. Output array "
-                         "will also be masked.", spd_vref.name, self.name)
-            self.array = np_ma_zeros_like(spd_vref.array, mask=True)
+        self.array = second_window(spd_vref.array, self.frequency, 3)
 
 
 ################################################################################
@@ -2105,11 +2102,14 @@ class Eng_N1MinFor5Sec(DerivedParameterNode):
 
     name = 'Eng (*) N1 Min For 5 Sec'
     units = '%'
+    align_frequency = 2
+    align_offset = 0
 
     def derive(self,
                eng_n1_min=P('Eng (*) N1 Min')):
 
-        self.array = clip(eng_n1_min.array, 5.0, eng_n1_min.frequency, remove='troughs')
+        #self.array = clip(eng_n1_min.array, 5.0, eng_n1_min.frequency, remove='troughs')
+        self.array = second_window(eng_n1_min.array, self.frequency, 5)
 
 
 ################################################################################
@@ -2931,12 +2931,12 @@ class GrossWeight(DerivedParameterNode):
                source_R = P('Gross Weight (R)'),
                frame = A('Frame')):
 
-        if frame_name in ['757-DHL']:
+        if frame.value in ['757-DHL']:
             self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_A, source_B)
+                blend_two_parameters(source_L, source_R)
 
         else:
-            raise DataFrameError(self.name, frame_name)
+            raise DataFrameError(self.name, frame.value)
 
     
 

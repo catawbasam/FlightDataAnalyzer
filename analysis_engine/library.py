@@ -1,15 +1,12 @@
-import numpy as np
-from scipy import optimize
-from scipy import interpolate as scipy_interpolate
-from math import ceil
-
 import logging
+import numpy as np
 
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import izip
 from math import asin, atan2, ceil, cos, degrees, floor, radians, sin, sqrt
+from scipy import interpolate as scipy_interpolate, optimize
 
 from hdfaccess.parameter import MappedArray
 
@@ -306,8 +303,7 @@ def align(slave, master, interpolate=True):
 
         else:
             # step through slave taking the required samples
-            slave_aligned[0::wm] = slave_array[0::ws]
-            return slave_aligned
+            return slave_array[0::1/r]
 
     # Each sample in the master parameter may need different combination parameters
     for i in range(int(wm)):
@@ -5029,56 +5025,81 @@ def vstack_params_where_state(*param_states):
     return np.ma.vstack(param_arrays)
 
 
-def three_sample_window(array):
+def second_window(array, frequency, seconds):
     '''
-    Only include values which are maintained for three samples, shorter
+    Only include values which are maintained for a number of seconds, shorter
     exceedances are excluded.
     
     e.g. [0, 1, 2, 3, 2, 1, 2, 3] -> [0, 1, 2, 2, 2, 2, 2, 2]
     
     :type array: np.ma.masked_array
     '''
-    positive_roll = np.roll(array, 1)
-    negative_roll = np.roll(array, -1)
-    positive_roll[0] = np.ma.masked
-    negative_roll[-1] = np.ma.masked
-    combined = np.ma.array([array, positive_roll, negative_roll])
-    min_array = np.ma.min(combined, axis=0)
-    max_array = np.ma.max(combined, axis=0)
+    if int(seconds) != seconds:
+        raise ValueError('Only whole seconds are currently supported.')
+    if seconds % 2 == 0 and not frequency % 2 == 1:
+        raise ValueError('Invalid seconds for frequency')
+    if seconds % 2 == 1 and not frequency % 2 == 0:
+        raise ValueError('Invalid seconds for frequency')
+    
+    samples = (seconds * frequency) + 1
+    # TODO: Fix for frequency..
+    arrays = [array]
+    for roll_value in range((samples / 2) + 1):
+        positive_roll = np.roll(array, roll_value)
+        positive_roll[:roll_value] = np.ma.masked
+        negative_roll = np.roll(array, -roll_value)
+        negative_roll[-roll_value:] = np.ma.masked
+        arrays.append(positive_roll)
+        arrays.append(negative_roll)
+    combined_array = np.ma.array(arrays)
+    min_array = np.ma.min(combined_array, axis=0)
+    max_array = np.ma.max(combined_array, axis=0)
     window_array = np_ma_masked_zeros_like(array)
-    try:
-        first_index = np.ma.clump_unmasked(array)[0].start
-    except IndexError:
-        # array is entirely masked?
-        return window_array
-    #np.ma.array([array, max_array, min_array])
-    
-    window_array[first_index] = last_value = array[first_index]
-    
-    for index, (array_value,
-                min_window,
-                max_window) in enumerate(zip(array[first_index + 1:],
-                                             min_array[first_index + 1:],
-                                             max_array[first_index + 1:]),
-                                         start=first_index):
+    unmasked_slices = np.ma.clump_unmasked(array)
+    for unmasked_slice in unmasked_slices:
+        last_value = array[unmasked_slice.start]
+        algo_slice = slice(unmasked_slice.start + (samples / 2),
+                           unmasked_slice.stop)
+        zipped_arrays = zip(array[algo_slice],
+                            min_array[algo_slice],
+                            max_array[algo_slice])
+        for index, (array_value,
+                    min_window,
+                    max_window) in enumerate(zipped_arrays,
+                                             start=unmasked_slice.start):
+            if array_value is np.ma.masked:
+                continue
+            if min_window < last_value < max_window:
+                # Mixed
+                window_array[index] = last_value
+            elif max_window > last_value:
+                # All greater than.
+                window_array[index] = last_value = min_window
+            elif min_window < last_value:
+                # All less than
+                window_array[index] = last_value = max_window
+            else:
+                window_array[index] = last_value
+        #try:
+            #first_index = np.ma.clump_unmasked(array)[0].start
+        #except IndexError:
+            ## array is entirely masked?
+            #return window_array
+        ##np.ma.array([array, max_array, min_array])
+        
+        #window_array[first_index] = last_value = array[first_index]
+        
+        #for index, (array_value,
+                    #min_window,
+                    #max_window) in enumerate(zip(array[first_index + 1:],
+                                                 #min_array[first_index + 1:],
+                                                 #max_array[first_index + 1:]),
+                                             #start=first_index):
         ##stacked_array = np.ma.array([array, max_array, min_array])
         ###for index, values in enumerate(tacked_array[], start=first_index):
         ##for index in xrange(first_index, stacked_array.shape[1]):
         ##values = stacked_array[...,index]
         ##array_value, max_window, min_window = values.tolist()
-        if array_value is np.ma.masked:
-            continue
-        if min_window < last_value < max_window:
-            # Mixed
-            window_array[index] = last_value
-        elif max_window > last_value:
-            # All greater than.
-            window_array[index] = last_value = min_window
-        elif min_window < last_value:
-            # All less than
-            window_array[index] = last_value = max_window
-        else:
-            window_array[index] = last_value
     
     return np.ma.array(window_array)
 
