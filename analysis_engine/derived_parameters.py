@@ -74,7 +74,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      step_values,
                                      straighten_altitudes,
                                      straighten_headings,
-                                     three_sample_window,
+                                     second_window,
                                      track_linking,
                                      value_at_index,
                                      vstack_params,
@@ -292,13 +292,13 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
 
     units = 'kts'
     
-    align_frequency = 1
+    align_frequency = 2
     align_offset = 0
 
     def derive(self, spd_v2=P('Airspeed Minus V2')):
         '''
         '''
-        self.array = three_sample_window(spd_v2.array)
+        self.array = second_window(spd_v2.array, self.frequency, 3)
         #self.array = clip(spd_v2.array, 3.0, spd_v2.frequency)
 
 
@@ -446,11 +446,13 @@ class AirspeedRelativeFor3Sec(DerivedParameterNode):
     '''
 
     units = 'kts'
+    align_frequency = 2
+    align_offset = 0
 
     def derive(self, spd_vref=P('Airspeed Relative')):
         '''
         '''
-        self.array = three_sample_window(spd_vref.array)
+        self.array = second_window(spd_vref.array, self.frequency, 3)
 
 
 ################################################################################
@@ -2108,11 +2110,14 @@ class Eng_N1MinFor5Sec(DerivedParameterNode):
 
     name = 'Eng (*) N1 Min For 5 Sec'
     units = '%'
+    align_frequency = 2
+    align_offset = 0
 
     def derive(self,
                eng_n1_min=P('Eng (*) N1 Min')):
 
-        self.array = clip(eng_n1_min.array, 5.0, eng_n1_min.frequency, remove='troughs')
+        #self.array = clip(eng_n1_min.array, 5.0, eng_n1_min.frequency, remove='troughs')
+        self.array = second_window(eng_n1_min.array, self.frequency, 5)
 
 
 ################################################################################

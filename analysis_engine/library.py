@@ -303,8 +303,7 @@ def align(slave, master, interpolate=True):
 
         else:
             # step through slave taking the required samples
-            slave_aligned[0::wm] = slave_array[0::ws]
-            return slave_aligned
+            return slave_array[0::1/r]
 
     # Each sample in the master parameter may need different combination parameters
     for i in range(int(wm)):
@@ -5026,27 +5025,41 @@ def vstack_params_where_state(*param_states):
     return np.ma.vstack(param_arrays)
 
 
-def three_sample_window(array):
+def second_window(array, frequency, seconds):
     '''
-    Only include values which are maintained for three samples, shorter
+    Only include values which are maintained for a number of seconds, shorter
     exceedances are excluded.
     
     e.g. [0, 1, 2, 3, 2, 1, 2, 3] -> [0, 1, 2, 2, 2, 2, 2, 2]
     
     :type array: np.ma.masked_array
     '''
-    positive_roll = np.roll(array, 1)
-    negative_roll = np.roll(array, -1)
-    positive_roll[0] = np.ma.masked
-    negative_roll[-1] = np.ma.masked
-    combined = np.ma.array([array, positive_roll, negative_roll])
-    min_array = np.ma.min(combined, axis=0)
-    max_array = np.ma.max(combined, axis=0)
+    if int(seconds) != seconds:
+        raise ValueError('Only whole seconds are currently supported.')
+    if seconds % 2 == 0 and not frequency % 2 == 1:
+        raise ValueError('Invalid seconds for frequency')
+    if seconds % 2 == 1 and not frequency % 2 == 0:
+        raise ValueError('Invalid seconds for frequency')
+    
+    samples = (seconds * frequency) + 1
+    # TODO: Fix for frequency..
+    arrays = [array]
+    for roll_value in range((samples / 2) + 1):
+        positive_roll = np.roll(array, roll_value)
+        positive_roll[:roll_value] = np.ma.masked
+        negative_roll = np.roll(array, -roll_value)
+        negative_roll[-roll_value:] = np.ma.masked
+        arrays.append(positive_roll)
+        arrays.append(negative_roll)
+    combined_array = np.ma.array(arrays)
+    min_array = np.ma.min(combined_array, axis=0)
+    max_array = np.ma.max(combined_array, axis=0)
     window_array = np_ma_masked_zeros_like(array)
     unmasked_slices = np.ma.clump_unmasked(array)
     for unmasked_slice in unmasked_slices:
         last_value = array[unmasked_slice.start]
-        algo_slice = slice(unmasked_slice.start + 1, unmasked_slice.stop)
+        algo_slice = slice(unmasked_slice.start + (samples / 2),
+                           unmasked_slice.stop)
         zipped_arrays = zip(array[algo_slice],
                             min_array[algo_slice],
                             max_array[algo_slice])
