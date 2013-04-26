@@ -145,6 +145,7 @@ from analysis_engine.key_point_values import (
     EngN1CyclesDuringFinalApproach,
     EngN1500To50FtMax,
     EngN1500To50FtMin,
+    EngN1For5Sec1000To500FtMin,
     EngN1For5Sec500To50FtMin,
     EngN1WithThrustReversersInTransitMax,
     EngN1Below60PercentAfterTouchdownDuration,
@@ -3012,6 +3013,19 @@ class TestEngN1500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.operational_combinations = [('Eng (*) N1 Min', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngN1For5Sec1000To500FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN1For5Sec1000To500FtMin
+        self.operational_combinations = [('Eng (*) N1 Min For 5 Sec', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
