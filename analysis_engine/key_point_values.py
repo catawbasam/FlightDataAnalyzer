@@ -1634,7 +1634,27 @@ class AOADuringGoAroundMax(KeyPointValueNode):
 
 
 ##############################################################################
+class ThrustReversersDeployedDuration(KeyPointValueNode):
+    '''
+    Measure the duration (secs) which the thrust reverses were deployed for.
+    0 seconds represents no deployment at landing.
+    '''
+    units = 's'
 
+    def derive(self,
+               tr=M('Thrust Reversers'),
+               landings=S('Landing')):
+
+        for landing in landings:
+            tr_in_ldg = tr.array[landing.slice]
+            dur_deployed = sum(tr_in_ldg == 'Deployed') / tr.frequency
+            if dur_deployed:
+                dep_start = find_edges_on_state_change('Deployed', tr_in_ldg)[0]
+                index = dep_start + landing.slice.start
+            else:
+                index = landing.slice.start
+            self.create_kpv(index, dur_deployed)
+            
 
 class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
     '''
