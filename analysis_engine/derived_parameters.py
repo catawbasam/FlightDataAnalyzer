@@ -5577,7 +5577,7 @@ class StableApproach(MultistateDerivedParameterNode):
             if aspd:
                 #== 4. Airspeed Relative ==
                 self.array[_slice][stable] = 4
-                STABLE_AIRSPEED_ABOVE_REF = 20
+                STABLE_AIRSPEED_ABOVE_REF = 30
                 stable_airspeed = (airspeed < STABLE_AIRSPEED_ABOVE_REF) | (altitude < 100)
                 stable &= stable_airspeed.filled(True)  # if no V Ref speed, values are masked so consider stable as one is not flying to the vref speed??
 
@@ -5596,7 +5596,7 @@ class StableApproach(MultistateDerivedParameterNode):
 
             #== 7. Vertical Speed ==
             self.array[_slice][stable] = 7
-            STABLE_VERTICAL_SPEED_MIN = -1000
+            STABLE_VERTICAL_SPEED_MIN = -1300
             STABLE_VERTICAL_SPEED_MAX = -200
             stable_vert = (vertical_speed > STABLE_VERTICAL_SPEED_MIN) & (vertical_speed < STABLE_VERTICAL_SPEED_MAX) 
             stable_vert |= altitude < 50
