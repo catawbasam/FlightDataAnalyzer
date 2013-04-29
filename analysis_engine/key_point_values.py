@@ -4845,9 +4845,8 @@ class HeadingDeviationFromRunwayAt50FtDuringLanding(KeyPointValueNode):
         land = landings[-1]
         # By definition, landing starts at 50ft.
         brg = value_at_index(head.array, land.start_edge)
-        if brg:
-            dev = runway_deviation(brg, rwy.value)
-            self.create_kpv(land.start_edge, dev)
+        dev = runway_deviation(brg, rwy.value)
+        self.create_kpv(land.start_edge, dev)
 
 
 class HeadingDeviationFromRunwayDuringLandingRoll(KeyPointValueNode):
