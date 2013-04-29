@@ -571,6 +571,7 @@ class AltitudeAAL(DerivedParameterNode):
     name = "Altitude AAL"
     units = 'ft'
     align_frequency = 2
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
