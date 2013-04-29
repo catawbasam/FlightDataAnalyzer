@@ -282,6 +282,10 @@ def can_operate(cls, available):
                 self.offset = self.align_offset
             elif self.align_frequency:
                 # align to class frequency, but set offset to first dependency
+                # This will cause a problem during alignment if the offset is
+                # greater than the frequency allows (e.g. 0.6 offset for a 2Hz
+                # parameter). It may be best to always define a suitable
+                # align_offset.
                 self.frequency = self.align_frequency
                 self.offset = dependencies_to_align[0].offset
             elif self.align_offset is not None:
