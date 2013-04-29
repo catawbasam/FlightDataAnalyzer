@@ -3318,7 +3318,7 @@ class HeadingIncreasing(DerivedParameterNode):
 class HeadingTrueContinuous(DerivedParameterNode):
     units = 'deg'
     def derive(self, hdg=P('Heading True')):
-        self.array = straighten_headings(hdg.array)
+        self.array = repair_mask(straighten_headings(hdg.array))
 
 
 class Heading(DerivedParameterNode):
