@@ -2439,6 +2439,21 @@ class TestMaxAbsValue(unittest.TestCase):
         self.assertEqual(res.index, 31)
 
 
+class TestMergeMasks(unittest.TestCase):
+    def test_merge_masks_default(self):
+        ma_test.assert_equal(
+            merge_masks([np.array([False, False, False, True, True]),
+                         np.array([False, False, True, True, False])]),
+            np.array([False, False, True, True, True]))
+    
+    def test_merge_masks_two_unmasked(self):
+        ma_test.assert_equal(
+            merge_masks([np.array([False, False, False, True, True]),
+                         np.array([False, False, True, True, False])],
+                        min_unmasked=2),
+            np.array([False, False, False, True, False]))
+
+
 class TestMergeSources(unittest.TestCase):
     def test_merge_sources_basic(self):
         p1 = np.ma.array([0]*4)
@@ -3242,6 +3257,18 @@ class TestRepairMask(unittest.TestCase):
         self.assertFalse(np.ma.is_masked(res[7]))
         self.assertFalse(np.ma.is_masked(res[8]))
         self.assertFalse(np.ma.is_masked(res[9]))
+
+
+class TestResample(unittest.TestCase):
+    def test_resample_upsample(self):
+        ma_test.assert_equal(
+            resample(np.array([True, False, True, True]), 0.5, 1),
+            np.array([True, True, False, False, True, True, True, True]))
+        
+    def test_resample_downsample(self):
+        ma_test.assert_equal(
+            resample(np.array([True, False, True, False, True]), 4, 2),
+            np.array([True, True, True]))
 
 
 class TestRoundToNearest(unittest.TestCase):

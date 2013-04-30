@@ -3073,6 +3073,20 @@ def max_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     return Value(index, value)
 
 
+def merge_masks(masks, min_unmasked=1):
+    '''
+    :type masks: [mask]
+    :type min_unmasked: int
+    :returns: Array of merged masks.
+    :rtype: np.array(dtype=np.bool_)
+    '''
+    if len(masks) <= 1:
+        return masks
+    # Q: What if min_unmasked is less than one?
+    mask_sum = np.sum(np.array(masks), axis=0)
+    return mask_sum >= min_unmasked
+
+
 def min_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     """
     Get the minimum value in the array and its index.
@@ -3399,6 +3413,7 @@ def blend_parameters_weighting(array, wt):
 
     return repair_mask(final_weight, repair_duration=None)
 
+
 def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
     '''
     This most general form of the blend options allows for multiple sources
@@ -3430,19 +3445,21 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
         plt.figure()
     assert frequency>0.0
     
-    p_valid_slices=[]
-    p_offset=[]
-    p_freq=[]
+    p_valid_slices = []
+    p_offset = []
+    p_freq = []
     
     # Prepare a place for the output signal
-    length = len(params[0].array)*frequency/params[0].frequency
-    result =  np_ma_masked_zeros_like(np.ma.arange(length))
+    length = len(params[0].array) * frequency / params[0].frequency
+    result = np_ma_masked_zeros(length)
+    # Ensure mask is expanded for slicing.
+    result.mask = np.ma.getmaskarray(result)
     
     # Find out about the parameters we have to deal with...
     for seq, param in enumerate(params):
         p_freq.append(param.frequency)
         p_offset.append(param.offset)
-    min_ip_freq = min(p_freq)    
+    min_ip_freq = min(p_freq)
     
     # Slices of valid data are scaled to the lowest timebase and then or'd
     # to find out when any valid data is available.
@@ -3450,9 +3467,11 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
         # We can only work on non-trivial slices which have four or more
         # samples as below this level it's not possible to compute a cubic
         # spline.
-        nts=slices_remove_small_slices(np.ma.clump_unmasked(param.array), count=4)        
-        # Now scale these non-trivial slices into the lowest timebase for collation.
-        p_valid_slices.append(slices_multiply(nts, min_ip_freq/p_freq[seq]))
+        nts=slices_remove_small_slices(np.ma.clump_unmasked(param.array),
+                                       count=4)
+        # Now scale these non-trivial slices into the lowest timebase for
+        # collation.
+        p_valid_slices.append(slices_multiply(nts, min_ip_freq / p_freq[seq]))
         
     # To find the valid ranges I need to 'or' the slices at a high level, hence
     # this list of lists of slices needs to be flattened. Don't ask me what
@@ -3468,59 +3487,65 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
     for this_valid in any_valid:
         
         result_slice = slice_multiply(this_valid, frequency/min_ip_freq)
-                                   
-        new_t = np.linspace(result_slice.start/frequency,
-                            result_slice.stop/frequency,
-                            num=(result_slice.stop-result_slice.start),
-                            endpoint=False)+offset
+        
+        new_t = np.linspace(result_slice.start / frequency,
+                            result_slice.stop / frequency,
+                            num=(result_slice.stop - result_slice.start),
+                            endpoint=False) + offset
         
         # Make space for the computed curves
         curves=[]
         weights=[]
+        resampled_masks = []
 
         # Compute the individual splines
         for seq, param in enumerate(params):
             # The slice and timebase for this parameter...
-            my_slice = slice_multiply(this_valid, p_freq[seq]/min_ip_freq)
-            timebase=np.linspace(my_slice.start/p_freq[seq], 
-                                 my_slice.stop/p_freq[seq], 
-                                 num=my_slice.stop-my_slice.start,
-                                 endpoint=False)+p_offset[seq]
-            my_time = np.ma.array(data=timebase, 
-                                  mask=np.ma.getmaskarray(param.array[my_slice]))
-            if len(my_time.compressed())<4:
+            my_slice = slice_multiply(this_valid, p_freq[seq] / min_ip_freq)
+            resampled_masks.append(
+                resample(np.ma.getmaskarray(param.array)[my_slice],
+                         param.frequency, frequency))
+            timebase = np.linspace(my_slice.start/p_freq[seq],
+                                   my_slice.stop/p_freq[seq],
+                                   num=my_slice.stop-my_slice.start,
+                                   endpoint=False) + p_offset[seq]
+            my_time = np.ma.array(
+                data=timebase, mask=np.ma.getmaskarray(param.array[my_slice]))
+            if len(my_time.compressed()) < 4:
                 continue
-            my_curve = scipy_interpolate.splrep(my_time.compressed(),
-                                                param.array[my_slice].compressed(), 
-                                                s=0)
+            my_curve = scipy_interpolate.splrep(
+                my_time.compressed(), param.array[my_slice].compressed(), s=0)
             # my_curve is the spline knot array, now compute the values for
             # the output timebase.
-            curves.append(scipy_interpolate.splev(new_t, my_curve, der=0, ext=0))
+            curves.append(
+                scipy_interpolate.splev(new_t, my_curve, der=0, ext=0))
 
             # Compute the weights 
-            weights.append(blend_parameters_weighting(param.array[my_slice], 
-                                                      frequency/param.frequency))
+            weights.append(blend_parameters_weighting(
+                param.array[my_slice], frequency/param.frequency))
             
             if debug:
-                plt.plot(my_time,param.array[my_slice],'o')
-                plt.plot(new_t,curves[seq],'-.')
+                plt.plot(my_time,param.array[my_slice], 'o')
+                plt.plot(new_t,curves[seq], '-.')
                 plt.plot(new_t,weights[seq])
                 
         if curves==[]:
             continue
         a = np.vstack(tuple(curves))
         result[result_slice] = np.average(a, axis=0, weights=weights)
+        # Q: Is this the right place? Should it be applied to this_valid slice?
+        result.mask[result_slice] = merge_masks(resampled_masks,
+                                                min_unmasked=2)
         # The endpoints of a cubic spline are generally unreliable, so trim
         # them back.
         result[result_slice][0] = np.ma.masked
         result[result_slice][-1] = np.ma.masked
         
         if debug:
-            plt.plot(new_t,result[result_slice],'-')
+            plt.plot(new_t,result[result_slice], '-')
             plt.show()
 
     return result
-    
     
 
 def most_points_cost(coefs, x, y):
@@ -3757,6 +3782,26 @@ def np_ma_ones(length):
     :returns: Numpy masked array of unmasked 1.0 float values, length as specified.
     """
     return np_ma_zeros_like(np.ma.arange(length)) + 1.0
+
+
+def np_ma_masked_zeros(length):
+    """
+    Creates a masked array filled with masked values. The unmasked data
+    values are all zero. The very klunky code here is to circumvent Numpy's
+    normal response which is to return random data values where it knows the
+    data is masked. In this case we want to ensure zero values as we may be
+    lifting the mask in due course and we don't want to reveal random data.
+
+    See also np_ma_zeros_like.
+
+    :param length: array length to be replicated.
+    :type length: int
+
+    :returns: Numpy masked array of masked 0.0 float values of length equal to
+    input.
+    """
+    return np.ma.array(data=np.zeros(length), mask=True)
+
 
 def np_ma_masked_zeros_like(array):
     """
@@ -4122,6 +4167,20 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 array.mask[section] = False
 
     return array
+
+
+def resample(array, orig_hz, resample_hz):
+    '''
+    Upsample or downsample an array for it to match resample_hz.
+    Offset is maintained because the first sample is always returned.
+    '''
+    if orig_hz == resample_hz:
+        return array
+    modifier = resample_hz / float(orig_hz)
+    if modifier > 1:
+        return np.ma.repeat(array, modifier)
+    else:
+        return array[::1 / modifier]
 
 
 def round_to_nearest(array, step):
