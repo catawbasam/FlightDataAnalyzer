@@ -1001,7 +1001,7 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
         raise ValueError('Clip called with unrecognised remove argument')
         
     if hz <= 0.01:
-        raise ValueError('Duration called with sample rate outside permitted range')
+        raise ValueError('Clip called with sample rate outside permitted range')
 
     half_width = int(period/hz)/2
     # Trap low values. This can occur, for an example, where a parameter has
@@ -1010,6 +1010,10 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
         logger.warning('Clip called with period too short to have an effect')
         return array
     
+    if np.ma.count(array) == 0:
+        logger.warning('Clip called with entirely masked data')
+        return array
+        
     # OK - normal operation here. We repair the mask to avoid propogating
     # invalid samples unreasonably.
     source = np.ma.array(repair_mask(array, frequency=hz, repair_duration=period-(1/hz)))
