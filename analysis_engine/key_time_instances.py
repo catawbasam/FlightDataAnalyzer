@@ -775,7 +775,8 @@ class SecsToTouchdown(KeyTimeInstanceNode):
         for touchdown in touchdowns:
             for t in self.NAME_VALUES['time']:
                 index = touchdown.index - (t * self.frequency)
-                self.create_kti(index, time=t)
+                if index >= 0:
+                    self.create_kti(index, time=t)
 
 
 #################################################################

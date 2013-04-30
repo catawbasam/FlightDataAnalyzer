@@ -1050,7 +1050,7 @@ class TestKeyPointValueNode(unittest.TestCase):
     def test_create_kpvs_within_slices(self):
         knode = self.knode
         function = mock.Mock()
-        return_values = [(10, 15), (22, 27)]
+        return_values = [(10.7, 15), (22, 27)]
         def side_effect(*args, **kwargs):
             return return_values.pop()
         function.side_effect = side_effect
@@ -1086,7 +1086,7 @@ class TestKeyPointValueNode(unittest.TestCase):
     def test_create_kpv_outside_slices(self):
         knode = self.knode
         function = mock.Mock()
-        return_values = [(12, 15)]
+        return_values = [(12.2, 15)]
         def side_effect(*args, **kwargs):
             return return_values.pop()
         function.side_effect = side_effect

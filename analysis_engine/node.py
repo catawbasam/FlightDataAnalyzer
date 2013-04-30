@@ -282,6 +282,10 @@ def can_operate(cls, available):
                 self.offset = self.align_offset
             elif self.align_frequency:
                 # align to class frequency, but set offset to first dependency
+                # This will cause a problem during alignment if the offset is
+                # greater than the frequency allows (e.g. 0.6 offset for a 2Hz
+                # parameter). It may be best to always define a suitable
+                # align_offset.
                 self.frequency = self.align_frequency
                 self.offset = dependencies_to_align[0].offset
             elif self.align_offset is not None:
@@ -1595,9 +1599,13 @@ class KeyPointValueNode(FormattedNameNode):
         '''
         slices = self._get_slices(slices)
         for slice_ in slices:
+            # Where slice.stop is not a whole number, it is assumed that the
+            # value is an stop_edge rather than an inclusive pythonic end to a
+            # range (stop+1) as a slice should be.
+            stop = slice_.stop if slice_.stop%1 else None
             index, value = function(array, slice_,
                                     start_edge=slice_.start,
-                                    stop_edge=slice_.stop)
+                                    stop_edge=stop)
             self.create_kpv(index, value, **kwargs)
 
     def create_kpv_from_slices(self, array, slices, function, **kwargs):

@@ -145,6 +145,7 @@ from analysis_engine.key_point_values import (
     EngN1CyclesDuringFinalApproach,
     EngN1500To50FtMax,
     EngN1500To50FtMin,
+    EngN1For5Sec1000To500FtMin,
     EngN1For5Sec500To50FtMin,
     EngN1WithThrustReversersInTransitMax,
     EngN1Below60PercentAfterTouchdownDuration,
@@ -1542,9 +1543,9 @@ class TestAirspeedWithGearDownMax(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(air_spd, gear, airs)
         self.assertItemsEqual(node, [
-            KeyPointValue(index=2, value=2.0, name='Airspeed With Gear Down Max'),
-            KeyPointValue(index=4, value=4.0, name='Airspeed With Gear Down Max'),
-            KeyPointValue(index=6, value=6.0, name='Airspeed With Gear Down Max'),
+            KeyPointValue(index=1, value=1.0, name='Airspeed With Gear Down Max'),
+            KeyPointValue(index=3, value=3.0, name='Airspeed With Gear Down Max'),
+            KeyPointValue(index=5, value=5.0, name='Airspeed With Gear Down Max'),
         ])
 
 
@@ -1699,8 +1700,8 @@ class TestAirspeedWithSpoilerDeployedMax(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(air_spd, spoiler)
         self.assertItemsEqual(node, [
-            KeyPointValue(index=6, value=6.0, name='Airspeed With Spoiler Deployed Max'),
-            KeyPointValue(index=9, value=9.0, name='Airspeed With Spoiler Deployed Max'),
+            KeyPointValue(index=5, value=5.0, name='Airspeed With Spoiler Deployed Max'),
+            KeyPointValue(index=8, value=8.0, name='Airspeed With Spoiler Deployed Max'),
         ])
 
 
@@ -2197,9 +2198,9 @@ class TestAltitudeWithGearDownMax(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(alt_aal, gear, airs)
         self.assertItemsEqual(node, [
-            KeyPointValue(index=2, value=2.0, name='Altitude With Gear Down Max'),
-            KeyPointValue(index=4, value=4.0, name='Altitude With Gear Down Max'),
-            KeyPointValue(index=6, value=6.0, name='Altitude With Gear Down Max'),
+            KeyPointValue(index=1, value=1.0, name='Altitude With Gear Down Max'),
+            KeyPointValue(index=3, value=3.0, name='Altitude With Gear Down Max'),
+            KeyPointValue(index=5, value=5.0, name='Altitude With Gear Down Max'),
         ])
 
 
@@ -2480,9 +2481,9 @@ class TestMachWithGearDownMax(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(mach, gear, airs)
         self.assertItemsEqual(node, [
-            KeyPointValue(index=2, value=2.0, name='Mach With Gear Down Max'),
-            KeyPointValue(index=4, value=4.0, name='Mach With Gear Down Max'),
-            KeyPointValue(index=6, value=6.0, name='Mach With Gear Down Max'),
+            KeyPointValue(index=1, value=1.0, name='Mach With Gear Down Max'),
+            KeyPointValue(index=3, value=3.0, name='Mach With Gear Down Max'),
+            KeyPointValue(index=5, value=5.0, name='Mach With Gear Down Max'),
         ])
 
 
@@ -3013,6 +3014,19 @@ class TestEngN1500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.operational_combinations = [('Eng (*) N1 Min', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngN1For5Sec1000To500FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN1For5Sec1000To500FtMin
+        self.operational_combinations = [('Eng (*) N1 Min For 5 Sec', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

@@ -75,7 +75,9 @@ class Airborne(FlightPhaseNode):
             if working_alt is None:
                 break
 
-            airs = np.ma.clump_unmasked(np.ma.masked_less_equal(working_alt, 0.0))
+            airs = slices_remove_small_gaps(np.ma.clump_unmasked(np.ma.masked_less_equal(working_alt, 0.0)),
+                                            time_limit=10, 
+                                            hz=alt_aal.frequency)
             # Make sure we propogate None ends to data which starts or ends in
             # midflight.
             for air in airs:
@@ -123,10 +125,14 @@ class GoAroundAndClimbout(FlightPhaseNode):
                     start_slice = slice(index, alt_idxs[n_alt - 1], -1)
                     start_array = alt_aal.array[start_slice]
                     ga_start = index_closest_value(start_array, value + 500)
+                    if ga_start is None:
+                        continue
                     
                     stop_slice = slice(index, alt_idxs[n_alt + 1])
                     stop_array = alt_aal.array[stop_slice]
                     ga_stop = index_closest_value(stop_array, value + 2000)
+                    if ga_stop is None:
+                        continue
 
                     ga_slice.append(slice(start_slice.start - ga_start,
                                           ga_stop + stop_slice.start))
@@ -477,7 +483,7 @@ class Fast(FlightPhaseNode):
             stop = fast_sample.stop
             if abs(airspeed.array[start] - AIRSPEED_THRESHOLD) > 20:
                 start = None
-            if abs(airspeed.array[stop - 1] - AIRSPEED_THRESHOLD) > 20:
+            if abs(airspeed.array[stop - 1] - AIRSPEED_THRESHOLD) > 30:
                 stop = None
             self.create_phase(slice(start, stop))
 
@@ -1075,11 +1081,19 @@ class GoAround5MinRating(FlightPhaseNode):
     the start of takeoff. Also applies in the case of a go-around.
     '''
 
-    def derive(self, gas=S('Go Around And Climbout')):
+    def derive(self, gas=S('Go Around And Climbout'), tdwn=S('Touchdown')):
         '''
+        We check that the computed phase cannot extend beyond the last
+        touchdown, which may arise if a go-around was detected on the final
+        approach.
         '''
         for ga in gas:
-            self.create_phase(slice(ga.slice.start, ga.slice.start + 300))
+            startpoint = ga.slice.start
+            endpoint = ga.slice.start + 300
+            if tdwn[-1]:
+                endpoint = min(endpoint, tdwn[-1].index)
+            if startpoint < endpoint:
+                self.create_phase(slice(startpoint, endpoint))
 
 
 ################################################################################

@@ -74,7 +74,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      step_values,
                                      straighten_altitudes,
                                      straighten_headings,
-                                     three_sample_window,
+                                     second_window,
                                      track_linking,
                                      value_at_index,
                                      vstack_params,
@@ -292,13 +292,13 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
 
     units = 'kts'
     
-    align_frequency = 1
+    align_frequency = 2
     align_offset = 0
 
     def derive(self, spd_v2=P('Airspeed Minus V2')):
         '''
         '''
-        self.array = three_sample_window(spd_v2.array)
+        self.array = second_window(spd_v2.array, self.frequency, 3)
         #self.array = clip(spd_v2.array, 3.0, spd_v2.frequency)
 
 
@@ -446,16 +446,13 @@ class AirspeedRelativeFor3Sec(DerivedParameterNode):
     '''
 
     units = 'kts'
+    align_frequency = 2
+    align_offset = 0
 
     def derive(self, spd_vref=P('Airspeed Relative')):
         '''
         '''
-        try:
-            self.array = clip(spd_vref.array, 3.0, spd_vref.frequency)
-        except ValueError:
-            self.warning("'%s' is completely masked within '%s'. Output array "
-                         "will also be masked.", spd_vref.name, self.name)
-            self.array = np_ma_zeros_like(spd_vref.array, mask=True)
+        self.array = second_window(spd_vref.array, self.frequency, 3)
 
 
 ################################################################################
@@ -573,6 +570,8 @@ class AltitudeAAL(DerivedParameterNode):
     """
     name = "Altitude AAL"
     units = 'ft'
+    align_frequency = 2
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
@@ -659,15 +658,12 @@ class AltitudeAAL(DerivedParameterNode):
                         alt_std[begin_index:] - up_diff
         return alt_result
 
-    def derive(self, alt_std=P('Altitude STD Smoothed'),
-               alt_rad=P('Altitude Radio'),
+    def derive(self, alt_rad=P('Altitude Radio'),
+               alt_std=P('Altitude STD Smoothed'),
                speedies=S('Fast')):
-        # Altitude Radio was taken as the prime reference to ensure the
-        # minimum ground clearance passing peaks is accurately reflected.
-        # However, when the Altitude Radio signal is sampled at a lower rate
-        # than the Altitude STD Smoothed, this results in a lower sample rate
-        # for a primary analysis parameter, and this is why Altitude STD
-        # Smoothed is now the primary reference.
+        # Altitude Radio taken as the prime reference to ensure the minimum
+        # ground clearance passing peaks is accurately reflected. Alt AAL
+        # forced to 2htz
 
         # alt_aal will be zero on the airfield, so initialise to zero.
         alt_aal = np_ma_zeros_like(alt_std.array)
@@ -862,11 +858,6 @@ class AltitudeRadio(DerivedParameterNode):
     multiple cubic splines are joined with variable weighting to provide an
     optimal combination of the available data.
 
-    :param frame: The frame attribute, e.g. '737-i'
-    :type frame: An attribute
-    :param frame_qual: The frame qualifier, e.g. 'Altitude_Radio_D226A101_1_16D'
-    :type frame_qual: An attribute
-
     :returns Altitude Radio with values typically taken as the mean between
     two valid sensors.
     :type parameter object.
@@ -881,8 +872,7 @@ class AltitudeRadio(DerivedParameterNode):
                        if name.startswith('Altitude')], available)
 
     
-    def derive(self, frame = A('Frame'),
-               frame_qual = A('Frame Qualifier'),
+    def derive(self,
                source_A = P('Altitude Radio (A)'),
                source_B = P('Altitude Radio (B)'),
                source_C = P('Altitude Radio (C)'),
@@ -2113,11 +2103,14 @@ class Eng_N1MinFor5Sec(DerivedParameterNode):
 
     name = 'Eng (*) N1 Min For 5 Sec'
     units = '%'
+    align_frequency = 2
+    align_offset = 0
 
     def derive(self,
                eng_n1_min=P('Eng (*) N1 Min')):
 
-        self.array = clip(eng_n1_min.array, 5.0, eng_n1_min.frequency, remove='troughs')
+        #self.array = clip(eng_n1_min.array, 5.0, eng_n1_min.frequency, remove='troughs')
+        self.array = second_window(eng_n1_min.array, self.frequency, 5)
 
 
 ################################################################################
@@ -2960,12 +2953,12 @@ class GrossWeight(DerivedParameterNode):
                source_R = P('Gross Weight (R)'),
                frame = A('Frame')):
 
-        if frame_name in ['757-DHL']:
+        if frame.value in ['757-DHL']:
             self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_A, source_B)
+                blend_two_parameters(source_L, source_R)
 
         else:
-            raise DataFrameError(self.name, frame_name)
+            raise DataFrameError(self.name, frame.value)
 
     
 
@@ -3346,7 +3339,7 @@ class HeadingIncreasing(DerivedParameterNode):
 class HeadingTrueContinuous(DerivedParameterNode):
     units = 'deg'
     def derive(self, hdg=P('Heading True')):
-        self.array = straighten_headings(hdg.array)
+        self.array = repair_mask(straighten_headings(hdg.array))
 
 
 class Heading(DerivedParameterNode):
@@ -4023,7 +4016,7 @@ class MagneticVariation(DerivedParameterNode):
             array[index] = geomag.declination(
                 lat.array[index], lon.array[index],
                 alt_aal.array[index], time=start_date)
-        self.array = array
+        self.array = repair_mask(array, extrapolate=True)
 
 
 class VerticalSpeedInertial(DerivedParameterNode):
@@ -4716,8 +4709,9 @@ class TAWSAlert(MultistateDerivedParameterNode):
         res = params_state.any(axis=0)
 
         self.array = np_ma_masked_zeros_like(params_state[0])
-        for air in airs:
-            self.array[air.slice] = res[air.slice]
+        if airs:
+            for air in airs:
+                self.array[air.slice] = res[air.slice]
 
 
 class V2(DerivedParameterNode):

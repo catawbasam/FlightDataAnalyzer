@@ -34,8 +34,10 @@ from analysis_engine.derived_parameters import (
     Aileron,
     AimingPointRange,
     AirspeedForFlightPhases,
+    AirspeedMinusV2For3Sec,
     AirspeedReference,
     AirspeedRelative,
+    AirspeedRelativeFor3Sec,
     AirspeedTrue,
     AltitudeAAL,
     AltitudeAALForFlightPhases,
@@ -744,7 +746,7 @@ class TestAltitudeAAL(unittest.TestCase):
     def test_can_operate(self):
         opts = AltitudeAAL.get_operational_combinations()
         self.assertTrue(('Altitude STD Smoothed', 'Fast') in opts)
-        self.assertTrue(('Altitude STD Smoothed', 'Altitude Radio', 'Fast') in opts)
+        self.assertTrue(('Altitude Radio', 'Altitude STD Smoothed', 'Fast') in opts)
         
     def test_alt_aal_basic(self):
         data = np.ma.array([-3, 0, 30, 80, 250, 560, 220, 70, 20, -5])
@@ -754,7 +756,7 @@ class TestAltitudeAAL(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', fast_data))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(alt_std, alt_rad, phase_fast)
+        alt_aal.derive(alt_rad,alt_std, phase_fast)
         expected = np.ma.array([0, 0, 30, 80, 250, 560, 220, 70, 20, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
 
@@ -767,7 +769,7 @@ class TestAltitudeAAL(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', fast_data))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(alt_std, alt_rad, phase_fast)
+        alt_aal.derive(alt_rad, alt_std, phase_fast)
         expected = np.ma.array([0, 0, 30, 80, 250, 560, 220, 70, 20, 0, 0, 0, 0,
                                 0, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
@@ -779,25 +781,28 @@ class TestAltitudeAAL(unittest.TestCase):
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(alt_std, None,  phase_fast)
+        alt_aal.derive(None, alt_std, phase_fast)
         expected = np.ma.array([0, 0, 30, 80, 250, 510, 150, 0, 0, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
-    
+
     def test_alt_aal_complex(self):
         testwave = np.ma.cos(np.arange(0, 3.14 * 2 * 5, 0.1)) * -3000 + \
             np.ma.cos(np.arange(0, 3.14 * 2, 0.02)) * -5000 + 7996
-        # plot_parameter (testwave)
         rad_wave = np.copy(testwave)
         rad_wave[110:140] -= 8765 # The ground is 8,765 ft high at this point.
         rad_data = np.ma.masked_greater(rad_wave, 2600)
-        # plot_parameter (rad_data)
         phase_fast = buildsection('Fast', 0, len(testwave))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(P('Altitude STD', testwave),
-                       P('Altitude Radio', rad_data),
+        alt_aal.derive(P('Altitude Radio', rad_data),
+                       P('Altitude STD', testwave),
                        phase_fast)
-        # plot_parameter (alt_aal.array)
-
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(testwave)
+        plt.plot(rad_data)
+        plt.plot(alt_aal.array)
+        plt.show()
+        '''
         np.testing.assert_equal(alt_aal.array[0], 0.0)
         np.testing.assert_almost_equal(alt_aal.array[34], 7013, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[60], 3308, decimal=0)
@@ -805,6 +810,31 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_almost_equal(alt_aal.array[191], 8965, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[313], 0, decimal=0)
+    
+    def test_alt_aal_complex_no_rad_alt(self):
+        testwave = np.ma.cos(np.arange(0, 3.14 * 2 * 5, 0.1)) * -3000 + \
+            np.ma.cos(np.arange(0, 3.14 * 2, 0.02)) * -5000 + 7996
+        testwave[255:]=testwave[254]
+        testwave[:5]=500.0
+        phase_fast = buildsection('Fast', 0, 254)
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(P('Altitude STD', testwave),
+                       None,
+                       phase_fast)
+        
+        
+        import matplotlib.pyplot as plt
+        plt.plot(testwave)
+        plt.plot(alt_aal.array)
+        plt.show()
+        
+        
+        np.testing.assert_equal(alt_aal.array[0], 0.0)
+        np.testing.assert_almost_equal(alt_aal.array[34], 6620, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[60], 2915, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[124], 8594, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[191], 7000, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[254], 0, decimal=0)
 
     @unittest.skip('Test Not Implemented')
     def test_alt_aal_faulty_alt_rad(self):
@@ -863,7 +893,7 @@ class TestAltitudeAAL(unittest.TestCase):
         fasts = load(os.path.join(test_data_path,
                                     'TestAltitudeAAL-training-fast.nod'))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(alt_std, alt_rad, fasts)
+        alt_aal.derive(alt_rad, alt_std, fasts)
         peak_detect = np.ma.masked_where(alt_aal.array < 500, alt_aal.array)
         peaks = np.ma.clump_unmasked(peak_detect)
         # Check to test that all 6 altitude sections are inculded in alt aal
@@ -877,7 +907,7 @@ class TestAltitudeAAL(unittest.TestCase):
         fasts = load(os.path.join(test_data_path,
                                     'TestAltitudeAAL-goaround-fast.nod'))
         alt_aal = AltitudeAAL()
-        alt_aal.derive(alt_std, alt_rad, fasts)
+        alt_aal.derive(alt_rad, alt_std, fasts)
         difs = np.diff(alt_aal.array)
         index, value = max_value(np.abs(difs))
         # Check to test that the step occurs during cruse and not the go-around
@@ -1094,9 +1124,7 @@ class TestAltitudeRadio(unittest.TestCase):
     
     def test_altitude_radio_737_3C(self):
         alt_rad = AltitudeRadio()
-        alt_rad.derive(Attribute('Frame','737-3C'), 
-                       None,
-                       Parameter('Altitude Radio (A)', 
+        alt_rad.derive(Parameter('Altitude Radio (A)', 
                                  np.ma.array([10.0,10.0,10.0,10.0,10.1]*2), 0.5,  0.0),
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.25, 1.0),
@@ -1104,36 +1132,32 @@ class TestAltitudeRadio(unittest.TestCase):
                                  np.ma.array([30.0,30.0,30.0,30.0,30.3]), 0.25, 3.0),
                        None, None, None
                        )
-        answer = np.ma.array(data=[25.0]*7+[25.05,25.175,25.25])
-        ma_test.assert_array_almost_equal(alt_rad.array, answer)
-        self.assertEqual(alt_rad.offset,1.0)
-        self.assertEqual(alt_rad.frequency,0.5)
+        answer = np.ma.array(data=[17.5]*20)
+        ma_test.assert_array_almost_equal(alt_rad.array, answer, decimal=0)
+        self.assertEqual(alt_rad.offset,0.0)
+        self.assertEqual(alt_rad.frequency,1.0)
 
     def test_altitude_radio_737_5_EFIS(self):
         alt_rad = AltitudeRadio()
-        alt_rad.derive(Attribute('Frame','737-5'), 
-                       Attribute('Frame Qualifier','Altitude_Radio_EFIS'),
-                       Parameter('Altitude Radio (A)', 
+        alt_rad.derive(Parameter('Altitude Radio (A)', 
                                  np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
                        None, None, None, None)
-        answer = np.ma.array(data=[15.0]*7+[15.025,15.1,15.15])
-        ma_test.assert_array_almost_equal(alt_rad.array, answer)
+        answer = np.ma.array(data=[ 15.0, 14.9, 14.9, 15.0, 15.0, 14.9, 14.9, 15.0, 15.0, 15.2])
+        ma_test.assert_array_almost_equal(alt_rad.array, answer, decimal=1)
         self.assertEqual(alt_rad.offset,0.0)
         self.assertEqual(alt_rad.frequency,1.0)
 
     def test_altitude_radio_737_5_Analogue(self):
         alt_rad = AltitudeRadio()
-        alt_rad.derive(Attribute('Frame','737-5'), 
-                       Attribute('Frame Qualifier','Altitude_Radio_ARINC_552'),
-                       Parameter('Altitude Radio (A)', 
+        alt_rad.derive(Parameter('Altitude Radio (A)', 
                                  np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
                        None, None, None, None)
-        answer = np.ma.array(data=[15.0]*7+[15.025,15.1,15.15])
-        ma_test.assert_array_almost_equal(alt_rad.array, answer)
+        answer = np.ma.array(data=[ 15.0, 14.9, 14.9, 15.0, 15.0, 14.9, 14.9, 15.0, 15.0, 15.2])
+        ma_test.assert_array_almost_equal(alt_rad.array, answer, decimal=1)
         self.assertEqual(alt_rad.offset,0.0)
         self.assertEqual(alt_rad.frequency,1.0)
 
@@ -2642,9 +2666,9 @@ class TestAileronTrim(unittest.TestCase):
 
 
 class TestAirspeedMinusV2For3Sec(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = AirspeedMinusV2For3Sec.get_operational_combinations()
+        self.assertEqual(opts, [('Airspeed Minus V2',)])
         
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -2652,9 +2676,9 @@ class TestAirspeedMinusV2For3Sec(unittest.TestCase):
 
 
 class TestAirspeedRelativeFor3Sec(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = AirspeedRelativeFor3Sec.get_operational_combinations()
+        self.assertEqual(opts, [('Airspeed Relative',)])
         
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

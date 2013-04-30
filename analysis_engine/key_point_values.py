@@ -4170,6 +4170,24 @@ class EngN1For5Sec500To50FtMin(KeyPointValueNode):
         )
 
 
+class EngN1For5Sec1000To500FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng N1 For 5 Sec 1000 To 500 Ft Min'
+    units = '%'
+
+    def derive(self,
+               eng_n1_min=P('Eng (*) N1 Min For 5 Sec'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        self.create_kpvs_within_slices(
+            eng_n1_min.array,
+            alt_aal.slices_from_to(1000, 500),
+            min_value,
+        )
+
+
 class EngN1WithThrustReversersInTransitMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
