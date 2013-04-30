@@ -3995,7 +3995,7 @@ class MagneticVariation(DerivedParameterNode):
             array[index] = geomag.declination(
                 lat.array[index], lon.array[index],
                 alt_aal.array[index], time=start_date)
-        self.array = array
+        self.array = repair_mask(array, extrapolate=True)
 
 
 class VerticalSpeedInertial(DerivedParameterNode):
