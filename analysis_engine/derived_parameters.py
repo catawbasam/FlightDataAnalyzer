@@ -4689,8 +4689,9 @@ class TAWSAlert(MultistateDerivedParameterNode):
         res = params_state.any(axis=0)
 
         self.array = np_ma_masked_zeros_like(params_state[0])
-        for air in airs:
-            self.array[air.slice] = res[air.slice]
+        if airs:
+            for air in airs:
+                self.array[air.slice] = res[air.slice]
 
 
 class V2(DerivedParameterNode):
