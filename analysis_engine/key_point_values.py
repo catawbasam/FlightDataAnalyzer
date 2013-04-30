@@ -1914,11 +1914,12 @@ class AltitudeMax(KeyPointValueNode):
         self.create_kpvs_within_slices(alt_std.array, airborne, max_value)
 
 
-class AltitudeAtLiftoff(KeyPointValueNode):
+class AltitudeSTDAtLiftoff(KeyPointValueNode):
     '''
     '''
 
     units = 'ft'
+    name = 'Altitude STD At Liftoff'
 
     def derive(self,
                alt_std=P('Altitude STD Smoothed'),
@@ -1927,14 +1928,43 @@ class AltitudeAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(alt_std.array, liftoffs)
 
 
-class AltitudeAtTouchdown(KeyPointValueNode):
+class AltitudeQNHAtLiftoff(KeyPointValueNode):
     '''
     '''
 
     units = 'ft'
+    name = 'Altitude QNH At Liftoff'
+
+    def derive(self,
+               alt_std=P('Altitude QNH'),
+               liftoffs=KTI('Liftoff')):
+
+        self.create_kpvs_at_ktis(alt_std.array, liftoffs)
+
+
+class AltitudeSTDAtTouchdown(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'ft'
+    name = 'Altitude STD At Touchdown'
 
     def derive(self,
                alt_std=P('Altitude STD Smoothed'),
+               touchdowns=KTI('Touchdown')):
+
+        self.create_kpvs_at_ktis(alt_std.array, touchdowns)
+
+
+class AltitudeQNHAtTouchdown(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'ft'
+    name = 'Altitude QNH At Touchdown'
+
+    def derive(self,
+               alt_std=P('Altitude QNH'),
                touchdowns=KTI('Touchdown')):
 
         self.create_kpvs_at_ktis(alt_std.array, touchdowns)
