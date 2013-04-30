@@ -82,6 +82,7 @@ from analysis_engine.derived_parameters import (
     Flap,
     FlapSurface,
     FuelQty,
+    FuelQty_Low,
     GearDownSelected,
     GearOnGround,
     GearUpSelected,
@@ -1817,6 +1818,22 @@ class TestFuelQty(unittest.TestCase):
         fuel_qty_node.derive(fuel_qty1, fuel_qty2, None, None)
         np.testing.assert_array_equal(fuel_qty_node.array,
                                       np.ma.array([1, 2, 3]))    
+
+
+class TestFuelQtyLow(unittest.TestCase):
+    def test_can_operate(self):
+        opts = FuelQty_Low.get_operational_combinations()
+        self.assertIn(('Fuel Qty Low',), opts)
+        self.assertIn(('Fuel Qty (1) Low',), opts)
+        self.assertIn(('Fuel Qty (2) Low',), opts)
+        self.assertIn(('Fuel Qty (1) Low', 'Fuel Qty (2) Low'), opts)
+
+    def test_derive_fuel_qty_low_warning(self):
+        one = M(array=np.ma.array([0,0,0,1,1,0]), values_mapping={1: 'Warning'})
+        two = M(array=np.ma.array([0,0,1,1,0,0]), values_mapping={1: 'Warning'})
+        warn = FuelQty_Low()
+        warn.derive(None, one, two)
+        self.assertEqual(warn.array.sum(), 3)
 
 
 class TestGrossWeightSmoothed(unittest.TestCase):

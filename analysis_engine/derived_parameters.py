@@ -2763,6 +2763,27 @@ class FuelQty(DerivedParameterNode):
             self.offset = 0.0
 
 
+class FuelQty_Low(MultistateDerivedParameterNode):
+    '''
+    '''
+    name = "Fuel Qty (*) Low"
+    
+    @classmethod
+    def can_operate(cls, available):
+        return 'Fuel Qty Low' in available or \
+           'Fuel Qty (1) Low' in available or \
+           'Fuel Qty (2) Low' in available
+        
+    def derive(self, fqty = M('Fuel Qty Low'),
+               fqty1 = M('Fuel Qty (1) Low'),
+               fqty2 = M('Fuel Qty (2) Low')):
+        warning = vstack_params_where_state(
+            (fqty,  'Warning'),
+            (fqty1, 'Warning'),
+            (fqty2, 'Warning'),
+        )
+        self.array = warning.any(axis=0)
+
 ###############################################################################
 # Landing Gear
 

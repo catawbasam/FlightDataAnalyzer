@@ -5115,6 +5115,22 @@ class FuelQtyAtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(fuel_qty.array, touchdowns)
 
 
+class FuelQtyLowWarningDuration(KeyPointValueNode):
+    '''
+    Measures the duration of the Fuel Quantity Low warning discretes.
+    '''
+    
+    units = 's'
+
+    def derive(self,
+               warning=M('Fuel Qty (*) Low')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            warning.array,
+            warning.hz,
+        )
+
 ##############################################################################
 # Groundspeed
 
