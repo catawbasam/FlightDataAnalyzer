@@ -75,7 +75,9 @@ class Airborne(FlightPhaseNode):
             if working_alt is None:
                 break
 
-            airs = np.ma.clump_unmasked(np.ma.masked_less_equal(working_alt, 0.0))
+            airs = slices_remove_small_gaps(np.ma.clump_unmasked(np.ma.masked_less_equal(working_alt, 0.0)),
+                                            time_limit=10, 
+                                            hz=alt_aal.frequency)
             # Make sure we propogate None ends to data which starts or ends in
             # midflight.
             for air in airs:
@@ -481,7 +483,7 @@ class Fast(FlightPhaseNode):
             stop = fast_sample.stop
             if abs(airspeed.array[start] - AIRSPEED_THRESHOLD) > 20:
                 start = None
-            if abs(airspeed.array[stop - 1] - AIRSPEED_THRESHOLD) > 20:
+            if abs(airspeed.array[stop - 1] - AIRSPEED_THRESHOLD) > 30:
                 stop = None
             self.create_phase(slice(start, stop))
 
@@ -1079,11 +1081,19 @@ class GoAround5MinRating(FlightPhaseNode):
     the start of takeoff. Also applies in the case of a go-around.
     '''
 
-    def derive(self, gas=S('Go Around And Climbout')):
+    def derive(self, gas=S('Go Around And Climbout'), tdwn=S('Touchdown')):
         '''
+        We check that the computed phase cannot extend beyond the last
+        touchdown, which may arise if a go-around was detected on the final
+        approach.
         '''
         for ga in gas:
-            self.create_phase(slice(ga.slice.start, ga.slice.start + 300))
+            startpoint = ga.slice.start
+            endpoint = ga.slice.start + 300
+            if tdwn[-1]:
+                endpoint = min(endpoint, tdwn[-1].index)
+            if startpoint < endpoint:
+                self.create_phase(slice(startpoint, endpoint))
 
 
 ################################################################################

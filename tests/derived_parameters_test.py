@@ -783,22 +783,25 @@ class TestAltitudeAAL(unittest.TestCase):
         alt_aal.derive(None, alt_std, phase_fast)
         expected = np.ma.array([0, 0, 30, 80, 250, 510, 150, 0, 0, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
-    
+
     def test_alt_aal_complex(self):
         testwave = np.ma.cos(np.arange(0, 3.14 * 2 * 5, 0.1)) * -3000 + \
             np.ma.cos(np.arange(0, 3.14 * 2, 0.02)) * -5000 + 7996
-        # plot_parameter (testwave)
         rad_wave = np.copy(testwave)
         rad_wave[110:140] -= 8765 # The ground is 8,765 ft high at this point.
         rad_data = np.ma.masked_greater(rad_wave, 2600)
-        # plot_parameter (rad_data)
         phase_fast = buildsection('Fast', 0, len(testwave))
         alt_aal = AltitudeAAL()
         alt_aal.derive(P('Altitude Radio', rad_data),
                        P('Altitude STD', testwave),
                        phase_fast)
-        # plot_parameter (alt_aal.array)
-
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(testwave)
+        plt.plot(rad_data)
+        plt.plot(alt_aal.array)
+        plt.show()
+        '''
         np.testing.assert_equal(alt_aal.array[0], 0.0)
         np.testing.assert_almost_equal(alt_aal.array[34], 7013, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[60], 3308, decimal=0)
@@ -806,6 +809,31 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_almost_equal(alt_aal.array[191], 8965, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[313], 0, decimal=0)
+    
+    def test_alt_aal_complex_no_rad_alt(self):
+        testwave = np.ma.cos(np.arange(0, 3.14 * 2 * 5, 0.1)) * -3000 + \
+            np.ma.cos(np.arange(0, 3.14 * 2, 0.02)) * -5000 + 7996
+        testwave[255:]=testwave[254]
+        testwave[:5]=500.0
+        phase_fast = buildsection('Fast', 0, 254)
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(P('Altitude STD', testwave),
+                       None,
+                       phase_fast)
+        
+        
+        import matplotlib.pyplot as plt
+        plt.plot(testwave)
+        plt.plot(alt_aal.array)
+        plt.show()
+        
+        
+        np.testing.assert_equal(alt_aal.array[0], 0.0)
+        np.testing.assert_almost_equal(alt_aal.array[34], 6620, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[60], 2915, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[124], 8594, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[191], 7000, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[254], 0, decimal=0)
 
     @unittest.skip('Test Not Implemented')
     def test_alt_aal_faulty_alt_rad(self):
