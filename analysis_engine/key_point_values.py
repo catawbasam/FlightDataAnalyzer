@@ -14,7 +14,7 @@ from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
                                       NAME_VALUES_ENGINE,
                                       NAME_VALUES_FLAP)
 
-from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M
+from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M, App
 
 from analysis_engine.library import (ambiguous_runway,
                                      all_of,
@@ -48,6 +48,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      runs_of_ones,
                                      runway_deviation,
                                      runway_distance_from_end,
+                                     runway_heading,
                                      shift_slice,
                                      shift_slices,
                                      slice_samples,
@@ -2641,6 +2642,30 @@ class DecelerationFromTouchdownToStopOnRunway(KeyPointValueNode):
                 speed = value_at_index(gspd.array,index) * KTS_TO_MPS
                 mu = (speed*speed) / (2.0 * GRAVITY_METRIC * (distance_at_tdn))
                 self.create_kpv(index, mu)
+
+
+class RunwayHeading(KeyPointValueNode):
+    '''
+    Calculate Runway headings from runway information dictionaries.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return (all_of(['FDR Takeoff Runway', 'Liftoff'], available) or
+                ['Approach Information' in available])
+    
+    def derive(self, takeoff_runway=A('FDR Takeoff Runway'),
+               liftoffs=KTI('Liftoff'), apps=App('Approach Information')):
+        if takeoff_runway and liftoffs:
+            liftoff = liftoffs.get_first()
+            if liftoff:
+                self.create_kpv(liftoff.index,
+                                runway_heading(takeoff_runway.value))
+        if apps:
+            for app in apps:
+                if not app.runway:
+                    continue
+                # Q: Is stop the right index to use?
+                self.create_kpv(app.slice.stop, runway_heading(app.runway))
 
 
 class RunwayOverrunWithoutSlowingDuration(KeyPointValueNode):
