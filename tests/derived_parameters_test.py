@@ -4142,7 +4142,7 @@ class TestStableApproach(unittest.TestCase):
         hm= [ 1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0]
         head = P(array=np.ma.array(h, mask=hm))
         #4. airspeed relative within limits for periods except 0-3
-        a = [30, 30, 30, 26,  9,  8,  3, -1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
+        a = [50, 50, 50, 45,  9,  8,  3, -1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
         aspd = P(array=np.ma.array(a))
         #5. glideslope deviation is out for index 9-11, last 4 values ignored due to alt cutoff
         g = [ 6,  6,  6,  6,  0, .5, .5,-.5,  0,1.1,1.4,1.3,  0,  0,  0,  0,  0, -2, -2, -2, -2]
@@ -4187,7 +4187,7 @@ class TestStableApproach(unittest.TestCase):
         
         #========== VERTICAL SPEED ==========
         # Test with a lot of vertical speed (rather than just gusts above)
-        v = [-1200] * 20
+        v = [-1800] * 20
         vert_spd = P(array=np.ma.array(v))
         stable.derive(apps, gear, flap, head, aspd, vert_spd, glide2, loc, eng, alt)
         self.assertEqual(list(stable.array.data),
