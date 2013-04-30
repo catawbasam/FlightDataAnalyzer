@@ -5020,7 +5020,7 @@ def vstack_params_where_state(*param_states):
     :raises: ValueError if all params are None (concatenation of zero-length sequences is impossible)
     '''
     param_arrays = []
-    for param, state in param_states[0]:
+    for param, state in param_states:
         if param is None:
             continue
         if state in param.array.state:

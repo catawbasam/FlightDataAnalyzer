@@ -1716,10 +1716,10 @@ class Eng_1_Fire(MultistateDerivedParameterNode):
                fire_gnd=M('Eng (1) Fire On Ground'),
                fire_air=M('Eng (1) Fire In Air')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (fire_gnd, 'Fire'),
             (fire_air, 'Fire'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 
 class Eng_2_Fire(MultistateDerivedParameterNode):
@@ -1734,10 +1734,10 @@ class Eng_2_Fire(MultistateDerivedParameterNode):
                fire_gnd=M('Eng (2) Fire On Ground'),
                fire_air=M('Eng (2) Fire In Air')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (fire_gnd, 'Fire'),
             (fire_air, 'Fire'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 
 class Eng_3_Fire(MultistateDerivedParameterNode):
@@ -1752,10 +1752,10 @@ class Eng_3_Fire(MultistateDerivedParameterNode):
                fire_gnd=M('Eng (3) Fire On Ground'),
                fire_air=M('Eng (3) Fire In Air')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (fire_gnd, 'Fire'),
             (fire_air, 'Fire'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 
 class Eng_4_Fire(MultistateDerivedParameterNode):
@@ -1770,10 +1770,10 @@ class Eng_4_Fire(MultistateDerivedParameterNode):
                fire_gnd=M('Eng (4) Fire On Ground'),
                fire_air=M('Eng (4) Fire In Air')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (fire_gnd, 'Fire'),
             (fire_air, 'Fire'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 
 class Eng_Fire(MultistateDerivedParameterNode):
@@ -1794,10 +1794,10 @@ class Eng_Fire(MultistateDerivedParameterNode):
                eng3=M('Eng (3) Fire'),
                eng4=M('Eng (4) Fire')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (eng1, 'Fire'), (eng2, 'Fire'),
             (eng3, 'Fire'), (eng4, 'Fire'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 
 ################################################################################
@@ -4492,7 +4492,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
             e4_ulk_rgt=M('Eng (4) Thrust Reverser (R) Unlocked'),
             e4_tst_all=M('Eng (4) Thrust Reverser In Transit'),):
 
-        stack = vstack_params_where_state((
+        stack = vstack_params_where_state(
             (e1_dep_all, 'Deployed'), (e1_ulk_all, 'Unlocked'),
             (e1_dep_lft, 'Deployed'), (e1_ulk_lft, 'Unlocked'),
             (e1_dep_rgt, 'Deployed'), (e1_ulk_rgt, 'Unlocked'),
@@ -4505,17 +4505,17 @@ class ThrustReversers(MultistateDerivedParameterNode):
             (e4_dep_all, 'Deployed'), (e4_ulk_all, 'Unlocked'),
             (e4_dep_lft, 'Deployed'), (e4_ulk_lft, 'Unlocked'),
             (e4_dep_rgt, 'Deployed'), (e4_ulk_rgt, 'Unlocked'),
-        ))
+        )
 
         array = np_ma_zeros_like(stack[0])
         array = np.ma.where(stack.any(axis=0), 1, array)
         array = np.ma.where(stack.all(axis=0), 2, array)
         # update with any transit params
         if any((e1_tst_all, e2_tst_all, e3_tst_all, e4_tst_all)):
-            transit_stack = vstack_params_where_state((
+            transit_stack = vstack_params_where_state(
                 (e1_tst_all, 'In Transit'), (e2_tst_all, 'In Transit'),
                 (e3_tst_all, 'In Transit'), (e4_tst_all, 'In Transit'),
-            ))
+            )
             array = np.ma.where(transit_stack.any(axis=0), 1, array)
 
         # mask indexes with greater than 50% masked values
@@ -4674,7 +4674,7 @@ class TAWSAlert(MultistateDerivedParameterNode):
                taws_too_low_terrain=M('TAWS Too Low Terrain'),
                taws_windshear_warning=M('TAWS Windshear Warning')):
 
-        taws_states = (
+        params_state = vstack_params_where_state(
             (taws_caution_terrain, 'Caution'),
             (taws_caution, 'Caution'),
             (taws_dont_sink, 'Warning'),
@@ -4692,7 +4692,6 @@ class TAWSAlert(MultistateDerivedParameterNode):
             (taws_too_low_terrain, 'Warning'),
             (taws_windshear_warning, 'Warning'),
         )
-        params_state = vstack_params_where_state(taws_states)
         res = params_state.any(axis=0)
 
         self.array = np_ma_masked_zeros_like(params_state[0])
@@ -5664,9 +5663,9 @@ class MasterWarning(MultistateDerivedParameterNode):
                warn_capt=M('Master Warning (Capt)'),
                warn_fo=M('Master Warning (FO)')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (warn_capt, 'Warning'),
             (warn_fo, 'Warning'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 
