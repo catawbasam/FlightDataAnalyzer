@@ -36,6 +36,7 @@ from analysis_engine.derived_parameters import (
     AirspeedForFlightPhases,
     AirspeedMinusV2For3Sec,
     AirspeedReference,
+    AirspeedReferenceLookup,
     AirspeedRelative,
     AirspeedRelativeFor3Sec,
     AirspeedTrue,
@@ -115,6 +116,7 @@ from analysis_engine.derived_parameters import (
     TrackTrue,
     TurbulenceRMSG,
     V2,
+    V2Lookup,
     VerticalSpeedInertial,
     WindAcrossLandingRunway,
 )
@@ -505,16 +507,11 @@ class TestAirspeedReference(unittest.TestCase):
         apps = App('Approach', items=[ApproachItem('LANDING',
                                                    self.approach_slice)])
         self.default_kwargs = {'spd':False,
-                               'gw':None,
-                               'flap':None,
-                               'conf':None,
                                'vapp':None,
                                'vref':None,
                                'afr_vapp':None,
                                'afr_vref':None,
-                               'apps':apps,
-                               'series':None,
-                               'family':None}
+                               'apps':apps,}
 
 
     def test_can_operate(self):
@@ -575,6 +572,19 @@ class TestAirspeedReference(unittest.TestCase):
         expected=np.array([120]*128)
         np.testing.assert_array_equal(param.array, expected)
 
+class TestAirspeedReferenceLookup(unittest.TestCase):
+    def setUp(self):
+        self.approach_slice = slice(105, 120)
+        apps = App('Approach', items=[ApproachItem('LANDING',
+                                                   self.approach_slice)])
+        self.default_kwargs = {'spd':False,
+                               'gw':None,
+                               'flap':None,
+                               'conf':None,
+                               'apps':apps,
+                               'series':None,
+                               'family':None}
+
     @patch('analysis_engine.derived_parameters.get_vspeed_map')
     def test_airspeed_reference__boeing_lookup(self, vspeed_map):
         vspeed_table = Mock
@@ -587,21 +597,19 @@ class TestAirspeedReference(unittest.TestCase):
                           ApproachItem('LANDING', slice(5502, 5795))]
             args = [
                 P(**hdf['Flap'].__dict__),
+                None,
                 P(**hdf['Airspeed'].__dict__),
                 P(**hdf['Gross Weight Smoothed'].__dict__),
-                None,
-                None,
-                None,
-                None,
-                None,
                 App('Approach Information', items=approaches),
                 KTI('Touchdown', items=[KeyTimeInstance(3450, 'Touchdown'),
                                         KeyTimeInstance(5700, 'Touchdown')]),
                 A('Series', value='B737-300'),
                 A('Family', value='B737 Classic'),
                 None,
+                None,
+                None,
             ]
-            param = AirspeedReference()
+            param = AirspeedReferenceLookup()
             param.get_derived(args)
             expected = np_ma_masked_zeros_like(hdf['Airspeed'].array)
             expected[slice(3346, 3540)] = 135
@@ -638,7 +646,9 @@ class TestAirspeedReference(unittest.TestCase):
 
 class TestAirspeedRelative(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Airspeed', 'Airspeed Reference')]
+        expected = [('Airspeed', 'Airspeed Reference'), 
+                    ('Airspeed', 'Airspeed Reference Lookup'),
+                    ('Airspeed', 'Airspeed Reference', 'Airspeed Reference Lookup')]
         opts = AirspeedRelative.get_operational_combinations()
         self.assertEqual(opts, expected)
         
@@ -2380,12 +2390,9 @@ class TestMach(unittest.TestCase):
 class TestV2(unittest.TestCase):
     def setUp(self):
         self.default_kwargs = {'spd':False,
-                               'flap':None,
-                               'conf':None,
                                'afr_v2':None,
-                               'weight_liftoff':None,
-                               'series':None,
-                               'family':None}
+                               'spd_ctrl':False,
+                               'spd_sel':False,}
 
     def test_can_operate(self):
         # TODO: test expected combinations are in get_operational_combinations
@@ -2408,6 +2415,27 @@ class TestV2(unittest.TestCase):
         expected = np.array([120]*128)
         np.testing.assert_array_equal(param.array, expected)
 
+
+class TestV2Lookup(unittest.TestCase):
+    def setUp(self):
+        self.default_kwargs = {'spd':False,
+                               'flap':None,
+                               'conf':None,
+                               'afr_v2':None,
+                               'weight_liftoff':None,
+                               'series':None,
+                               'family':None}
+
+    def test_can_operate(self):
+        # TODO: test expected combinations are in get_operational_combinations
+        expected = [('AFR V2',),
+                    ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
+                     'Configuration',),
+                    ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
+                     'Flap',),]
+        opts = V2Lookup.get_operational_combinations()
+        self.assertTrue([e in opts for e in expected])
+
     def test_v2__boeing_lookup(self):
         gw = KPV('Gross Weight At Liftoff')
         gw.create_kpv(451, 54192.06)
@@ -2415,18 +2443,15 @@ class TestV2(unittest.TestCase):
         with hdf_file(test_hdf) as hdf:
             args = [
                 P(**hdf['Flap'].__dict__),
+                None,
                 P(**hdf['Airspeed'].__dict__),
-                None,
-                None,
-                None,
-                None,
                 gw,
                 A('Series', value='B737-300'),
                 A('Family', value='B737 Classic'),
                 None,
                 None,
             ]
-            param = V2()
+            param = V2Lookup()
             param.get_derived(args)
             expected = np.ma.array([151.70729599999999]*5888)
             np.testing.assert_array_equal(param.array, expected)
