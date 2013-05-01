@@ -98,12 +98,10 @@ from analysis_engine.key_point_values import (
     AltitudeAtGearUpSelectionDuringGoAround,
     AltitudeDuringGoAroundMin,
     AltitudeAtLastFlapChangeBeforeTouchdown,
-    AltitudeAtLiftoff,
     AltitudeAtMachMax,
     AltitudeOvershootAtSuspectedLevelBust,
     AltitudeAtGearDownSelection,
     AltitudeAtGearUpSelection,
-    AltitudeAtTouchdown,
     AltitudeAtAPDisengagedSelection,
     AltitudeAtAPEngagedSelection,
     AltitudeAtATDisengagedSelection,
@@ -112,6 +110,10 @@ from analysis_engine.key_point_values import (
     AltitudeAtFlapExtension,
     AltitudeAtFirstFlapRetractionDuringGoAround,
     AltitudeLastUnstableDuringApproach,
+    AltitudeSTDAtTouchdown,
+    AltitudeSTDAtLiftoff,
+    AltitudeQNHAtTouchdown,
+    AltitudeQNHAtLiftoff,
     AltitudeMax,
     AltitudeWithFlapMax,
     AltitudeWithGearDownMax,
@@ -1884,10 +1886,10 @@ class TestAltitudeMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestAltitudeSTDAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
 
     def setUp(self):
-        self.node_class = AltitudeAtLiftoff
+        self.node_class = AltitudeSTDAtLiftoff
         self.operational_combinations = [('Altitude STD Smoothed', 'Liftoff')]
 
     @unittest.skip('Test Not Implemented')
@@ -1895,11 +1897,33 @@ class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestAltitudeSTDAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
 
     def setUp(self):
-        self.node_class = AltitudeAtTouchdown
+        self.node_class = AltitudeSTDAtTouchdown
         self.operational_combinations = [('Altitude STD Smoothed', 'Touchdown')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAltitudeQNHAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeQNHAtLiftoff
+        self.operational_combinations = [('Altitude QNH', 'Liftoff')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAltitudeQNHAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeQNHAtTouchdown
+        self.operational_combinations = [('Altitude QNH', 'Touchdown')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
