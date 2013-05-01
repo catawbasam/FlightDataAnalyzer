@@ -104,6 +104,7 @@ from analysis_engine.derived_parameters import (
     MagneticVariation,
     MasterWarning,
     Pitch,
+    Speedbrake,
     SpeedbrakeSelected,
     StableApproach,
     VerticalSpeed,
@@ -3450,9 +3451,10 @@ class TestSlopeToLanding(unittest.TestCase):
 
 
 class TestSpeedbrake(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = Speedbrake.get_operational_combinations()
+        self.assertTrue(('Spoiler (2)', 'Spoiler (7)', 'Frame') in opts)
+        self.assertTrue(('Spoiler (4)', 'Spoiler (9)', 'Frame') in opts)
         
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

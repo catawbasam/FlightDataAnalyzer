@@ -4888,10 +4888,10 @@ class Speedbrake(DerivedParameterNode):
         Note: The frame name cannot be accessed within this method to determine
               which parameters are required.
         '''
-        x = available
-        return ('Frame' in x and 'Spoiler (2)' in x and 'Spoiler (7)' in x) \
-            or ('Frame' in x and 'Spoiler (4)' in x and 'Spoiler (9)' in x)
-
+        return 'Frame' in available and (
+            all_of(('Spoiler (2)', 'Spoiler (7)'), available) or
+            all_of(('Spoiler (4)', 'Spoiler (9)'), available))
+    
     def merge_spoiler(self, spoiler_a, spoiler_b):
         '''
         We indicate the angle of the lower of the two raised spoilers, as

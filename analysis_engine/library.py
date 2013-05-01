@@ -3080,8 +3080,8 @@ def merge_masks(masks, min_unmasked=1):
     :returns: Array of merged masks.
     :rtype: np.array(dtype=np.bool_)
     '''
-    if len(masks) <= 1:
-        return masks
+    if len(masks) == 1:
+        return masks[0]
     # Q: What if min_unmasked is less than one?
     mask_sum = np.sum(np.array(masks), axis=0)
     return mask_sum >= min_unmasked
