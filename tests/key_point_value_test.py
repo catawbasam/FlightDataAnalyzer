@@ -196,6 +196,7 @@ from analysis_engine.key_point_values import (
     GrossWeightAtLiftoff,
     GrossWeightAtTouchdown,
     HeadingDuringLanding,
+    HeadingTrueDuringLanding,
     HeadingAtLowestAltitudeDuringApproach,
     HeadingDuringTakeoff,
     HeadingDeviationFromRunwayAbove80KtsAirspeedDuringTakeoff,
@@ -4013,6 +4014,26 @@ class TestHeadingDuringLanding(unittest.TestCase, NodeTest):
         head = P('Heading Continuous',np.ma.array([0,1,2,3,4,5,6,7,8,9,10,-1,-1,
                                                    7,-1,-1,-1,-1,-1,-1,-1,-10]))
         landing = buildsection('Landing',5,15)
+        head.array[13] = np.ma.masked
+        kpv = HeadingDuringLanding()
+        kpv.derive(head, landing)
+        expected = [KeyPointValue(index=10, value=6.0,
+                                  name='Heading During Landing')]
+        self.assertEqual(kpv, expected)
+
+
+class TestHeadingTrueDuringLanding(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = HeadingTrueDuringLanding
+        self.operational_combinations = [('Heading True Continuous',
+                                          'Landing Roll')]
+
+    def test_derive_basic(self):
+        # Duplicate of TestHeadingDuringLanding.test_derive_basic.
+        head = P('Heading True Continuous',
+                 np.ma.array([0,1,2,3,4,5,6,7,8,9,10,-1,-1,
+                              7,-1,-1,-1,-1,-1,-1,-1,-10]))
+        landing = buildsection('Landing', 5, 15)
         head.array[13] = np.ma.masked
         kpv = HeadingDuringLanding()
         kpv.derive(head, landing)

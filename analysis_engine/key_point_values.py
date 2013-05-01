@@ -2829,6 +2829,28 @@ class HeadingDuringLanding(KeyPointValueNode):
                 self.create_kpv(index, value % 360.0)
 
 
+class HeadingTrueDuringLanding(KeyPointValueNode):
+    '''
+    We take the median heading true during the landing roll as this avoids
+    problems with drift just before touchdown and heading changes when turning
+    off the runway. The value is "assigned" to a time midway through the
+    landing phase.
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               hdg=P('Heading True Continuous'),
+               landings=S('Landing Roll')):
+
+        for landing in landings:
+            # Check the slice is robust.
+            if landing.slice.start and landing.slice.stop:
+                index = (landing.slice.start + landing.slice.stop) / 2.0
+                value = np.ma.median(hdg.array[landing.slice])
+                self.create_kpv(index, value % 360.0)
+
+
 class HeadingAtLowestAltitudeDuringApproach(KeyPointValueNode):
     '''
     The approach phase has been found already. Here we take the heading at the
