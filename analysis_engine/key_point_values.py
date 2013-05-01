@@ -884,6 +884,41 @@ class AirspeedTrueAtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(air_spd.array, touchdowns)
 
 
+class AirspeedReferenceVariationMax(KeyPointValueNode):
+    '''
+    Maximum difference between recorded/afr values and lookup values.
+    '''
+
+    def derive(self,
+               spd_ref_rec=P('Airspeed Reference'),
+               spd_ref_table=P('Airspeed Reference Lookup'),
+               apps=S('Approach And Landing')):
+
+        ref_differences = spd_ref_rec.array - spd_ref_table.array
+        self.create_kpv_from_slices(
+                    ref_differences,
+                    apps.get_slices(),
+                    max_abs_value,
+                )
+
+
+class V2VariationMax(KeyPointValueNode):
+    '''
+    Maximum difference between recorded/afr values and lookup values.
+    '''
+
+    def derive(self,
+               v2_rec=P('V2'),
+               v2_table=P('V2 Lookup')):
+
+        v2_differences = v2_rec.array - v2_table.array
+        self.create_kpv_from_slices(
+                    v2_differences,
+                    [slice(0, len(v2_rec.array)),],
+                    max_abs_value,
+                )
+
+
 ########################################
 # Airspeed: Minus V2
 
