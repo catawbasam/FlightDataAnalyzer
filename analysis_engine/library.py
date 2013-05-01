@@ -926,9 +926,9 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
             dvals[sort_idx - 1] += dvals[sort_idx] + dvals[sort_idx + 1]
             dvals = np.delete(dvals, slice(sort_idx, sort_idx + 2))
     if len(dvals) == 0:
-        # All the changes have disappeared, so return None rather than a
-        # single residual array value.
-        return None, None
+        # All the changes have disappeared, so return the
+        # single array peak index and value.
+        return idxs, vals
     else:
         return idxs, vals
 
@@ -979,10 +979,9 @@ def delay(array, period, hz=1.0):
             return result
 
 
-# Previously known as Duration
-def clip(array, period, hz=1.0, remove='peaks'):
+def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
     '''
-    This function clips the maxima of a data array such that the
+    This function clips the data array such that the
     values are present (or exceeded) in the original data for the period
     defined. After processing with this function, the resulting array can be
     used to detect maxima or minima (in exactly the same way as a non-clipped
@@ -995,84 +994,110 @@ def clip(array, period, hz=1.0, remove='peaks'):
     :type period: int/float
     :param hz: Frequency of the data_array
     :type hz: float
-    :param remove: type of data to clip.
-    :type remove: string, default to 'peaks' option 'troughs'
+    :param remove: form of clipping required.
+    :type remove: string default is 'peaks_and_troughs', 'peaks' or 'troughs' alternatives.
     '''
-    if remove not in ['peaks', 'troughs']:
-        raise ValueError('Clip called with unrecognised removal mode')
-
+    if remove not in ['peaks_and_troughs', 'peaks', 'troughs']:
+        raise ValueError('Clip called with unrecognised remove argument')
+        
     if hz <= 0.01:
-        raise ValueError('Duration called with sample rate outside permitted range')
+        raise ValueError('Clip called with sample rate outside permitted range')
 
-    delay = (int(period * hz)-1)/2
+    half_width = int(period/hz)/2
     # Trap low values. This can occur, for an example, where a parameter has
     # a lower sample rate than expected.
-    if delay < 1:
-        logger.warning('Duration called with period too short to have an effect')
+    if half_width < 1:
+        logger.warning('Clip called with period too short to have an effect')
         return array
     
-    # Width is the number of samples to be computed, allowing for delay
-    # period before and after.
-    width = len(array) - 2*delay
-
-    # If the clip period is longer than the array, width is zero or negative,
-    # so we just return the highest or lowest value.
-    if width <= 0:
-        result = np_ma_ones_like(array)
-        if remove == 'peaks':
-            result *= np.ma.min(array)
-        else:
-            result *= np.ma.max(array)
-        return result
-
+    if np.ma.count(array) == 0:
+        logger.warning('Clip called with entirely masked data')
+        return array
+        
     # OK - normal operation here. We repair the mask to avoid propogating
     # invalid samples unreasonably.
-    source = repair_mask(array, frequency=hz, repair_duration=period-(1/hz))
-    if source is not None and np.ma.count(source): # Because np.ma.count(source)=1 if source = None
-        result = np.ma.copy(source)
+    source = np.ma.array(repair_mask(array, frequency=hz, repair_duration=period-(1/hz)))
 
-        for step in range(2*delay+1):
-            if remove == 'peaks':
-                result[delay:-delay] = np.ma.minimum(result[delay:-delay],
-                                                     source[step:step+width])
-            else:
-                result[delay:-delay] = np.ma.maximum(result[delay:-delay],
-                                                     source[step:step+width])
-
-        # Stretch the ends out and return the answer.
-        result[:delay] = result[delay]
-        result[-delay:] = result[-(delay+1)]
-        return result
-
-    else:
+    if source is None or np.ma.count(source)==0:
         return np_ma_masked_zeros_like(source)
-
-
-"""
-    # Compute an array of differences across period, such that each maximum or
-    # minimum results in a negative result.
-    b = (a[:-delay]-a[delay-1:-1]) * (a[1:1-delay]-a[delay:])
-
-    # We now remove the positive values (as these are of no interest), sort the
-    # list to put the negative values first, then index through the arguments:
-    for index in b.clip(max = 0).argsort():
-        if b[index]<0: # Data has passed through this level for delay samples.
-            if a[index+1] > a[index]:
-                # We are truncating a peak, so find the higher end value
-                #  TODO: could interpolate ends.
-                level = min(a[index], a[index+delay])
-                # Replace the values with the preceding value to trim the maxima to those
-                # values which are present for at least the required period.
-                a[index:index+delay+1] = level
-            else:
-                # We are truncating a trough, so find the lower end value
-                #  TODO: could interpolate ends as above.
-                level = max(a[index], a[index+delay])
-                a[index:index+delay+1] = level
+    
+    # We are going to compute maximum and minimum values with the required
+    # duration, so allocate working spaces...
+    local_max = np_ma_zeros_like(source)
+    local_min = np_ma_zeros_like(source)
+    end = len(source)-half_width
+    
+    #...and work out these graphs.
+    for point in range(half_width,end):
+        local_max[point]=np.ma.max(source[point-half_width:point+half_width+1])
+        local_min[point]=np.ma.min(source[point-half_width:point+half_width+1])
+    
+    # For the maxima, find them using the cycle finder and remove the higher
+    # maxima (we are interested in using the lower cycle peaks to replace
+    # trough values).
+    max_index_cycles, max_value_cycles = cycle_finder(local_max, include_ends=False)
+    if len(max_value_cycles)<2:
+        max_indexes = max_index_cycles
+        max_values = max_value_cycles
+    else:
+        if max_value_cycles[1]>max_value_cycles[0]:
+            # Rising initally
+            max_indexes = [i for i in max_index_cycles[0::2]]
+            max_values = [v for v in max_value_cycles[0::2]]
         else:
-            break # No need to process the rest of the array.
-    return a
-    """
+            # Falling initally
+            max_indexes = [m for m in max_index_cycles[1::2]]    
+            max_values = [v for v in max_value_cycles[1::2]]
+    
+    # Same for minima, which will be used to substitute for peaks.
+    min_index_cycles, min_value_cycles = cycle_finder(local_min, include_ends=False)
+    if len(min_value_cycles)<2:
+        min_indexes = min_index_cycles
+        min_values = min_value_cycles
+    else:
+        if min_value_cycles[1]>min_value_cycles[0]:
+            # Rising initally
+            min_indexes = [i for i in min_index_cycles[1::2]]
+            min_values = [v for v in min_value_cycles[1::2]]
+        else:
+            # Falling initally
+            min_indexes = [i for i in min_index_cycles[0::2]]
+            min_values = [v for v in min_value_cycles[0::2]]
+        
+    
+    # Now build the final result.
+    result = source
+    # There is a fairly crude technique to find where maxima and minima overlap...
+    overlap_finder = np_ma_zeros_like(source)
+    
+    if remove in ['peaks_and_troughs', 'troughs']:
+        for i, index in enumerate(max_indexes):
+            for j in range(index-half_width, index+half_width+1):
+                # Overwrite the local values with the clipped maximum value
+                result[j]=max_values[i]
+                # Record which indexes were overwritten.
+                overlap_finder[j]+=1
+
+    if remove in ['peaks_and_troughs', 'peaks']:
+        for i, index in enumerate(min_indexes):
+            for j in range(index-half_width, index+half_width+1):
+                # Overwrite the local values with the clipped minimum value
+                result[j]=min_values[i]
+                # Record which indexes were overwritten.
+                overlap_finder[j]+=1
+
+    # This is not an ideal solution of how to deal with minima and maxima
+    # that sit close to each other. This may need improving at a later date.
+    overlaps = np.ma.clump_masked(np.ma.masked_greater(overlap_finder,1))
+    for overlap in overlaps:
+        for p in range(overlap.start, overlap.stop):
+            result[p]=np.ma.average(source[p-half_width:p+half_width+1])
+
+    # Mask the ends as we cannot have long periods at the end of the data.
+    result[:half_width+1] = np.ma.masked
+    result[-half_width-1:] = np.ma.masked
+
+    return result
 
 
 def closest_unmasked_value(array, index, _slice=slice(None)):
@@ -3048,6 +3073,20 @@ def max_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     return Value(index, value)
 
 
+def merge_masks(masks, min_unmasked=1):
+    '''
+    :type masks: [mask]
+    :type min_unmasked: int
+    :returns: Array of merged masks.
+    :rtype: np.array(dtype=np.bool_)
+    '''
+    if len(masks) == 1:
+        return masks[0]
+    # Q: What if min_unmasked is less than one?
+    mask_sum = np.sum(np.array(masks), axis=0)
+    return mask_sum >= min_unmasked
+
+
 def min_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     """
     Get the minimum value in the array and its index.
@@ -3374,6 +3413,7 @@ def blend_parameters_weighting(array, wt):
 
     return repair_mask(final_weight, repair_duration=None)
 
+
 def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
     '''
     This most general form of the blend options allows for multiple sources
@@ -3405,19 +3445,21 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
         plt.figure()
     assert frequency>0.0
     
-    p_valid_slices=[]
-    p_offset=[]
-    p_freq=[]
+    p_valid_slices = []
+    p_offset = []
+    p_freq = []
     
     # Prepare a place for the output signal
-    length = len(params[0].array)*frequency/params[0].frequency
-    result =  np_ma_masked_zeros_like(np.ma.arange(length))
+    length = len(params[0].array) * frequency / params[0].frequency
+    result = np_ma_masked_zeros(length)
+    # Ensure mask is expanded for slicing.
+    result.mask = np.ma.getmaskarray(result)
     
     # Find out about the parameters we have to deal with...
     for seq, param in enumerate(params):
         p_freq.append(param.frequency)
         p_offset.append(param.offset)
-    min_ip_freq = min(p_freq)    
+    min_ip_freq = min(p_freq)
     
     # Slices of valid data are scaled to the lowest timebase and then or'd
     # to find out when any valid data is available.
@@ -3425,9 +3467,11 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
         # We can only work on non-trivial slices which have four or more
         # samples as below this level it's not possible to compute a cubic
         # spline.
-        nts=slices_remove_small_slices(np.ma.clump_unmasked(param.array), count=4)        
-        # Now scale these non-trivial slices into the lowest timebase for collation.
-        p_valid_slices.append(slices_multiply(nts, min_ip_freq/p_freq[seq]))
+        nts=slices_remove_small_slices(np.ma.clump_unmasked(param.array),
+                                       count=4)
+        # Now scale these non-trivial slices into the lowest timebase for
+        # collation.
+        p_valid_slices.append(slices_multiply(nts, min_ip_freq / p_freq[seq]))
         
     # To find the valid ranges I need to 'or' the slices at a high level, hence
     # this list of lists of slices needs to be flattened. Don't ask me what
@@ -3443,59 +3487,65 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
     for this_valid in any_valid:
         
         result_slice = slice_multiply(this_valid, frequency/min_ip_freq)
-                                   
-        new_t = np.linspace(result_slice.start/frequency,
-                            result_slice.stop/frequency,
-                            num=(result_slice.stop-result_slice.start),
-                            endpoint=False)+offset
+        
+        new_t = np.linspace(result_slice.start / frequency,
+                            result_slice.stop / frequency,
+                            num=(result_slice.stop - result_slice.start),
+                            endpoint=False) + offset
         
         # Make space for the computed curves
         curves=[]
         weights=[]
+        resampled_masks = []
 
         # Compute the individual splines
         for seq, param in enumerate(params):
             # The slice and timebase for this parameter...
-            my_slice = slice_multiply(this_valid, p_freq[seq]/min_ip_freq)
-            timebase=np.linspace(my_slice.start/p_freq[seq], 
-                                 my_slice.stop/p_freq[seq], 
-                                 num=my_slice.stop-my_slice.start,
-                                 endpoint=False)+p_offset[seq]
-            my_time = np.ma.array(data=timebase, 
-                                  mask=np.ma.getmaskarray(param.array[my_slice]))
-            if len(my_time.compressed())<4:
+            my_slice = slice_multiply(this_valid, p_freq[seq] / min_ip_freq)
+            resampled_masks.append(
+                resample(np.ma.getmaskarray(param.array)[my_slice],
+                         param.frequency, frequency))
+            timebase = np.linspace(my_slice.start/p_freq[seq],
+                                   my_slice.stop/p_freq[seq],
+                                   num=my_slice.stop-my_slice.start,
+                                   endpoint=False) + p_offset[seq]
+            my_time = np.ma.array(
+                data=timebase, mask=np.ma.getmaskarray(param.array[my_slice]))
+            if len(my_time.compressed()) < 4:
                 continue
-            my_curve = scipy_interpolate.splrep(my_time.compressed(),
-                                                param.array[my_slice].compressed(), 
-                                                s=0)
+            my_curve = scipy_interpolate.splrep(
+                my_time.compressed(), param.array[my_slice].compressed(), s=0)
             # my_curve is the spline knot array, now compute the values for
             # the output timebase.
-            curves.append(scipy_interpolate.splev(new_t, my_curve, der=0, ext=0))
+            curves.append(
+                scipy_interpolate.splev(new_t, my_curve, der=0, ext=0))
 
             # Compute the weights 
-            weights.append(blend_parameters_weighting(param.array[my_slice], 
-                                                      frequency/param.frequency))
+            weights.append(blend_parameters_weighting(
+                param.array[my_slice], frequency/param.frequency))
             
             if debug:
-                plt.plot(my_time,param.array[my_slice],'o')
-                plt.plot(new_t,curves[seq],'-.')
+                plt.plot(my_time,param.array[my_slice], 'o')
+                plt.plot(new_t,curves[seq], '-.')
                 plt.plot(new_t,weights[seq])
                 
         if curves==[]:
             continue
         a = np.vstack(tuple(curves))
         result[result_slice] = np.average(a, axis=0, weights=weights)
+        # Q: Is this the right place? Should it be applied to this_valid slice?
+        result.mask[result_slice] = merge_masks(resampled_masks,
+                                                min_unmasked=2)
         # The endpoints of a cubic spline are generally unreliable, so trim
         # them back.
         result[result_slice][0] = np.ma.masked
         result[result_slice][-1] = np.ma.masked
         
         if debug:
-            plt.plot(new_t,result[result_slice],'-')
+            plt.plot(new_t,result[result_slice], '-')
             plt.show()
 
     return result
-    
     
 
 def most_points_cost(coefs, x, y):
@@ -3732,6 +3782,26 @@ def np_ma_ones(length):
     :returns: Numpy masked array of unmasked 1.0 float values, length as specified.
     """
     return np_ma_zeros_like(np.ma.arange(length)) + 1.0
+
+
+def np_ma_masked_zeros(length):
+    """
+    Creates a masked array filled with masked values. The unmasked data
+    values are all zero. The very klunky code here is to circumvent Numpy's
+    normal response which is to return random data values where it knows the
+    data is masked. In this case we want to ensure zero values as we may be
+    lifting the mask in due course and we don't want to reveal random data.
+
+    See also np_ma_zeros_like.
+
+    :param length: array length to be replicated.
+    :type length: int
+
+    :returns: Numpy masked array of masked 0.0 float values of length equal to
+    input.
+    """
+    return np.ma.array(data=np.zeros(length), mask=True)
+
 
 def np_ma_masked_zeros_like(array):
     """
@@ -4097,6 +4167,20 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
                 array.mask[section] = False
 
     return array
+
+
+def resample(array, orig_hz, resample_hz):
+    '''
+    Upsample or downsample an array for it to match resample_hz.
+    Offset is maintained because the first sample is always returned.
+    '''
+    if orig_hz == resample_hz:
+        return array
+    modifier = resample_hz / float(orig_hz)
+    if modifier > 1:
+        return np.ma.repeat(array, modifier)
+    else:
+        return array[::1 / modifier]
 
 
 def round_to_nearest(array, step):
