@@ -98,12 +98,10 @@ from analysis_engine.key_point_values import (
     AltitudeAtGearUpSelectionDuringGoAround,
     AltitudeDuringGoAroundMin,
     AltitudeAtLastFlapChangeBeforeTouchdown,
-    AltitudeAtLiftoff,
     AltitudeAtMachMax,
     AltitudeOvershootAtSuspectedLevelBust,
     AltitudeAtGearDownSelection,
     AltitudeAtGearUpSelection,
-    AltitudeAtTouchdown,
     AltitudeAtAPDisengagedSelection,
     AltitudeAtAPEngagedSelection,
     AltitudeAtATDisengagedSelection,
@@ -112,6 +110,10 @@ from analysis_engine.key_point_values import (
     AltitudeAtFlapExtension,
     AltitudeAtFirstFlapRetractionDuringGoAround,
     AltitudeLastUnstableDuringApproach,
+    AltitudeSTDAtTouchdown,
+    AltitudeSTDAtLiftoff,
+    AltitudeQNHAtTouchdown,
+    AltitudeQNHAtLiftoff,
     AltitudeMax,
     AltitudeWithFlapMax,
     AltitudeWithGearDownMax,
@@ -195,6 +197,7 @@ from analysis_engine.key_point_values import (
     GrossWeightAtLiftoff,
     GrossWeightAtTouchdown,
     HeadingDuringLanding,
+    HeadingTrueDuringLanding,
     HeadingAtLowestAltitudeDuringApproach,
     HeadingDuringTakeoff,
     HeadingDeviationFromRunwayAbove80KtsAirspeedDuringTakeoff,
@@ -1884,10 +1887,10 @@ class TestAltitudeMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestAltitudeSTDAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
 
     def setUp(self):
-        self.node_class = AltitudeAtLiftoff
+        self.node_class = AltitudeSTDAtLiftoff
         self.operational_combinations = [('Altitude STD Smoothed', 'Liftoff')]
 
     @unittest.skip('Test Not Implemented')
@@ -1895,11 +1898,33 @@ class TestAltitudeAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAltitudeAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestAltitudeSTDAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
 
     def setUp(self):
-        self.node_class = AltitudeAtTouchdown
+        self.node_class = AltitudeSTDAtTouchdown
         self.operational_combinations = [('Altitude STD Smoothed', 'Touchdown')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAltitudeQNHAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeQNHAtLiftoff
+        self.operational_combinations = [('Altitude QNH', 'Liftoff')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAltitudeQNHAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeQNHAtTouchdown
+        self.operational_combinations = [('Altitude QNH', 'Touchdown')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -3990,6 +4015,26 @@ class TestHeadingDuringLanding(unittest.TestCase, NodeTest):
         head = P('Heading Continuous',np.ma.array([0,1,2,3,4,5,6,7,8,9,10,-1,-1,
                                                    7,-1,-1,-1,-1,-1,-1,-1,-10]))
         landing = buildsection('Landing',5,15)
+        head.array[13] = np.ma.masked
+        kpv = HeadingDuringLanding()
+        kpv.derive(head, landing)
+        expected = [KeyPointValue(index=10, value=6.0,
+                                  name='Heading During Landing')]
+        self.assertEqual(kpv, expected)
+
+
+class TestHeadingTrueDuringLanding(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = HeadingTrueDuringLanding
+        self.operational_combinations = [('Heading True Continuous',
+                                          'Landing Roll')]
+
+    def test_derive_basic(self):
+        # Duplicate of TestHeadingDuringLanding.test_derive_basic.
+        head = P('Heading True Continuous',
+                 np.ma.array([0,1,2,3,4,5,6,7,8,9,10,-1,-1,
+                              7,-1,-1,-1,-1,-1,-1,-1,-10]))
+        landing = buildsection('Landing', 5, 15)
         head.array[13] = np.ma.masked
         kpv = HeadingDuringLanding()
         kpv.derive(head, landing)

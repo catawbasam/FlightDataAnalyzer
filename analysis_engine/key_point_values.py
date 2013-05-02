@@ -14,7 +14,7 @@ from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
                                       NAME_VALUES_ENGINE,
                                       NAME_VALUES_FLAP)
 
-from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M
+from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M, App
 
 from analysis_engine.library import (ambiguous_runway,
                                      all_of,
@@ -48,6 +48,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      runs_of_ones,
                                      runway_deviation,
                                      runway_distance_from_end,
+                                     runway_heading,
                                      shift_slice,
                                      shift_slices,
                                      slice_samples,
@@ -881,6 +882,41 @@ class AirspeedTrueAtTouchdown(KeyPointValueNode):
                touchdowns=KTI('Touchdown')):
 
         self.create_kpvs_at_ktis(air_spd.array, touchdowns)
+
+
+class AirspeedReferenceVariationMax(KeyPointValueNode):
+    '''
+    Maximum difference between recorded/afr values and lookup values.
+    '''
+
+    def derive(self,
+               spd_ref_rec=P('Airspeed Reference'),
+               spd_ref_table=P('Airspeed Reference Lookup'),
+               apps=S('Approach And Landing')):
+
+        ref_differences = spd_ref_rec.array - spd_ref_table.array
+        self.create_kpv_from_slices(
+                    ref_differences,
+                    apps.get_slices(),
+                    max_abs_value,
+                )
+
+
+class V2VariationMax(KeyPointValueNode):
+    '''
+    Maximum difference between recorded/afr values and lookup values.
+    '''
+
+    def derive(self,
+               v2_rec=P('V2'),
+               v2_table=P('V2 Lookup')):
+
+        v2_differences = v2_rec.array - v2_table.array
+        self.create_kpv_from_slices(
+                    v2_differences,
+                    [slice(0, len(v2_rec.array)),],
+                    max_abs_value,
+                )
 
 
 ########################################
@@ -1914,11 +1950,12 @@ class AltitudeMax(KeyPointValueNode):
         self.create_kpvs_within_slices(alt_std.array, airborne, max_value)
 
 
-class AltitudeAtLiftoff(KeyPointValueNode):
+class AltitudeSTDAtLiftoff(KeyPointValueNode):
     '''
     '''
 
     units = 'ft'
+    name = 'Altitude STD At Liftoff'
 
     def derive(self,
                alt_std=P('Altitude STD Smoothed'),
@@ -1927,14 +1964,43 @@ class AltitudeAtLiftoff(KeyPointValueNode):
         self.create_kpvs_at_ktis(alt_std.array, liftoffs)
 
 
-class AltitudeAtTouchdown(KeyPointValueNode):
+class AltitudeQNHAtLiftoff(KeyPointValueNode):
     '''
     '''
 
     units = 'ft'
+    name = 'Altitude QNH At Liftoff'
+
+    def derive(self,
+               alt_std=P('Altitude QNH'),
+               liftoffs=KTI('Liftoff')):
+
+        self.create_kpvs_at_ktis(alt_std.array, liftoffs)
+
+
+class AltitudeSTDAtTouchdown(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'ft'
+    name = 'Altitude STD At Touchdown'
 
     def derive(self,
                alt_std=P('Altitude STD Smoothed'),
+               touchdowns=KTI('Touchdown')):
+
+        self.create_kpvs_at_ktis(alt_std.array, touchdowns)
+
+
+class AltitudeQNHAtTouchdown(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'ft'
+    name = 'Altitude QNH At Touchdown'
+
+    def derive(self,
+               alt_std=P('Altitude QNH'),
                touchdowns=KTI('Touchdown')):
 
         self.create_kpvs_at_ktis(alt_std.array, touchdowns)
@@ -2643,6 +2709,30 @@ class DecelerationFromTouchdownToStopOnRunway(KeyPointValueNode):
                 self.create_kpv(index, mu)
 
 
+class RunwayHeading(KeyPointValueNode):
+    '''
+    Calculate Runway headings from runway information dictionaries.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return (all_of(['FDR Takeoff Runway', 'Liftoff'], available) or
+                'Approach Information' in available)
+    
+    def derive(self, takeoff_runway=A('FDR Takeoff Runway'),
+               liftoffs=KTI('Liftoff'), apps=App('Approach Information')):
+        if takeoff_runway and liftoffs:
+            liftoff = liftoffs.get_first()
+            if liftoff:
+                self.create_kpv(liftoff.index,
+                                runway_heading(takeoff_runway.value))
+        if apps:
+            for app in apps:
+                if not app.runway:
+                    continue
+                # Q: Is stop the right index to use?
+                self.create_kpv(app.slice.stop, runway_heading(app.runway))
+
+
 class RunwayOverrunWithoutSlowingDuration(KeyPointValueNode):
     '''
     This determines the minimum time that the aircraft will take to reach the
@@ -2764,6 +2854,28 @@ class HeadingDuringLanding(KeyPointValueNode):
 
     def derive(self,
                hdg=P('Heading Continuous'),
+               landings=S('Landing Roll')):
+
+        for landing in landings:
+            # Check the slice is robust.
+            if landing.slice.start and landing.slice.stop:
+                index = (landing.slice.start + landing.slice.stop) / 2.0
+                value = np.ma.median(hdg.array[landing.slice])
+                self.create_kpv(index, value % 360.0)
+
+
+class HeadingTrueDuringLanding(KeyPointValueNode):
+    '''
+    We take the median heading true during the landing roll as this avoids
+    problems with drift just before touchdown and heading changes when turning
+    off the runway. The value is "assigned" to a time midway through the
+    landing phase.
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               hdg=P('Heading True Continuous'),
                landings=S('Landing Roll')):
 
         for landing in landings:
