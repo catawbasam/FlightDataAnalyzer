@@ -5245,6 +5245,22 @@ class FuelQtyAtTouchdown(KeyPointValueNode):
         self.create_kpvs_at_ktis(fuel_qty.array, touchdowns)
 
 
+class FuelQtyLowWarningDuration(KeyPointValueNode):
+    '''
+    Measures the duration of the Fuel Quantity Low warning discretes.
+    '''
+    
+    units = 's'
+
+    def derive(self,
+               warning=M('Fuel Qty (*) Low')):
+
+        self.create_kpvs_where_state(
+            'Warning',
+            warning.array,
+            warning.hz,
+        )
+
 ##############################################################################
 # Groundspeed
 
@@ -6754,25 +6770,6 @@ class TAWSGeneralWarningDuration(KeyPointValueNode):
             taws_general.hz,
             phase=airborne
         )
-
-
-class TAWSAlertDuration(KeyPointValueNode):
-    '''
-    '''
-
-    name = 'TAWS Alert Duration'
-
-    def derive(self,
-               taws_alert=M('TAWS Alert'),
-               airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Alert',
-            taws_alert.array,
-            taws_alert.hz,
-            phase=airborne
-        )
-
 
 
 class TAWSSinkRateWarningDuration(KeyPointValueNode):

@@ -3,6 +3,7 @@ import logging
 import numpy as np
 
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 from analysis_engine import hooks, settings
 from analysis_engine.datastructures import Segment
@@ -179,12 +180,14 @@ def split_segments(hdf):
     
     slow_slices = np.ma.clump_masked(slow_array)
     
-    heading = hdf['Heading']
+    try:
+        # Fetch Heading if available
+        heading = hdf.get_param('Heading', valid_only=True)
+    except KeyError:
+        # try Heading True, otherwise fall die with KeyError
+        heading = hdf.get_param('Heading True', valid_only=True)
     
-    if heading.invalid:
-        rate_of_turn = None
-    else:
-        rate_of_turn = _rate_of_turn(heading)
+    rate_of_turn = _rate_of_turn(heading)
     
     split_params_min, \
     split_params_frequency = _get_normalised_split_params(hdf)
@@ -342,6 +345,9 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
     If required parameters are not available and fallback_dt is not provided,
     a TimebaseError is raised
     """
+    now = datetime.now()
+    if fallback_dt is not None:
+        assert fallback_dt < now, "Fallback time in the future is not allowed"
     # align required parameters to 1Hz
     onehz = P(frequency = 1)
     dt_arrays = []
@@ -365,12 +371,6 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
         else:
             raise TimebaseError("Required parameter '%s' not available" % name)
         
-    ## TODO: Support limited time ranges - i.e. not in future and only up to 10
-    ## years in the past?
-    #if (datetime.now() - timedelta(years=10)).year > dt_arrays[0].average() \
-       #> datetime.now().year:
-        #raise issue!
-        
     length = max([len(array) for array in dt_arrays])
     if length > 1:
         # ensure all arrays are the same length
@@ -391,16 +391,35 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
     except (KeyError, ValueError) as err:
         raise TimebaseError("Error with timestamp values: %s" % err)
     
-    if settings.MAX_TIMEBASE_AGE:
-        # Only allow recent timebases.
-        now = datetime.now()
-        if timebase < (now - timedelta(days=settings.MAX_TIMEBASE_AGE)):
-            logger.error("Timebase '%s' older than '%d' days.", timebase,
-                         settings.MAX_TIMEBASE_AGE)
-            return fallback_dt # XXX: fallback_dt may also be old.
     if timebase > now:
-        logger.error("Timebase '%s' is in the future.", timebase)
-        return fallback_dt # XXX: fallback_dt may also be in future.
+        # Flight Data Analysis in the future is a challenge, lets see if we
+        # can correct this first...
+        if 'Day' not in hdf:
+            # unlikely to have year, month or day.            
+            # Scenario: that fallback_dt is of the current day but recorded
+            # time is in the future of the fallback time, therefore resulting
+            # in a futuristic date.
+            a_day_before = timebase - relativedelta(days=1)
+            if a_day_before < now:
+                logger.info("Timebase was in the future, using a day before satisfies requirements")
+                return a_day_before
+            # continue to take away a Year
+        if 'Year' not in hdf:
+            # remove a year from the timebase
+            a_year_before = timebase - relativedelta(years=1)
+            if a_year_before < now:
+                logger.info("Timebase was in the future, using a day before satisfies requirements")
+                return a_year_before
+
+        raise TimebaseError("Timebase '%s' is in the future.", timebase)
+    
+    if settings.MAX_TIMEBASE_AGE and \
+       timebase < (now - timedelta(days=settings.MAX_TIMEBASE_AGE)):
+        # Only allow recent timebases.
+        error_msg = "Timebase '%s' older than the allowed '%d' days." % (
+            timebase, settings.MAX_TIMEBASE_AGE)
+        raise TimebaseError(error_msg)
+    
     
     return timebase
         
@@ -430,12 +449,14 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part,
     with hdf_file(hdf_segment_path) as hdf:
         airspeed = hdf['Airspeed'].array
         duration = hdf.duration
-        try:
-            start_datetime = _calculate_start_datetime(hdf, fallback_dt)
-        except TimebaseError:
-            logger.warning("Unable to calculate timebase, using epoch "
-                           "1.1.1970!")
-            start_datetime = datetime.fromtimestamp(0)
+        # For now, raise TimebaseError up rather than using EPOCH
+        # TODO: Review whether to revert to epoch again.
+        ##try:
+        start_datetime = _calculate_start_datetime(hdf, fallback_dt)
+        ##except TimebaseError:
+            ##logger.warning("Unable to calculate timebase, using epoch "
+                           ##"1.1.1970!")
+            ##start_datetime = datetime.fromtimestamp(0)
         stop_datetime = start_datetime + timedelta(seconds=duration)
         hdf.start_datetime = start_datetime
     

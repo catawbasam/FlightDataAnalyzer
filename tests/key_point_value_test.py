@@ -185,6 +185,7 @@ from analysis_engine.key_point_values import (
     FlareDuration20FtToTouchdown,
     FuelQtyAtLiftoff,
     FuelQtyAtTouchdown,
+    FuelQtyLowWarningDuration,
     GroundspeedAtTOGA,
     GroundspeedAtTouchdown,
     GroundspeedMax,
@@ -5339,11 +5340,23 @@ class TestTailwind100FtToTouchdownMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestFuelQtyLowWarningDuration(unittest.TestCase):
+    def test_can_operate(self):
+        opts = FuelQtyLowWarningDuration.get_operational_combinations()
+        self.assertEqual(opts, [('Fuel Qty (*) Low',)])
+        
+    def test_derive(self):
+        low = FuelQtyLowWarningDuration()
+        low.derive(M(array=np.ma.array([0,0,1,1,0]), 
+                     values_mapping={1: 'Warning'}))
+        self.assertEqual(low[0].index, 2)
+        self.assertEqual(low[0].value, 2)
+
+
 ##############################################################################
 # Warnings: Takeoff Configuration Warning
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestMasterWarningDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5355,7 +5368,6 @@ class TestMasterWarningDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestMasterWarningDuringTakeoffDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5367,7 +5379,6 @@ class TestMasterWarningDuringTakeoffDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestMasterCautionDuringTakeoffDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5383,7 +5394,6 @@ class TestMasterCautionDuringTakeoffDuration(unittest.TestCase, NodeTest):
 # Warnings: Terrain Awareness & Warning System (TAWS)
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSAlertDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5395,7 +5405,6 @@ class TestTAWSAlertDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSGeneralWarningDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5407,7 +5416,6 @@ class TestTAWSGeneralWarningDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSSinkRateWarningDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5419,7 +5427,6 @@ class TestTAWSSinkRateWarningDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSTooLowFlapWarningDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5431,7 +5438,6 @@ class TestTAWSTooLowFlapWarningDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSTerrainWarningDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5443,7 +5449,6 @@ class TestTAWSTerrainWarningDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSTerrainPullUpWarningDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5455,7 +5460,6 @@ class TestTAWSTerrainPullUpWarningDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSGlideslopeWarning1500To1000FtDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5467,7 +5471,6 @@ class TestTAWSGlideslopeWarning1500To1000FtDuration(unittest.TestCase, NodeTest)
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSGlideslopeWarning1000To500FtDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5479,7 +5482,6 @@ class TestTAWSGlideslopeWarning1000To500FtDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSGlideslopeWarning500To200FtDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5491,7 +5493,6 @@ class TestTAWSGlideslopeWarning500To200FtDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSTooLowTerrainWarningDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5503,7 +5504,6 @@ class TestTAWSTooLowTerrainWarningDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSTooLowGearWarningDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5515,7 +5515,6 @@ class TestTAWSTooLowGearWarningDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSPullUpWarningDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5539,7 +5538,6 @@ class TestTAWSDontSinkWarningDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
 class TestTAWSWindshearWarningBelow1500FtDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
