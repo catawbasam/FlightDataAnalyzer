@@ -2795,11 +2795,15 @@ class FuelQty_Low(MultistateDerivedParameterNode):
     '''
     name = "Fuel Qty (*) Low"
     
+    values_mapping = {
+        0: '-',
+        1: 'Warning',
+    }
+    
     @classmethod
     def can_operate(cls, available):
-        return 'Fuel Qty Low' in available or \
-           'Fuel Qty (1) Low' in available or \
-           'Fuel Qty (2) Low' in available
+        return any_of(('Fuel Qty Low', 'Fuel Qty (1) Low', 'Fuel Qty (2) Low'),
+                      available)
         
     def derive(self, fqty = M('Fuel Qty Low'),
                fqty1 = M('Fuel Qty (1) Low'),
