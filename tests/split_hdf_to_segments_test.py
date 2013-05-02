@@ -6,7 +6,10 @@ import unittest
 from datetime import datetime
 
 from analysis_engine.split_hdf_to_segments import (
-    _calculate_start_datetime, append_segment_info, split_segments)
+    _calculate_start_datetime,
+    append_segment_info,
+    split_segments,
+    TimebaseError)
 from analysis_engine.node import P,  Parameter
 
 from hdfaccess.file import hdf_file
@@ -40,7 +43,7 @@ class TestSplitSegments(unittest.TestCase):
         hdf.get.return_value = None
         hdf.reliable_frame_counter = False
         
-        def hdf_getitem(self, key):
+        def hdf_getitem(self, key, **kwargs):
             if key == 'Airspeed':
                 return Parameter('Airspeed', array=airspeed_array,
                                  frequency=airspeed_frequency)
@@ -57,6 +60,15 @@ class TestSplitSegments(unittest.TestCase):
             else:
                 raise KeyError
         hdf.__getitem__ = hdf_getitem
+        
+        def hdf_get_param(key, valid_only=False):
+            # Pretend that we recorded Heading True only on this aircraft
+            if key == 'Heading':
+                raise KeyError
+            elif key == 'Heading True':
+                return Parameter('Heading True', array=heading_array,
+                                 frequency=heading_frequency)
+        hdf.get_param = hdf_get_param
         
         # Unmasked single flight.
         segment_tuples = split_segments(hdf)
@@ -282,6 +294,9 @@ class mocked_hdf(object):
     def get(self, key, default=None):
         return self.__getitem__(key)
     
+    def __contains__(self, key):
+        return True
+    
     def __getitem__(self, key):
         if key == 'Airspeed':
             data = self.airspeed
@@ -316,27 +331,37 @@ class TestSegmentInfo(unittest.TestCase):
     @mock.patch('analysis_engine.split_hdf_to_segments.sha_hash_file')
     @mock.patch('analysis_engine.split_hdf_to_segments.hdf_file',
                 new_callable=mocked_hdf)
-    def test_timestamps_in_past_use_fallback(self, hdf_file_patch, sha_hash_file_patch):
-        # example where it goes fast
-        seg = append_segment_info('old timestamps', 'START_AND_STOP', 
-                                  slice(10,1000), 4,
-                                  fallback_dt=datetime(2012,12,12,0,0,0))  
-        self.assertEqual(seg.start_dt, datetime(2012,12,12,0,0,0))
-        self.assertEqual(seg.go_fast_dt, datetime(2012,12,12,0,6,52))
-        self.assertEqual(seg.stop_dt, datetime(2012,12,12,11,29,56))
+    def test_timestamps_in_past(self, hdf_file_patch, sha_hash_file_patch):
+        # Using Fallback Datetime is no longer recommended
+        ### example where it goes fast
+        ##seg = append_segment_info('old timestamps', 'START_AND_STOP', 
+                                  ##slice(10,1000), 4,
+                                  ##fallback_dt=datetime(2012,12,12,0,0,0))  
+        ##self.assertEqual(seg.start_dt, datetime(2012,12,12,0,0,0))
+        ##self.assertEqual(seg.go_fast_dt, datetime(2012,12,12,0,6,52))
+        ##self.assertEqual(seg.stop_dt, datetime(2012,12,12,11,29,56))
+        # Raising exception is more pythonic
+        self.assertRaises(TimebaseError, append_segment_info,
+                          'old timestamps', 'START_AND_STOP', slice(10,1000), 
+                          4, fallback_dt=datetime(2012,12,12,0,0,0))  
 
 
     @mock.patch('analysis_engine.split_hdf_to_segments.sha_hash_file')
     @mock.patch('analysis_engine.split_hdf_to_segments.hdf_file',
                 new_callable=mocked_hdf)
     def test_timestamps_in_future_use_fallback(self, hdf_file_patch, sha_hash_file_patch):
-        # example where it goes fast
-        seg = append_segment_info('future timestamps', 'START_AND_STOP', 
-                                  slice(10,1000), 4,
-                                  fallback_dt=datetime(2012,12,12,0,0,0))
-        self.assertEqual(seg.start_dt, datetime(2012,12,12,0,0,0))
-        self.assertEqual(seg.go_fast_dt, datetime(2012,12,12,0,6,52))
-        self.assertEqual(seg.stop_dt, datetime(2012,12,12,11,29,56))
+        # Using fallback time is no longer recommended
+        ### example where it goes fast
+        ##seg = append_segment_info('future timestamps', 'START_AND_STOP', 
+                                  ##slice(10,1000), 4,
+                                  ##fallback_dt=datetime(2012,12,12,0,0,0))
+        ##self.assertEqual(seg.start_dt, datetime(2012,12,12,0,0,0))
+        ##self.assertEqual(seg.go_fast_dt, datetime(2012,12,12,0,6,52))
+        ##self.assertEqual(seg.stop_dt, datetime(2012,12,12,11,29,56))
+        # Raising exception is more pythonic
+        self.assertRaises(TimebaseError, append_segment_info,
+                          'future timestamps', 'START_AND_STOP', slice(10,1000), 
+                          4, fallback_dt=datetime(2012,12,12,0,0,0))  
         
         
     @mock.patch('analysis_engine.split_hdf_to_segments.sha_hash_file')
@@ -375,10 +400,12 @@ class TestSegmentInfo(unittest.TestCase):
     @mock.patch('analysis_engine.split_hdf_to_segments.hdf_file',
                 new_callable=mocked_hdf)  
     def test_invalid_datetimes(self, hdf_file_patch, sha_hash_file_patch):
-        # Fix mocked_hdf
-        seg = append_segment_info('invalid timestamps', '', slice(10,110), 2)
-        self.assertEqual(seg.start_dt, datetime(1970,1,1,1,0)) # start of time!
-        self.assertEqual(seg.go_fast_dt, datetime(1970, 1, 1, 1, 6, 52)) # went fast
+        # No longer using epoch, raising exception instead
+        ##seg = append_segment_info('invalid timestamps', '', slice(10,110), 2)
+        ##self.assertEqual(seg.start_dt, datetime(1970,1,1,1,0)) # start of time!
+        ##self.assertEqual(seg.go_fast_dt, datetime(1970, 1, 1, 1, 6, 52)) # went fast
+        self.assertRaises(TimebaseError, append_segment_info,
+                          'invalid timestamps', '', slice(10,110), 2)  
     
     def test_calculate_start_datetime(self):
         """
@@ -433,3 +460,32 @@ class TestSegmentInfo(unittest.TestCase):
         res = _calculate_start_datetime(hdf, dt)
         # 9th second as the first sample (10th second) was masked
         self.assertEqual(res, datetime(2012,11,12,11,11,9))
+        
+        
+    def test_no_year_with_a_very_recent_fallback(self):
+        """When fallback is a year after the flight and Year is not recorded,
+        the result would be in the future. Ensure that a year is taken off if
+        required.
+        
+        Generally Day and Month are recorded together and Year is optional.
+        
+        Should only Time be recorded, using the fallback date part is as good
+        as you get.
+        """
+        # ensure current datetime is very recent
+        dt = datetime.now()
+        # Year is not recorded, and the data is for the very end of the
+        # previous year. NB: This test could fail if ran on the very last day
+        # of the month!
+        hdf = {
+               'Month': P('Month', np.ma.array([12, 12])), # last month of year
+               'Day':   P('Day',   np.ma.array([31, 31])), # last day
+               'Hour':  P('Hour',  np.ma.array([23, 23])), # last hour
+               'Minute':P('Minute',np.ma.array([59, 59])), # last minute
+               'Second':P('Minute',np.ma.array([58, 59])), # last two seconds
+               }
+        res = _calculate_start_datetime(hdf, dt)
+        # result is a year behind the fallback datetime, even though the
+        # fallback Year was used.
+        self.assertEqual(res.year, datetime.now().year -1)
+        #self.assertEqual(res, datetime(2012,6,01,11,11,1))
