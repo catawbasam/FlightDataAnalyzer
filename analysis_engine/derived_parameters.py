@@ -423,7 +423,7 @@ class AirspeedReferenceLookup(DerivedParameterNode):
                 repaired_gw = repair_mask(gw.array, repair_duration=130,
                                       copy=True, extrapolate=True)
             except:
-                logger.warning(
+                self.warning(
                     "'Airspeed Reference' will be fully masked because "
                     "'Gross Weight' array could not be repaired.")
                 return
