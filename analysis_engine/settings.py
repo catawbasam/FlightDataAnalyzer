@@ -40,6 +40,7 @@ CONFIG_PATH = os.path.join(ANALYZER_PATH, 'config')
 LOCAL_API_AIRCRAFT_PATH = os.path.join(CONFIG_PATH, 'aircraft.yaml')
 LOCAL_API_AIRPORT_PATH = os.path.join(CONFIG_PATH, 'airports.yaml')
 LOCAL_API_RUNWAY_PATH = os.path.join(CONFIG_PATH, 'runways.yaml')
+LOCAL_API_EXPORTS_PATH = os.path.join(CONFIG_PATH, 'exports.yaml')
 
 # Location of the CA certificates to be used by the HTTP API handler:
 # Note: This is the system-wide default location on Ubuntu.
