@@ -179,12 +179,14 @@ def split_segments(hdf):
     
     slow_slices = np.ma.clump_masked(slow_array)
     
-    heading = hdf['Heading']
+    try:
+        # Fetch Heading if available
+        heading = hdf.get_param('Heading', valid_only=True)
+    except KeyError:
+        # try Heading True, otherwise fall die with KeyError
+        heading = hdf.get_param('Heading True', valid_only=True)
     
-    if heading.invalid:
-        rate_of_turn = None
-    else:
-        rate_of_turn = _rate_of_turn(heading)
+    rate_of_turn = _rate_of_turn(heading)
     
     split_params_min, \
     split_params_frequency = _get_normalised_split_params(hdf)
