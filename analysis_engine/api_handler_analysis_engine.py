@@ -252,6 +252,24 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
                 (runway.get('identifier', 'unknown'), airport))
         return runway
 
+    def get_data_exports(self, tail_number):
+        '''
+        Will either return data exports configuration for an aircraft matching
+        the tail number or raise an exception if one cannot be found.
+
+        :param tail_number: Aircraft tail number.
+        :type tail_number: str
+        :raises NotFoundError: If the aircraft cannot be found.
+        :returns: Aircraft info dictionary
+        :rtype: dict
+        '''
+        from analysis_engine.settings import BASE_URL
+        url = '%(base_url)s/api/data_exports/aircraft/%(tail_number)s/' % {
+            'base_url': BASE_URL.rstrip('/'),
+            'tail_number': tail_number,
+        }
+        return self._attempt_request(url)['data_exports']
+
 
 # Local API Handler
 ###################
