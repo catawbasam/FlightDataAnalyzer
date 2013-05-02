@@ -24,7 +24,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      blend_two_parameters,
                                      cas2dp,
                                      cas_alt2mach,
-                                     clip,
                                      coreg,
                                      cycle_finder,
                                      datetime_of_index,
@@ -4810,7 +4809,7 @@ class V2Lookup(DerivedParameterNode):
                flap=P('Flap'),
                conf=P('Configuration'),
                spd=P('Airspeed'),
-               weight_liftoff=KPV('Gross Weight At Liftoff'),
+               weight_liftoffs=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
                family=A('Family'),
                engine=A('Engine Series'),
@@ -4836,8 +4835,9 @@ class V2Lookup(DerivedParameterNode):
 
         if vspeed_class:
             vspeed_table = vspeed_class()
-            index = weight_liftoff[0].index
-            weight = weight_liftoff[0].value
+            weight_liftoff = weight_liftoffs.get_first()
+            index = weight_liftoff.index
+            weight = weight_liftoff.value
             setting = setting_param.array[index]
             vspeed = vspeed_table.v2(weight, setting)
             if vspeed is not None:
