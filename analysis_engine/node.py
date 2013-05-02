@@ -665,6 +665,15 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
         super(MultistateDerivedParameterNode, self).__init__(
                 name, array, frequency, offset, data_type, *args,
                 **kwargs)
+    
+    def get_derived(self, *args, **kwargs):
+        node = super(MultistateDerivedParameterNode, self).get_derived(*args,
+                                                                       **kwargs)
+        if not self.values_mapping:
+            raise ValueError(
+                "'%s' requires either values_mapping passed into constructor "
+                "or as a class attribute." % self.__class__.__name__)
+        return node
         
     def __setattr__(self, name, value):
         '''

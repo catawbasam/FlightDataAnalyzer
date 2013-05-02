@@ -255,7 +255,9 @@ class AirspeedMinusV2(DerivedParameterNode):
 
     units = 'kts'
 
-    def derive(self, airspeed=P('Airspeed'), v2=P('V2')):
+    def derive(self, airspeed=P('Airspeed'),
+               v2_recorded=P('V2'),
+               v2_lookup=P('V2 Lookup')):
         '''
         Where V2 is recorded, a low permitted rate of change of 1.0 kt/sec
         (specified in the Parameter Operating Limit section of the POLARIS
@@ -265,6 +267,11 @@ class AirspeedMinusV2(DerivedParameterNode):
         the runway and it needs to be extended to permit V-V2 KPVs to be
         recorded during the climbout.
         '''
+        
+        if v2_recorded:
+            v2 = v2_recorded
+        else:
+            v2 = v2_lookup
         # If the data starts in mid-flight, there may be no valid V2 values.
         if np.ma.count(v2.array):
             repaired_v2 = repair_mask(v2.array,
@@ -308,15 +315,10 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
 class AirspeedReference(DerivedParameterNode):
     '''
     Airspeed on approach will use recorded value if present. If no recorded
-    value AFR values will be used. Finally if neither recorded or AFR value
-    lookup based on weight and Flap (Surface detents) at landing will be used.
+    value AFR values will be used.
     
     Achieved flight records without a recorded value will be repeated
-    thoughout the flight, calculated values will be calculated for each
-    approach.
-
-    Flap is used as first dependant to avoid interpolation of Flap detents when
-    Flap is recorded at a lower frequency than Airspeed.
+    thoughout the approach sections of the flight.
 
     - Vapp  -- Airbus
     - Vref  -- Boeing
@@ -324,6 +326,46 @@ class AirspeedReference(DerivedParameterNode):
 
     A fixed value will most likely be zero making this relative airspeed
     derived parameter the same as the original absolute airspeed parameter.
+    '''
+
+    units = 'kts'
+
+    @classmethod
+    def can_operate(cls, available):
+        vapp = 'Vapp' in available
+        vref = 'Vref' in available
+        afr = 'Airspeed' in available and any_of(['AFR Vapp', 'AFR Vref'], available)
+        return vapp or vref or afr
+
+    def derive(self,
+               spd=P('Airspeed'),
+               vapp=P('Vapp'),
+               vref=P('Vref'),
+               afr_vapp=A('AFR Vapp'),
+               afr_vref=A('AFR Vref'),
+               apps=S('Approach And Landing')):
+        if vapp:
+            # Vapp is recorded so use this
+            self.array = vapp.array
+        elif vref:
+            # Vref is recorded so use this
+            self.array = vref.array
+        else:
+            # Vapp/Vref is supplied from FDR so use this
+            afr_vspeed = afr_vapp or afr_vref
+            self.array = np.ma.zeros(len(spd.array), np.double)
+            self.array.mask = True
+            for approach in apps:
+                self.array[approach.slice] = afr_vspeed.value
+
+
+class AirspeedReferenceLookup(DerivedParameterNode):
+    '''
+    Airspeed on approach lookup based on weight and Flap (Surface detents) at
+    landing will be used.
+
+    Flap is used as first dependant to avoid interpolation of Flap detents when
+    Flap is recorded at a lower frequency than Airspeed.
 
     if approach leads to touchdown use max flap/conf recorded in approach phase.
     if approach does not lead to touchdown use max flaps recorded in approach phase
@@ -334,107 +376,99 @@ class AirspeedReference(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        works_with_any = ['Vapp', 'Vref', 'AFR Vapp', 'AFR Vref']
-        existing_values = any([_node in available for _node in works_with_any])
-
         x = set(available)
         base_for_lookup = ['Airspeed', 'Gross Weight Smoothed', 'Series',
                            'Family', 'Approach And Landing', 'Touchdown']
         airbus = set(base_for_lookup + ['Configuration']).issubset(x)
         boeing = set(base_for_lookup + ['Flap']).issubset(x)
-        return existing_values or airbus or boeing
+        return airbus or boeing
 
     def derive(self,
                flap=P('Flap'),
+               conf=P('Configuration'),
                spd=P('Airspeed'),
                gw=P('Gross Weight Smoothed'),
-               conf=P('Configuration'),
-               vapp=P('Vapp'),
-               vref=P('Vref'),
-               afr_vapp=A('AFR Vapp'),
-               afr_vref=A('AFR Vref'),
                apps=S('Approach And Landing'),
                tdwn=KTI('Touchdown'),
                series=A('Series'),
                family=A('Family'),
                engine=A('Engine Series'),
-               engine_type=A('Engine Type')):
+               engine_type=A('Engine Type'),
+               spd_ref=P('Airspeed Reference')):
         '''
         Raises KeyError if no entires for Family/Series in vspeed lookup map.
         '''
-        if vapp:
-            # Vapp is recorded so use this
-            self.array = vapp.array
-        elif vref:
-            # Vref is recorded so use this
-            self.array = vref.array
-        elif spd and (afr_vapp or afr_vref):
-            # Vapp/Vref is supplied from FDR so use this
-            afr_vspeed = afr_vapp or afr_vref
-            self.array = np.ma.zeros(len(spd.array), np.double)
-            self.array.mask = True
-            for approach in apps:
-                self.array[approach.slice] = afr_vspeed.value
-        else:
-            # elif apps and spd and gw and (flap or conf):
-            # No values recorded or supplied so lookup in vspeed tables
-            setting_param = flap or conf
 
-            # Was:
-            #self.array = np.ma.zeros(len(spd.array), np.double)
-            #self.array.mask=True
-            # Better:
-            self.array = np_ma_masked_zeros_like(spd.array)
+        self.array = np_ma_masked_zeros_like(spd.array)
 
-            x = map(lambda x: x.value if x else None, (series, family, engine, engine_type))
+        x = map(lambda x: x.value if x else None, (series, family, engine, engine_type))
+
+        try:
             vspeed_class = get_vspeed_map(*x)
+        except KeyError:
+            if spd_ref:
+                # we have Airspeed Reference so having a lookup table is not
+                # critical
+                return
+            else:
+                raise
 
-            if vspeed_class:
-                vspeed_table = vspeed_class() # instansiate VelocitySpeed object
+        setting_param = flap or conf
+
+        if vspeed_class:
+            vspeed_table = vspeed_class() # instansiate VelocitySpeed object
+            try:
                 # allow up to 2 superframe values to be repaired
                 # (64*2=128 + a bit)
-
-                try:
-                    repaired_gw = repair_mask(gw.array, repair_duration=130,
-                                          copy=True, extrapolate=True)
-                except:
-                    pass
-                    #self.logger.warning(
-                        #"'AirspeedReference' will be fully masked because "
-                        #"'Gross Weight' array could not be repaired.")
-                    return
-
-                for approach in apps:
-                    _slice = approach.slice
-                    index = np.ma.argmax(setting_param.array[_slice])
-                    weight = repaired_gw[_slice][index]
-                    setting = setting_param.array[_slice][index]
-                    if is_index_within_slice(tdwn.get_last().index, _slice) or setting in vspeed_table.reference_settings:
-                        # landing or approach with setting in vspeed table
-                        vspeed = vspeed_table.vref(weight, setting)
-                    else:
-                        # no landing and max setting not in vspeed table
-                        if setting_param.name == 'Flap':
-                            setting = max(get_flap_map(series.value, family.value))
-                        else:
-                            setting = max(get_conf_map(series.value, family.value).keys())
-                        vspeed = vspeed_table.vref(weight, setting)
-                    self.array[_slice] = vspeed
-            else:
-                # aircraft does not use vspeeds
+                repaired_gw = repair_mask(gw.array, repair_duration=130,
+                                      copy=True, extrapolate=True)
+            except:
                 pass
+                self.logger.warning(
+                    "'AirspeedReference' will be fully masked because "
+                    "'Gross Weight' array could not be repaired.")
+                return
+
+            for approach in apps:
+                _slice = approach.slice
+                index = np.ma.argmax(setting_param.array[_slice])
+                weight = repaired_gw[_slice][index]
+                setting = setting_param.array[_slice][index]
+                if is_index_within_slice(tdwn.get_last().index, _slice) or setting in vspeed_table.reference_settings:
+                    # landing or approach with setting in vspeed table
+                    vspeed = vspeed_table.vref(weight, setting)
+                else:
+                    # no landing and max setting not in vspeed table
+                    if setting_param.name == 'Flap':
+                        setting = max(get_flap_map(series.value, family.value))
+                    else:
+                        setting = max(get_conf_map(series.value, family.value).keys())
+                    vspeed = vspeed_table.vref(weight, setting)
+                self.array[_slice] = vspeed
 
 
 class AirspeedRelative(DerivedParameterNode):
     '''
-    See AirspeedReference for details.
+    Airspeed minus Vref/Vapp if recorded or supplied by AFR records. Falls
+    back to lookup tables if these do not exist.
     '''
 
     units = 'kts'
 
-    def derive(self, airspeed=P('Airspeed'), vref=P('Airspeed Reference')):
-        '''
-        '''
+    @classmethod
+    def can_operate(cls, available):
+        return 'Airspeed' in available and \
+               any_of(('Airspeed Reference','Airspeed Reference Lookup'), available)
+
+    def derive(self, airspeed=P('Airspeed'),
+               vref_recorded=P('Airspeed Reference'),
+               vref_lookup=P('Airspeed Reference Lookup')):
+
+        if vref_recorded:
+            vref = vref_recorded
+        else:
+            vref = vref_lookup
+
         self.array = airspeed.array - vref.array
 
 
@@ -869,7 +903,7 @@ class AltitudeRadio(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         return any_of([name for name in cls.get_dependency_names() \
-                       if name.startswith('Altitude')], available)
+                       if name.startswith('Altitude Radio')], available)
 
     
     def derive(self,
@@ -1706,10 +1740,10 @@ class Eng_1_Fire(MultistateDerivedParameterNode):
                fire_gnd=M('Eng (1) Fire On Ground'),
                fire_air=M('Eng (1) Fire In Air')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (fire_gnd, 'Fire'),
             (fire_air, 'Fire'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 
 class Eng_2_Fire(MultistateDerivedParameterNode):
@@ -1724,10 +1758,10 @@ class Eng_2_Fire(MultistateDerivedParameterNode):
                fire_gnd=M('Eng (2) Fire On Ground'),
                fire_air=M('Eng (2) Fire In Air')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (fire_gnd, 'Fire'),
             (fire_air, 'Fire'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 
 class Eng_3_Fire(MultistateDerivedParameterNode):
@@ -1742,10 +1776,10 @@ class Eng_3_Fire(MultistateDerivedParameterNode):
                fire_gnd=M('Eng (3) Fire On Ground'),
                fire_air=M('Eng (3) Fire In Air')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (fire_gnd, 'Fire'),
             (fire_air, 'Fire'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 
 class Eng_4_Fire(MultistateDerivedParameterNode):
@@ -1760,10 +1794,10 @@ class Eng_4_Fire(MultistateDerivedParameterNode):
                fire_gnd=M('Eng (4) Fire On Ground'),
                fire_air=M('Eng (4) Fire In Air')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (fire_gnd, 'Fire'),
             (fire_air, 'Fire'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 
 class Eng_Fire(MultistateDerivedParameterNode):
@@ -1784,10 +1818,10 @@ class Eng_Fire(MultistateDerivedParameterNode):
                eng3=M('Eng (3) Fire'),
                eng4=M('Eng (4) Fire')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (eng1, 'Fire'), (eng2, 'Fire'),
             (eng3, 'Fire'), (eng4, 'Fire'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 
 ################################################################################
@@ -2755,6 +2789,31 @@ class FuelQty(DerivedParameterNode):
             self.array = np_ma_masked_zeros_like(param.array)
             self.offset = 0.0
 
+
+class FuelQty_Low(MultistateDerivedParameterNode):
+    '''
+    '''
+    name = "Fuel Qty (*) Low"
+    
+    values_mapping = {
+        0: '-',
+        1: 'Warning',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Fuel Qty Low', 'Fuel Qty (1) Low', 'Fuel Qty (2) Low'),
+                      available)
+        
+    def derive(self, fqty = M('Fuel Qty Low'),
+               fqty1 = M('Fuel Qty (1) Low'),
+               fqty2 = M('Fuel Qty (2) Low')):
+        warning = vstack_params_where_state(
+            (fqty,  'Warning'),
+            (fqty1, 'Warning'),
+            (fqty2, 'Warning'),
+        )
+        self.array = warning.any(axis=0)
 
 ###############################################################################
 # Landing Gear
@@ -3995,7 +4054,7 @@ class MagneticVariation(DerivedParameterNode):
             array[index] = geomag.declination(
                 lat.array[index], lon.array[index],
                 alt_aal.array[index], time=start_date)
-        self.array = array
+        self.array = repair_mask(array, extrapolate=True)
 
 
 class VerticalSpeedInertial(DerivedParameterNode):
@@ -4485,7 +4544,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
             e4_ulk_rgt=M('Eng (4) Thrust Reverser (R) Unlocked'),
             e4_tst_all=M('Eng (4) Thrust Reverser In Transit'),):
 
-        stack = vstack_params_where_state((
+        stack = vstack_params_where_state(
             (e1_dep_all, 'Deployed'), (e1_ulk_all, 'Unlocked'),
             (e1_dep_lft, 'Deployed'), (e1_ulk_lft, 'Unlocked'),
             (e1_dep_rgt, 'Deployed'), (e1_ulk_rgt, 'Unlocked'),
@@ -4498,17 +4557,17 @@ class ThrustReversers(MultistateDerivedParameterNode):
             (e4_dep_all, 'Deployed'), (e4_ulk_all, 'Unlocked'),
             (e4_dep_lft, 'Deployed'), (e4_ulk_lft, 'Unlocked'),
             (e4_dep_rgt, 'Deployed'), (e4_ulk_rgt, 'Unlocked'),
-        ))
+        )
 
         array = np_ma_zeros_like(stack[0])
         array = np.ma.where(stack.any(axis=0), 1, array)
         array = np.ma.where(stack.all(axis=0), 2, array)
         # update with any transit params
         if any((e1_tst_all, e2_tst_all, e3_tst_all, e4_tst_all)):
-            transit_stack = vstack_params_where_state((
+            transit_stack = vstack_params_where_state(
                 (e1_tst_all, 'In Transit'), (e2_tst_all, 'In Transit'),
                 (e3_tst_all, 'In Transit'), (e4_tst_all, 'In Transit'),
-            ))
+            )
             array = np.ma.where(transit_stack.any(axis=0), 1, array)
 
         # mask indexes with greater than 50% masked values
@@ -4667,7 +4726,7 @@ class TAWSAlert(MultistateDerivedParameterNode):
                taws_too_low_terrain=M('TAWS Too Low Terrain'),
                taws_windshear_warning=M('TAWS Windshear Warning')):
 
-        taws_states = (
+        params_state = vstack_params_where_state(
             (taws_caution_terrain, 'Caution'),
             (taws_caution, 'Caution'),
             (taws_dont_sink, 'Warning'),
@@ -4685,7 +4744,6 @@ class TAWSAlert(MultistateDerivedParameterNode):
             (taws_too_low_terrain, 'Warning'),
             (taws_windshear_warning, 'Warning'),
         )
-        params_state = vstack_params_where_state(taws_states)
         res = params_state.any(axis=0)
 
         self.array = np_ma_masked_zeros_like(params_state[0])
@@ -4697,9 +4755,42 @@ class TAWSAlert(MultistateDerivedParameterNode):
 class V2(DerivedParameterNode):
     '''
     V2 will use recorded value if present. If no recorded value AFR values
-    will be used. Finally if neither recorded or AFR value lookup based on
-    weight and Flap (Surface detents) at liftoff will be used, first liftoff
-    only:
+    will be used.
+    '''
+
+    units = 'kts'
+
+    @classmethod
+    def can_operate(cls, available):
+        afr = all_of(('AFR V2','Airspeed'), available)
+        airbus = all_of(('Auto Speed Control','Selected Speed', 'Airspeed'), available)
+        return afr or airbus
+
+    def derive(self,
+               spd=P('Airspeed'),
+               afr_v2=A('AFR V2'),
+               spd_ctrl=P('Auto Speed Control'),
+               spd_sel=P('Selected Speed')):
+
+        # Initialize the result space.
+        self.array = np_ma_masked_zeros_like(spd.array)
+
+        if afr_v2:
+            # v2 supplied, use this
+            afr_v2_array = np.ones_like(spd.array)
+            self.array = afr_v2_array * afr_v2.value
+        elif spd_sel:
+            # Airbus
+            self.array = np.ma.where(spd_ctrl.array==1,spd_sel.array,np.ma.masked)
+        else:
+            # no lift off leave zero masked array
+            pass
+
+
+class V2Lookup(DerivedParameterNode):
+    '''
+    V2 value lookup based on weight and Flap (Surface detents) at liftoff
+    will be used, first liftoff only:
 
     Flap is used as first dependant to avoid interpolation of Flap detents when
     Flap is recorded at a lower frequency than Airspeed
@@ -4710,58 +4801,48 @@ class V2(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         available = set(available)
-        afr = 'AFR V2' in available and 'Airspeed' in available
         base_for_lookup = ['Airspeed', 'Gross Weight At Liftoff', 'Series',
                            'Family']
         airbus = set(base_for_lookup + ['Configuration']).issubset(available)
         boeing = set(base_for_lookup + ['Flap']).issubset(available)
-        return afr or airbus or boeing
+        return airbus or boeing
 
     def derive(self,
                flap=P('Flap'),
-               spd=P('Airspeed'),
                conf=P('Configuration'),
-               afr_v2=A('AFR V2'),
-
-               spd_ctrl=P('Auto Speed Control'),
-               spd_sel=P('Selected Speed'),
-               #alt_aal=P('Altitude AAL For Flight Phases'),
-               
+               spd=P('Airspeed'),
                weight_liftoff=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
                family=A('Family'),
                engine=A('Engine Series'),
-               engine_type=A('Engine Type')):
+               engine_type=A('Engine Type'),
+               v2=P('V2')):
 
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(spd.array)
-        self.array.mask = True
 
-        if afr_v2:
-            # v2 supplied, use this
-            afr_v2_array = np.ones_like(spd.array)
-            self.array = afr_v2_array * afr_v2.value
-        elif spd_sel:
-            # Airbus
-            self.array = np.ma.where(spd_ctrl.array==1,spd_sel.array,np.ma.masked)
-        elif weight_liftoff:
-            x = map(lambda x: x.value if x else None, (series, family, engine, engine_type))
+        x = map(lambda x: x.value if x else None, (series, family, engine, engine_type))
+
+        try:
             vspeed_class = get_vspeed_map(*x)
-            setting_param = flap or conf
-            if vspeed_class:
-                vspeed_table = vspeed_class()
-                index = weight_liftoff[0].index
-                weight = weight_liftoff[0].value
-                setting = setting_param.array[index]
-                vspeed = vspeed_table.v2(weight, setting)
-                if vspeed is not None:
-                    self.array[0:] = vspeed
+        except KeyError:
+            if v2:
+                # we have v2 so having a lookup table is not
+                # critical
+                return
             else:
-                # Aircraft doesnt use V2
-                self.array.mask = False
-        else:
-            # no lift off leave zero masked array
-            pass
+                raise
+
+        setting_param = flap or conf
+
+        if vspeed_class:
+            vspeed_table = vspeed_class()
+            index = weight_liftoff[0].index
+            weight = weight_liftoff[0].value
+            setting = setting_param.array[index]
+            vspeed = vspeed_table.v2(weight, setting)
+            if vspeed is not None:
+                self.array[0:] = vspeed
 
 
 class WindAcrossLandingRunway(DerivedParameterNode):
@@ -4888,10 +4969,10 @@ class Speedbrake(DerivedParameterNode):
         Note: The frame name cannot be accessed within this method to determine
               which parameters are required.
         '''
-        x = available
-        return ('Frame' in x and 'Spoiler (2)' in x and 'Spoiler (7)' in x) \
-            or ('Frame' in x and 'Spoiler (4)' in x and 'Spoiler (9)' in x)
-
+        return 'Frame' in available and (
+            all_of(('Spoiler (2)', 'Spoiler (7)'), available) or
+            all_of(('Spoiler (4)', 'Spoiler (9)'), available))
+    
     def merge_spoiler(self, spoiler_a, spoiler_b):
         '''
         We indicate the angle of the lower of the two raised spoilers, as
@@ -5658,9 +5739,9 @@ class MasterWarning(MultistateDerivedParameterNode):
                warn_capt=M('Master Warning (Capt)'),
                warn_fo=M('Master Warning (FO)')):
 
-        self.array = vstack_params_where_state((
+        self.array = vstack_params_where_state(
             (warn_capt, 'Warning'),
             (warn_fo, 'Warning'),
-        )).any(axis=0)
+        ).any(axis=0)
 
 

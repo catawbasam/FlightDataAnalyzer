@@ -104,7 +104,12 @@ def derive_parameters(hdf, node_mgr, process_order):
                 # LFL/Derived parameter
                 # all parameters (LFL or other) need get_aligned which is
                 # available on DerivedParameterNode
-                dp = derived_param_from_hdf(hdf[dep_name])
+                try:
+                    dp = derived_param_from_hdf(hdf.get_param(dep_name,
+                                                              valid_only=True))
+                except KeyError:
+                    # Parameter is invalid.
+                    dp = None
                 deps.append(dp)
             else:  # dependency not available
                 deps.append(None)
@@ -206,7 +211,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                                      "length '%s'." % (param_name,
                                                        expected_length,
                                                        array_length))
-                
+            
             hdf.set_param(result)
             # Keep hdf_keys up to date.
             node_mgr.hdf_keys.append(param_name)
