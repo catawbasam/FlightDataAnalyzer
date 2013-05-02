@@ -5261,6 +5261,7 @@ class FuelQtyLowWarningDuration(KeyPointValueNode):
             warning.hz,
         )
 
+
 ##############################################################################
 # Groundspeed
 
@@ -7657,7 +7658,8 @@ class GrossWeightAtLiftoff(KeyPointValueNode):
                gross_wgt=P('Gross Weight Smoothed'),
                liftoffs=KTI('Liftoff')):
 
-        self.create_kpvs_at_ktis(gross_wgt.array, liftoffs)
+        self.create_kpvs_at_ktis(
+            repair_mask(gross_wgt.array, repair_duration=None), liftoffs)
 
 
 class GrossWeightAtTouchdown(KeyPointValueNode):
@@ -7670,7 +7672,8 @@ class GrossWeightAtTouchdown(KeyPointValueNode):
                gross_wgt=P('Gross Weight Smoothed'),
                touchdowns=KTI('Touchdown')):
 
-        self.create_kpvs_at_ktis(gross_wgt.array, touchdowns)
+        self.create_kpvs_at_ktis(
+            repair_mask(gross_wgt.array, repair_duration=None), touchdowns)
 
 
 class ZeroFuelWeight(KeyPointValueNode):
