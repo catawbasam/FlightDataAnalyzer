@@ -2716,7 +2716,7 @@ class RunwayHeading(KeyPointValueNode):
     @classmethod
     def can_operate(cls, available):
         return (all_of(['FDR Takeoff Runway', 'Liftoff'], available) or
-                ['Approach Information' in available])
+                'Approach Information' in available)
     
     def derive(self, takeoff_runway=A('FDR Takeoff Runway'),
                liftoffs=KTI('Liftoff'), apps=App('Approach Information')):
