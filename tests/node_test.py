@@ -1710,12 +1710,14 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
     def test_getattribute(self):
         values_mapping = {0: '-', 1: 'Warning'}
         Node.get_derived = mock.Mock()
+        Node.get_derived.return_value = 5
         node = MultistateDerivedParameterNode()
         self.assertRaises(ValueError, node.get_derived)
         node.values_mapping = values_mapping
         # Does not raise.
-        node.get_derived()
+        self.assertEqual(node.get_derived(), Node.get_derived.return_value)
         node = MultistateDerivedParameterNode(values_mapping=values_mapping)
+        self.assertEqual(node.get_derived(), Node.get_derived.return_value)
 
     def test_saving_to_hdf(self):
         # created mapped array
