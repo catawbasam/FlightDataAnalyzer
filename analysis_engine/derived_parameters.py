@@ -903,7 +903,7 @@ class AltitudeRadio(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         return any_of([name for name in cls.get_dependency_names() \
-                       if name.startswith('Altitude')], available)
+                       if name.startswith('Altitude Radio')], available)
 
     
     def derive(self,
