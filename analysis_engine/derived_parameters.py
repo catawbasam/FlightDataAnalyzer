@@ -1336,7 +1336,6 @@ class APEngaged(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-
         return any_of(cls.get_dependency_names(), available)
 
     def derive(self,
@@ -1345,16 +1344,15 @@ class APEngaged(MultistateDerivedParameterNode):
                ap3=M('AP (3) Engaged')):
 
         if ap3:
-            self.array = np.ma.sum(np.ma.hstack(ap1.array.raw, 
-                                                ap2.array.raw, 
-                                                ap3.array.raw),
-                                   axis=0)
+            params = [ap for ap in (ap1, ap2, ap3) if ap]
+            self.array = np.ma.sum(
+                np.ma.hstack(*[ap.array.raw for ap in params]), axis=0)
             self.offset = offset_select('mean', [ap1, ap2, ap3])
         elif ap2:
             # Only got a duplex autopilot.
-            self.array = np.ma.sum(np.ma.hstack(ap1.array.raw,
-                                                ap2.array.raw),
-                                   axis=0)
+            params = [ap for ap in (ap1, ap2) if ap]
+            self.array = np.ma.sum(
+                np.ma.hstack(*[ap.array.raw for ap in params]), axis=0)
             self.offset = offset_select('mean', [ap1, ap2])
         else:
             # Probably got a multi-channel autopilot but only one (presumed AP1) is instrumented.
