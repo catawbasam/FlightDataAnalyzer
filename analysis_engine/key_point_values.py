@@ -4924,7 +4924,7 @@ class HeadingDeviationFromRunwayAtTOGADuringTakeoff(KeyPointValueNode):
     "Excursions - Take off (Lateral). TOGA pressed before a/c aligned."
     '''
 
-    name = 'Heading Deviation From From Runway At TOGA During Takeoff'
+    name = 'Heading Deviation From Runway At TOGA During Takeoff'
 
     def derive(self,
                head=P('Heading True Continuous'),
