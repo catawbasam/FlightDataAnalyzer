@@ -2729,8 +2729,10 @@ class RunwayHeading(KeyPointValueNode):
             for app in apps:
                 if not app.runway:
                     continue
-                # Q: Is stop the right index to use?
-                self.create_kpv(app.slice.stop, runway_heading(app.runway))
+                # Q: Is the midpoint of the slice a sensible index?
+                index = (app.slice.start + 
+                         ((app.slice.stop - app.slice.start) / 2))
+                self.create_kpv(index, runway_heading(app.runway))
 
 
 class RunwayOverrunWithoutSlowingDuration(KeyPointValueNode):

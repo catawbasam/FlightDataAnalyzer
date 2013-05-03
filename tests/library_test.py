@@ -57,8 +57,10 @@ class TestAirTrack(unittest.TestCase):
         self.assertEqual(lon, None)
     
     def test_air_track_masked_end(self):
-        spd = np.ma.load(open('/home/glen/air_track_spd.npy'))
-        hdg = np.ma.load(open('/home/glen/air_track_hdg.npy'))
+        spd = np.ma.load(open(os.path.join(test_data_path, 
+                                           'air_track_spd.npy')))
+        hdg = np.ma.load(open(os.path.join(test_data_path, 
+                                           'air_track_hdg.npy')))
         lat, lon = air_track(25.751953125, -80.332374, 9.052734375, -79.453464,
                              spd, hdg, 1.0)
         self.assertEqual(lat[0], 25.751953125)
