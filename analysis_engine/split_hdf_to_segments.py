@@ -491,7 +491,7 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
     :type hdf_path: string
     :param aircraft_info: Information which identify the aircraft, specfically with the keys 'Tail Number', 'MSN'...
     :type aircraft_info: Dict
-    :param fallback_dt: Used to replace elements of datetimes which are not available in the hdf file (e.g. YEAR not being recorded)
+    :param fallback_dt: A datetime which is as close to the end of the data file as possible. Used to replace elements of datetimes which are not available in the hdf file (e.g. YEAR not being recorded)
     :type fallback_dt: datetime
     :param draw: Whether to use matplotlib to plot the flight
     :type draw: Boolean
@@ -519,9 +519,15 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
             logger.info("No PRE_FILE_ANALYSIS actions to perform")
         
         segment_tuples = split_segments(hdf)
-    
+        # fallback_dt is relative to the end of the data; remove the data
+        # duration to make it relative to the start of the data
+        fallback_dt -= timedelta(seconds=hdf.duration)
+        logger.info("Reduced fallback_dt by %ddays %dhr %dmin to %s",
+            secs//86400, secs%86400//3600, secs%86400%3600//60, fallback_dt)
+        
     # process each segment (into a new file) having closed original hdf_path
     segments = []
+    previous_stop_dt = None
     for part, segment_tuple in enumerate(segment_tuples, start=1):
         segment_type, segment_slice = segment_tuple
         # write segment to new split file (.001)
