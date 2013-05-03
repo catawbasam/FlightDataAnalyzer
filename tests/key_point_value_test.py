@@ -139,6 +139,7 @@ from analysis_engine.key_point_values import (
     EngGasTempDuringEngStartMax,
     EngGasTempDuringEngStartForXSecMax,
     EngGasTempDuringFlightMin,
+    EngN1AtTOGADuringTakeoff,
     EngN1DuringTaxiMax,
     EngN1DuringApproachMax,
     EngN1DuringTakeoff5MinRatingMax,
@@ -3108,6 +3109,25 @@ class TestEngN1Below60PercentAfterTouchdownDuration(unittest.TestCase):
         # Eng (2) should not be in the results as it did not have an Eng Stop KTI
         ##self.assertTrue('Eng (2)' in max_dur[1].name)
         self.assertEqual(len(max_dur), 1)
+
+
+class TestEngN1AtTOGADuringTakeoff(unittest.TestCase):
+
+    def test_can_operate(self):
+        opts = EngN1AtTOGADuringTakeoff.get_operational_combinations()
+        self.assertEqual([('Eng (*) N1 Min', 'Takeoff And Go Around', 'Takeoff')], opts)
+
+    def test_derive_eng_n1_cooldown(self):
+        eng_n1_min = P(array=np.ma.arange(10, 20))
+        toga = M(array=np.ma.zeros(10), values_mapping={0: '-', 1:'TOGA'})
+        toga.array[3] = 1
+        toff = buildsection('Takeoff', 2,6)
+        n1_toga = EngN1AtTOGADuringTakeoff()
+        n1_toga.derive(eng_n1=eng_n1_min,
+                      toga=toga,
+                      takeoff=toff)
+        self.assertEqual(n1_toga[0].value, 12.5)
+        self.assertEqual(n1_toga[0].index, 2.5)
 
 
 ##############################################################################
