@@ -1343,23 +1343,19 @@ class APEngaged(MultistateDerivedParameterNode):
                ap2=M('AP (2) Engaged'),
                ap3=M('AP (3) Engaged')):
 
-        if ap3:
-            params = [ap for ap in (ap1, ap2, ap3) if ap]
-            self.array = np.ma.sum(
-                np.ma.hstack(*[ap.array.raw for ap in params]), axis=0)
-            self.offset = offset_select('mean', [ap1, ap2, ap3])
-        elif ap2:
-            # Only got a duplex autopilot.
-            params = [ap for ap in (ap1, ap2) if ap]
-            self.array = np.ma.sum(
-                np.ma.hstack(*[ap.array.raw for ap in params]), axis=0)
-            self.offset = offset_select('mean', [ap1, ap2])
-        else:
-            # Probably got a multi-channel autopilot but only one (presumed AP1) is instrumented.
-            self.array = ap1.array.raw
-            self.offset = ap1.offset
+        stack = vstack_params_where_state(
+                    (ap1, 'Engaged'),
+                    (ap2, 'Engaged'),
+                    (ap3, 'Engaged'),
+                )
+        array = np_ma_zeros_like(stack[0])
+        array = stack.sum(axis=0)
+        self.offset = offset_select('mean', [ap1, ap2, ap3])
 
-        self.frequency = ap1.frequency
+        # mask indexes with greater than 50% masked values
+        mask = np.ma.where(stack.mask.sum(axis=0).astype(float)/len(stack)*100 > 50, 1, 0)
+        self.array = array
+        self.array.mask = mask
 
 
 ##### FIXME: Implement this derived parameter.
