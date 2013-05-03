@@ -558,18 +558,19 @@ def main():
     print ''
     import argparse
     import pprint
+    import tempfile
     from flightdatautilities.filesystem_tools import copy_file
     logger = logging.getLogger()
-    logger.setLevel(logging.WARN)    
+    logger.setLevel(logging.INFO)    
     
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')
     parser.add_argument('-tail', dest='tail_number', type=str, default='G-FDSL',
                         help='Aircraft Tail Number for processing.')
-    args = parser.parse_args()
-
-    hdf_copy = copy_file(args.file, postfix='_split')
+    args = parser.parse_args()    
+    hdf_copy = copy_file(args.file, dest_dir=tempfile.gettempdir(), postfix='_split')
+    logger.info("Working on copy: %s", hdf_copy)
     segs = split_hdf_to_segments(hdf_copy,
                                  {'Tail Number': args.tail_number,},
                                  fallback_dt=datetime(2012,12,12,12,12,12),
