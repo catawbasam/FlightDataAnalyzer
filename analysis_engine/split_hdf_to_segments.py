@@ -519,11 +519,13 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
             logger.info("No PRE_FILE_ANALYSIS actions to perform")
         
         segment_tuples = split_segments(hdf)
-        # fallback_dt is relative to the end of the data; remove the data
-        # duration to make it relative to the start of the data
-        fallback_dt -= timedelta(seconds=hdf.duration)
-        logger.info("Reduced fallback_dt by %ddays %dhr %dmin to %s",
-            secs//86400, secs%86400//3600, secs%86400%3600//60, fallback_dt)
+        if fallback_dt:
+            # fallback_dt is relative to the end of the data; remove the data
+            # duration to make it relative to the start of the data
+            secs = seconds=hdf.duration
+            fallback_dt -= timedelta(seconds=secs)
+            logger.info("Reduced fallback_dt by %ddays %dhr %dmin to %s",
+               secs//86400, secs%86400//3600, secs%86400%3600//60, fallback_dt)
         
     # process each segment (into a new file) having closed original hdf_path
     segments = []
