@@ -536,7 +536,14 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
         write_segment(hdf_path, segment_slice, dest_path, supf_boundary=superframe_present)
         segment = append_segment_info(dest_path, segment_type, segment_slice,
                                       part, fallback_dt=fallback_dt)
+        
+        if previous_stop_dt and segment.start_dt < previous_stop_dt:
+            # In theory, this should not happen - but be warned of superframe padding?
+            logger.warning("Segment start_dt '%s' comes before the previous segment ended '%s'")
+        previous_stop_dt = segment.stop_dt
+        
         if fallback_dt:
+            # move the fallback_dt on to be relative to start of next segment
             fallback_dt += segment.stop_dt - segment.start_dt
         segments.append(segment)
         if draw:
