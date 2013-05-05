@@ -2844,6 +2844,25 @@ class HeadingDuringTakeoff(KeyPointValueNode):
                 value = np.ma.median(hdg.array[takeoff.slice])
                 self.create_kpv(index, value % 360.0)
 
+class HeadingTrueDuringTakeoff(KeyPointValueNode):
+    '''
+    We take the median true heading during the takeoff roll only as this avoids
+    problems when turning onto the runway or with drift just after liftoff.
+    The value is "assigned" to a time midway through the takeoff roll.
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               hdg_true=P('Heading True Continuous'),
+               takeoffs=S('Takeoff Roll')):
+
+        for takeoff in takeoffs:
+            if takeoff.slice.start and takeoff.slice.stop:
+                index = (takeoff.slice.start + takeoff.slice.stop) / 2.0
+                value = np.ma.median(hdg_true.array[takeoff.slice])
+                self.create_kpv(index, value % 360.0)
+
 
 class HeadingDuringLanding(KeyPointValueNode):
     '''
