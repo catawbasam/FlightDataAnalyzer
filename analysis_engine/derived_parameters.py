@@ -5775,3 +5775,44 @@ class MasterWarning(MultistateDerivedParameterNode):
         ).any(axis=0)
 
 
+# Temporary Vertical Speed Moving Average parameters.
+
+class VerticalSpeedMovingAverage5(DerivedParameterNode):
+    '''
+    Temporary parameter.
+    '''
+    
+    def derive(self, vspd=P('Vertical Speed')):
+        self.array = moving_average(repair_mask(vspd.array,
+                                                zero_if_masked=True), 5)
+
+
+class VerticalSpeedMovingAverage8(DerivedParameterNode):
+    '''
+    Temporary parameter.
+    '''
+    
+    def derive(self, vspd=P('Vertical Speed')):
+        self.array = moving_average(repair_mask(vspd.array,
+                                                zero_if_masked=True), 8)
+
+
+class VerticalSpeedMovingAverage10(DerivedParameterNode):
+    '''
+    Temporary parameter.
+    '''
+    
+    def derive(self, vspd=P('Vertical Speed')):
+        self.array = moving_average(repair_mask(vspd.array,
+                                                zero_if_masked=True), 10)
+
+
+class VerticalSpeedMovingAverage15(DerivedParameterNode):
+    '''
+    Temporary parameter.
+    '''
+    
+    def derive(self, vspd=P('Vertical Speed')):
+        self.array = moving_average(repair_mask(vspd.array,
+                                                zero_if_masked=True), 15)
+
