@@ -97,6 +97,8 @@ from analysis_engine.derived_parameters import (
     HeadingTrue,
     Headwind,
     ILSFrequency,
+    ILSGlideslope,
+    ILSLocalizer,
     #ILSLocalizerRange,
     LatitudePrepared,
     LatitudeSmoothed,
@@ -3328,6 +3330,15 @@ class TestHeadingTrueContinuous(unittest.TestCase):
 
 
 class TestILSGlideslope(unittest.TestCase):
+
+    def setUp(self):
+        self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(300, 0, -25))
+        self.apps = S(items=[Section('Approach And Landing', slice(1, 12), 1, 12)])
+        self.ian = P(name='IAN Glidepath', array=np.ma.array([3, 3, 2, 1, 0.5, 0.5, 0.5, 0, 0, 0, 0, 0], dtype=np.float,))
+        self.bad_ils = P(name='ILS (1) Glideslope', array=np.ma.array([7,] * 12, dtype=np.float,))
+        self.good_ils = P(name='ILS (1) Glideslope', array=np.ma.array([1,] * 12, dtype=np.float,))
+        self.ils_glideslope = ILSGlideslope()
+
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3336,8 +3347,47 @@ class TestILSGlideslope(unittest.TestCase):
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
+    def test_derive_ian_only(self):
+        self.ils_glideslope.derive(None,
+                                   None, None, None, None,
+                                   None, None, None, None,
+                                   self.ian,
+                                   self.apps,
+                                   self.height)
+        expected = [0, 3, 2, 1, 0.5, 0.5, 0.5, 0, 0, 0, 0, 0]
+        ma_test.assert_array_almost_equal(self.ils_glideslope.array, expected)
+
+    def test_derive_ian_bad_ils(self):
+        self.ils_glideslope.derive(self.bad_ils,
+                                   None, None, None, None,
+                                   None, None, None, None,
+                                   self.ian,
+                                   self.apps,
+                                   self.height)
+        expected = [7, 3, 2, 1, 0.5, 0.5, 0.5, 0, 0, 0, 0, 0]
+        ma_test.assert_array_almost_equal(self.ils_glideslope.array, expected)
+
+
+    def test_derive_ian_good_ils(self):
+        self.ils_glideslope.derive(self.good_ils,
+                                   None, None, None, None,
+                                   None, None, None,None,
+                                   self.ian,
+                                   self.apps,
+                                   self.height)
+        expected = [1,] * 12
+        ma_test.assert_array_almost_equal(self.ils_glideslope.array, expected)
 
 class TestILSLocalizer(unittest.TestCase):
+
+    def setUp(self):
+        self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(300, 0, -25))
+        self.apps = S(items=[Section('Approach And Landing', slice(1, 12), 1, 12)])
+        self.ian = P(name='IAN Final Approach Course', array=np.ma.array([3, 3, 2, 1, 0.5, 0.5, 0.5, 0, 0, 0, 0, 0], dtype=np.float,))
+        self.bad_ils = P(name='ILS (1) Localizer', array=np.ma.array([7,] * 12, dtype=np.float,))
+        self.good_ils = P(name='ILS (1) Localizer', array=np.ma.array([1,] * 12, dtype=np.float,))
+        self.ils_localizer = ILSLocalizer()
+
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3345,6 +3395,40 @@ class TestILSLocalizer(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+    def test_derive_ian_only(self):
+        self.ils_localizer.derive(None,
+                             None,
+                             None,
+                             None,
+                             self.ian,
+                             self.apps,
+                             self.height)
+        expected = [0, 3, 2, 1, 0.5, 0.5, 0.5, 0, 0, 0, 0, 0]
+        ma_test.assert_array_almost_equal(self.ils_localizer.array, expected)
+
+    def test_derive_ian_bad_ils(self):
+        self.ils_localizer.derive(self.bad_ils,
+                             None,
+                             None,
+                             None,
+                             self.ian,
+                             self.apps,
+                             self.height)
+        expected = [7, 3, 2, 1, 0.5, 0.5, 0.5, 0, 0, 0, 0, 0]
+        ma_test.assert_array_almost_equal(self.ils_localizer.array, expected)
+
+
+    def test_derive_ian_good_ils(self):
+        self.ils_localizer.derive(self.good_ils,
+                             None,
+                             None,
+                             None,
+                             self.ian,
+                             self.apps,
+                             self.height)
+        expected = [1,] * 12
+        ma_test.assert_array_almost_equal(self.ils_localizer.array, expected)
 
 
 class TestLatitudePrepared(unittest.TestCase):
