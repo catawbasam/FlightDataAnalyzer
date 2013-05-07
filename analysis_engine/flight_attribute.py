@@ -148,8 +148,10 @@ class FlightNumber(FlightAttributeNode):
 
         # TODO: Fill num.array masked values (as there is no np.ma.bincount) - perhaps with 0.0 and then remove all 0 values?
         # note reverse of value, index from max_value due to bincount usage.
-        value, count = max_value(np.bincount(num.array.astype(np.integer)))
-        if count > len(num.array) * 0.45:
+        compressed_array = num.array.compressed()
+        value, count = \
+            max_value(np.bincount(compressed_array.astype(np.integer)))
+        if count > len(compressed_array) * 0.45:
             # this value accounts for at least 45% of the values in the array
             self.set_flight_attr(str(int(value)))
         else:

@@ -280,28 +280,40 @@ class TestFlightNumber(unittest.TestCase):
         flight_number.derive(flight_number_param)
         flight_number.set_flight_attr.called = False
 
-    def test_derive_most_common_positive_float(self):
+    def test_derive_masked(self):
+        '''
+        
+        '''
         flight_number = FlightNumber()
-
-        neg_number_param = P(
+        number_param = P(
             'Flight Number',
-            array=np.ma.array([-1,2,-4,10]))
-        flight_number.derive(neg_number_param)
-        self.assertEqual(flight_number.value, None)
-
-        # TODO: Implement variance checks as below
-        ##high_variance_number_param = P(
-            ##'Flight Number',
-            ##array=np.ma.array([2,2,4,4,4,7,7,7,4,5,4,7,910]))
-        ##self.assertRaises(ValueError, flight_number.derive, high_variance_number_param)
-
-        flight_number_param= P(
-            'Flight Number',
-            array=np.ma.array([2,555.6,444,444,444,444,444,444,888,444,444,444,
-                               444,444,444,444,444,7777,9100]))
-        flight_number.set_flight_attr = Mock()
-        flight_number.derive(flight_number_param)
-        flight_number.set_flight_attr.assert_called_with('444')
+            array=np.ma.array([0, 0, 0, 0, 36, 36, 0, 0, 0, 0],
+                              mask=[True] * 4 + [False] * 2 + [True] * 4))
+        flight_number.derive(number_param)
+        self.assertEqual(flight_number.value, '36')
+    
+        def test_derive_most_common_positive_float(self):
+            flight_number = FlightNumber()
+    
+            neg_number_param = P(
+                'Flight Number',
+                array=np.ma.array([-1,2,-4,10]))
+            flight_number.derive(neg_number_param)
+            self.assertEqual(flight_number.value, None)
+    
+            # TODO: Implement variance checks as below
+            ##high_variance_number_param = P(
+                ##'Flight Number',
+                ##array=np.ma.array([2,2,4,4,4,7,7,7,4,5,4,7,910]))
+            ##self.assertRaises(ValueError, flight_number.derive, high_variance_number_param)
+    
+            flight_number_param= P(
+                'Flight Number',
+                array=np.ma.array([2,555.6,444,444,444,444,444,444,888,444,444,
+                                   444,444,444,444,444,444,7777,9100]))
+            flight_number.set_flight_attr = Mock()
+            flight_number.derive(flight_number_param)
+            flight_number.set_flight_attr.assert_called_with('444')
 
 
 class TestLandingAirport(unittest.TestCase, NodeTest):
