@@ -3723,7 +3723,7 @@ class TestThrustReversers(unittest.TestCase):
         self.eng_2_unlocked.array.mask = [ 0,  0,  0,  1,  0,  0,  0,  1,  1,  0]
         self.eng_2_deployed.array.mask = [ 0,  0,  0,  0,  0,  1,  0,  0,  1,  0]
 
-        result_array = [ 2,  2,  2,  2,  1,  2,  0,  0,  0,  0]
+        result_array = [ 2,  2,  2,  2,  1,  1,  0,  0,  0,  0]
         result_mask =  [ 0,  0,  0,  0,  0,  1,  0,  0,  1,  0]
 
         self.thrust_reversers.get_derived([self.eng_1_deployed,
@@ -3757,6 +3757,35 @@ class TestThrustReversers(unittest.TestCase):
                                 self.eng_2_unlocked] + [None] * 17)
         np.testing.assert_equal(self.thrust_reversers.array.data, result)
 
+    def test_derive_unlock_at_edges(self):
+        '''
+        test for aircraft which only record Thrust Reverser Unlocked during
+        transition, not whilst deployed
+        '''
+        result =               [ 0, 1, 1, 1, 2, 2, 1, 1, 0, 0]
+
+        eng_1_unlocked_array = [ 0, 1, 1, 0, 0, 0, 1, 1, 0, 0]
+        eng_1_deployed_array = [ 0, 0, 0, 1, 1, 1, 0, 0, 0, 0]
+        eng_2_unlocked_array = [ 0, 0, 1, 1, 0, 0, 1, 1, 0, 0]
+        eng_2_deployed_array = [ 0, 0, 0, 0, 1, 1, 0, 0, 0, 0]
+
+        eng_1_unlocked = M(name='Eng (1) Thrust Reverser Unlocked', array=np.ma.array(eng_1_unlocked_array), values_mapping={1:'Unlocked'})
+        eng_1_deployed = M(name='Eng (1) Thrust Reverser Deployed', array=np.ma.array(eng_1_deployed_array), values_mapping={1:'Deployed'})
+        eng_2_unlocked = M(name='Eng (2) Thrust Reverser Unlocked', array=np.ma.array(eng_2_unlocked_array), values_mapping={1:'Unlocked'})
+        eng_2_deployed = M(name='Eng (2) Thrust Reverser Deployed', array=np.ma.array(eng_2_deployed_array), values_mapping={1:'Deployed'})
+
+        self.thrust_reversers.get_derived([eng_1_deployed,
+                                None,
+                                None,
+                                eng_1_unlocked,
+                                None,
+                                None,
+                                None,
+                                eng_2_deployed,
+                                None,
+                                None,
+                                eng_2_unlocked] + [None] * 17)
+        np.testing.assert_equal(self.thrust_reversers.array.data, result)
 
 class TestTurbulence(unittest.TestCase):
     @unittest.skip('Test Not Implemented')

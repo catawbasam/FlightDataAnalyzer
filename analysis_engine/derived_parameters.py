@@ -4536,24 +4536,41 @@ class ThrustReversers(MultistateDerivedParameterNode):
             e4_ulk_rgt=M('Eng (4) Thrust Reverser (R) Unlocked'),
             e4_tst_all=M('Eng (4) Thrust Reverser In Transit'),):
 
-        stack = vstack_params_where_state(
-            (e1_dep_all, 'Deployed'), (e1_ulk_all, 'Unlocked'),
-            (e1_dep_lft, 'Deployed'), (e1_ulk_lft, 'Unlocked'),
-            (e1_dep_rgt, 'Deployed'), (e1_ulk_rgt, 'Unlocked'),
-            (e2_dep_all, 'Deployed'), (e2_ulk_all, 'Unlocked'),
-            (e2_dep_lft, 'Deployed'), (e2_ulk_lft, 'Unlocked'),
-            (e2_dep_rgt, 'Deployed'), (e2_ulk_rgt, 'Unlocked'),
-            (e3_dep_all, 'Deployed'), (e3_ulk_all, 'Unlocked'),
-            (e3_dep_lft, 'Deployed'), (e3_ulk_lft, 'Unlocked'),
-            (e3_dep_rgt, 'Deployed'), (e3_ulk_rgt, 'Unlocked'),
-            (e4_dep_all, 'Deployed'), (e4_ulk_all, 'Unlocked'),
-            (e4_dep_lft, 'Deployed'), (e4_ulk_lft, 'Unlocked'),
-            (e4_dep_rgt, 'Deployed'), (e4_ulk_rgt, 'Unlocked'),
+        deployed_stack = vstack_params_where_state(
+            (e1_dep_all, 'Deployed'),
+            (e1_dep_lft, 'Deployed'),
+            (e1_dep_rgt, 'Deployed'),
+            (e2_dep_all, 'Deployed'),
+            (e2_dep_lft, 'Deployed'),
+            (e2_dep_rgt, 'Deployed'),
+            (e3_dep_all, 'Deployed'),
+            (e3_dep_lft, 'Deployed'),
+            (e3_dep_rgt, 'Deployed'),
+            (e4_dep_all, 'Deployed'),
+            (e4_dep_lft, 'Deployed'),
+            (e4_dep_rgt, 'Deployed'),
         )
 
-        array = np_ma_zeros_like(stack[0])
-        array = np.ma.where(stack.any(axis=0), 1, array)
-        array = np.ma.where(stack.all(axis=0), 2, array)
+        unlocked_stack = vstack_params_where_state(
+            (e1_ulk_all, 'Unlocked'),
+            (e1_ulk_lft, 'Unlocked'),
+            (e1_ulk_rgt, 'Unlocked'),
+            (e2_ulk_all, 'Unlocked'),
+            (e2_ulk_lft, 'Unlocked'),
+            (e2_ulk_rgt, 'Unlocked'),
+            (e3_ulk_all, 'Unlocked'),
+            (e3_ulk_lft, 'Unlocked'),
+            (e3_ulk_rgt, 'Unlocked'),
+            (e4_ulk_all, 'Unlocked'),
+            (e4_ulk_lft, 'Unlocked'),
+            (e4_ulk_rgt, 'Unlocked'),
+        )
+
+
+        array = np_ma_zeros_like(deployed_stack[0])
+        array = np.ma.where(unlocked_stack.any(axis=0), 1, array)
+        array = np.ma.where(deployed_stack.any(axis=0), 1, array)
+        array = np.ma.where(deployed_stack.all(axis=0), 2, array)
         # update with any transit params
         if any((e1_tst_all, e2_tst_all, e3_tst_all, e4_tst_all)):
             transit_stack = vstack_params_where_state(
@@ -4561,9 +4578,12 @@ class ThrustReversers(MultistateDerivedParameterNode):
                 (e3_tst_all, 'In Transit'), (e4_tst_all, 'In Transit'),
             )
             array = np.ma.where(transit_stack.any(axis=0), 1, array)
+            mask_stack = np.ma.concatenate([deployed_stack, unlocked_stack, transit_stack], axis=0)
+        else:
+            mask_stack = np.ma.concatenate([deployed_stack, unlocked_stack], axis=0)
 
         # mask indexes with greater than 50% masked values
-        mask = np.ma.where(stack.mask.sum(axis=0).astype(float)/len(stack)*100 > 50, 1, 0)
+        mask = np.ma.where(mask_stack.mask.sum(axis=0).astype(float)/len(mask_stack)*100 > 50, 1, 0)
         self.array = array
         self.array.mask = mask
 
