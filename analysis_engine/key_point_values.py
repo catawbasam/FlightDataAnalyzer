@@ -4386,6 +4386,24 @@ class EngN1Below60PercentAfterTouchdownDuration(KeyPointValueNode):
                 self.create_kpv(last_eng_stop_idx, 0.0, number=eng_num)
 
 
+class EngN1AtTOGADuringTakeoff(KeyPointValueNode):
+    '''
+
+    '''
+
+    name = 'Eng N1 At TOGA During Takeoff'
+
+    def derive(self,
+               eng_n1=P('Eng (*) N1 Min'),
+               toga=M('Takeoff And Go Around'),
+               takeoff=S('Takeoff')):
+
+        indexes = find_edges_on_state_change('TOGA', toga.array, change='entering', phase=takeoff)
+        for index in indexes:
+            value = value_at_index(eng_n1.array, index)
+            self.create_kpv(index, value)
+
+
 ##############################################################################
 # Engine N2
 
@@ -4924,7 +4942,7 @@ class HeadingDeviationFromRunwayAtTOGADuringTakeoff(KeyPointValueNode):
     "Excursions - Take off (Lateral). TOGA pressed before a/c aligned."
     '''
 
-    name = 'Heading Deviation From From Runway At TOGA During Takeoff'
+    name = 'Heading Deviation From Runway At TOGA During Takeoff'
 
     def derive(self,
                head=P('Heading True Continuous'),
