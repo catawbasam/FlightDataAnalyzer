@@ -67,7 +67,7 @@ class TestAirTrack(unittest.TestCase):
         self.assertEqual(lon[0], -80.332374000000002)
         self.assertEqual(lat[5000], 17.175493224321155)
         self.assertEqual(lon[5000], -79.51891417137719)
-        self.assertEqual(lat[-1], 9.0492517693791772)
+        self.assertAlmostEqual(lat[-1], 9.0492517693791772)
         self.assertEqual(lon[-1], -79.530753090869467)
 
 
@@ -647,6 +647,70 @@ class TestAlign(unittest.TestCase):
              21.9052734375, 21.8896484375, 21.875, 21.875, 21.875, 21.875,
              21.875, 21.875, 21.875])
 
+    def test_align_5hz(self):
+        master = P('master', array=[1,2,3], frequency=1.0, offset=0.0)
+        slave = P('slave', np.ma.arange(15), frequency=5.0, offset=0.0)
+        result = align(slave, master)
+        ma_test.assert_array_equal(result, [0, 5, 10])
+        
+    def test_align_5hz_reverse(self):
+        master = P('master', np.ma.arange(15.0), frequency=5.0, offset=0.0)
+        slave = P('slave', array=[1,2,3], frequency=1.0, offset=0.0)
+        result = align(slave, master)
+        expected = (master.array/5.0)+1.0
+        expected[11:]=np.ma.masked
+        ma_test.assert_array_equal(result, expected)
+        
+    def test_align_10hz(self):
+        master = P('master', array=[1,2], frequency=1.0, offset=0.0)
+        slave = P('slave', np.ma.arange(20), frequency=10.0, offset=0.0)
+        result = align(slave, master)
+        ma_test.assert_array_equal(result, [0, 10])
+
+    def test_align_10hz_reverse(self):
+        master = P('master', np.ma.arange(20.0), frequency=10.0, offset=0.0)
+        slave = P('slave', array=[2,3], frequency=1.0, offset=0.0)
+        result = align(slave, master)
+        expected = (master.array/10.0)+2.0
+        expected[21:]=np.ma.masked
+        ma_test.assert_array_equal(result, expected)
+        
+    def test_align_20hz(self):
+        master = P('master', array=[1,2], frequency=1.0, offset=0.0)
+        slave = P('slave', np.ma.arange(40), frequency=20.0, offset=0.0)
+        result = align(slave, master)
+        ma_test.assert_array_equal(result, [0, 20])
+
+    def test_align_20hz_reverse(self):
+        master = P('master', np.ma.arange(100.0), frequency=20.0, offset=0.0)
+        slave = P('slave', array=[6,5,4,3,2], frequency=1.0, offset=0.0)
+        result = align(slave, master)
+        expected = 6.0-(master.array/20.0)
+        expected[81:]=np.ma.masked
+        ma_test.assert_array_equal(result, expected)
+        
+    def test_align_5_10_20_offset_master(self):
+        master = P('master', np.ma.arange(100.0), frequency=20.0, offset=0.1)
+        slave = P('slave', array=[6,5,4,3,2], frequency=1.0, offset=0.0)
+        self.assertRaises(ValueError, align, slave, master)
+        
+    def test_align_5_10_20_offset_slave(self):
+        master = P('master', np.ma.arange(10.0), frequency=2.0, offset=0.0)
+        slave = P('slave', array=[6,5,4,3,2], frequency=5.0, offset=0.3)
+        self.assertRaises(ValueError, align, slave, master)
+
+    def test_align_multi_state_5_10(self):
+        first = P(frequency=10, offset=0.0,
+                  array=np.ma.array([11,12,13,14,15,16,17,18,19,20], dtype=float))
+        second = M(frequency=5, offset=0.0,
+                   array=np.ma.array([1,3,4,5,6], dtype=float))
+
+        result = align(second, first)
+        # check dtype is int
+        self.assertEqual(result.dtype, int)
+        np.testing.assert_array_equal(result.data, [1,3,3,4,4,5,5,6,0,0])
+        np.testing.assert_array_equal(result.mask, [0,0,0,0,0,0,0,0,1,1])
+
 
 class TestCasAlt2Mach(unittest.TestCase):
     @unittest.skip('Not Implemented')
@@ -1089,7 +1153,7 @@ class TestClip(unittest.TestCase):
                     -0.4537, -0.23108, 0.30723, 0.30723, 0.30723, 0.30723, 
                     0.30723, 0.23151, 0.23151, 0.23151, 0.23151, -0.19085, 
                     -0.47242, -0.47242, -0.30089, -0.09505, 0.38524]
-        result = clip(self.squeeze_array, 2.0, hz=0.5)
+        result = clip(self.squeeze_array, 2.0, hz=2.0)
         np.testing.assert_array_almost_equal(result[3:-3], expected, decimal=3)
         
 
@@ -2994,6 +3058,21 @@ class TestPeakCurvature(unittest.TestCase):
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
 
+    def test_peak_curvature_convex_big_concave(self):
+        # Tests for identification of the convex section with a larger concave angle in the same data segment.
+        array = np.ma.array([0]*40+range(40)+range(40,-60,-10))*(-1.0)
+        pc = peak_curvature(array, curve_sense='Convex')
+        self.assertGreaterEqual(pc,35)
+        self.assertLessEqual(pc,45)
+
+    def test_peak_curvature_concave_big_convex(self):
+        # See above !
+        array = np.ma.array([0]*40+range(40)+range(40,-60,-10))
+        pc = peak_curvature(array, curve_sense='Concave')
+        self.assertGreaterEqual(pc,35)
+        self.assertLessEqual(pc,45)
+
+
     def test_peak_curvature_flat_data(self):
         array = np.ma.array([34]*40)
         pc = peak_curvature(array)
@@ -3993,8 +4072,36 @@ class TestSlicesOr(unittest.TestCase):
     def test_slices_or_raises_with_none(self):
         self.assertRaises(slices_or([None]))
         
+class TestStepLocalCusp(unittest.TestCase):
+    def test_step_cusp_basic(self):
+        array = np.ma.array([3,7,9,9])
+        cusp = step_local_cusp(array)
+        self.assertEqual(cusp, 2)
               
+    def test_step_cusp_negative(self):
+        array = np.ma.array([9,8,9,9,8,5,1,1,1,1])
+        cusp = step_local_cusp(array)
+        self.assertEqual(cusp, 6)
+    
+    def test_step_cusp_static(self):
+        array = np.ma.array([33]*8)
+        cusp = step_local_cusp(array)
+        self.assertEqual(cusp, 0)
+        
+    def test_step_cusp_short(self):
+        array = np.ma.array([33])
+        cusp = step_local_cusp(array)
+        self.assertEqual(cusp, 0)
+        
+        
 class TestStepValues(unittest.TestCase):
+    '''
+    Step values is used to reduce continuously variable arrays to defined
+    settings, e.g. flap settings. As the nature of the data is irregular,
+    specimen data has been used as the primary source, and manually checked
+    graph outputs were used to derive the test result arrays.
+    '''
+    
     def test_step_values(self):
         # borrowed from TestSlat
         array = np.ma.array(range(25) + range(-5,0))
@@ -4011,11 +4118,62 @@ class TestStepValues(unittest.TestCase):
 
     def test_step_inital_level(self):
         array = np.ma.arange(9,14,0.6)
-        stepped = step_values(array, ( 10, 11, 15))
+        stepped = step_values(array, (10, 11, 15))
         self.assertEqual(list(stepped),
                          [10, 10, 10, 11, 11, 11, 11, 15, 15])
 
+    def test_step_leading_edge(self):
+        array = np.ma.array([0,0.1,0.0,0.8,1.6,3,6,6,6,6,8,13,18,18,9,9,9,6,3,2,
+                             2,2,2,0,0,0])
+        stepped = step_values(array, (0, 1, 5, 10, 15), step_at='move_start')
+        self.assertEqual(list(stepped),
+                         [0,0,0,1,1,1,5,5,5,5,10,15,15,15,10,10,10,5,1,1,1,1,1,
+                          0,0,0])
         
+    def test_step_leading_edge_real_data(self):
+        array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
+                             0.67, 0.98, 1.15, 1.28, 1.5, 1.71, 1.92, 2.12, 
+                             2.32, 2.53, 2.75, 2.96, 3.18, 3.39, 3.6, 3.83, 
+                             4.06, 4.3, 4.57, 4.82, 5.1, 5.41, 5.85, 7.12, 
+                             9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
+                             15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
+        array = np.ma.concatenate((array,array[::-1]))
+        stepped = step_values(array, (0, 1, 5, 15), step_at='move_start')
+        self.assertEqual(list(stepped),
+                         [0]*11+[1]*12+[5]*13+[15]*24+[5]*13+[1]*12+[0]*11)
+        
+    def test_step_midpoint_real_data(self):
+        array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
+                             0.67, 0.98, 1.15, 1.28, 1.5, 1.71, 1.92, 2.12, 
+                             2.32, 2.53, 2.75, 2.96, 3.18, 3.39, 3.6, 3.83, 
+                             4.06, 4.3, 4.57, 4.82, 5.1, 5.41, 5.85, 7.12, 
+                             9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
+                             15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
+        array = np.ma.concatenate((array,array[::-1]))
+        stepped = step_values(array, (0, 1, 5, 15), step_at='midpoint')
+        self.assertEqual(list(stepped),
+                         [0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,5,5,5,5,
+                          5,5,5,5,5,5,5,5,5,15,15,15,15,15,15,15,15,15,15,15,15,
+                          15,15,15,15,15,15,15,15,15,15,15,15,5,5,5,5,5,5,5,5,5,
+                          5,5,5,5,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
+    
+    def test_step_trailing_edge_real_data(self):
+        array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
+                             0.67, 0.98, 1.15, 1.28, 1.5, 1.71, 1.92, 2.12, 
+                             2.32, 2.53, 2.75, 2.96, 3.18, 3.39, 3.6, 3.83, 
+                             4.06, 4.3, 4.57, 4.82, 5.1, 5.41, 5.85, 7.12, 
+                             9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
+                             15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
+        array = np.ma.concatenate((array,array[::-1]))
+        stepped = step_values(array, (0, 1, 5, 15), step_at='move_end')
+        self.assertEqual(list(stepped),
+                         [0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+                          1,1,1,5,5,5,5,5,5,5,15,15,15,15,15,15,15,15,15,15,15,
+                          15,15,15,15,15,15,15,15,15,15,15,15,15,15,5,5,5,5,5,5,
+                          5,5,5,5,5,5,5,5,5,5,5,5,5,5,1,1,1,0,0,0,0,0,0,0,0,0,0,
+                          0])
+
+
 class TestStraightenAltitudes(unittest.TestCase):
     def test_alt_basic(self):
         data=np.ma.array([5.0,100.0,300.0,450.0,46.0,380.0,230.0,110.0,0.0])

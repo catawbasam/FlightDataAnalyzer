@@ -217,7 +217,8 @@ class ApproachInformation(ApproachNode):
             lowest_lat = lowest_lat_kpv.value if lowest_lat_kpv else None
             lowest_lon_kpv = lon.get_first(within_slice=_slice) if lon else None
             lowest_lon = lowest_lon_kpv.value if lowest_lon_kpv else None
-            lowest_hdg_kpv = hdg.get_first(within_slice=_slice) if hdg else None
+            #lowest_hdg_kpv = hdg.get_first(within_slice=_slice) if hdg else None
+            lowest_hdg_kpv = hdg.get_first() if hdg else None # Because the heading on landing happens after the approach phase.
             lowest_hdg = lowest_hdg_kpv.value if lowest_hdg_kpv else None
 
             kwargs.update(
