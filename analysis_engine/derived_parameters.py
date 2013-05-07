@@ -1343,31 +1343,33 @@ class APEngaged(MultistateDerivedParameterNode):
                ap2=M('AP (2) Engaged'),
                ap3=M('AP (3) Engaged')):
 
-        stack = vstack_params_where_state(
-                    (ap1, 'Engaged'),
-                    (ap2, 'Engaged'),
-                    (ap3, 'Engaged'),
-                )
-        array = np_ma_zeros_like(stack[0])
-        array = stack.sum(axis=0)
-        self.offset = offset_select('mean', [ap1, ap2, ap3])
+        if ap3:
+            if ap1 and ap2:
+                # Normal three axis operation, perhaps with autoland.
+                self.array = np.ma.sum(np.ma.hstack(ap1.array.raw, 
+                                                    ap2.array.raw, 
+                                                    ap3.array.raw),
+                                       axis=0)
+                self.offset = offset_select('mean', [ap1, ap2, ap3])
+            else:
+                # Three channel system working with only one channel in action.
+                self.array = ap3.array.raw
+                self.offset = ap3.offset
+            self.frequency = ap3.frequency
+        
+        elif ap2:
+            # Only got a duplex autopilot.
+            self.array = np.ma.sum(np.ma.hstack(ap1.array.raw,
+                                                ap2.array.raw),
+                                   axis=0)
+            self.offset = offset_select('mean', [ap1, ap2])
+            self.frequency = ap2.frequency
 
-        # mask indexes with greater than 50% masked values
-        mask = np.ma.where(stack.mask.sum(axis=0).astype(float)/len(stack)*100 > 50, 1, 0)
-        self.array = array
-        self.array.mask = mask
-
-
-##### FIXME: Implement this derived parameter.
-####class ATEngaged(MultistateDerivedParameterNode):
-####    '''
-####    Placeholder for combining multi-channel AP modes into a single
-####    consistent status.
-####
-####    Not required for 737-5 frame as AT Engaged is recorded directly.
-####    '''
-####
-####    name = 'AT Engaged'
+        else:
+            # Probably got a multi-channel autopilot but only one (presumed AP1) is instrumented.
+            self.array = ap1.array.raw
+            self.offset = ap1.offset
+            self.frequency = ap1.frequency
 
 
 class ClimbForFlightPhases(DerivedParameterNode):
@@ -2807,6 +2809,7 @@ class FuelQty_Low(MultistateDerivedParameterNode):
         )
         self.array = warning.any(axis=0)
 
+
 ###############################################################################
 # Landing Gear
 
@@ -3096,8 +3099,22 @@ class FlapLeverDetent(DerivedParameterNode):
     Steps raw Flap angle from lever into detents.
     """
     units = 'deg'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('Flap Surface' in available or 'Flap Lever' in available) and \
+               all_of(('Series', 'Family'), available)
+    
 
-    def derive(self, flap=P('Flap Lever'), series=A('Series'), family=A('Family')):
+    def derive(self, flap_lvr=P('Flap Lever'), flap_surf=P('Flap Surface'), 
+               series=A('Series'), family=A('Family')):
+        
+        # Use flap lever position where recorded, otherwise revert to flap surface.
+        if flap_lvr:
+            flap=flap_lvr
+        else:
+            flap=flap_surf
+            
         try:
             flap_steps = get_flap_map(series.value, family.value)
         except KeyError:
@@ -3106,7 +3123,7 @@ class FlapLeverDetent(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap_steps)
+            self.array = step_values(flap.array, flap_steps, step_at='move_start')
 
 
 class FlapSurface(DerivedParameterNode):
@@ -3180,7 +3197,7 @@ class Flap(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap_steps)
+            self.array = step_values(flap.array, flap_steps, step_at='move_end')
 
 
 '''

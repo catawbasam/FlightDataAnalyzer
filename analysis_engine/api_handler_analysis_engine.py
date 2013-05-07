@@ -389,9 +389,12 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
         runways = []
         for runway in self.runways:
             runway = copy(runway)
+            runway_coords = runway.get('start', runway.get('end'))
+            if not runway_coords:
+                continue
             runway['distance'] = bearing_and_distance(
-                latitude, longitude, runway['start']['latitude'],
-                runway['start']['longitude'])[1]
+                latitude, longitude, runway_coords['latitude'],
+                runway_coords['longitude'])[1]
             runways.append(runway)
         return min(runways, key=itemgetter('distance'))
 
