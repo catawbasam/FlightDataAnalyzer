@@ -3297,7 +3297,7 @@ class Configuration(DerivedParameterNode):
         self.array = np.ma.empty_like(flap.array)
         self.array.mask=True
         for state, values in mapping.iteritems():
-            s = sum(values[:qty_param])
+            s = np.ma.sum(values[:qty_param])
             # unmask bits we know about
             self.array[summed == s] = state
 

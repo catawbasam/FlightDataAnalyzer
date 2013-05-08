@@ -1683,7 +1683,7 @@ class ThrustReversersDeployedDuration(KeyPointValueNode):
 
         for landing in landings:
             tr_in_ldg = tr.array[landing.slice]
-            dur_deployed = sum(tr_in_ldg == 'Deployed') / tr.frequency
+            dur_deployed = np.ma.sum(tr_in_ldg == 'Deployed') / tr.frequency
             if dur_deployed:
                 dep_start = find_edges_on_state_change('Deployed', tr_in_ldg)[0]
                 index = dep_start + landing.slice.start

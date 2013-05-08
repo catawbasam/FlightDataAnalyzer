@@ -137,7 +137,7 @@ def assert_array_within_tolerance(actual, desired, tolerance=1, similarity=100):
     :param similarity: percentage that must pass the tolerance test
     '''
     within_tolerance = abs(actual -  desired) <= tolerance
-    percent_similar = sum(within_tolerance) / float(len(within_tolerance)) * 100
+    percent_similar = np.ma.sum(within_tolerance) / float(len(within_tolerance)) * 100
     if percent_similar <= similarity:
         raise AssertionError(
             'actual array tolerance only is %.2f%% similar to desired array.'
