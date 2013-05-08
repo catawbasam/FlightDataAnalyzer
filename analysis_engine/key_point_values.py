@@ -2330,95 +2330,190 @@ class AltitudeAtATDisengagedSelection(KeyPointValueNode):
 class AltitudeAtMachMax(KeyPointValueNode):
     '''
     '''
-
     units = 'ft'
 
     def derive(self,
                alt_std=P('Altitude STD Smoothed'),
                max_mach=KPV('Mach Max')):
-
         # Aligns altitude to mach to ensure we have the most accurate altitude
         # reading at the point of maximum mach:
         self.create_kpvs_at_kpvs(alt_std.array, max_mach)
 
 
 ########################################
+# Stable Approach analysis
 
-
-class AltitudeFirstStableDuringApproach(KeyPointValueNode):
+class AltitudeFirstStableDuringLastApproach(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
 
-    Establish first point stable during approach.
+    Establish first point stable during the last approach i.e. a full stop
+    landing
+    
+    Should the approach have not become stable, the altitude will read 0 ft,
+    indicating that it was unstable all the way to touchdown.
     '''
     def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
         # no need for approaches as we can assume each approach has no masked
         # values and inbetween there will be some
         apps = np.ma.clump_unmasked(stable.array)
-        for app in apps:
+        if apps:
+            # we're only interested in the last approach - we assume that
+            # this was the one which came to a full stop
+            app = apps[-1]
+            index = index_of_first_start(stable.array == 'Stable', app, min_dur=2)
+            if index:
+                self.create_kpv(index, value_at_index(alt.array, index))
+            else:
+                # force an altitude of 0 feet at the end of the approach
+                self.create_kpv(app.stop-0.5, 0)
+
+
+class AltitudeFirstStableDuringApproachBeforeGoAround(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+
+    Establish first point stable during all but the last approach. Here we
+    assume that these approaches were followed by a Go Around (or possible a
+    Touch and Go).
+    
+    Should the approach have not become stable, the altitude will read 0 ft,
+    indicating that it was constantly unstable.
+    '''
+    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
+        # no need for approaches as we can assume each approach has no masked
+        # values and inbetween there will be some
+        apps = np.ma.clump_unmasked(stable.array)
+        for app in apps[:-1]:
             # iterate through approaches as only one KPV is to be created per
             # approach
             index = index_of_first_start(stable.array == 'Stable', app, min_dur=2)
             if index:
                 self.create_kpv(index, value_at_index(alt.array, index))
             else:
-                continue
+                self.create_kpv(app.stop-0.5, 0)
+                
 
-
-class AltitudeLastUnstableDuringApproach(KeyPointValueNode):
+class AltitudeLastUnstableDuringLastApproach(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
 
-    Establish last Unstable position during approach.
+    Establish last Unstable altitude during the last approach i.e. a full stop
+    landing.
+    
+    Should the approach have not become stable, the altitude will read 0 ft,
+    indicating that it was unstable all the way to touchdown.
     '''
     def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
         apps = np.ma.clump_unmasked(stable.array)
-        for app in apps:
-            # iterate through approaches as only one KPV is to be created per
-            # approach
+        if apps:
+            # we're only interested in the last approach - we assume that
+            # this was the one which came to a full stop
+            app = apps[-1]
             index = index_of_last_stop(stable.array != 'Stable', app, min_dur=2)
-            if index:
-                self.create_kpv(index, value_at_index(alt.array, index))
+            # Note: Assumed will never have an approach which is 100% Stable
+            self.create_kpv(index, value_at_index(alt.array, index))
+
+
+class AltitudeLastUnstableDuringApproachBeforeGoAround(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+
+    Establish last Unstable altitude during all but the last approach. Here we
+    assume that these approaches were followed by a Go Around (or possible a
+    Touch and Go).
+    
+    Should the approach have not become stable, the altitude will read 0 ft,
+    indicating that it was constantly unstable.
+    '''
+    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
+        apps = np.ma.clump_unmasked(stable.array)
+        for app in apps[:-1]:
+            index = index_of_last_stop(stable.array != 'Stable', app, min_dur=2)
+            if index > app.stop -1:
+                # approach ended unstable
+                # we were not stable so force altitude of 0 ft
+                self.create_kpv(app.stop-0.5, 0)
             else:
-                continue
+                self.create_kpv(index, value_at_index(alt.array, index))
 
 
-##############################################################################
-
-
-class PercentApproachStableBelow(object):
-    '''
-    Abstract Class
-    '''
-    def percent_stable(self, stable, altitude, level=1000):
-        stable[altitude > level] = np.ma.masked
-        apps_under_level = np.ma.clump_unmasked(stable)
-        for app in apps_under_level:
-            is_stable = stable[app] == 'Stable'
-            percent = sum(is_stable) / float(app.stop - app.start) * 100
-            self.create_kpv(app.start, percent)
-
-
-class PercentApproachStableBelow1000Ft(KeyPointValueNode, PercentApproachStableBelow):
+class LastUnstableStateDuringLastApproach(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
 
-    Creates a KPV around 1000 ft during the approach with the percent
-    (0% to 100%) of the approach that was stable.
+    Establish last Unstable state (integer representation of the "Stable"
+    parameter's values_mapping) during each approach which was followed by a 
+    Go Around (or possibly a Touch and Go).
+    
+    Particuarly of interest to know the reason for instability should the
+    Last Unstable condition be at a low altitude.
     '''
-    def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
-        self.percent_stable(stable.array, alt.array, 1000)
+    def derive(self, stable=P('Stable Approach')):
+        apps = np.ma.clump_unmasked(stable.array)
+        if apps:
+            # we're only interested in the last approach - we assume that
+            # this was the one which came to a full stop
+            app = apps[-1]
+            index = index_of_last_stop(stable.array != 'Stable', app, min_dur=2)
+            # Note: Assumed will never have an approach which is 100% Stable
+            self.create_kpv(index, stable.array.raw[index])
 
 
-class PercentApproachStableBelow500Ft(KeyPointValueNode, PercentApproachStableBelow):
+class LastUnstableStateDuringApproachBeforeGoAround(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
 
-    Creates a KPV around 1000 ft during the approach with the percent
-    (0% to 100%) of the approach that was stable.
+    Establish last Unstable state (integer representation of the "Stable"
+    parameter's values_mapping) during each approach which was followed by a 
+    Go Around (or possibly a Touch and Go).
+    
+    Can help to determine the reason for choosing not to land.
     '''
+    def derive(self, stable=P('Stable Approach')):
+        apps = np.ma.clump_unmasked(stable.array)
+        for app in apps[:-1]:
+            index = index_of_last_stop(stable.array != 'Stable', app, min_dur=2)
+            # Note: Assumed will never have an approach which is 100% Stable
+            self.create_kpv(index, stable.array.raw[index])
+
+
+class PercentApproachStable(KeyPointValueNode):
+    '''
+    FDS developed this KPV to support the UK CAA Significant Seven programme.
+
+    Creates a KPV at 1000 ft and 500 ft during the approach with the percent
+    (0% to 100%) of the approach that was stable. 
+    
+    Creates separate names for approaches before a Go Around (or possibly a
+    Touch and Go) and those for the Last Landing (assuming a full stop
+    landing)
+    '''
+    NAME_FORMAT = "Percent Approach Stable Below %(altitude)d Ft %(approach)s"
+    NAME_VALUES = {
+        'altitude' : (1000, 500),
+        'approach' : ('During Last Approach', 'During Approach Before Go Around'),
+        }
+    
     def derive(self, stable=P('Stable Approach'), alt=P('Altitude AAL')):
-        self.percent_stable(stable.array, alt.array, 500)
+        apps = np.ma.clump_unmasked(stable.array)
+        for n, app in enumerate(apps):
+            if n < len(apps)-1:
+                approach_type = 'During Approach Before Go Around'
+            else:
+                approach_type = 'During Last Approach'
+
+            for level in (1000, 500):
+                stable_app = stable.array[app]
+                alt_app = alt.array[app]
+                # mask out data above the altitude level
+                stable_app[alt_app > level] = np.ma.masked
+                is_stable = stable_app == 'Stable'
+                percent = np.ma.sum(is_stable) / float(np.ma.count(is_stable)) * 100
+                # find first stable point (if not, argmax returns 0)
+                index = np.ma.argmax(is_stable) + app.start
+                self.create_kpv(index, percent, 
+                                altitude=level, approach=approach_type)
 
 
 ##############################################################################
