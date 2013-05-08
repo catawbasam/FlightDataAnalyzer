@@ -4147,8 +4147,10 @@ class TestStableApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             StableApproach.get_operational_combinations(),
-            [('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min', 'Altitude AAL'),
-             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min', 'Altitude AAL'),
+            [('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
+             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
+             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL', 'Vapp'),
+             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL', 'Vapp'),
                 ])
         
     def test_stable_approach(self):

@@ -5542,6 +5542,8 @@ class StableApproach(MultistateDerivedParameterNode):
 
     if all the above steps are met, the result is the declaration of:
     9. "Stable"
+    
+    If Vapp is recorded, a more constraint airspeed threshold is applied.
 
     TODO/REVIEW:
     ============
@@ -5570,10 +5572,10 @@ class StableApproach(MultistateDerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         deps = ['Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway',
-                'Airspeed Relative', 'Vertical Speed', 'ILS Glideslope', 
-                'ILS Localizer', 'Eng (*) N1 Min', 'Altitude AAL']
+                'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 
+                'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL']
         # Allow Airspeed Relative to not exist
-        deps.remove('Airspeed Relative')
+        deps.remove('Airspeed Relative For 3 Sec')
         return all_of(deps, available)
     
     def derive(self,
@@ -5581,20 +5583,15 @@ class StableApproach(MultistateDerivedParameterNode):
                gear=M('Gear Down'),
                flap=M('Flap'),
                head=P('Track Deviation From Runway'),
-               aspd=P('Airspeed Relative'),
+               aspd=P('Airspeed Relative For 3 Sec'),
                vspd=P('Vertical Speed'),
                gdev=P('ILS Glideslope'),
                ldev=P('ILS Localizer'),
-               eng=P('Eng (*) N1 Min'),
+               eng=P('Eng (*) N1 Min For 5 Sec'),
                alt=P('Altitude AAL'),
+               vapp=P('Vapp'),
                ):
-        # find point first stabalised
-        # % stable after first_stable to landing
-
-        #Last Unstable due to
-        # simple yes/no indicators to identify the cause of the last unstable point
-        # options are FLAP, GEAR GS HI/LO, LOC, SPD HI/LO and VSI HI/LO
-
+      
         #Ht AAL due to
         # the altitude above airfield level corresponding to each cause
         # options are FLAP, GEAR GS HI/LO, LOC, SPD HI/LO and VSI HI/LO
@@ -5648,8 +5645,20 @@ class StableApproach(MultistateDerivedParameterNode):
             if aspd:
                 #== 4. Airspeed Relative ==
                 self.array[_slice][stable] = 4
-                STABLE_AIRSPEED_ABOVE_REF = 30
-                stable_airspeed = (airspeed < STABLE_AIRSPEED_ABOVE_REF) | (altitude < 100)
+                if vapp:
+                    # Those aircraft which record a variable Vapp shall have more constraint thresholds
+                    STABLE_AIRSPEED_BELOW_REF = -5
+                    STABLE_AIRSPEED_ABOVE_REF = 10
+                else:
+                    # Most aircraft records only Vref - as we don't know the wind correction more lenient
+                    STABLE_AIRSPEED_BELOW_REF = 0
+                    STABLE_AIRSPEED_ABOVE_REF = 30
+                stable_airspeed = (airspeed >= STABLE_AIRSPEED_BELOW_REF) & (airspeed <= STABLE_AIRSPEED_ABOVE_REF)
+                # This can be removed when stability is continued below 50ft
+                stable_airspeed |= (altitude < 50)
+                # TODO: extend the stability at the end of the altitude threshold to landing
+                ##index_at_50 = index_closest_value(altitude, 50)
+                ##stable_airspeed[altitude < 50] = stable_airspeed[index_at_50]
                 stable &= stable_airspeed.filled(True)  # if no V Ref speed, values are masked so consider stable as one is not flying to the vref speed??
 
             if glide_est_at_1000ft:
