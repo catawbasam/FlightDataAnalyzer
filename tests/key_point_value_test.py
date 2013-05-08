@@ -201,6 +201,7 @@ from analysis_engine.key_point_values import (
     HeadingTrueDuringLanding,
     HeadingAtLowestAltitudeDuringApproach,
     HeadingDuringTakeoff,
+    HeadingTrueDuringTakeoff,
     HeadingDeviationFromRunwayAbove80KtsAirspeedDuringTakeoff,
     HeadingDeviationFromRunwayAtTOGADuringTakeoff,
     HeadingDeviationFromRunwayAt50FtDuringLanding,
@@ -4023,6 +4024,31 @@ class TestHeadingDuringTakeoff(unittest.TestCase, NodeTest):
         kpv.derive(head, toff)
         expected = [KeyPointValue(index=4, value=360-7.5,
                                   name='Heading During Takeoff')]
+        self.assertEqual(kpv, expected)
+
+
+class TestHeadingTrueDuringTakeoff(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = HeadingTrueDuringTakeoff
+        self.operational_combinations = [('Heading True Continuous',
+                                          'Takeoff Roll')]
+
+    def test_derive_basic(self):
+        head = P('Heading True Continuous',np.ma.array([0,2,4,7,9,8,6,3]))
+        toff = buildsection('Takeoff', 2,6)
+        kpv = self.node_class()
+        kpv.derive(head, toff)
+        expected = [KeyPointValue(index=4, value=7.5,
+                                  name='Heading True During Takeoff')]
+        self.assertEqual(kpv, expected)
+
+    def test_derive_modulus(self):
+        head = P('Heading True Continuous',np.ma.array([0,2,4,7,9,8,6,3])*-1.0)
+        toff = buildsection('Takeoff', 2,6)
+        kpv = self.node_class()
+        kpv.derive(head, toff)
+        expected = [KeyPointValue(index=4, value=360-7.5,
+                                  name='Heading True During Takeoff')]
         self.assertEqual(kpv, expected)
 
 

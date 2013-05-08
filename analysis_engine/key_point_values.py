@@ -2844,6 +2844,25 @@ class HeadingDuringTakeoff(KeyPointValueNode):
                 value = np.ma.median(hdg.array[takeoff.slice])
                 self.create_kpv(index, value % 360.0)
 
+class HeadingTrueDuringTakeoff(KeyPointValueNode):
+    '''
+    We take the median true heading during the takeoff roll only as this avoids
+    problems when turning onto the runway or with drift just after liftoff.
+    The value is "assigned" to a time midway through the takeoff roll.
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               hdg_true=P('Heading True Continuous'),
+               takeoffs=S('Takeoff Roll')):
+
+        for takeoff in takeoffs:
+            if takeoff.slice.start and takeoff.slice.stop:
+                index = (takeoff.slice.start + takeoff.slice.stop) / 2.0
+                value = np.ma.median(hdg_true.array[takeoff.slice])
+                self.create_kpv(index, value % 360.0)
+
 
 class HeadingDuringLanding(KeyPointValueNode):
     '''
@@ -4976,7 +4995,7 @@ class HeadingDeviationFromRunwayAt50FtDuringLanding(KeyPointValueNode):
         # Only have runway details for final landing.
         land = landings[-1]
         # By definition, landing starts at 50ft.
-        brg = value_at_index(head.array, land.start_edge)
+        brg = closest_unmasked_value(head.array, land.start_edge).value
         dev = runway_deviation(brg, rwy.value)
         self.create_kpv(land.start_edge, dev)
 

@@ -4150,7 +4150,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     masked_sections = np.ma.clump_masked(array)
     for section in masked_sections:
         length = section.stop - section.start
-        if repair_samples and (length) > repair_samples:
+        if repair_samples and length > repair_samples:
             if raise_duration_exceedance:
                 raise ValueError("Length of masked section '%s' exceeds "
                                  "repair duration '%s'." % (length * frequency,
