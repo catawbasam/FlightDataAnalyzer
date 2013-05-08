@@ -139,7 +139,7 @@ def assert_array_within_tolerance(actual, desired, tolerance=1, similarity=100):
     :param similarity: percentage that must pass the tolerance test
     '''
     within_tolerance = abs(actual -  desired) <= tolerance
-    percent_similar = sum(within_tolerance) / float(len(within_tolerance)) * 100
+    percent_similar = np.ma.sum(within_tolerance) / float(len(within_tolerance)) * 100
     if percent_similar <= similarity:
         raise AssertionError(
             'actual array tolerance only is %.2f%% similar to desired array.'
@@ -4266,8 +4266,10 @@ class TestStableApproach(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             StableApproach.get_operational_combinations(),
-            [('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min', 'Altitude AAL'),
-             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min', 'Altitude AAL'),
+            [('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
+             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
+             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL', 'Vapp'),
+             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL', 'Vapp'),
                 ])
         
     def test_stable_approach(self):
@@ -4288,10 +4290,10 @@ class TestStableApproach(unittest.TestCase):
         hm= [ 1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0]
         head = P(array=np.ma.array(h, mask=hm))
         #4. airspeed relative within limits for periods except 0-3
-        a = [50, 50, 50, 45,  9,  8,  3, -1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
+        a = [50, 50, 50, 45,  9,  8,  3, 7,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
         aspd = P(array=np.ma.array(a))
         #5. glideslope deviation is out for index 9-11, last 4 values ignored due to alt cutoff
-        g = [ 6,  6,  6,  6,  0, .5, .5,-.5,  0,1.1,1.4,1.3,  0,  0,  0,  0,  0, -2, -2, -2, -2]
+        g = [ 6,  6,  6,  6,  0, .5, .5,-.5,1.2,1.1,1.4,1.3,  0,  0,  0,  0,  0, -2, -2, -2, -2]
         gm= [ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
         glide = P(array=np.ma.array(g, mask=gm))
         #6. localizer deviation is out for index 7-10, last 4 values ignored due to alt cutoff
@@ -4309,16 +4311,16 @@ class TestStableApproach(unittest.TestCase):
         e = [80, 80, 80, 80, 80, 30, 20, 30, 20, 30, 20, 30, 44, 40, 80, 80, 80, 50, 50, 50, 50]
         eng = P(array=np.ma.array(e))
         
-        # Altitude for cutoff heights, last 4 values are velow 100ft last 2 below 50ft
-        al= range(2000,199,-200) + range(199,18, -20)
-        # == [2000, 1800, 1600, 1400, 1200, 1000, 800, 600, 400, 200, 199, 179, 159, 139, 119, 99, 79, 59, 39, 19]
+        # Altitude for cutoff heights, 9th element is 200 below, last 4 values are below 100ft last 2 below 50ft
+        al = range(2000,219,-200) + range(219,18, -20)
+        # == [2000, 1800, 1600, 1400, 1200, 1000, 800, 600, 400, 219, 199, 179, 159, 139, 119, 99, 79, 59, 39, 19]
         alt = P(array=np.ma.array(al))
-        # DERIVE
-        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide, loc, eng, alt)
+        # DERIVE without using Vapp (using Vref limits)
+        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide, loc, eng, alt, None)
         
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
-               [0, 1, 1, 4, 9, 2, 8, 6, 6, 5, 5, 3, 3, 8, 9, 9, 9, 9, 9, 9, 0])
+               [0, 1, 1, 4, 9, 2, 8, 6, 5, 5, 8, 3, 3, 8, 9, 9, 9, 9, 9, 9, 0])
         self.assertEqual(list(stable.array.mask),
                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
         

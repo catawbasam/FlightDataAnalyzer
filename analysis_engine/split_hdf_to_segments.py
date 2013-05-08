@@ -347,7 +347,9 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
     """
     now = datetime.now()
     if fallback_dt is not None:
-        assert fallback_dt < now, "Fallback time in the future is not allowed"
+        assert fallback_dt < now, \
+               ("Fallback time '%s' in the future is not allowed. Current time "
+                "is '%s'." % (fallback_dt, now))
     # align required parameters to 1Hz
     onehz = P(frequency = 1)
     dt_arrays = []
@@ -491,7 +493,7 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
     :type hdf_path: string
     :param aircraft_info: Information which identify the aircraft, specfically with the keys 'Tail Number', 'MSN'...
     :type aircraft_info: Dict
-    :param fallback_dt: Used to replace elements of datetimes which are not available in the hdf file (e.g. YEAR not being recorded)
+    :param fallback_dt: A datetime which is as close to the end of the data file as possible. Used to replace elements of datetimes which are not available in the hdf file (e.g. YEAR not being recorded)
     :type fallback_dt: datetime
     :param draw: Whether to use matplotlib to plot the flight
     :type draw: Boolean
@@ -519,9 +521,17 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
             logger.info("No PRE_FILE_ANALYSIS actions to perform")
         
         segment_tuples = split_segments(hdf)
-    
+        if fallback_dt:
+            # fallback_dt is relative to the end of the data; remove the data
+            # duration to make it relative to the start of the data
+            secs = seconds=hdf.duration
+            fallback_dt -= timedelta(seconds=secs)
+            logger.info("Reduced fallback_dt by %ddays %dhr %dmin to %s",
+               secs//86400, secs%86400//3600, secs%86400%3600//60, fallback_dt)
+        
     # process each segment (into a new file) having closed original hdf_path
     segments = []
+    previous_stop_dt = None
     for part, segment_tuple in enumerate(segment_tuples, start=1):
         segment_type, segment_slice = segment_tuple
         # write segment to new split file (.001)
@@ -530,7 +540,14 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
         write_segment(hdf_path, segment_slice, dest_path, supf_boundary=superframe_present)
         segment = append_segment_info(dest_path, segment_type, segment_slice,
                                       part, fallback_dt=fallback_dt)
+        
+        if previous_stop_dt and segment.start_dt < previous_stop_dt:
+            # In theory, this should not happen - but be warned of superframe padding?
+            logger.warning("Segment start_dt '%s' comes before the previous segment ended '%s'")
+        previous_stop_dt = segment.stop_dt
+        
         if fallback_dt:
+            # move the fallback_dt on to be relative to start of next segment
             fallback_dt += segment.stop_dt - segment.start_dt
         segments.append(segment)
         if draw:
@@ -552,18 +569,19 @@ def main():
     print ''
     import argparse
     import pprint
+    import tempfile
     from flightdatautilities.filesystem_tools import copy_file
     logger = logging.getLogger()
-    logger.setLevel(logging.WARN)    
+    logger.setLevel(logging.INFO)    
     
     parser = argparse.ArgumentParser(description="Process a flight.")
     parser.add_argument('file', type=str,
                         help='Path of file to process.')
     parser.add_argument('-tail', dest='tail_number', type=str, default='G-FDSL',
                         help='Aircraft Tail Number for processing.')
-    args = parser.parse_args()
-
-    hdf_copy = copy_file(args.file, postfix='_split')
+    args = parser.parse_args()    
+    hdf_copy = copy_file(args.file, dest_dir=tempfile.gettempdir(), postfix='_split')
+    logger.info("Working on copy: %s", hdf_copy)
     segs = split_hdf_to_segments(hdf_copy,
                                  {'Tail Number': args.tail_number,},
                                  fallback_dt=datetime(2012,12,12,12,12,12),
