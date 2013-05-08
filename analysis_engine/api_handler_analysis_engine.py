@@ -252,6 +252,24 @@ class AnalysisEngineAPIHandlerHTTP(AnalysisEngineAPI, APIHandlerHTTP):
                 (runway.get('identifier', 'unknown'), airport))
         return runway
 
+    def get_data_exports(self, tail_number):
+        '''
+        Will either return data exports configuration for an aircraft matching
+        the tail number or raise an exception if one cannot be found.
+
+        :param tail_number: Aircraft tail number.
+        :type tail_number: str
+        :raises NotFoundError: If the aircraft cannot be found.
+        :returns: Aircraft info dictionary
+        :rtype: dict
+        '''
+        from analysis_engine.settings import BASE_URL
+        url = '%(base_url)s/api/data_exports/aircraft/%(tail_number)s/' % {
+            'base_url': BASE_URL.rstrip('/'),
+            'tail_number': tail_number,
+        }
+        return self._attempt_request(url)['data_exports']
+
 
 # Local API Handler
 ###################
@@ -277,10 +295,12 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
             LOCAL_API_AIRCRAFT_PATH,
             LOCAL_API_AIRPORT_PATH,
             LOCAL_API_RUNWAY_PATH,
+            LOCAL_API_EXPORTS_PATH,
         )
         self.aircraft = self._load_data(LOCAL_API_AIRCRAFT_PATH)
         self.airports = self._load_data(LOCAL_API_AIRPORT_PATH)
         self.runways = self._load_data(LOCAL_API_RUNWAY_PATH)
+        self.exports = self._load_data(LOCAL_API_EXPORTS_PATH)
     
     def get_aircraft(self, tail_number):
         '''
@@ -369,11 +389,31 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
         runways = []
         for runway in self.runways:
             runway = copy(runway)
+            runway_coords = runway.get('start', runway.get('end'))
+            if not runway_coords:
+                continue
             runway['distance'] = bearing_and_distance(
-                latitude, longitude, runway['start']['latitude'],
-                runway['start']['longitude'])[1]
+                latitude, longitude, runway_coords['latitude'],
+                runway_coords['longitude'])[1]
             runways.append(runway)
         return min(runways, key=itemgetter('distance'))
+
+    def get_data_exports(self, tail_number):
+        '''
+        Will either return data exports configuration for an aircraft matching
+        the tail number or raise an exception if one cannot be found.
+
+        :param tail_number: Aircraft tail number.
+        :type tail_number: str
+        :raises NotFoundError: If the aircraft cannot be found.
+        :returns: Aircraft info dictionary
+        :rtype: dict
+        '''
+        try:
+            return self.exports[tail_number]
+        except (KeyError, TypeError):
+            raise NotFoundError("Local API Handler: Aircraft with tail number "
+                                "'%s' could not be found." % tail_number)
 
 
 ##############################################################################

@@ -347,7 +347,9 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
     """
     now = datetime.now()
     if fallback_dt is not None:
-        assert fallback_dt < now, "Fallback time in the future is not allowed"
+        assert fallback_dt < now, \
+               ("Fallback time '%s' in the future is not allowed. Current time "
+                "is '%s'." % (fallback_dt, now))
     # align required parameters to 1Hz
     onehz = P(frequency = 1)
     dt_arrays = []

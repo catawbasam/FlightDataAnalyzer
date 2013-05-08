@@ -8,6 +8,7 @@ from analysis_engine.exceptions import DataFrameError
 from flightdatautilities.model_information import (get_conf_map,
                                                    get_flap_map,
                                                    get_slat_map)
+from analysis_engine.flight_phase import scan_ils
 from analysis_engine.node import (
     A, App, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M,
     P, S)
@@ -24,7 +25,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      blend_two_parameters,
                                      cas2dp,
                                      cas_alt2mach,
-                                     clip,
                                      coreg,
                                      cycle_finder,
                                      datetime_of_index,
@@ -424,9 +424,8 @@ class AirspeedReferenceLookup(DerivedParameterNode):
                 repaired_gw = repair_mask(gw.array, repair_duration=130,
                                       copy=True, extrapolate=True)
             except:
-                pass
-                self.logger.warning(
-                    "'AirspeedReference' will be fully masked because "
+                self.warning(
+                    "'Airspeed Reference' will be fully masked because "
                     "'Gross Weight' array could not be repaired.")
                 return
 
@@ -904,7 +903,7 @@ class AltitudeRadio(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         return any_of([name for name in cls.get_dependency_names() \
-                       if name.startswith('Altitude')], available)
+                       if name.startswith('Altitude Radio')], available)
 
     
     def derive(self,
@@ -1339,7 +1338,6 @@ class APEngaged(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-
         return any_of(cls.get_dependency_names(), available)
 
     def derive(self,
@@ -1348,35 +1346,32 @@ class APEngaged(MultistateDerivedParameterNode):
                ap3=M('AP (3) Engaged')):
 
         if ap3:
-            self.array = np.ma.sum(np.ma.hstack(ap1.array.raw, 
-                                                ap2.array.raw, 
-                                                ap3.array.raw),
-                                   axis=0)
-            self.offset = offset_select('mean', [ap1, ap2, ap3])
+            if ap1 and ap2:
+                # Normal three axis operation, perhaps with autoland.
+                self.array = np.ma.sum(np.ma.hstack(ap1.array.raw, 
+                                                    ap2.array.raw, 
+                                                    ap3.array.raw),
+                                       axis=0)
+                self.offset = offset_select('mean', [ap1, ap2, ap3])
+            else:
+                # Three channel system working with only one channel in action.
+                self.array = ap3.array.raw
+                self.offset = ap3.offset
+            self.frequency = ap3.frequency
+        
         elif ap2:
             # Only got a duplex autopilot.
             self.array = np.ma.sum(np.ma.hstack(ap1.array.raw,
                                                 ap2.array.raw),
                                    axis=0)
             self.offset = offset_select('mean', [ap1, ap2])
+            self.frequency = ap2.frequency
+
         else:
             # Probably got a multi-channel autopilot but only one (presumed AP1) is instrumented.
             self.array = ap1.array.raw
             self.offset = ap1.offset
-
-        self.frequency = ap1.frequency
-
-
-##### FIXME: Implement this derived parameter.
-####class ATEngaged(MultistateDerivedParameterNode):
-####    '''
-####    Placeholder for combining multi-channel AP modes into a single
-####    consistent status.
-####
-####    Not required for 737-5 frame as AT Engaged is recorded directly.
-####    '''
-####
-####    name = 'AT Engaged'
+            self.frequency = ap1.frequency
 
 
 class ClimbForFlightPhases(DerivedParameterNode):
@@ -2796,11 +2791,15 @@ class FuelQty_Low(MultistateDerivedParameterNode):
     '''
     name = "Fuel Qty (*) Low"
     
+    values_mapping = {
+        0: '-',
+        1: 'Warning',
+    }
+    
     @classmethod
     def can_operate(cls, available):
-        return 'Fuel Qty Low' in available or \
-           'Fuel Qty (1) Low' in available or \
-           'Fuel Qty (2) Low' in available
+        return any_of(('Fuel Qty Low', 'Fuel Qty (1) Low', 'Fuel Qty (2) Low'),
+                      available)
         
     def derive(self, fqty = M('Fuel Qty Low'),
                fqty1 = M('Fuel Qty (1) Low'),
@@ -2811,6 +2810,7 @@ class FuelQty_Low(MultistateDerivedParameterNode):
             (fqty2, 'Warning'),
         )
         self.array = warning.any(axis=0)
+
 
 ###############################################################################
 # Landing Gear
@@ -3101,8 +3101,22 @@ class FlapLeverDetent(DerivedParameterNode):
     Steps raw Flap angle from lever into detents.
     """
     units = 'deg'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('Flap Surface' in available or 'Flap Lever' in available) and \
+               all_of(('Series', 'Family'), available)
+    
 
-    def derive(self, flap=P('Flap Lever'), series=A('Series'), family=A('Family')):
+    def derive(self, flap_lvr=P('Flap Lever'), flap_surf=P('Flap Surface'), 
+               series=A('Series'), family=A('Family')):
+        
+        # Use flap lever position where recorded, otherwise revert to flap surface.
+        if flap_lvr:
+            flap=flap_lvr
+        else:
+            flap=flap_surf
+            
         try:
             flap_steps = get_flap_map(series.value, family.value)
         except KeyError:
@@ -3111,7 +3125,7 @@ class FlapLeverDetent(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap_steps)
+            self.array = step_values(flap.array, flap_steps, step_at='move_start')
 
 
 class FlapSurface(DerivedParameterNode):
@@ -3185,7 +3199,7 @@ class Flap(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap_steps)
+            self.array = step_values(flap.array, flap_steps, step_at='move_end')
 
 
 '''
@@ -3461,20 +3475,45 @@ class ILSLocalizer(DerivedParameterNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        return ('ILS (1) Localizer' in available and 'ILS (2) Localizer' in available)\
-               or\
-               ('ILS Localizer (Capt)' in available and 'ILS Localizer (Azimuth)' in available)
+        if 'IAN Final Approach Course' in available:
+            return all_of(('IAN Final Approach Course', 'Approach And Landing', 'Altitude AAL For Flight Phases' ), available)
+        else:
+            return any_of(('ILS (1) Localizer', 'ILS (2) Localizer'), available) or \
+               any_of(('ILS Localizer (Capt)', 'ILS Localizer (Azimuth)'), available)
 
     name = "ILS Localizer"
     units = 'dots'
     align = False
 
     def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer'),
-               loc_c=P('ILS Localizer (Capt)'),loc_az=P('ILS Localizer (Azimuth)')):
-        if loc_1:
+               loc_c=P('ILS Localizer (Capt)'),loc_az=P('ILS Localizer (Azimuth)'),
+               ian_localizer=P('IAN Final Approach Course'),
+               apps=S('Approach And Landing'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        if loc_1 or loc_2:
             self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
-        else:
+        elif loc_c or loc_az:
             self.array, self.frequency, self.offset = blend_two_parameters(loc_c, loc_az)
+        else:
+            # we have no ILS parameters so we must have IAN in order for this
+            # derived parameter to operate
+            self.offset = 0.0
+            self.frequency = 1.0
+            self.array = np_ma_masked_zeros_like(ian_localizer.array)
+
+        if ian_localizer:
+            for app in apps:
+                ils = scan_ils('localizer', self.array, alt_aal.array, app.slice)
+                if ils:
+                    continue
+
+                ian = scan_ils('localizer', ian_localizer.array, alt_aal.array, app.slice)
+                if ian:
+                    self.info('Valid ILS Localizer not avaliable for this approach, Using IAN Final Approach Course')
+                    self.array[app.slice] = ian_localizer.array[app.slice]
+                else:
+                    continue
 
 
 class ILSGlideslope(DerivedParameterNode):
@@ -3491,9 +3530,13 @@ class ILSGlideslope(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(cls.get_dependency_names(), available)
-    
-    def derive(self, 
+        if 'IAN Glidepath' in available:
+            return all_of(('IAN Glidepath', 'Approach And Landing', 'Altitude AAL For Flight Phases' ), available)
+        else:
+            return any_of([name for name in cls.get_dependency_names() \
+                                   if name.startswith('ILS')], available)
+
+    def derive(self,
                source_A=P('ILS (1) Glideslope'),
                source_B=P('ILS (2) Glideslope'),
                source_C=P('ILS (3) Glideslope'),
@@ -3506,18 +3549,45 @@ class ILSGlideslope(DerivedParameterNode):
 
                source_M=P('ILS Glideslope (Capt)'),
                source_N=P('ILS Glideslope (FO)'),
+
+               ian_glide=P('IAN Glidepath'),
+               apps=S('Approach And Landing'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
                ):
+
         sources = [source_A, source_B, source_C,
                    source_E, source_F, source_G,
                    source_J,
                    source_M, source_N
                    ]
-        params=[p for p in sources if p]
-        self.offset = 0.0
-        self.frequency = 1.0
-        self.array=blend_parameters(params, 
-                                    offset=self.offset, 
-                                    frequency=self.frequency)
+
+        params = [p for p in sources if p]
+
+        if params:
+            self.offset = 0.0
+            self.frequency = 1.0
+            self.array = blend_parameters(params,
+                                          offset=self.offset,
+                                          frequency=self.frequency)
+        else:
+            # we have no ILS parameters so we must have IAN in order for this
+            # derived parameter to operate
+            self.offset = 0.0
+            self.frequency = 1.0
+            self.array = np_ma_masked_zeros_like(ian_glide.array)
+
+        if ian_glide:
+            for app in apps:
+                ils = scan_ils('glideslope', self.array, alt_aal.array, app.slice)
+                if ils:
+                    continue
+
+                ian = scan_ils('glideslope', ian_glide.array, alt_aal.array, app.slice)
+                if ian:
+                    self.info('Valid ILS Glideslope not avaliable for this approach, Using IAN Glidepath')
+                    self.array[app.slice] = ian_glide.array[app.slice]
+                else:
+                    continue
 
 
 class AimingPointRange(DerivedParameterNode):
@@ -4508,7 +4578,7 @@ class ThrustReversers(MultistateDerivedParameterNode):
             'Eng (1) Thrust Reverser In Transit',
             'Eng (1) Thrust Reverser Deployed',
             'Eng (2) Thrust Reverser In Transit',
-            'Eng (2) Thrust Reverser Deployed',        
+            'Eng (2) Thrust Reverser Deployed',
         ), available)
 
     def derive(self,
@@ -4541,24 +4611,26 @@ class ThrustReversers(MultistateDerivedParameterNode):
             e4_ulk_rgt=M('Eng (4) Thrust Reverser (R) Unlocked'),
             e4_tst_all=M('Eng (4) Thrust Reverser In Transit'),):
 
-        stack = vstack_params_where_state(
-            (e1_dep_all, 'Deployed'), (e1_ulk_all, 'Unlocked'),
-            (e1_dep_lft, 'Deployed'), (e1_ulk_lft, 'Unlocked'),
-            (e1_dep_rgt, 'Deployed'), (e1_ulk_rgt, 'Unlocked'),
-            (e2_dep_all, 'Deployed'), (e2_ulk_all, 'Unlocked'),
-            (e2_dep_lft, 'Deployed'), (e2_ulk_lft, 'Unlocked'),
-            (e2_dep_rgt, 'Deployed'), (e2_ulk_rgt, 'Unlocked'),
-            (e3_dep_all, 'Deployed'), (e3_ulk_all, 'Unlocked'),
-            (e3_dep_lft, 'Deployed'), (e3_ulk_lft, 'Unlocked'),
-            (e3_dep_rgt, 'Deployed'), (e3_ulk_rgt, 'Unlocked'),
-            (e4_dep_all, 'Deployed'), (e4_ulk_all, 'Unlocked'),
-            (e4_dep_lft, 'Deployed'), (e4_ulk_lft, 'Unlocked'),
-            (e4_dep_rgt, 'Deployed'), (e4_ulk_rgt, 'Unlocked'),
-        )
+        deployed_params = (e1_dep_all, e1_dep_lft, e1_dep_rgt, e2_dep_all,
+                           e2_dep_lft, e2_dep_rgt, e3_dep_all, e3_dep_lft,
+                           e3_dep_rgt, e4_dep_all, e4_dep_lft, e4_dep_rgt)
 
-        array = np_ma_zeros_like(stack[0])
-        array = np.ma.where(stack.any(axis=0), 1, array)
-        array = np.ma.where(stack.all(axis=0), 2, array)
+        deployed_stack = vstack_params_where_state(*[(d, 'Deployed') for d in deployed_params])
+
+        unlocked_params = (e1_ulk_all, e1_ulk_lft, e1_ulk_rgt, e2_ulk_all,
+                           e2_ulk_lft, e2_ulk_rgt, e3_ulk_all, e3_ulk_lft,
+                           e3_ulk_rgt, e4_ulk_all, e4_ulk_lft, e4_ulk_rgt)
+
+        array = np_ma_zeros_like(deployed_stack[0])
+        stacks = [deployed_stack,]
+
+        if any(unlocked_params):
+            unlocked_stack = vstack_params_where_state(*[(p, 'Unlocked') for p in unlocked_params])
+            array = np.ma.where(unlocked_stack.any(axis=0), 1, array)
+            stacks.append(unlocked_stack)
+
+        array = np.ma.where(deployed_stack.any(axis=0), 1, array)
+        array = np.ma.where(deployed_stack.all(axis=0), 2, array)
         # update with any transit params
         if any((e1_tst_all, e2_tst_all, e3_tst_all, e4_tst_all)):
             transit_stack = vstack_params_where_state(
@@ -4566,9 +4638,12 @@ class ThrustReversers(MultistateDerivedParameterNode):
                 (e3_tst_all, 'In Transit'), (e4_tst_all, 'In Transit'),
             )
             array = np.ma.where(transit_stack.any(axis=0), 1, array)
+            stacks.append(transit_stack)
+
+        mask_stack = np.ma.concatenate(stacks, axis=0)
 
         # mask indexes with greater than 50% masked values
-        mask = np.ma.where(stack.mask.sum(axis=0).astype(float)/len(stack)*100 > 50, 1, 0)
+        mask = np.ma.where(mask_stack.mask.sum(axis=0).astype(float)/len(mask_stack)*100 > 50, 1, 0)
         self.array = array
         self.array.mask = mask
 
@@ -4808,7 +4883,7 @@ class V2Lookup(DerivedParameterNode):
                flap=P('Flap'),
                conf=P('Configuration'),
                spd=P('Airspeed'),
-               weight_liftoff=KPV('Gross Weight At Liftoff'),
+               weight_liftoffs=KPV('Gross Weight At Liftoff'),
                series=A('Series'),
                family=A('Family'),
                engine=A('Engine Series'),
@@ -4834,8 +4909,9 @@ class V2Lookup(DerivedParameterNode):
 
         if vspeed_class:
             vspeed_table = vspeed_class()
-            index = weight_liftoff[0].index
-            weight = weight_liftoff[0].value
+            weight_liftoff = weight_liftoffs.get_first()
+            index = weight_liftoff.index
+            weight = weight_liftoff.value
             setting = setting_param.array[index]
             vspeed = vspeed_table.v2(weight, setting)
             if vspeed is not None:
@@ -5759,4 +5835,45 @@ class MasterWarning(MultistateDerivedParameterNode):
             (warn_fo, 'Warning'),
         ).any(axis=0)
 
+
+# Temporary Vertical Speed Moving Average parameters.
+
+class VerticalSpeedMovingAverage5(DerivedParameterNode):
+    '''
+    Temporary parameter.
+    '''
+    
+    def derive(self, vspd=P('Vertical Speed')):
+        self.array = moving_average(repair_mask(vspd.array,
+                                                zero_if_masked=True), 5)
+
+
+class VerticalSpeedMovingAverage8(DerivedParameterNode):
+    '''
+    Temporary parameter.
+    '''
+    
+    def derive(self, vspd=P('Vertical Speed')):
+        self.array = moving_average(repair_mask(vspd.array,
+                                                zero_if_masked=True), 8)
+
+
+class VerticalSpeedMovingAverage10(DerivedParameterNode):
+    '''
+    Temporary parameter.
+    '''
+    
+    def derive(self, vspd=P('Vertical Speed')):
+        self.array = moving_average(repair_mask(vspd.array,
+                                                zero_if_masked=True), 10)
+
+
+class VerticalSpeedMovingAverage15(DerivedParameterNode):
+    '''
+    Temporary parameter.
+    '''
+    
+    def derive(self, vspd=P('Vertical Speed')):
+        self.array = moving_average(repair_mask(vspd.array,
+                                                zero_if_masked=True), 15)
 

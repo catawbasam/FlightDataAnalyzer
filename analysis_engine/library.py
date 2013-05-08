@@ -198,6 +198,11 @@ def is_power2(number):
     num = int(number)
     return num > 0 and ((num & (num - 1)) == 0)
 
+def is_5_10_20(number):
+    """
+    Check for extension to include ARINC 647A frequency ratios.
+    """
+    return number in [5, 10, 20]
 
 def align(slave, master, interpolate=True):
     """
@@ -268,11 +273,17 @@ def align(slave, master, interpolate=True):
         ws /= slowest
 
     # Check the values are in ranges we have tested
-    assert is_power2(wm), \
+    assert is_power2(wm) or is_5_10_20(wm), \
            "master = '%s' @ %sHz; wm=%s" % (master.name, master.hz, wm)
-    assert is_power2(ws), \
+    assert is_power2(ws) or is_5_10_20(ws), \
            "slave = '%s' @ %sHz; ws=%s" % (slave.name, slave.hz, ws)
 
+    # Trap 5, 10 or 20Hz parameters that have non-zero offsets (this case is not currently covered)
+    if is_5_10_20(wm) and master.offset:
+        raise ValueError('Align: Master offset non-zero at sample rate %sHz' %master.frequency)
+    if is_5_10_20(ws) and slave.offset:
+        raise ValueError('Align: Slave offset non-zero at sample rate %sHz' %slave.frequency)
+    
     # Compute the sample rate ratio:
     r = wm / float(ws)
 
@@ -1003,7 +1014,7 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
     if hz <= 0.01:
         raise ValueError('Clip called with sample rate outside permitted range')
 
-    half_width = int(period/hz)/2
+    half_width = int(period*hz)/2
     # Trap low values. This can occur, for an example, where a parameter has
     # a lower sample rate than expected.
     if half_width < 1:
@@ -1011,7 +1022,7 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
         return array
     
     if np.ma.count(array) == 0:
-        logger.warning('Clip called with entirely masked data')
+        raise ValueError('Clip called with entirely masked data')
         return array
         
     # OK - normal operation here. We repair the mask to avoid propogating
@@ -3866,28 +3877,32 @@ def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
         angle[place] = m[place+trailer] - m[place]
 
     # Normalise array and prepare for masking operations
-    angle_max = np.max(np.abs(angle))
-    if angle_max == 0.0:
+    if np.max(np.abs(angle)) == 0.0:
         return None # All data in a straight line, so no curvature to find.
 
-    angle=np.ma.array(angle/angle_max)
 
     # Default curve sense of Concave has a positive angle. The options are
     # adjusted to allow us to use positive only tests hereafter.
     if curve_sense == 'Bipolar':
-        angle = np.ma.abs(angle)
+        angle_max = np.max(np.abs(angle))
+        angles = np.ma.abs(angle/angle_max)
     elif curve_sense == 'Convex':
-        angle = -angle
+        angle_max = np.min(angle)
+        if angle_max>=0.0:
+            return None # No concave angles.
+        angles = np.ma.array(angle/angle_max)
     else:  # curve_sense == 'Concave'
-        # angle remains as is
-        pass
+        angle_max = np.max(angle)
+        if angle_max<=0.0:
+            return None # No concave angles.
+        angles=np.ma.array(angle/angle_max)
 
     # Find peak - using values over 50% of the highest allows us to operate
     # without knowing the data characteristics.
-    peak_slice=np.ma.clump_unmasked(np.ma.masked_less(angle,0.5))
+    peak_slice=np.ma.clump_unmasked(np.ma.masked_less(angles,0.5))
 
     if peak_slice:
-        index = peak_index(angle.data[peak_slice[0]])+\
+        index = peak_index(angles.data[peak_slice[0]])+\
             peak_slice[0].start+(overall/2.0)-0.5
         return index*(_slice.step or 1) + (_slice.start or 0)
     else:
@@ -3941,7 +3956,7 @@ def peak_curvature(array, _slice=slice(None), curve_sense='Concave',
     :param curve_sense: Optional operating mode. Default 'Concave' has
                         positive curvature (concave upwards when plotted).
                         Alternatives 'Convex' for curving downwards and
-                        'Bi-polar' to detect either sense.
+                        'Bipolar' to detect either sense.
     :type curve_sense: string
 
     :returns peak_curvature: The index where the curvature first peaks in the required sense.
@@ -4135,7 +4150,7 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
     masked_sections = np.ma.clump_masked(array)
     for section in masked_sections:
         length = section.stop - section.start
-        if repair_samples and (length) > repair_samples:
+        if repair_samples and length > repair_samples:
             if raise_duration_exceedance:
                 raise ValueError("Length of masked section '%s' exceeds "
                                  "repair duration '%s'." % (length * frequency,
@@ -4524,8 +4539,43 @@ plt.show()
 for i in xnew:
     print f(i)
 """
+def step_local_cusp(array):
+    """
+    A small function developed for the step function to find local cusps
+    where data has changed from static to sloping. Cusp defined as the point
+    closest to the start of the data where the local slope is half the slope
+    from the first sample.
+    
+    Unlike the peak curvature algorithm, this does not require a significant
+    number of samples to operate (flap travelling times between detents can
+    be short). Unlike top of climb algorithm, this uses the local data to
+    determine the slope characteristic.
 
-def step_values(array, steps):
+    :param array: Masked array to examine. Always start from beginning of array 
+                 (must be passed in using reverse indexing if backwards operation needed).
+    :type array: np.ma.array
+    
+    :returns: index to cusp from start of data. Zero if no cusp found.
+    :rtype: integer
+    """
+    if len(array)==0:
+        return None
+    elif len(array)<3:
+        return 0
+    else:
+        v0 = array[0]
+        v_1=v0
+        for n, v in enumerate(array[1:]):
+            slope_0 = abs(v-v0)/(n+1)
+            slope_n = abs(v-v_1)*2.0
+            v_1=v
+            if slope_n<slope_0:
+                return n
+        return 0
+                
+    
+    
+def step_values(array, steps, step_at='midpoint'):
     """
     Rounds each value in array to nearest step. Maintains the
     original array mask.
@@ -4534,6 +4584,9 @@ def step_values(array, steps):
     :type array: np.ma.array
     :param steps: Steps to round to nearest value
     :type steps: list of integers
+    :param step_at: Step conversion mode
+    :type step_at: String, default='midpoint', options'move_start', 'move_end'
+    
     :returns: Stepped masked array
     :rtype: np.ma.array
     """
@@ -4549,8 +4602,75 @@ def step_values(array, steps):
     else:
         # all values above the last
         stepped_array[low < array] = level
-    return np.ma.array(stepped_array, mask=array.mask)
+        
+    if step_at!='midpoint':
+        
+        
+        # We are being asked to adjust the step point to either the beginning or
+        # end of a change period. First find where the changes took place,
+        # including endpoints to the array to allow indexing of the start and end
+        # cases.
+        changes = [0] + \
+            list(np.ediff1d(stepped_array, to_end=0.0).nonzero()[0]) + \
+            [len(stepped_array)]
+        
+        # Compute the slices between change points.
+        spans = []
+        for i in range(1, len(changes)-1):
+            if step_at == 'move_start':
+                spans.append(slice(changes[i], changes[i-1], -1))
+            else:
+                spans.append(slice(changes[i], changes[i+1], +1))
 
+        for span in spans:
+            to_chg = step_local_cusp(array[span])
+            
+            if to_chg==0:
+                if span==spans[0] or span==spans[-1]:
+                    # Don't alter end sections as this just gets messy.
+                    continue
+                # Continuous movement, so change at the step value if this passes through a step.
+                big = np.ma.max(array[span])
+                little = np.ma.min(array[span])
+                # See if the step in question is within this range:
+                this_step = None
+                for step in steps:
+                    if step<=big and step>=little:
+                        this_step = step
+                        break
+                if this_step:
+                    # Find where we passed through this value...
+                    idx = index_at_value(array, this_step, span)
+                    if idx:
+                        if step_at == 'move_start':
+                            stepped_array[ceil(idx):span.start+1] = stepped_array[span.start]
+                        else:
+                            stepped_array[span.start:floor(idx)] = stepped_array[span.start]
+                else:
+                    # OK - just ran from one step to another without dwelling, so fill with the start or end values.
+                    if step_at == 'move_start':
+                        stepped_array[span] = stepped_array[span.start]
+                    else:
+                        stepped_array[span] = stepped_array[span.start]
+            
+            elif step_at == 'move_start':
+                stepped_array[span][:to_chg] = stepped_array[span.start]
+            else:
+                stepped_array[span][:to_chg] = stepped_array[span.start]
+                
+        """
+        import matplotlib.pyplot as plt
+        one = np_ma_ones_like(array)
+        for step in steps:
+            plt.plot(one*step)
+        plt.plot(array)
+        plt.plot(stepped_array)
+        plt.show()
+        """
+    
+    return np.ma.array(stepped_array, mask=array.mask)
+        
+            
 
 def touchdown_inertial(land, roc, alt):
     """

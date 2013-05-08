@@ -2824,8 +2824,10 @@ class RunwayHeading(KeyPointValueNode):
             for app in apps:
                 if not app.runway:
                     continue
-                # Q: Is stop the right index to use?
-                self.create_kpv(app.slice.stop, runway_heading(app.runway))
+                # Q: Is the midpoint of the slice a sensible index?
+                index = (app.slice.start + 
+                         ((app.slice.stop - app.slice.start) / 2))
+                self.create_kpv(index, runway_heading(app.runway))
 
 
 class RunwayOverrunWithoutSlowingDuration(KeyPointValueNode):
@@ -2935,6 +2937,25 @@ class HeadingDuringTakeoff(KeyPointValueNode):
             if takeoff.slice.start and takeoff.slice.stop:
                 index = (takeoff.slice.start + takeoff.slice.stop) / 2.0
                 value = np.ma.median(hdg.array[takeoff.slice])
+                self.create_kpv(index, value % 360.0)
+
+class HeadingTrueDuringTakeoff(KeyPointValueNode):
+    '''
+    We take the median true heading during the takeoff roll only as this avoids
+    problems when turning onto the runway or with drift just after liftoff.
+    The value is "assigned" to a time midway through the takeoff roll.
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               hdg_true=P('Heading True Continuous'),
+               takeoffs=S('Takeoff Roll')):
+
+        for takeoff in takeoffs:
+            if takeoff.slice.start and takeoff.slice.stop:
+                index = (takeoff.slice.start + takeoff.slice.stop) / 2.0
+                value = np.ma.median(hdg_true.array[takeoff.slice])
                 self.create_kpv(index, value % 360.0)
 
 
@@ -4479,6 +4500,24 @@ class EngN1Below60PercentAfterTouchdownDuration(KeyPointValueNode):
                 self.create_kpv(last_eng_stop_idx, 0.0, number=eng_num)
 
 
+class EngN1AtTOGADuringTakeoff(KeyPointValueNode):
+    '''
+
+    '''
+
+    name = 'Eng N1 At TOGA During Takeoff'
+
+    def derive(self,
+               eng_n1=P('Eng (*) N1 Min'),
+               toga=M('Takeoff And Go Around'),
+               takeoff=S('Takeoff')):
+
+        indexes = find_edges_on_state_change('TOGA', toga.array, change='entering', phase=takeoff)
+        for index in indexes:
+            value = value_at_index(eng_n1.array, index)
+            self.create_kpv(index, value)
+
+
 ##############################################################################
 # Engine N2
 
@@ -5017,7 +5056,7 @@ class HeadingDeviationFromRunwayAtTOGADuringTakeoff(KeyPointValueNode):
     "Excursions - Take off (Lateral). TOGA pressed before a/c aligned."
     '''
 
-    name = 'Heading Deviation From From Runway At TOGA During Takeoff'
+    name = 'Heading Deviation From Runway At TOGA During Takeoff'
 
     def derive(self,
                head=P('Heading True Continuous'),
@@ -5051,7 +5090,7 @@ class HeadingDeviationFromRunwayAt50FtDuringLanding(KeyPointValueNode):
         # Only have runway details for final landing.
         land = landings[-1]
         # By definition, landing starts at 50ft.
-        brg = value_at_index(head.array, land.start_edge)
+        brg = closest_unmasked_value(head.array, land.start_edge).value
         dev = runway_deviation(brg, rwy.value)
         self.create_kpv(land.start_edge, dev)
 
@@ -5355,6 +5394,7 @@ class FuelQtyLowWarningDuration(KeyPointValueNode):
             warning.array,
             warning.hz,
         )
+
 
 ##############################################################################
 # Groundspeed
@@ -7752,7 +7792,8 @@ class GrossWeightAtLiftoff(KeyPointValueNode):
                gross_wgt=P('Gross Weight Smoothed'),
                liftoffs=KTI('Liftoff')):
 
-        self.create_kpvs_at_ktis(gross_wgt.array, liftoffs)
+        self.create_kpvs_at_ktis(
+            repair_mask(gross_wgt.array, repair_duration=None), liftoffs)
 
 
 class GrossWeightAtTouchdown(KeyPointValueNode):
@@ -7765,7 +7806,8 @@ class GrossWeightAtTouchdown(KeyPointValueNode):
                gross_wgt=P('Gross Weight Smoothed'),
                touchdowns=KTI('Touchdown')):
 
-        self.create_kpvs_at_ktis(gross_wgt.array, touchdowns)
+        self.create_kpvs_at_ktis(
+            repair_mask(gross_wgt.array, repair_duration=None), touchdowns)
 
 
 class ZeroFuelWeight(KeyPointValueNode):
