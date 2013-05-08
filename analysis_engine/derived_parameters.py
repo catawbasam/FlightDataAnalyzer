@@ -40,6 +40,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      index_at_value,
                                      integrate,
                                      ils_localizer_align,
+                                     index_closest_value,
                                      interpolate,
                                      is_day,
                                      is_index_within_slice,
@@ -5639,7 +5640,7 @@ class StableApproach(MultistateDerivedParameterNode):
             #== 3. Heading ==
             self.array[_slice][stable] = 3
             STABLE_HEADING = 10  # degrees
-            stable_heading = abs(heading) < STABLE_HEADING
+            stable_heading = abs(heading) <= STABLE_HEADING
             stable &= stable_heading.filled(False)  #Q: Should masked values assumed on track ???
 
             if aspd:
@@ -5665,28 +5666,37 @@ class StableApproach(MultistateDerivedParameterNode):
                 #== 5. Glideslope Deviation ==
                 self.array[_slice][stable] = 5
                 STABLE_GLIDESLOPE = 1.0  # dots
-                stable_gs = (abs(glideslope) < STABLE_GLIDESLOPE) | (altitude < 100)
+                stable_gs = (abs(glideslope) <= STABLE_GLIDESLOPE) | (altitude < 200)
+                # TODO: extend the stability at the end of the altitude threshold to landing
+                ##index_at_200 = index_closest_value(altitude, 200)
+                ##stable_gs[altitude < 200] = stable_gs[index_at_200]
                 stable &= stable_gs.filled(False)  # masked values are usually because they are way outside of range and short spikes will have been repaired
 
                 #== 6. Localizer Deviation ==
                 self.array[_slice][stable] = 6
                 STABLE_LOCALIZER = 1.0  # dots
-                stable_loc = (abs(localizer) < STABLE_LOCALIZER) | (altitude < 100)
+                stable_loc = (abs(localizer) <= STABLE_LOCALIZER) | (altitude < 200)
+                # TODO: extend the stability at the end of the altitude threshold to landing
+                ## ...
                 stable &= stable_loc.filled(False)  # masked values are usually because they are way outside of range and short spikes will have been repaired
 
             #== 7. Vertical Speed ==
             self.array[_slice][stable] = 7
-            STABLE_VERTICAL_SPEED_MIN = -1300
+            STABLE_VERTICAL_SPEED_MIN = -1000
             STABLE_VERTICAL_SPEED_MAX = -200
-            stable_vert = (vertical_speed > STABLE_VERTICAL_SPEED_MIN) & (vertical_speed < STABLE_VERTICAL_SPEED_MAX) 
+            stable_vert = (vertical_speed >= STABLE_VERTICAL_SPEED_MIN) & (vertical_speed <= STABLE_VERTICAL_SPEED_MAX) 
             stable_vert |= altitude < 50
+            # TODO: extend the stability at the end of the altitude threshold to landing
+            ## ...
             stable &= stable_vert.filled(True)  #Q: True best?
             
             #== 8. Engine Power (N1) ==
             self.array[_slice][stable] = 8
             STABLE_N1_MIN = 45  # %
-            stable_engine = (engine > STABLE_N1_MIN)
+            stable_engine = (engine >= STABLE_N1_MIN)
             stable_engine |= (altitude > 1000) | (altitude < 50)  # Only use in altitude band 1000-50 feet
+            # TODO: extend the stability at the end of the altitude threshold to landing
+            ## ...
             stable &= stable_engine.filled(True)  #Q: True best?
 
             #== 9. Stable ==
