@@ -3329,6 +3329,16 @@ class TestHeadingTrueContinuous(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestILSGlideslopePrepared(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestILSGlideslope(unittest.TestCase):
 
     def setUp(self):
@@ -3349,8 +3359,6 @@ class TestILSGlideslope(unittest.TestCase):
 
     def test_derive_ian_only(self):
         self.ils_glideslope.derive(None,
-                                   None, None, None, None,
-                                   None, None, None, None,
                                    self.ian,
                                    self.apps,
                                    self.height)
@@ -3359,8 +3367,6 @@ class TestILSGlideslope(unittest.TestCase):
 
     def test_derive_ian_bad_ils(self):
         self.ils_glideslope.derive(self.bad_ils,
-                                   None, None, None, None,
-                                   None, None, None, None,
                                    self.ian,
                                    self.apps,
                                    self.height)
@@ -3370,13 +3376,22 @@ class TestILSGlideslope(unittest.TestCase):
 
     def test_derive_ian_good_ils(self):
         self.ils_glideslope.derive(self.good_ils,
-                                   None, None, None, None,
-                                   None, None, None,None,
                                    self.ian,
                                    self.apps,
                                    self.height)
         expected = [1,] * 12
         ma_test.assert_array_almost_equal(self.ils_glideslope.array, expected)
+
+
+class TestILSLocalizerPrepared(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
 
 class TestILSLocalizer(unittest.TestCase):
 
@@ -3398,9 +3413,6 @@ class TestILSLocalizer(unittest.TestCase):
 
     def test_derive_ian_only(self):
         self.ils_localizer.derive(None,
-                             None,
-                             None,
-                             None,
                              self.ian,
                              self.apps,
                              self.height)
@@ -3409,9 +3421,6 @@ class TestILSLocalizer(unittest.TestCase):
 
     def test_derive_ian_bad_ils(self):
         self.ils_localizer.derive(self.bad_ils,
-                             None,
-                             None,
-                             None,
                              self.ian,
                              self.apps,
                              self.height)
@@ -3421,9 +3430,6 @@ class TestILSLocalizer(unittest.TestCase):
 
     def test_derive_ian_good_ils(self):
         self.ils_localizer.derive(self.good_ils,
-                             None,
-                             None,
-                             None,
                              self.ian,
                              self.apps,
                              self.height)
