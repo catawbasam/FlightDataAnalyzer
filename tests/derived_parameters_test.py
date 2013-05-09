@@ -86,6 +86,7 @@ from analysis_engine.derived_parameters import (
     FlapSurface,
     FuelQty,
     FuelQty_Low,
+    GearDown,
     GearDownSelected,
     GearOnGround,
     GearUpSelected,
@@ -3174,13 +3175,24 @@ class TestFlapSurface(unittest.TestCase):
 
 
 class TestGearDown(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = GearDown.get_operational_combinations()
+        self.assertIn(('Gear (L) Down',), opts)
+        self.assertIn(('Gear (N) Down',), opts)
+        self.assertIn(('Gear (R) Down',), opts)
+        self.assertIn(('Gear (L) Down', 'Gear (R) Down'), opts)
+        self.assertIn(('Gear (L) Down', 'Gear (N) Down', 'Gear (R) Down'), opts)
+        self.assertIn(('Gear Down Selected',), opts)
         
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_from_select_down(self):
+        sel_down = M(array=np.ma.array([1,0,0,1,1]), values_mapping={
+            0: 'Up',
+            1: 'Down',
+        })
+        down = GearDown()
+        down.derive(None, None, None, sel_down)
+        self.assertEqual(down.array,
+                         ['Down', 'Up', 'Up', 'Down', 'Down'])
 
 
 class TestGearDownSelected(unittest.TestCase):
@@ -3220,9 +3232,13 @@ class TestGearDownSelected(unittest.TestCase):
 
 
 class TestGearOnGround(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = GearOnGround.get_operational_combinations()
+        self.assertEqual(opts, [
+            ('Gear (L) On Ground',),
+            ('Gear (R) On Ground',),
+            ('Gear (L) On Ground', 'Gear (R) On Ground'),
+            ])
         
     def test_gear_on_ground_basic(self):
         p_left = M(array=np.ma.array(data=[0,0,1,1]),

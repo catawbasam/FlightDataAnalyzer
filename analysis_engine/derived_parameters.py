@@ -2820,6 +2820,12 @@ class GearDown(MultistateDerivedParameterNode):
     '''
     This Multi-State parameter uses "majority voting" to decide whether the
     gear is up or down.
+    
+    If Gear (*) Down is not recorded, it will be created from Gear Down
+    Selected which is from the cockpit lever.
+    
+    TODO: Add a transit delay (~10secs) to the selection to when the gear is
+    down.
     '''
 
     align = False
@@ -2830,25 +2836,28 @@ class GearDown(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-
+        # Can operate with a any combination of parameters available
         return any_of(cls.get_dependency_names(), available)
 
     def derive(self,
                gl=M('Gear (L) Down'),
                gn=M('Gear (N) Down'),
-               gr=M('Gear (R) Down')):
+               gr=M('Gear (R) Down'),
+               gear_sel=M('Gear Down Selected')):
 
         # Join all available gear parameters and use whichever are available.
-        v = vstack_params(gl, gn, gr)
-        wheels_down = v.sum(axis=0) >= (v.shape[0] / 2.0)
-        self.array = np.ma.where(wheels_down, self.state['Down'], self.state['Up'])
+        if gl or gn or gr:
+            v = vstack_params(gl, gn, gr)
+            wheels_down = v.sum(axis=0) >= (v.shape[0] / 2.0)
+            self.array = np.ma.where(wheels_down, self.state['Down'], self.state['Up'])
+        else:
+            self.array = gear_sel.array
 
 
 class GearOnGround(MultistateDerivedParameterNode):
     '''
     Combination of left and right main gear signals.
     '''
-
     align = False
     values_mapping = {
         0: 'Air',
@@ -2857,7 +2866,6 @@ class GearOnGround(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-
         return any_of(cls.get_dependency_names(), available)
 
     def derive(self,
@@ -2876,14 +2884,19 @@ class GearOnGround(MultistateDerivedParameterNode):
                 self.array = np.ma.logical_or(gl.array, gr.array)
                 self.frequency = gl.frequency
                 self.offset = gl.offset
+                return
             else:
                 # If the paramters are not co-located, then
                 # merge_two_parameters creates the best combination possible.
                 self.array, self.frequency, self.offset = merge_two_parameters(gl, gr)
-        elif gl:
-            self.array, self.frequency, self.offset = gl.array, gl.frequency, gl.offset
-        else:  # gr
-            self.array, self.frequency, self.offset = gr.array, gr.frequency, gr.offset
+                return
+        if gl:
+            gear = gl
+        else:
+            gear = gr
+        self.array = gear.array
+        self.frequency = gear.frequency
+        self.offset = gear.offset
 
 
 class GearDownSelected(MultistateDerivedParameterNode):
@@ -2895,6 +2908,9 @@ class GearDownSelected(MultistateDerivedParameterNode):
     Red warnings are included as the selection may first be indicated by one
     of the red warning lights coming on, rather than the gear status
     changing.
+    
+    TODO: Add a transit delay (~10secs) to the selection to when the gear is
+    down.
     '''
 
     values_mapping = {
@@ -5768,6 +5784,7 @@ class StableApproach(MultistateDerivedParameterNode):
             
             #== 8. Engine Power (N1) ==
             self.array[_slice][stable] = 8
+            # TODO: Patch this value depending upon aircraft type
             STABLE_N1_MIN = 45  # %
             stable_engine = (engine >= STABLE_N1_MIN)
             stable_engine |= (altitude > 1000) | (altitude < 50)  # Only use in altitude band 1000-50 feet
