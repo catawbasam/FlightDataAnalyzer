@@ -98,11 +98,11 @@ class APEngagedSelection(KeyTimeInstanceNode):
     name = 'AP Engaged Selection'
 
     def derive(self, ap=M('AP Engaged'), phase=S('Airborne')):
-
+        # FIXME: Allow for other states?
         self.create_ktis_on_state_change(
-            '-',
+            'Engaged',
             ap.array,
-            change='leaving',
+            change='entering',
             phase=phase
         )
 
@@ -116,11 +116,11 @@ class APDisengagedSelection(KeyTimeInstanceNode):
     name = 'AP Disengaged Selection'
 
     def derive(self, ap=M('AP Engaged'), phase=S('Airborne')):
-
+        # FIXME: Allow for other states?
         self.create_ktis_on_state_change(
-            '-',
+            'Engaged',
             ap.array,
-            change='entering',
+            change='leaving',
             phase=phase
         )
 
