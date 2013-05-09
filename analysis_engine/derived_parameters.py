@@ -3486,7 +3486,34 @@ class ILSFrequency(DerivedParameterNode):
             self.array = np.ma.array(data=f1_trim.data, mask=mask)
 
 
+class ILSLocalizerPrepared(DerivedParameterNode):
+
+    # List the minimum acceptable parameters here
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('ILS (1) Localizer', 'ILS (2) Localizer'), available)\
+               or\
+               any_of(('ILS Localizer (Capt)', 'ILS Localizer (Azimuth)'), available)
+
+    name = "ILS Localizer Prepared"
+    units = 'dots'
+    align = False
+
+    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer'),
+               loc_c=P('ILS Localizer (Capt)'),loc_az=P('ILS Localizer (Azimuth)')):
+        if loc_1 or loc_2:
+            self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+        else:
+            self.array, self.frequency, self.offset = blend_two_parameters(loc_c, loc_az)
+
+
 class ILSLocalizer(DerivedParameterNode):
+    '''
+    
+    '''
+
+    name = "ILS Localizer"
+    units = 'dots'
 
     # List the minimum acceptable parameters here
     @classmethod
@@ -3494,28 +3521,16 @@ class ILSLocalizer(DerivedParameterNode):
         if 'IAN Final Approach Course' in available:
             return all_of(('IAN Final Approach Course', 'Approach And Landing', 'Altitude AAL For Flight Phases' ), available)
         else:
-            return any_of(('ILS (1) Localizer', 'ILS (2) Localizer'), available) or \
-               any_of(('ILS Localizer (Capt)', 'ILS Localizer (Azimuth)'), available)
+            return 'ILS Localizer Prepared' in available
 
-    name = "ILS Localizer"
-    units = 'dots'
-    align = False
-
-    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer'),
-               loc_c=P('ILS Localizer (Capt)'),loc_az=P('ILS Localizer (Azimuth)'),
+    def derive(self, ils_localizer=P('ILS Localizer Prepared'),
                ian_localizer=P('IAN Final Approach Course'),
                apps=S('Approach And Landing'),
                alt_aal=P('Altitude AAL For Flight Phases')):
 
-        if loc_1 or loc_2:
-            self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
-        elif loc_c or loc_az:
-            self.array, self.frequency, self.offset = blend_two_parameters(loc_c, loc_az)
+        if ils_localizer:
+            self.array = ils_localizer.array
         else:
-            # we have no ILS parameters so we must have IAN in order for this
-            # derived parameter to operate
-            self.offset = 0.0
-            self.frequency = 1.0
             self.array = np_ma_masked_zeros_like(ian_localizer.array)
 
         if ian_localizer:
@@ -3532,7 +3547,7 @@ class ILSLocalizer(DerivedParameterNode):
                     continue
 
 
-class ILSGlideslope(DerivedParameterNode):
+class ILSGlideslopePrepared(DerivedParameterNode):
 
     """
     This derived parameter merges the available sources into a single
@@ -3540,18 +3555,14 @@ class ILSGlideslope(DerivedParameterNode):
     used to allow for many permutations.
     """
 
-    name = "ILS Glideslope"
+    name = "ILS Glideslope Prepared"
     units = 'dots'
     align = False
 
     @classmethod
     def can_operate(cls, available):
-        if 'IAN Glidepath' in available:
-            return all_of(('IAN Glidepath', 'Approach And Landing', 'Altitude AAL For Flight Phases' ), available)
-        else:
-            return any_of([name for name in cls.get_dependency_names() \
-                                   if name.startswith('ILS')], available)
-
+        return any_of(cls.get_dependency_names(), available)
+    
     def derive(self,
                source_A=P('ILS (1) Glideslope'),
                source_B=P('ILS (2) Glideslope'),
@@ -3565,33 +3576,44 @@ class ILSGlideslope(DerivedParameterNode):
 
                source_M=P('ILS Glideslope (Capt)'),
                source_N=P('ILS Glideslope (FO)'),
-
-               ian_glide=P('IAN Glidepath'),
-               apps=S('Approach And Landing'),
-               alt_aal=P('Altitude AAL For Flight Phases'),
                ):
-
         sources = [source_A, source_B, source_C,
                    source_E, source_F, source_G,
                    source_J,
                    source_M, source_N
                    ]
+        params=[p for p in sources if p]
+        self.offset = 0.0
+        self.frequency = 1.0
+        self.array=blend_parameters(params, 
+                                    offset=self.offset, 
+                                    frequency=self.frequency)
+            
 
-        params = [p for p in sources if p]
+class ILSGlideslope(DerivedParameterNode):
 
-        if params:
-            self.offset = 0.0
-            self.frequency = 1.0
-            self.array = blend_parameters(params,
-                                          offset=self.offset,
-                                          frequency=self.frequency)
+
+    name = "ILS Glideslope"
+    units = 'dots'
+
+    @classmethod
+    def can_operate(cls, available):
+        if 'IAN Glidepath' in available:
+            return all_of(('IAN Glidepath', 'Approach And Landing', 'Altitude AAL For Flight Phases' ), available)
         else:
-            # we have no ILS parameters so we must have IAN in order for this
-            # derived parameter to operate
-            self.offset = 0.0
-            self.frequency = 1.0
-            self.array = np_ma_masked_zeros_like(ian_glide.array)
+            return 'ILS Glideslope Prepared' in available
 
+    def derive(self,
+               ils_glideslope=P('ILS Glideslope Prepared'),
+               ian_glide=P('IAN Glidepath'),
+               apps=S('Approach And Landing'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        if ils_glideslope:
+            self.array = ils_glideslope.array
+        else:
+            self.array = np_ma_masked_zeros_like(ian_glide.array)
+            
         if ian_glide:
             for app in apps:
                 ils = scan_ils('glideslope', self.array, alt_aal.array, app.slice)
