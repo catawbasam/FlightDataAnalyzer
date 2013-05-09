@@ -5689,7 +5689,7 @@ class StableApproach(MultistateDerivedParameterNode):
             glideslope = repair(gdev.array, _slice)
             localizer = repair(ldev.array, _slice)
             # apply quite a large moving average to smooth over peaks and troughs
-            vertical_speed = moving_average(repair(vspd.array, _slice), 8)
+            vertical_speed = moving_average(repair(vspd.array, _slice), 10)
             engine = repair(eng.array, _slice)  # TODO: add moving_average here too?
             altitude = repair(alt.array, _slice)
 
