@@ -949,14 +949,22 @@ class LandingRoll(FlightPhaseNode):
     def derive(self, pitch=P('Pitch'), gspd=P('Groundspeed'),
                aspd=P('Airspeed True'), lands=S('Landing')):
         if gspd:
-            speed=gspd.array
+            speed = gspd.array
         else:
-            speed=aspd.array
+            speed = aspd.array
         for land in lands:
-            end = index_at_value(speed, 60.0, land.slice)
+            # Airspeed True on some aircraft do not record values below 61
+            end = index_at_value(speed, 65.0, land.slice)
+            if end is None:
+                # due to masked values, use the land.stop rather than
+                # searching from the end of the data
+                end = land.slice.stop
             begin = index_at_value(pitch.array, 2.0,
                                    slice(end,land.slice.start,-1),
                                    endpoint='nearest')
+            if begin is None:
+                # due to masked values, use land.start in place
+                begin = land.slice.start
             self.create_phase(slice(begin, end), begin=begin, end=end)
 
 
