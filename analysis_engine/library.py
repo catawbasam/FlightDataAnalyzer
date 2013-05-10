@@ -2092,8 +2092,8 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     track_edges = np.ma.flatnotmasked_edges(np.ma.masked_less(speed, 1.0))
 
     # In cases where the data starts with no useful groundspeed data, throw in the towel now.
-    if track_edges==None:
-        return lat_return, lon_return, 0.0
+    if track_edges is None:
+        raise ValueError("No useful speed data for '%s' section" % mode)
 
     # Increment to allow for Python indexing, but don't step over the edge.
     track_edges[1] = min(track_edges[1]+1, len(speed))
@@ -2103,7 +2103,7 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     elif mode == 'takeoff':
         track_slice=slice(track_edges[0], len(speed))
     else:
-        raise 'unknown mode in ground_track_precise'
+        raise NotImplementedError("Unrecognised mode '%s' in ground_track_precise" % mode)
 
     rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency, width=8.0))
     straights = np.ma.clump_unmasked(np.ma.masked_greater(rot, 2.0)) # 2deg/sec
