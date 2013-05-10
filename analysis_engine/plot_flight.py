@@ -69,11 +69,13 @@ class TypedWriter(object):
         return res
             
             
-def add_track(kml, track_name, lat, lon, colour, alt_param=None, alt_mode=None):
+def add_track(kml, track_name, lat, lon, colour, alt_param=None, alt_mode=None, visible=True):
     '''
     alt_mode such as simplekml.constants.AltitudeMode.clamptoground
     '''
-    track_config = {'name': track_name}
+    track_config = {'name': track_name,
+                    'visibility': 1 if visible else 0,
+                    }
     if alt_param:
         track_config['altitudemode'] = alt_mode
         track_config['extrude'] = 1
@@ -164,14 +166,16 @@ def track_to_kml(hdf_path, kti_list, kpv_list, approach_list,
                   alt_param=alt, alt_mode=altitude_mode)
         add_track(kml, 'Smoothed On Ground', smooth_lat, smooth_lon, 'ff7fff7f')        
     
-        ##lat = derived_param_from_hdf(hdf['Latitude Prepared']).get_aligned(one_hz)
-        ##lon = derived_param_from_hdf(hdf['Longitude Prepared']).get_aligned(one_hz)
-        ##add_track(kml, 'Prepared', lat, lon, 'A11EB3')
+        if 'Latitude Prepared' in hdf and 'Longitude Prepared' in hdf:
+            lat = hdf['Latitude Prepared']
+            lon = hdf['Longitude Prepared']
+            add_track(kml, 'Prepared Track', lat, lon, 'A11EB3', visible=False)
         
-        # Should this be a aligned to parameter at the same raw data frequency?
-        ##lat_r = derived_param_from_hdf(hdf['Latitude']).get_aligned(one_hz)
-        ##lon_r = derived_param_from_hdf(hdf['Longitude']).get_aligned(one_hz)
-        ##add_track(kml, 'Recorded Track', lat_r, lon_r, 'ff0000ff')
+        if 'Latitude' in hdf and 'Longitude' in hdf:
+            lat_r = hdf['Latitude']
+            lon_r = hdf['Longitude']
+            # add RAW track default invisible
+            add_track(kml, 'Recorded Track', lat_r, lon_r, 'ff0000ff', visible=False)
 
     for kti in kti_list:
         kti_point_values = {'name': kti.name}
@@ -214,11 +218,11 @@ def track_to_kml(hdf_path, kti_list, kpv_list, approach_list,
         pnt = kml.newpoint(**kpv_point_values)
         pnt.style = style
     
-        for app in approach_list:
-            try:
-                draw_centreline(kml, app.runway)
-            except:
-                pass
+    for app in approach_list:
+        try:
+            draw_centreline(kml, app.runway)
+        except:
+            pass
                 
 
     if not dest_path:
