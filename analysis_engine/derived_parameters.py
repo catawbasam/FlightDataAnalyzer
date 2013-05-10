@@ -1345,6 +1345,13 @@ class APEngaged(MultistateDerivedParameterNode):
                ap2=M('AP (2) Engaged'),
                ap3=M('AP (3) Engaged')):
 
+
+
+
+        # FIXME: use State checks rather than raw value usage.
+        # and CJ changed AP Engaged Selection to use 'Engaged' only.
+
+
         if ap3:
             if ap1 and ap2:
                 # Normal three axis operation, perhaps with autoland.
