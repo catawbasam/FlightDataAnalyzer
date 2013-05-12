@@ -4106,7 +4106,7 @@ class TestStepValues(unittest.TestCase):
         # borrowed from TestSlat
         array = np.ma.array(range(25) + range(-5,0))
         array[1] = np.ma.masked
-        array = step_values(array, ( 0, 16, 20, 23))
+        array = step_values(array, 0.5, ( 0, 16, 20, 23))
         self.assertEqual(len(array), 30)
         self.assertEqual(
             list(np.ma.filled(array, fill_value=-999)),
@@ -4118,14 +4118,14 @@ class TestStepValues(unittest.TestCase):
 
     def test_step_inital_level(self):
         array = np.ma.arange(9,14,0.6)
-        stepped = step_values(array, (10, 11, 15))
+        stepped = step_values(array, 1.0, (10, 11, 15))
         self.assertEqual(list(stepped),
                          [10, 10, 10, 11, 11, 11, 11, 15, 15])
 
     def test_step_leading_edge(self):
         array = np.ma.array([0,0.1,0.0,0.8,1.6,3,6,6,6,6,8,13,18,18,9,9,9,6,3,2,
                              2,2,2,0,0,0])
-        stepped = step_values(array, (0, 1, 5, 10, 15), step_at='move_start')
+        stepped = step_values(array, 1.0, (0, 1, 5, 10, 15), step_at='move_start')
         self.assertEqual(list(stepped),
                          [0,0,0,1,1,1,5,5,5,5,10,15,15,15,10,10,10,5,1,1,1,1,1,
                           0,0,0])
@@ -4138,9 +4138,21 @@ class TestStepValues(unittest.TestCase):
                              9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
                              15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
         array = np.ma.concatenate((array,array[::-1]))
-        stepped = step_values(array, (0, 1, 5, 15), step_at='move_start')
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_start', skip=False)
         self.assertEqual(list(stepped),
                          [0]*11+[1]*12+[5]*13+[15]*24+[5]*13+[1]*12+[0]*11)
+        
+    def test_step_leading_edge_skip_real_data(self):
+        array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
+                             0.67, 0.98, 1.15, 1.28, 1.5, 1.71, 1.92, 2.12, 
+                             2.32, 2.53, 2.75, 2.96, 3.18, 3.39, 3.6, 3.83, 
+                             4.06, 4.3, 4.57, 4.82, 5.1, 5.41, 5.85, 7.12, 
+                             9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
+                             15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
+        array = np.ma.concatenate((array,array[::-1]))
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_start', skip=True, rate_threshold=0.1)
+        self.assertEqual(list(stepped),
+                         [0]*10+[15]*47+[0]*39)
         
     def test_step_midpoint_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
@@ -4150,7 +4162,7 @@ class TestStepValues(unittest.TestCase):
                              9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
                              15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
         array = np.ma.concatenate((array,array[::-1]))
-        stepped = step_values(array, (0, 1, 5, 15), step_at='midpoint')
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='midpoint')
         self.assertEqual(list(stepped),
                          [0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,5,5,5,5,
                           5,5,5,5,5,5,5,5,5,15,15,15,15,15,15,15,15,15,15,15,15,
@@ -4165,9 +4177,9 @@ class TestStepValues(unittest.TestCase):
                              9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
                              15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
         array = np.ma.concatenate((array,array[::-1]))
-        stepped = step_values(array, (0, 1, 5, 15), step_at='move_end')
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_end')
         self.assertEqual(list(stepped),
-                         [0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+                         [0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
                           1,1,1,5,5,5,5,5,5,5,15,15,15,15,15,15,15,15,15,15,15,
                           15,15,15,15,15,15,15,15,15,15,15,15,15,15,5,5,5,5,5,5,
                           5,5,5,5,5,5,5,5,5,5,5,5,5,5,1,1,1,0,0,0,0,0,0,0,0,0,0,
