@@ -2849,16 +2849,15 @@ class GearDown(MultistateDerivedParameterNode):
     def derive(self,
                gl=M('Gear (L) Down'),
                gn=M('Gear (N) Down'),
-               gr=M('Gear (R) Down'),):
-               #gear_sel=M('Gear Down Selected')):  #FIXME: Avoid circular dependency for now!
-
+               gr=M('Gear (R) Down'),
+               gear_sel=M('Gear Down Selected')):
         # Join all available gear parameters and use whichever are available.
         if gl or gn or gr:
             v = vstack_params(gl, gn, gr)
             wheels_down = v.sum(axis=0) >= (v.shape[0] / 2.0)
             self.array = np.ma.where(wheels_down, self.state['Down'], self.state['Up'])
-        #else:
-            #self.array = gear_sel.array
+        else:
+            self.array = gear_sel.array
 
 
 class GearOnGround(MultistateDerivedParameterNode):
@@ -3727,7 +3726,9 @@ class CoordinatesSmoothed(object):
 
     def _adjust_track(self, lon, lat, ils_loc, app_range, hdg, gspd, tas,
                       toff, toff_rwy, tdwns, approaches, mobile, precise):
-        
+        '''
+        Returns track adjustment 
+        '''
         # Set up a working space.
         lat_adj = np_ma_masked_zeros_like(hdg.array)
         lon_adj = np_ma_masked_zeros_like(hdg.array)
