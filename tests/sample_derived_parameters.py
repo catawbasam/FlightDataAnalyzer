@@ -93,5 +93,3 @@ class VerticalSpeed(DerivedParameterNode):
         return NotImplemented
 
     
-
-
