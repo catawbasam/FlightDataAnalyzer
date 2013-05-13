@@ -3400,8 +3400,8 @@ def blend_parameters_weighting(array, wt):
     '''
     mask = np.ma.getmaskarray(array)
     param_weight = (1.0-mask)
-    result_weight = np_ma_masked_zeros_like(np.ma.arange(len(param_weight)*wt))
-    final_weight = np_ma_masked_zeros_like(np.ma.arange(len(param_weight)*wt))
+    result_weight = np_ma_masked_zeros_like(np.ma.arange(floor(len(param_weight)*wt)))
+    final_weight = np_ma_masked_zeros_like(np.ma.arange(floor(len(param_weight)*wt)))
     result_weight[0]=param_weight[0]/wt
     result_weight[-1]=param_weight[-1]/wt
 
@@ -4195,7 +4195,9 @@ def resample(array, orig_hz, resample_hz):
     if modifier > 1:
         return np.ma.repeat(array, modifier)
     else:
-        return array[::1 / modifier]
+        # Only convert complete blocks of data.
+        endpoint = floor(len(array)*modifier)/modifier
+        return array[:endpoint:1 / modifier]
 
 
 def round_to_nearest(array, step):

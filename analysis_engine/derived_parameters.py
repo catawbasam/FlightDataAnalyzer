@@ -916,7 +916,8 @@ class AltitudeRadio(DerivedParameterNode):
         sources = [source_A, source_B, source_C, source_E, source_L, source_R]
         params = [p for p in sources if p]
         self.offset = 0.0
-        self.frequency = 1.0
+        # blend_parameters does not currently manage downsampling correctly, so return the highest frequency for now.
+        self.frequency = max([p.frequency for p in sources if p])
         self.array = blend_parameters(params, 
                                       offset=self.offset, 
                                       frequency=self.frequency)
@@ -3148,7 +3149,45 @@ class FlapLeverDetent(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap_steps, step_at='move_start')
+            self.array = step_values(flap.array, flap.frequency, flap_steps)
+
+class FlapLeverSynthetic(DerivedParameterNode):
+    """
+    Steps raw Flap angle from lever into detents. This is being developed,
+    along with extensions to the step_values algorithm, to cater for aircraft
+    that do not record flap lever position separately.
+    
+    At the same time, extensions to step_values to reflect the different
+    needs of safety and maintenance organisations are being included, so for
+    the present version the step_at keyword should not be used.
+    """
+    units = 'deg'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('Flap Surface' in available) and \
+               all_of(('Series', 'Family'), available)
+    
+
+    def derive(self, flap_lvr=P('Flap Lever'), flap_surf=P('Flap Surface'), 
+               series=A('Series'), family=A('Family')):
+        
+
+        
+        flap=flap_surf
+
+            
+        try:
+            flap_steps = get_flap_map(series.value, family.value)
+        except KeyError:
+            # no flaps mapping, round to nearest 5 degrees
+            self.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            self.array = round_to_nearest(flap.array, 5.0)
+        else:
+            self.array = step_values(flap.array, flap.frequency, 
+                                     flap_steps, 
+                                     skip=True)
 
 
 class FlapSurface(DerivedParameterNode):
@@ -3222,7 +3261,7 @@ class Flap(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap_steps, step_at='move_end')
+            self.array = step_values(flap.array, flap.frequency, flap_steps)
 
 
 '''
@@ -3267,7 +3306,7 @@ class Slat(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(slat.array, 5.0)
         else:
-            self.array = step_values(slat.array, slat_steps)
+            self.array = step_values(slat.array, slat.frequency, slat_steps)
 
 
 class SlopeToLanding(DerivedParameterNode):
@@ -3591,10 +3630,12 @@ class ILSGlideslopePrepared(DerivedParameterNode):
                    ]
         params=[p for p in sources if p]
         self.offset = 0.0
-        self.frequency = 1.0
+        # blend_parameters does not currently manage downsampling correctly, so return the highest frequency for now.
+        self.frequency = max([p.frequency for p in sources if p])
         self.array=blend_parameters(params, 
                                     offset=self.offset, 
-                                    frequency=self.frequency)
+                                    frequency=self.frequency,
+                                    )
             
 
 class ILSGlideslope(DerivedParameterNode):
@@ -5345,22 +5386,8 @@ class ApproachRange(DerivedParameterNode):
                approaches=App('Approach Information'),
                ):
 
-        # Order Assumes Drift is more important than Magnetic Variation
-        if trk_true and np.ma.count(trk_true.array):
-            hdg = trk_true
-            magnetic = False
-        elif trk_mag and np.ma.count(trk_mag.array):
-            hdg = trk_mag
-            magnetic = True
-        elif hdg_true and np.ma.count(hdg_true.array):
-            hdg = hdg_true
-            magnetic = False
-        else:
-            hdg = hdg_mag
-            magnetic = True
-
-        app_range = np_ma_masked_zeros_like(hdg.array)
-        freq = hdg.frequency
+        app_range = np_ma_masked_zeros_like(hdg_mag.array)
+        freq = hdg_mag.frequency
 
         for approach in approaches:
             # We are going to reference the approach to a runway touchdown
@@ -5371,6 +5398,20 @@ class ApproachRange(DerivedParameterNode):
 
             # Retrieve the approach slice
             this_app_slice = approach.slice
+
+            # Let's use the best available information for this approach
+            if trk_true and np.ma.count(trk_true.array[this_app_slice]):
+                hdg = trk_true
+                magnetic = False
+            elif trk_mag and np.ma.count(trk_mag.array[this_app_slice]):
+                hdg = trk_mag
+                magnetic = True
+            elif hdg_true and np.ma.count(hdg_true.array[this_app_slice]):
+                hdg = hdg_true
+                magnetic = False
+            else:
+                hdg = hdg_mag
+                magnetic = True
 
             kwargs = {'runway': runway}
             
