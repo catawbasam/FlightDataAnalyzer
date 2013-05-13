@@ -3400,8 +3400,8 @@ def blend_parameters_weighting(array, wt):
     '''
     mask = np.ma.getmaskarray(array)
     param_weight = (1.0-mask)
-    result_weight = np_ma_masked_zeros_like(np.ma.arange(len(param_weight)*wt))
-    final_weight = np_ma_masked_zeros_like(np.ma.arange(len(param_weight)*wt))
+    result_weight = np_ma_masked_zeros_like(np.ma.arange(floor(len(param_weight)*wt)))
+    final_weight = np_ma_masked_zeros_like(np.ma.arange(floor(len(param_weight)*wt)))
     result_weight[0]=param_weight[0]/wt
     result_weight[-1]=param_weight[-1]/wt
 
@@ -4195,7 +4195,9 @@ def resample(array, orig_hz, resample_hz):
     if modifier > 1:
         return np.ma.repeat(array, modifier)
     else:
-        return array[::1 / modifier]
+        # Only convert complete blocks of data.
+        endpoint = floor(len(array)*modifier)/modifier
+        return array[:endpoint:1 / modifier]
 
 
 def round_to_nearest(array, step):
@@ -4575,17 +4577,33 @@ def step_local_cusp(array):
                 
     
     
-def step_values(array, steps, step_at='midpoint'):
+def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_threshold=0.5):
     """
+    Note: ---------------
+    This algorithm is being extended to cater for aircraft that do not record
+    flap lever position separately.
+    
+    At the same time, extensions to step_values to reflect the different
+    needs of safety and maintenance organisations are being included, so for
+    the present version the step_at keyword should not be used.
+    /Note: ---------------
+    
+
     Rounds each value in array to nearest step. Maintains the
     original array mask.
 
     :param array: Masked array to step
     :type array: np.ma.array
+    :param array_hz: array sample rate
+    :type array_hz: float
     :param steps: Steps to round to nearest value
     :type steps: list of integers
     :param step_at: Step conversion mode
     :type step_at: String, default='midpoint', options'move_start', 'move_end'
+    :param skip: Selects whether steps that are passed straight through should be mapped or not.
+    :type skip: logical, default = False
+    :param rate_threshold: rate of change threshold for non-moving control
+    :type rate_threshold: float, default 0.5 is suitable for flap operation.
     
     :returns: Stepped masked array
     :rtype: np.ma.array
@@ -4593,6 +4611,7 @@ def step_values(array, steps, step_at='midpoint'):
     stepping_points = np.ediff1d(steps, to_end=[0])/2.0 + steps
     stepped_array = np.zeros_like(array.data)
     low = None
+    rt = rate_threshold/array_hz
     for level, high in zip(steps, stepping_points):
         if low is None:
             stepped_array[(-high < array) & (array <= high)] = level
@@ -4605,58 +4624,72 @@ def step_values(array, steps, step_at='midpoint'):
         
     if step_at!='midpoint':
         
-        
         # We are being asked to adjust the step point to either the beginning or
-        # end of a change period. First find where the changes took place,
-        # including endpoints to the array to allow indexing of the start and end
-        # cases.
-        changes = [0] + \
-            list(np.ediff1d(stepped_array, to_end=0.0).nonzero()[0]) + \
-            [len(stepped_array)]
-        
-        # Compute the slices between change points.
-        spans = []
-        for i in range(1, len(changes)-1):
-            if step_at == 'move_start':
-                spans.append(slice(changes[i], changes[i-1], -1))
-            else:
-                spans.append(slice(changes[i], changes[i+1], +1))
-
-        for span in spans:
-            to_chg = step_local_cusp(array[span])
-            
-            if to_chg==0:
-                if span==spans[0] or span==spans[-1]:
-                    # Don't alter end sections as this just gets messy.
-                    continue
-                # Continuous movement, so change at the step value if this passes through a step.
-                big = np.ma.max(array[span])
-                little = np.ma.min(array[span])
-                # See if the step in question is within this range:
-                this_step = None
-                for step in steps:
-                    if step<=big and step>=little:
-                        this_step = step
-                        break
-                if this_step:
-                    # Find where we passed through this value...
-                    idx = index_at_value(array, this_step, span)
-                    if idx:
-                        if step_at == 'move_start':
-                            stepped_array[ceil(idx):span.start+1] = stepped_array[span.start]
-                        else:
-                            stepped_array[span.start:floor(idx)] = stepped_array[span.start]
+        # end of a change period. First find where the changes took place:
+        if skip:
+            # We change to cover the movements of the output array
+            spans = np.ma.clump_unmasked(np.ma.masked_inside(np.ediff1d(array),-rt,rt))
+            for span in spans:
+                if step_at == 'move_start':
+                    stepped_array[span] = stepped_array[span.stop+1]
                 else:
-                    # OK - just ran from one step to another without dwelling, so fill with the start or end values.
-                    if step_at == 'move_start':
-                        stepped_array[span] = stepped_array[span.start]
-                    else:
-                        stepped_array[span] = stepped_array[span.start]
+                    stepped_array[span] = stepped_array[span.start-1]            
+        else:
+            # We change to cover the movements of the stepped array
+            #spans = np.ma.clump_unmasked(np.ma.masked_equal(np.ediff1d(stepped_array),0.0))
+
+            # Compute the slices between change points.
             
-            elif step_at == 'move_start':
-                stepped_array[span][:to_chg] = stepped_array[span.start]
-            else:
-                stepped_array[span][:to_chg] = stepped_array[span.start]
+            # We are being asked to adjust the step point to either the beginning or
+            # end of a change period. First find where the changes took place,
+            # including endpoints to the array to allow indexing of the start and end
+            # cases.
+            changes = [0] + \
+                list(np.ediff1d(stepped_array, to_end=0.0).nonzero()[0]) + \
+                [len(stepped_array)]
+            
+            spans = []
+            for i in range(1, len(changes)-1):
+                if step_at == 'move_start':
+                    spans.append(slice(changes[i], changes[i-1], -1))
+                else:
+                    spans.append(slice(changes[i], changes[i+1], +1))
+
+            for span in spans:
+                to_chg = step_local_cusp(array[span])
+            
+                if to_chg==0:
+                    if span==spans[0] or span==spans[-1]:
+                        # Don't alter end sections as this just gets messy.
+                        continue
+                    # Continuous movement, so change at the step value if this passes through a step.
+                    big = np.ma.max(array[span])
+                    little = np.ma.min(array[span])
+                    # See if the step in question is within this range:
+                    this_step = None
+                    for step in steps:
+                        if step<=big and step>=little:
+                            this_step = step
+                            break
+                    if this_step:
+                        # Find where we passed through this value...
+                        idx = index_at_value(array, this_step, span)
+                        if idx:
+                            if step_at == 'move_start':
+                                stepped_array[ceil(idx):span.start+1] = stepped_array[span.start]
+                            else:
+                                stepped_array[span.start:floor(idx)] = stepped_array[span.start]
+                    else:
+                        # OK - just ran from one step to another without dwelling, so fill with the start or end values.
+                        if step_at == 'move_start':
+                            stepped_array[span] = stepped_array[span.start]
+                        else:
+                            stepped_array[span] = stepped_array[span.start]
+                
+                elif step_at == 'move_start':
+                    stepped_array[span][:to_chg] = stepped_array[span.start]
+                else:
+                    stepped_array[span][:to_chg] = stepped_array[span.start]
                 
         """
         import matplotlib.pyplot as plt
@@ -4667,7 +4700,6 @@ def step_values(array, steps, step_at='midpoint'):
         plt.plot(stepped_array)
         plt.show()
         """
-    
     return np.ma.array(stepped_array, mask=array.mask)
         
             
