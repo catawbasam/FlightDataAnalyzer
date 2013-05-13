@@ -1838,7 +1838,7 @@ def runway_heading(runway):
         return float(brg.data)
     except:
         if runway:
-            raise ValueError("runway_heading unable to resolve heading for runway id='%s'" %runway['id'])
+            raise ValueError("runway_heading unable to resolve heading for runway: %s" % runway)
         else:
             raise ValueError("runway_heading unable to resolve heading; no runway")
 
