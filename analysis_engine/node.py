@@ -1786,6 +1786,9 @@ class KeyPointValueNode(FormattedNameNode):
             slices = [getattr(p, 'slice', p) for p in phase]
         for _slice in slices or [slice(None)]:
             start = _slice.start or 0
+            # NOTE: TypeError: 'bool' object is not subscriptable:
+            #     If condition is False check Values Mapping has correct
+            #     state being checked against in condition.
             events = runs_of_ones(condition[_slice])
             # for each period where the condition is met within the phase slice
             for event in events:
