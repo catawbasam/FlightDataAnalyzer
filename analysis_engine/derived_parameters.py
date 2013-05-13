@@ -4281,7 +4281,7 @@ class MagneticVariationFromRunway(DerivedParameterNode):
                 # runway does not have coordinates to calculate true heading
                 pass
             else:
-                dev[tof_hdg_mag_kpv.index] = takeoff_hdg_mag - takeoff_hdg_true
+                dev[tof_hdg_mag_kpv.index] = takeoff_hdg_true - takeoff_hdg_mag
         
         # landing
         ldg_hdg_mag_kpv = head_land.get_last()
@@ -4293,7 +4293,7 @@ class MagneticVariationFromRunway(DerivedParameterNode):
                 # runway does not have coordinates to calculate true heading
                 pass
             else:
-                dev[ldg_hdg_mag_kpv.index] = landing_hdg_mag - landing_hdg_true
+                dev[ldg_hdg_mag_kpv.index] = landing_hdg_true - landing_hdg_mag
 
         # linearly interpolate between values and extrapolate to ends of the
         # array, even if only the takeoff variation is calculated as the

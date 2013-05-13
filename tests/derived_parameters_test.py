@@ -3576,11 +3576,11 @@ class TestMagneticVariationFromRunway(unittest.TestCase):
             A('FDR Landing Runway', land_rwy)
         )
         # 0 to takeoff index variation
-        self.assertAlmostEqual(mag_var_rwy.array[0], 5.84060605)
-        self.assertAlmostEqual(mag_var_rwy.array[62], 5.84060605)
+        self.assertAlmostEqual(mag_var_rwy.array[0], -5.84060605)
+        self.assertAlmostEqual(mag_var_rwy.array[62], -5.84060605)
         # landing index to end
-        self.assertAlmostEqual(mag_var_rwy.array[213], 1.20610555)
-        self.assertAlmostEqual(mag_var_rwy.array[-1], 1.20610555)
+        self.assertAlmostEqual(mag_var_rwy.array[213], -1.20610555)
+        self.assertAlmostEqual(mag_var_rwy.array[-1], -1.20610555)
         
     def test_derive_only_takeoff_available(self):
         toff_rwy = {'end': {'elevation': 10,
@@ -3603,11 +3603,11 @@ class TestMagneticVariationFromRunway(unittest.TestCase):
             A('FDR Landing Runway', land_rwy)
         )
         # 0 to takeoff index variation
-        self.assertAlmostEqual(mag_var_rwy.array[0], 5.84060605)
-        self.assertAlmostEqual(mag_var_rwy.array[62], 5.84060605)
+        self.assertAlmostEqual(mag_var_rwy.array[0], -5.84060605)
+        self.assertAlmostEqual(mag_var_rwy.array[62], -5.84060605)
         # landing index to end
-        self.assertAlmostEqual(mag_var_rwy.array[213], 5.84060605)
-        self.assertAlmostEqual(mag_var_rwy.array[-1], 5.84060605)
+        self.assertAlmostEqual(mag_var_rwy.array[213], -5.84060605)
+        self.assertAlmostEqual(mag_var_rwy.array[-1], -5.84060605)
         
                            
 class TestPackValvesOpen(unittest.TestCase):
