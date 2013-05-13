@@ -2525,13 +2525,11 @@ class APDisengagedDuringCruiseDuration(KeyPointValueNode):
     This monitors the duration for which all autopilot channels are disengaged
     in the cruise.
     '''
-
     name = 'AP Disengaged During Cruise Duration'
-    units = ''
+    units = 's'
 
     def derive(self, ap=M('AP Engaged'), cruise=S('Cruise')):
-
-        self.create_kpvs_where_state('-', ap.array, ap.hz, phase=cruise)
+        self.create_kpvs_where(ap.array != 'Engaged', ap.hz, phase=cruise)
 
 
 ##############################################################################
