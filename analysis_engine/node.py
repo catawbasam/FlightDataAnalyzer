@@ -21,6 +21,7 @@ from analysis_engine.library import (
     is_index_within_slice,
     is_slice_within_slice,
     repair_mask,
+    runs_of_ones,
     slice_multiply,
     slices_above,
     slices_below,
@@ -1738,17 +1739,18 @@ class KeyPointValueNode(FormattedNameNode):
                                          mark)
                     self.create_kpv(index, duration, **kwargs)
 
-
-    def create_kpvs_where_state(self, state, array, hz, phase=None,
-                                min_duration=0.0, exclude_leading_edge=False):
+    def create_kpvs_where(self, condition, frequency=1.0, phase=[],
+                          min_duration=0.0, exclude_leading_edge=False):
         '''
         For discrete and multi-state parameters, this detects a specified
         state and records the duration of each event.
 
-        :param array: The input parameter, with data and sample rate
-            information.
-        :type array: A recorded or derived multistate (discrete) parameter
-        :param phase: An optional flight phase (section) or list of slices argument.
+        :param condition: A condition which results in a boolean array, e.g. altitude > 200 or autopilot != 'Engaged'
+        :type condition: Boolean array
+        :param frequency: Frequency of the condition array provided
+        :type frequency: Float
+        :param phase: An optional subsection of data to search within
+        :type phase: Section, Slice, SectionNode or List of slices
         :param min_duration: An optional minimum duration for the KPV to become
             valid.
         :type min_duration: Float (seconds)
@@ -1769,45 +1771,34 @@ class KeyPointValueNode(FormattedNameNode):
         nuisance levels of operation which would swamp the database if not
         filtered before creating the KPV.
 
-        ..todo: instead of working on the strings in numpy, we need to find the
-            numeric value by reversing the mapping.
+        Note: Replaces "create_kpvs_where_state" method.
+        
+        TODO: Where Sections are provided, this method should test the
+        partial edges allowed (e.g. 10.3 to 12.7)
         '''
-        def find_events(state, subarray, start_index):
-            # TODO: to improve performance reverse the state into numeric value
-            # and look it up in array.raw instead
-            events = np.ma.clump_unmasked(
-                np.ma.masked_not_equal(subarray.raw,
-                                       subarray.get_state_value(state)))
+        if isinstance(phase, slice):
+            # Handle single phase or slice
+            slices = [phase]
+        elif isinstance(phase, Section):
+            slices = [phase.slice]
+        else:
+            # Handle slices and phases with slice attributes
+            slices = [getattr(p, 'slice', p) for p in phase]
+        for _slice in slices or [slice(None)]:
+            start = _slice.start or 0
+            events = runs_of_ones(condition[_slice])
+            # for each period where the condition is met within the phase slice
             for event in events:
                 index = event.start
-                if index==0 and exclude_leading_edge:
+                if index == 0 and exclude_leading_edge:
+                    logger.debug("Excluding leading edge at index %d", start)
                     continue
-                value = (event.stop - event.start) / hz
-                if value >= min_duration:
-                    self.create_kpv(index + start_index, value)
-            return
-
-        # High level function scans phase blocks or complete array and presents
-        # appropriate arguments for analysis.
-
-        # Note the test for "if phase is None" rather than just "if phase"
-        # because phase=[] for phases that are evaluated but have not
-        # occurred in this flight.
-        if phase is None:
-            # FIXME: np.ma.masked_not_equal does not use Python indexing, so it
-            # will not see our mapped values!
-            # "full slice" trick solves this problem
-            find_events(state, array[:], 0)
-        else:
-            for each_period in phase:
-                try:
-                    # phase as Section nodes
-                    _slice = each_period.slice
-                except AttributeError:
-                    # phase as list of slices
-                    _slice = each_period
-                to_scan = array[_slice]
-                find_events(state, to_scan, _slice.start or 0)
+                #TODO: If Section, ensure we check decimal start/stop edges
+                duration = (event.stop - event.start) / float(frequency)
+                if duration >= min_duration:
+                    self.create_kpv(start + index, duration)
+            #endfor
+        #endfor
         return
 
 
