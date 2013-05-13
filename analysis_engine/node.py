@@ -1771,7 +1771,7 @@ class KeyPointValueNode(FormattedNameNode):
         nuisance levels of operation which would swamp the database if not
         filtered before creating the KPV.
 
-        Note: Replaces "create_kpvs_where_state" method.
+        Note: Replaces "create_kpvs_where" method.
         
         TODO: Where Sections are provided, this method should test the
         partial edges allowed (e.g. 10.3 to 12.7)

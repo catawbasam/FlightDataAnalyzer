@@ -1825,15 +1825,8 @@ class TOGASelectedDuringFlightDuration(KeyPointValueNode):
                 end_at=airborne[-1].slice.stop,
             ),
         )
-
-        # The elegant create_kpvs_where_state function requires the phase
-        # information as a section object, hence a couple of lines of glue.
-        # TODO: Make create_kpvs_where_state accept list of slices.
-        not_ga = S()
-        not_ga.create_sections(to_scan, 'Airborne Not Go Around')
-
-        self.create_kpvs_where_state('TOGA', toga.array, toga.hz,
-                                     phase=not_ga, exclude_leading_edge=True)
+        self.create_kpvs_where(toga.array == 'TOGA', toga.hz,
+                               phase=to_scan, exclude_leading_edge=True)
 
 
 class TOGASelectedDuringGoAroundDuration(KeyPointValueNode):
@@ -1846,12 +1839,10 @@ class TOGASelectedDuringGoAroundDuration(KeyPointValueNode):
     name = 'TOGA Selected During Go Around Duration'
     units = 's'
 
-    def derive(self,
-               toga=M('Takeoff And Go Around'),
+    def derive(self, toga=M('Takeoff And Go Around'),
                go_arounds=S('Go Around And Climbout')):
-
-        self.create_kpvs_where_state('TOGA', toga.array, toga.hz,
-                                     phase=go_arounds)
+        self.create_kpvs_where(toga.array == 'TOGA',
+                               toga.hz, phase=go_arounds)
 
 
 ##############################################################################
@@ -4032,20 +4023,14 @@ class EngEPR500To50FtMin(KeyPointValueNode):
 
 class EngFireWarningDuration(KeyPointValueNode):
     '''
+    Duration that the any of the Engine Fire Warnings are active.
     '''
 
     units = 's'
 
-    def derive(self,
-               eng_fire=M('Eng (*) Fire'),
-               airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Fire',
-            eng_fire.array,
-            eng_fire.hz,
-            phase=airborne,
-        )
+    def derive(self, eng_fire=M('Eng (*) Fire'), airborne=S('Airborne')):
+        self.create_kpvs_where(eng_fire.array == 'Fire',
+                               eng_fire.hz, phase=airborne)
 
 
 ##############################################################################
@@ -5381,17 +5366,10 @@ class FuelQtyLowWarningDuration(KeyPointValueNode):
     '''
     Measures the duration of the Fuel Quantity Low warning discretes.
     '''
-    
     units = 's'
 
-    def derive(self,
-               warning=M('Fuel Qty (*) Low')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            warning.array,
-            warning.hz,
-        )
+    def derive(self, warning=M('Fuel Qty (*) Low')):
+        self.create_kpvs_where(warning.array == 'Warning', warning.hz)
 
 
 ##############################################################################
@@ -6632,8 +6610,6 @@ class SpeedbrakeDeployedDuringGoAroundDuration(KeyPointValueNode):
 # Warnings: Stick Pusher/Shaker
 
 
-# TODO: Check that this triggers correctly as stick push events are probably
-#       single samples.
 class StickPusherActivatedDuration(KeyPointValueNode):
     '''
     We annotate the stick pusher event with the duration of the event.
@@ -6642,12 +6618,10 @@ class StickPusherActivatedDuration(KeyPointValueNode):
     units = 's'
 
     def derive(self, stick_pusher=M('Stick Pusher'), airs=S('Airborne')):
-        self.create_kpvs_where_state(
-            'Push',
-            stick_pusher.array,
-            stick_pusher.hz,
-            airs,
-        )
+        # TODO: Check that this triggers correctly as stick push events are probably
+        #       single samples.
+        self.create_kpvs_where(stick_pusher.array == 'Push',
+                               stick_pusher.hz, phase=airs)
 
 
 class StickShakerActivatedDuration(KeyPointValueNode):
@@ -6658,12 +6632,8 @@ class StickShakerActivatedDuration(KeyPointValueNode):
     units = 's'
 
     def derive(self, stick_shaker=M('Stick Shaker'), airs=S('Airborne')):
-        self.create_kpvs_where_state(
-            'Shake',
-            stick_shaker.array,
-            stick_shaker.hz,
-            airs,
-        )
+        self.create_kpvs_where(stick_shaker.array == 'Shake',
+                               stick_shaker.hz, phase=airs)
 
 
 ##############################################################################
@@ -6811,14 +6781,8 @@ class MasterWarningDuration(KeyPointValueNode):
 
     units = 's'
 
-    def derive(self,
-               warning=M('Master Warning')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            warning.array,
-            warning.hz,
-        )
+    def derive(self, warning=M('Master Warning')):
+        self.create_kpvs_where(warning.array == 'Warning', warning.hz)
 
 
 class MasterWarningDuringTakeoffDuration(KeyPointValueNode):
@@ -6831,16 +6795,10 @@ class MasterWarningDuringTakeoffDuration(KeyPointValueNode):
 
     units = 's'
 
-    def derive(self,
-               warning=M('Master Warning'),
+    def derive(self, warning=M('Master Warning'),
                takeoff_rolls=S('Takeoff Roll')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            warning.array,
-            warning.hz,
-            phase=takeoff_rolls,
-        )
+        self.create_kpvs_where(warning.array == 'Warning', 
+                               warning.hz, phase=takeoff_rolls)
 
 
 class MasterCautionDuringTakeoffDuration(KeyPointValueNode):
@@ -6851,16 +6809,10 @@ class MasterCautionDuringTakeoffDuration(KeyPointValueNode):
 
     units = 's'
 
-    def derive(self,
-               caution=M('Master Caution'),
+    def derive(self, caution=M('Master Caution'),
                takeoff_rolls=S('Takeoff Roll')):
-
-        self.create_kpvs_where_state(
-            'Caution',
-            caution.array,
-            caution.hz,
-            phase=takeoff_rolls,
-        )
+        self.create_kpvs_where(caution.array == 'Caution',
+                               caution.hz, phase=takeoff_rolls)
 
 
 ##############################################################################
@@ -6869,21 +6821,16 @@ class MasterCautionDuringTakeoffDuration(KeyPointValueNode):
 
 class TAWSAlertDuration(KeyPointValueNode):
     '''
+    The Duration to which the unspecified TAWS Alert is available.
     '''
 
     name = 'TAWS Alert Duration'
     units = 's'
 
-    def derive(self,
-               taws_alert=M('TAWS Alert'),
+    def derive(self, taws_alert=M('TAWS Alert'),
                airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Alert',
-            taws_alert.array,
-            taws_alert.hz,
-            phase=airborne
-        )
+        self.create_kpvs_where(taws_alert.array == 'Alert',
+                               taws_alert.hz, phase=airborne)
 
 
 class TAWSGeneralWarningDuration(KeyPointValueNode):
@@ -6893,16 +6840,10 @@ class TAWSGeneralWarningDuration(KeyPointValueNode):
     name = 'TAWS General Warning Duration'
     units = 's'
 
-    def derive(self,
-               taws_general=M('TAWS General'),
+    def derive(self, taws_general=M('TAWS General'),
                airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_general.array,
-            taws_general.hz,
-            phase=airborne
-        )
+        self.create_kpvs_where(taws_general.array == 'Warning',
+                               taws_general.hz, phase=airborne)
 
 
 class TAWSSinkRateWarningDuration(KeyPointValueNode):
@@ -6912,16 +6853,10 @@ class TAWSSinkRateWarningDuration(KeyPointValueNode):
     name = 'TAWS Sink Rate Warning Duration'
     units = 's'
 
-    def derive(self,
-               taws_sink_rate=M('TAWS Sink Rate'),
+    def derive(self, taws_sink_rate=M('TAWS Sink Rate'),
                airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_sink_rate.array,
-            taws_sink_rate.hz,
-            phase=airborne
-        )
+        self.create_kpvs_where(taws_sink_rate.array == 'Warning',
+                               taws_sink_rate.hz, phase=airborne)
 
 
 class TAWSTooLowFlapWarningDuration(KeyPointValueNode):
@@ -6931,16 +6866,10 @@ class TAWSTooLowFlapWarningDuration(KeyPointValueNode):
     name = 'TAWS Too Low Flap Warning Duration'
     units = 's'
 
-    def derive(self,
-               taws_too_low_flap=M('TAWS Too Low Flap'),
+    def derive(self, taws_too_low_flap=M('TAWS Too Low Flap'),
                airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_too_low_flap.array,
-            taws_too_low_flap.hz,
-            phase=airborne,
-        )
+        self.create_kpvs_where(taws_too_low_flap.array == 'Warning',
+                               taws_too_low_flap.hz, phase=airborne)
 
 
 class TAWSTerrainWarningDuration(KeyPointValueNode):
@@ -6950,16 +6879,10 @@ class TAWSTerrainWarningDuration(KeyPointValueNode):
     name = 'TAWS Terrain Warning Duration'
     units = 's'
 
-    def derive(self,
-               taws_terrain=M('TAWS Terrain'),
+    def derive(self, taws_terrain=M('TAWS Terrain'),
                airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_terrain.array,
-            taws_terrain.hz,
-            phase=airborne
-        )
+        self.create_kpvs_where(taws_terrain.array == 'Warning',
+                               taws_terrain.hz, phase=airborne)
 
 
 class TAWSTerrainPullUpWarningDuration(KeyPointValueNode):
@@ -6969,16 +6892,10 @@ class TAWSTerrainPullUpWarningDuration(KeyPointValueNode):
     name = 'TAWS Terrain Pull Up Warning Duration'
     units = 's'
 
-    def derive(self,
-               taws_terrain_pull_up=M('TAWS Terrain Pull Up'),
+    def derive(self, taws_terrain_pull_up=M('TAWS Terrain Pull Up'),
                airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_terrain_pull_up.array,
-            taws_terrain_pull_up.hz,
-            phase=airborne,
-        )
+        self.create_kpvs_where(taws_terrain_pull_up.array == 'Warning',
+                               taws_terrain_pull_up.hz, phase=airborne)
 
 
 class TAWSGlideslopeWarning1500To1000FtDuration(KeyPointValueNode):
@@ -6988,16 +6905,11 @@ class TAWSGlideslopeWarning1500To1000FtDuration(KeyPointValueNode):
     name = 'TAWS Glideslope Warning 1500 To 1000 Ft Duration'
     units = 's'
 
-    def derive(self,
-               taws_glideslope=M('TAWS Glideslope'),
+    def derive(self, taws_glideslope=M('TAWS Glideslope'),
                alt_aal=P('Altitude AAL For Flight Phases')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_glideslope.array,
-            taws_glideslope.hz,
-            phase=alt_aal.slices_from_to(1500, 1000),
-        )
+        self.create_kpvs_where(taws_glideslope.array == 'Warning',
+                               taws_glideslope.hz,
+                               phase=alt_aal.slices_from_to(1500, 1000))
 
 
 class TAWSGlideslopeWarning1000To500FtDuration(KeyPointValueNode):
@@ -7007,16 +6919,11 @@ class TAWSGlideslopeWarning1000To500FtDuration(KeyPointValueNode):
     name = 'TAWS Glideslope Warning 1000 To 500 Ft Duration'
     units = 's'
 
-    def derive(self,
-               taws_glideslope=M('TAWS Glideslope'),
+    def derive(self, taws_glideslope=M('TAWS Glideslope'),
                alt_aal=P('Altitude AAL For Flight Phases')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_glideslope.array,
-            taws_glideslope.hz,
-            phase=alt_aal.slices_from_to(1000, 500),
-        )
+        self.create_kpvs_where(taws_glideslope.array == 'Warning',
+                               taws_glideslope.hz,
+                               phase=alt_aal.slices_from_to(1000, 500))
 
 
 class TAWSGlideslopeWarning500To200FtDuration(KeyPointValueNode):
@@ -7029,13 +6936,9 @@ class TAWSGlideslopeWarning500To200FtDuration(KeyPointValueNode):
     def derive(self,
                taws_glideslope=M('TAWS Glideslope'),
                alt_aal=P('Altitude AAL For Flight Phases')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_glideslope.array,
-            taws_glideslope.hz,
-            phase=alt_aal.slices_from_to(500, 200),
-        )
+        self.create_kpvs_where(taws_glideslope.array == 'Warning',
+                               taws_glideslope.hz,
+                               phase=alt_aal.slices_from_to(500, 200))
 
 
 class TAWSTooLowTerrainWarningDuration(KeyPointValueNode):
@@ -7045,16 +6948,10 @@ class TAWSTooLowTerrainWarningDuration(KeyPointValueNode):
     name = 'TAWS Too Low Terrain Warning Duration'
     units = 's'
 
-    def derive(self,
-               taws_too_low_terrain=M('TAWS Too Low Terrain'),
+    def derive(self, taws_too_low_terrain=M('TAWS Too Low Terrain'),
                airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_too_low_terrain.array,
-            taws_too_low_terrain.hz,
-            phase=airborne,
-        )
+        self.create_kpvs_where(taws_too_low_terrain.array == 'Warning',
+                               taws_too_low_terrain.hz, phase=airborne)
 
 
 class TAWSTooLowGearWarningDuration(KeyPointValueNode):
@@ -7064,16 +6961,10 @@ class TAWSTooLowGearWarningDuration(KeyPointValueNode):
     name = 'TAWS Too Low Gear Warning Duration'
     units = 's'
 
-    def derive(self,
-               taws_too_low_gear=M('TAWS Too Low Gear'),
+    def derive(self, taws_too_low_gear=M('TAWS Too Low Gear'),
                airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_too_low_gear.array,
-            taws_too_low_gear.hz,
-            phase=airborne,
-        )
+        self.create_kpvs_where(taws_too_low_gear.array == 'Warning',
+                               taws_too_low_gear.hz, phase=airborne)
 
 
 class TAWSPullUpWarningDuration(KeyPointValueNode):
@@ -7083,16 +6974,9 @@ class TAWSPullUpWarningDuration(KeyPointValueNode):
     name = 'TAWS Pull Up Warning Duration'
     units = 's'
 
-    def derive(self,
-               taws_pull_up=M('TAWS Pull Up'),
-               airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_pull_up.array,
-            taws_pull_up.hz,
-            phase=airborne,
-        )
+    def derive(self, taws_pull_up=M('TAWS Pull Up'), airborne=S('Airborne')):
+        self.create_kpvs_where(taws_pull_up.array == 'Warning',
+                               taws_pull_up.hz, phase=airborne)
 
 
 class TAWSDontSinkWarningDuration(KeyPointValueNode):
@@ -7102,16 +6986,10 @@ class TAWSDontSinkWarningDuration(KeyPointValueNode):
     name = 'TAWS Dont Sink Warning Duration'
     units = 's'
 
-    def derive(self,
-               taws_dont_sink=M('TAWS Dont Sink'),
+    def derive(self, taws_dont_sink=M('TAWS Dont Sink'),
                airborne=S('Airborne')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            taws_dont_sink.array,
-            taws_dont_sink.hz,
-            phase=airborne,
-        )
+        self.create_kpvs_where(taws_dont_sink.array == 'Warning',
+                               taws_dont_sink.hz, phase=airborne)
 
 
 class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
@@ -7121,16 +6999,11 @@ class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
     name = 'TAWS Windshear Warning Below 1500 Ft Duration'
     units = 's'
 
-    def derive(self,
-               taws_windshear=M('TAWS Windshear Warning'),
+    def derive(self, taws_windshear=M('TAWS Windshear Warning'),
                alt_aal=P('Altitude AAL For Flight Phases')):
-
-        for descent in alt_aal.slices_from_to(1500, 0):
-            self.create_kpvs_where_state(
-                'Warning',
-                taws_windshear.array[descent],
-                taws_windshear.hz,
-            )
+        self.create_kpvs_where(taws_windshear.array == 'Warning',
+                               taws_windshear.hz,
+                               alt_aal.slices_from_to(1500, 0))
 
 
 ##############################################################################
@@ -7313,16 +7186,10 @@ class TakeoffConfigurationWarningDuration(KeyPointValueNode):
 
     units = 's'
     
-    def derive(self,
-               takeoff_warn=M('Takeoff Configuration Warning'),
+    def derive(self, takeoff_warn=M('Takeoff Configuration Warning'),
                takeoff=S('Takeoff Roll')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            takeoff_warn.array,
-            takeoff_warn.hz,
-            phase=takeoff,
-        )
+        self.create_kpvs_where(takeoff_warn.array == 'Warning',
+                               takeoff_warn.hz, phase=takeoff)
 
 
 class TakeoffConfigurationFlapWarningDuration(KeyPointValueNode):
@@ -7331,16 +7198,10 @@ class TakeoffConfigurationFlapWarningDuration(KeyPointValueNode):
 
     units = 's'
 
-    def derive(self,
-               takeoff_warn=M('Takeoff Configuration Flap Warning'),
+    def derive(self, takeoff_warn=M('Takeoff Configuration Flap Warning'),
                takeoff=S('Takeoff Roll')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            takeoff_warn.array,
-            takeoff_warn.hz,
-            phase=takeoff,
-        )
+        self.create_kpvs_where(takeoff_warn.array == 'Warning',
+                               takeoff_warn.hz, phase=takeoff)
 
 
 class TakeoffConfigurationParkingBrakeWarningDuration(KeyPointValueNode):
@@ -7352,13 +7213,8 @@ class TakeoffConfigurationParkingBrakeWarningDuration(KeyPointValueNode):
     def derive(self,
                takeoff_warn=M('Takeoff Configuration Parking Brake Warning'),
                takeoff=S('Takeoff Roll')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            takeoff_warn.array,
-            takeoff_warn.hz,
-            phase=takeoff,
-        )
+        self.create_kpvs_where(takeoff_warn.array == 'Warning',
+                               takeoff_warn.hz, phase=takeoff)
 
 
 class TakeoffConfigurationSpoilerWarningDuration(KeyPointValueNode):
@@ -7370,13 +7226,8 @@ class TakeoffConfigurationSpoilerWarningDuration(KeyPointValueNode):
     def derive(self,
                takeoff_cfg_warn=M('Takeoff Configuration Spoiler Warning'),
                takeoff=S('Takeoff Roll')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            takeoff_cfg_warn.array,
-            takeoff_cfg_warn.hz,
-            phase=takeoff,
-        )
+        self.create_kpvs_where(takeoff_cfg_warn.array == 'Warning',
+                               takeoff_cfg_warn.hz, phase=takeoff)
 
 
 class TakeoffConfigurationStabilizerWarningDuration(KeyPointValueNode):
@@ -7388,13 +7239,8 @@ class TakeoffConfigurationStabilizerWarningDuration(KeyPointValueNode):
     def derive(self,
                takeoff_cfg_warn=M('Takeoff Configuration Stabilizer Warning'),
                takeoff=S('Takeoff Roll')):
-
-        self.create_kpvs_where_state(
-            'Warning',
-            takeoff_cfg_warn.array,
-            takeoff_cfg_warn.hz,
-            phase=takeoff,
-        )
+        self.create_kpvs_where(takeoff_cfg_warn.array == 'Warning',
+                               takeoff_cfg_warn.hz, phase=takeoff)
 
 
 ##############################################################################
@@ -7412,7 +7258,7 @@ class TakeoffConfigurationStabilizerWarningDuration(KeyPointValueNode):
 ####               alpha_floor=M('Alpha Floor Warning'),
 ####               airborne=S('Airborne')):
 ####
-####        self.create_kpvs_where_state(
+####        self.create_kpvs_where(
 ####            'Warning',
 ####            alpha_floor.array,
 ####            alpha_floor.hz,
@@ -7431,7 +7277,7 @@ class TakeoffConfigurationStabilizerWarningDuration(KeyPointValueNode):
 ####               alternate_law=M('Alternate Law Warning')):
 ####               airborne=S('Airborne')):
 ####
-####        self.create_kpvs_where_state(
+####        self.create_kpvs_where(
 ####            'Warning',
 ####            alternate_law.array,
 ####            alternate_law.hz,
@@ -7450,7 +7296,7 @@ class TakeoffConfigurationStabilizerWarningDuration(KeyPointValueNode):
 ####               direct_law=M('Direct Law Warning')):
 ####               airborne=S('Airborne')):
 ####
-####        self.create_kpvs_where_state(
+####        self.create_kpvs_where(
 ####            'Warning',
 ####            direct_law.array,
 ####            direct_law.hz,
@@ -7471,8 +7317,7 @@ class ThrottleCyclesDuringFinalApproach(KeyPointValueNode):
 
     units = 'cycles'
 
-    def derive(self,
-               levers=P('Throttle Levers'),
+    def derive(self, levers=P('Throttle Levers'), 
                fin_apps=S('Final Approach')):
 
         for fin_app in fin_apps:
@@ -7496,8 +7341,7 @@ class ThrustAsymmetryDuringTakeoffMax(KeyPointValueNode):
 
     units = '%'
 
-    def derive(self,
-               ta=P('Thrust Asymmetry'),
+    def derive(self, ta=P('Thrust Asymmetry'),
                takeoff_rolls=S('Takeoff Roll')):
 
         self.create_kpvs_within_slices(ta.array, takeoff_rolls, max_value)
@@ -7511,8 +7355,7 @@ class ThrustAsymmetryDuringFlightMax(KeyPointValueNode):
 
     units = '%'
 
-    def derive(self,
-               ta=P('Thrust Asymmetry'),
+    def derive(self, ta=P('Thrust Asymmetry'),
                airborne=S('Airborne')):
 
         self.create_kpvs_within_slices(ta.array, airborne, max_value)
@@ -7526,8 +7369,7 @@ class ThrustAsymmetryDuringGoAroundMax(KeyPointValueNode):
 
     units = '%'
 
-    def derive(self,
-               ta=P('Thrust Asymmetry'),
+    def derive(self, ta=P('Thrust Asymmetry'),
                go_arounds=S('Go Around And Climbout')):
 
         self.create_kpvs_within_slices(ta.array, go_arounds, max_value)
@@ -7542,8 +7384,7 @@ class ThrustAsymmetryDuringApproachMax(KeyPointValueNode):
 
     units = '%'
 
-    def derive(self,
-               ta=P('Thrust Asymmetry'),
+    def derive(self, ta=P('Thrust Asymmetry'),
                approaches=S('Approach')):
 
         self.create_kpvs_within_slices(ta.array, approaches, max_value)
@@ -7561,11 +7402,8 @@ class ThrustAsymmetryWithThrustReversersDeployedMax(KeyPointValueNode):
 
     units = '%'
 
-    def derive(self,
-               ta=P('Thrust Asymmetry'),
-               tr=M('Thrust Reversers'),
+    def derive(self, ta=P('Thrust Asymmetry'), tr=M('Thrust Reversers'),
                mobile=S('Mobile')):
-
         # Note: Inclusion of the 'Mobile' phase ensures use of thrust reverse
         #       late on the landing run is included, but corrupt data at engine
         #       start etc. should be rejected.
@@ -7583,10 +7421,7 @@ class ThrustAsymmetryDuringApproachDuration(KeyPointValueNode):
 
     units = 's'
 
-    def derive(self,
-               ta=P('Thrust Asymmetry'),
-               approaches=S('Approach')):
-
+    def derive(self, ta=P('Thrust Asymmetry'), approaches=S('Approach')):
         for approach in approaches:
             asymmetry = np.ma.masked_less(ta.array[approach.slice], 10.0)
             slices = np.ma.clump_unmasked(asymmetry)
