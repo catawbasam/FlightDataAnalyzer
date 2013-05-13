@@ -6227,7 +6227,7 @@ class RateOfDescentAtTouchdown(KeyPointValueNode):
                landings=S('Landing')):
 
         for landing in landings:
-            index, rod = touchdown_inertial(landing, vrt_spd, alt_aal)
+            index, rod = touchdown_inertial(landing, vrt_spd, alt_aal)  # FIXME: Store this in a parameter or cache so that we don't have to repeat this!
             if index:
                 self.create_kpv(index, rod)
 
@@ -7312,7 +7312,7 @@ class TakeoffConfigurationWarningDuration(KeyPointValueNode):
     '''
 
     units = 's'
-
+    
     def derive(self,
                takeoff_warn=M('Takeoff Configuration Warning'),
                takeoff=S('Takeoff Roll')):
