@@ -4696,7 +4696,6 @@ def touchdown_inertial(land, roc, alt):
     :param rod: rate of descent at touchdown
     :type rod: float, units fpm
     """
-
     # Time constant of 6 seconds.
     tau = 1/6.0
     # Make space for the integrand
@@ -4710,7 +4709,7 @@ def touchdown_inertial(land, roc, alt):
     # Start at the beginning...
     sm_ht[0] = alt.array[startpoint]
     #...and calculate each with a weighted correction factor.
-    for i in range(1, len(sm_ht)):
+    for i in range(1, len(sm_ht)):  # FIXME: Slow - esp. when landing covers a large period - perhaps second check that altitude is sensible?
         sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
 
     '''
