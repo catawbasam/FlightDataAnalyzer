@@ -2793,7 +2793,7 @@ class DecelerationFromTouchdownToStopOnRunway(KeyPointValueNode):
                 self.create_kpv(index, mu)
 
 
-class RunwayHeading(KeyPointValueNode):
+class RunwayHeadingTrue(KeyPointValueNode):
     '''
     Calculate Runway headings from runway information dictionaries.
     '''
