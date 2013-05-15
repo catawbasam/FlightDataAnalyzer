@@ -217,6 +217,8 @@ from analysis_engine.key_point_values import (
     HeightLoss35To1000Ft,
     HeightLoss1000To2000Ft,
     HeightMinsToTouchdown,
+    IANFinalApproachCourseDeviationMax,
+    IANGlidepathDeviationMax,
     ILSFrequencyDuringApproach,
     ILSGlideslopeDeviation1500To1000FtMax,
     ILSGlideslopeDeviation1000To500FtMax,
@@ -2450,6 +2452,66 @@ class TestILSLocalizerDeviationAtTouchdown(unittest.TestCase, ILSTest):
     @unittest.skip('Test Not Implemented')
     def test_derive_basic(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestIANGlidepathDeviationMax(unittest.TestCase):
+
+    def test_can_operate(self):
+        ops = self.node_class.get_operational_combinations()
+        expected = [('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach And Landing'),
+                    ('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach And Landing', 'ILS Glideslope Established')]
+        self.assertEqual(ops, expected)
+
+    def setUp(self):
+        self.node_class = IANGlidepathDeviationMax
+
+        self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
+        self.apps = S(items=[Section('Approach And Landing', slice(2, 12), 2, 12)])
+        self.ian = P(name='IAN Glidepath', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
+        self.ils = S(items=[Section('ILS Glideslope Established', slice(3, 12), 3, 12)])
+
+    def test_derive_basic(self):
+        kpv = self.node_class()
+        kpv.derive(self.ian, self.height, self.apps, None)
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 6)
+        self.assertAlmostEqual(kpv[0].value, 3)
+        self.assertAlmostEqual(kpv[0].name, 'IAN Glidepath Deviation 500 Ft 200 Max')
+
+    def test_derive_with_ils_established(self):
+        kpv = self.node_class()
+        kpv.derive(self.ian, self.height, self.apps, self.ils)
+        self.assertEqual(len(kpv), 0)
+
+
+class TestIANFinalApproachCourseDeviationMax(unittest.TestCase):
+
+    def test_can_operate(self):
+        ops = self.node_class.get_operational_combinations()
+        expected = [('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach And Landing'),
+                    ('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach And Landing', 'ILS Localizer Established')]
+        self.assertEqual(ops, expected)
+
+    def setUp(self):
+        self.node_class = IANFinalApproachCourseDeviationMax
+
+        self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
+        self.apps = S(items=[Section('Approach And Landing', slice(2, 12), 2, 12)])
+        self.ian = P(name='IAN Final Approach Course', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
+        self.ils = S(items=[Section('ILS Localizer Established', slice(3, 12), 3, 12)])
+
+    def test_derive_basic(self):
+        kpv = self.node_class()
+        kpv.derive(self.ian, self.height, self.apps, None)
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 6)
+        self.assertAlmostEqual(kpv[0].value, 3)
+        self.assertAlmostEqual(kpv[0].name, 'IAN Final Approach Course Deviation 500 Ft 200 Max')
+
+    def test_derive_with_ils_established(self):
+        kpv = self.node_class()
+        kpv.derive(self.ian, self.height, self.apps, self.ils)
+        self.assertEqual(len(kpv), 0)
 
 
 ##############################################################################

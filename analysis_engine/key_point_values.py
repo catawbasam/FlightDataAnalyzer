@@ -14,6 +14,8 @@ from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
                                       NAME_VALUES_ENGINE,
                                       NAME_VALUES_FLAP)
 
+from analysis_engine.flight_phase import scan_ils
+
 from analysis_engine.node import KeyPointValueNode, KPV, KTI, P, S, A, M, App
 
 from analysis_engine.library import (ambiguous_runway,
@@ -3298,6 +3300,108 @@ class ILSLocalizerDeviationAtTouchdown(KeyPointValueNode):
                     continue
                 deviation = value_at_index(ils_localizer.array, tdwn.index)
                 self.create_kpv(tdwn.index, deviation)
+
+
+class IANGlidepathDeviationMax(KeyPointValueNode):
+    '''
+
+    '''
+    NAME_FORMAT = "IAN Glidepath Deviation %(max_alt)d Ft %(min_alt)s Max"
+    NAME_VALUES = {
+        'max_alt' : (1500, 1000, 500),
+        'min_alt' : (1000,  500, 200),
+        }
+
+    units = 'dots'
+
+    @classmethod
+    def can_operate(cls, available):
+        return all_of(('IAN Glidepath',
+                       'Altitude AAL For Flight Phases',
+                       'Approach And Landing' ), available)
+
+    def derive(self,
+               ian_glidepath=P('IAN Glidepath'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               apps=S('Approach And Landing'),
+               ils_ests=S('ILS Glideslope Established')):
+
+        if ils_ests:
+            # we do not want to create IAN KPVs for ILS approaches so mask out
+            ian_glidepath_array = mask_inside_slices(ian_glidepath.array, ils_ests.get_slices())
+        else:
+            ian_glidepath_array = ian_glidepath.array
+
+        for idx in range(len(self.NAME_VALUES['max_alt'])):
+            max_alt = self.NAME_VALUES['max_alt'][idx]
+            min_alt = self.NAME_VALUES['min_alt'][idx]
+            alt_bands = alt_aal.slices_from_to(max_alt, min_alt)
+
+            ian_est_bands = []
+            for band in alt_bands:
+                glidepath_est = scan_ils('glideslope', ian_glidepath_array, alt_aal.array, band)
+                if glidepath_est:
+                    ian_est_bands.append(glidepath_est)
+
+            self.create_kpvs_within_slices(
+                ian_glidepath_array,
+                ian_est_bands,
+                max_abs_value,
+                max_alt=max_alt,
+                min_alt=min_alt
+            )
+            # End for
+
+
+class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
+    '''
+
+    '''
+    NAME_FORMAT = "IAN Final Approach Course Deviation %(max_alt)d Ft %(min_alt)s Max"
+    NAME_VALUES = {
+        'max_alt' : (1500, 1000, 500),
+        'min_alt' : (1000,  500, 200),
+        }
+
+    units = 'dots'
+
+    @classmethod
+    def can_operate(cls, available):
+        return all_of(('IAN Final Approach Course',
+                       'Altitude AAL For Flight Phases',
+                       'Approach And Landing' ), available)
+
+    def derive(self,
+               ian_final=P('IAN Final Approach Course'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               apps=S('Approach And Landing'),
+               ils_ests=S('ILS Localizer Established')):
+
+        if ils_ests:
+            # we do not want to create IAN KPVs for ILS approaches so mask out
+            ian_final_array = mask_inside_slices(ian_final.array, ils_ests.get_slices())
+        else:
+            ian_final_array = ian_final.array
+
+        for idx in range(len(self.NAME_VALUES['max_alt'])):
+            max_alt = self.NAME_VALUES['max_alt'][idx]
+            min_alt = self.NAME_VALUES['min_alt'][idx]
+
+            alt_bands = alt_aal.slices_from_to(max_alt, min_alt)
+
+            ian_est_bands = []
+            for band in alt_bands:
+                final_app_course_est = scan_ils('glideslope', ian_final_array, alt_aal.array, band)
+                if final_app_course_est:
+                    ian_est_bands.append(final_app_course_est)
+
+            self.create_kpvs_within_slices(
+                ian_final_array,
+                ian_est_bands,
+                max_abs_value,
+                max_alt=max_alt,
+                min_alt=min_alt
+            )
 
 
 ##############################################################################
