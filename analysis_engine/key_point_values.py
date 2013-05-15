@@ -2495,10 +2495,13 @@ class PercentApproachStable(KeyPointValueNode):
                 approach_type = 'During Approach Before Go Around'
             else:
                 approach_type = 'During Last Approach'
-
+                
+            stable_app = stable.array[app]
+            alt_app = alt.array[app]
+            # ensure that stability on ground does not contribute to percentage
+            stable_app[alt_app <= 0] = np.ma.masked
+            
             for level in (1000, 500):
-                stable_app = stable.array[app]
-                alt_app = alt.array[app]
                 # mask out data above the altitude level
                 stable_app[alt_app > level] = np.ma.masked
                 is_stable = stable_app == 'Stable'
