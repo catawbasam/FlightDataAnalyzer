@@ -1323,63 +1323,62 @@ class AltitudeTail(DerivedParameterNode):
 ##############################################################################
 # Automated Systems
 
-
 class APEngaged(MultistateDerivedParameterNode):
     '''
-    This function assumes that either autopilot is capable of controlling the
-    aircraft.
-
-    This function will be extended to be multi-state parameter with states
-    Off/Single/Dual as a first step towards monitoring autoland function.
+    Determines if *any* of the "AP (*) Engaged" parameters are recording the
+    state of Engaged.
+    
+    This is a discrete with only the Engaged state.
     '''
 
     name = 'AP Engaged'
-    align = False
-    values_mapping = {0: '-', 1: 'Engaged', 2: 'Duplex', 3: 'Triplex'}
+    align = False  #TODO: Should this be here?
+    values_mapping = {0: '-', 1: 'Engaged'}
 
     @classmethod
     def can_operate(cls, available):
         return any_of(cls.get_dependency_names(), available)
 
-    def derive(self,
-               ap1=M('AP (1) Engaged'),
-               ap2=M('AP (2) Engaged'),
-               ap3=M('AP (3) Engaged')):
+    def derive(self, ap1=M('AP (1) Engaged'),
+                     ap2=M('AP (2) Engaged'),
+                     ap3=M('AP (3) Engaged')):
+        stacked = vstack_params_where_state(
+            (ap1, 'Engaged'),
+            (ap2, 'Engaged'),
+            (ap3, 'Engaged'),
+            )
+        self.array = stacked.any(axis=0)
+        self.frequency = ap1.frequency  # Assumes all are sampled at the same frequency
+        self.offset = offset_select('mean', [ap1, ap2, ap3])
 
 
+class Autoland(MultistateDerivedParameterNode):
+    '''
+    Assess the number of autopilot systems engaged to see if the autoland is
+    in Dual or Triple mode.
 
+    Airbus and Boeing = 1 autopilot at a time except when "Land" mode
+    selected when 2 (Dual) or 3 (Triple) can be engaged. Airbus favours only
+    2 APs, Boeing is happier with 3 though some older types may only have 2.
+    '''
+    align = False  #TODO: Should this be here?
+    values_mapping = {2: 'Dual', 3: 'Triple'}
 
-        # FIXME: use State checks rather than raw value usage.
-        # and CJ changed AP Engaged Selection to use 'Engaged' only.
+    @classmethod
+    def can_operate(cls, available):
+        return 'AP (1) Engaged' in available
 
-
-        if ap3:
-            if ap1 and ap2:
-                # Normal three axis operation, perhaps with autoland.
-                self.array = np.ma.sum(np.ma.hstack(ap1.array.raw, 
-                                                    ap2.array.raw, 
-                                                    ap3.array.raw),
-                                       axis=0)
-                self.offset = offset_select('mean', [ap1, ap2, ap3])
-            else:
-                # Three channel system working with only one channel in action.
-                self.array = ap3.array.raw
-                self.offset = ap3.offset
-            self.frequency = ap3.frequency
-        
-        elif ap2:
-            # Only got a duplex autopilot.
-            self.array = np.ma.sum(np.ma.hstack(ap1.array.raw,
-                                                ap2.array.raw),
-                                   axis=0)
-            self.offset = offset_select('mean', [ap1, ap2])
-            self.frequency = ap2.frequency
-
-        else:
-            # Probably got a multi-channel autopilot but only one (presumed AP1) is instrumented.
-            self.array = ap1.array.raw
-            self.offset = ap1.offset
-            self.frequency = ap1.frequency
+    def derive(self, ap1=M('AP (1) Engaged'),
+                     ap2=M('AP (2) Engaged'),
+                     ap3=M('AP (3) Engaged')):
+        stacked = vstack_params_where_state(
+            (ap1, 'Engaged'),
+            (ap2, 'Engaged'),
+            (ap3, 'Engaged'),
+            )
+        self.array = stacked.sum(axis=0)
+        self.frequency = ap1.frequency  # Assumes all are sampled at the same frequency
+        self.offset = offset_select('mean', [ap1, ap2, ap3])
 
 
 class ClimbForFlightPhases(DerivedParameterNode):
