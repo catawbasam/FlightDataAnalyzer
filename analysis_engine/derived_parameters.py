@@ -3557,7 +3557,7 @@ class ILSFrequency(DerivedParameterNode):
             self.array = np.ma.array(data=f1_trim.data, mask=mask)
 
 
-class ILSLocalizerPrepared(DerivedParameterNode):
+class ILSLocalizer(DerivedParameterNode):
 
     # List the minimum acceptable parameters here
     @classmethod
@@ -3566,7 +3566,7 @@ class ILSLocalizerPrepared(DerivedParameterNode):
                or\
                any_of(('ILS Localizer (Capt)', 'ILS Localizer (Azimuth)'), available)
 
-    name = "ILS Localizer Prepared"
+    name = "ILS Localizer"
     units = 'dots'
     align = False
 
@@ -3578,47 +3578,7 @@ class ILSLocalizerPrepared(DerivedParameterNode):
             self.array, self.frequency, self.offset = blend_two_parameters(loc_c, loc_az)
 
 
-class ILSLocalizer(DerivedParameterNode):
-    '''
-    
-    '''
-
-    name = "ILS Localizer"
-    units = 'dots'
-
-    # List the minimum acceptable parameters here
-    @classmethod
-    def can_operate(cls, available):
-        if 'IAN Final Approach Course' in available:
-            return all_of(('IAN Final Approach Course', 'Approach And Landing', 'Altitude AAL For Flight Phases' ), available)
-        else:
-            return 'ILS Localizer Prepared' in available
-
-    def derive(self, ils_localizer=P('ILS Localizer Prepared'),
-               ian_localizer=P('IAN Final Approach Course'),
-               apps=S('Approach And Landing'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-
-        if ils_localizer:
-            self.array = ils_localizer.array
-        else:
-            self.array = np_ma_masked_zeros_like(ian_localizer.array)
-
-        if ian_localizer:
-            for app in apps:
-                ils = scan_ils('localizer', self.array, alt_aal.array, app.slice)
-                if ils:
-                    continue
-
-                ian = scan_ils('localizer', ian_localizer.array, alt_aal.array, app.slice)
-                if ian:
-                    self.info('Valid ILS Localizer not avaliable for this approach, Using IAN Final Approach Course')
-                    self.array[app.slice] = ian_localizer.array[app.slice]
-                else:
-                    continue
-
-
-class ILSGlideslopePrepared(DerivedParameterNode):
+class ILSGlideslope(DerivedParameterNode):
 
     """
     This derived parameter merges the available sources into a single
@@ -3626,7 +3586,7 @@ class ILSGlideslopePrepared(DerivedParameterNode):
     used to allow for many permutations.
     """
 
-    name = "ILS Glideslope Prepared"
+    name = "ILS Glideslope"
     units = 'dots'
     align = False
 
@@ -3661,44 +3621,6 @@ class ILSGlideslopePrepared(DerivedParameterNode):
                                     offset=self.offset, 
                                     frequency=self.frequency,
                                     )
-            
-
-class ILSGlideslope(DerivedParameterNode):
-
-
-    name = "ILS Glideslope"
-    units = 'dots'
-
-    @classmethod
-    def can_operate(cls, available):
-        if 'IAN Glidepath' in available:
-            return all_of(('IAN Glidepath', 'Approach And Landing', 'Altitude AAL For Flight Phases' ), available)
-        else:
-            return 'ILS Glideslope Prepared' in available
-
-    def derive(self,
-               ils_glideslope=P('ILS Glideslope Prepared'),
-               ian_glide=P('IAN Glidepath'),
-               apps=S('Approach And Landing'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-
-        if ils_glideslope:
-            self.array = ils_glideslope.array
-        else:
-            self.array = np_ma_masked_zeros_like(ian_glide.array)
-            
-        if ian_glide:
-            for app in apps:
-                ils = scan_ils('glideslope', self.array, alt_aal.array, app.slice)
-                if ils:
-                    continue
-
-                ian = scan_ils('glideslope', ian_glide.array, alt_aal.array, app.slice)
-                if ian:
-                    self.info('Valid ILS Glideslope not avaliable for this approach, Using IAN Glidepath')
-                    self.array[app.slice] = ian_glide.array[app.slice]
-                else:
-                    continue
 
 
 class AimingPointRange(DerivedParameterNode):
