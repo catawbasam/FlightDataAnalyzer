@@ -3295,7 +3295,7 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
     '''
 
     '''
-    NAME_FORMAT = "IAN Glidepath Deviation %(max_alt)d Ft %(min_alt)s Max"
+    NAME_FORMAT = "IAN Glidepath Deviation %(max_alt)d To %(min_alt)s Ft Max"
     NAME_VALUES = {
         'max_alt' : (1500, 1000, 500),
         'min_alt' : (1000,  500, 200),
@@ -3346,7 +3346,7 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
     '''
 
     '''
-    NAME_FORMAT = "IAN Final Approach Course Deviation %(max_alt)d Ft %(min_alt)s Max"
+    NAME_FORMAT = "IAN Final Approach Course Deviation %(max_alt)d To %(min_alt)s Ft Max"
     NAME_VALUES = {
         'max_alt' : (1500, 1000, 500),
         'min_alt' : (1000,  500, 200),

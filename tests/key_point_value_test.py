@@ -2476,7 +2476,7 @@ class TestIANGlidepathDeviationMax(unittest.TestCase):
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 6)
         self.assertAlmostEqual(kpv[0].value, 3)
-        self.assertAlmostEqual(kpv[0].name, 'IAN Glidepath Deviation 500 Ft 200 Max')
+        self.assertAlmostEqual(kpv[0].name, 'IAN Glidepath Deviation 500 To 200 Ft Max')
 
     def test_derive_with_ils_established(self):
         kpv = self.node_class()
@@ -2506,7 +2506,7 @@ class TestIANFinalApproachCourseDeviationMax(unittest.TestCase):
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 6)
         self.assertAlmostEqual(kpv[0].value, 3)
-        self.assertAlmostEqual(kpv[0].name, 'IAN Final Approach Course Deviation 500 Ft 200 Max')
+        self.assertAlmostEqual(kpv[0].name, 'IAN Final Approach Course Deviation 500 To 200 Ft Max')
 
     def test_derive_with_ils_established(self):
         kpv = self.node_class()
