@@ -5752,17 +5752,20 @@ class StableApproach(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        deps = ['Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway',
-                'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 
-                'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL']
-        # Allow Airspeed Relative and ILS to be optional
-        deps.remove('Airspeed Relative For 3 Sec')
-        deps.remove('ILS Glideslope')
-        deps.remove('ILS Localizer')
+        # Commented out optional dependencies
+        # Airspeed Relative, ILS and Vapp are optional
+        deps = ['Approach And Landing', 'Gear Down', 'Flap', 
+                'Track Deviation From Runway',
+                #'Airspeed Relative For 3 Sec', 
+                'Vertical Speed', 
+                #'ILS Glideslope', 'ILS Localizer',
+                'Eng (*) N1 Min For 5 Sec', 'Altitude AAL',
+                #'Vapp',
+                ]
         return all_of(deps, available)
     
     def derive(self,
-               apps=S('Approach'),
+               apps=S('Approach And Landing'),
                gear=M('Gear Down'),
                flap=M('Flap'),
                tdev=P('Track Deviation From Runway'),
