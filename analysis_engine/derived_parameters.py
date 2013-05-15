@@ -5799,6 +5799,11 @@ class StableApproach(MultistateDerivedParameterNode):
     9. "Stable"
     
     If Vapp is recorded, a more constraint airspeed threshold is applied.
+    Where parameters are not monitored below a certain threshold (e.g. ILS
+    below 200ft) the stability criteria just before 200ft is reached is
+    continued through to landing. So if one was unstable due to ILS
+    Glideslope down to 200ft, that stability is assumed to continue through
+    to landing.
 
     TODO/REVIEW:
     ============
@@ -5829,15 +5834,17 @@ class StableApproach(MultistateDerivedParameterNode):
         deps = ['Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway',
                 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 
                 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL']
-        # Allow Airspeed Relative to not exist
+        # Allow Airspeed Relative and ILS to be optional
         deps.remove('Airspeed Relative For 3 Sec')
+        deps.remove('ILS Glideslope')
+        deps.remove('ILS Localizer')
         return all_of(deps, available)
     
     def derive(self,
                apps=S('Approach'),
                gear=M('Gear Down'),
                flap=M('Flap'),
-               head=P('Track Deviation From Runway'),
+               tdev=P('Track Deviation From Runway'),
                aspd=P('Airspeed Relative For 3 Sec'),
                vspd=P('Vertical Speed'),
                gdev=P('ILS Glideslope'),
@@ -5862,22 +5869,25 @@ class StableApproach(MultistateDerivedParameterNode):
             # prepare data for this appproach:
             gear_down = repair(gear.array, _slice)
             flap_lever = repair(flap.array, _slice)
-            heading = repair(head.array, _slice)
+            track_dev = repair(tdev.array, _slice)
             airspeed = repair(aspd.array, _slice) if aspd else None  # optional
-            glideslope = repair(gdev.array, _slice)
-            localizer = repair(ldev.array, _slice)
+            glideslope = repair(gdev.array, _slice) if gdev else None  # optional
+            localizer = repair(ldev.array, _slice) if ldev else None  # optional
             # apply quite a large moving average to smooth over peaks and troughs
             vertical_speed = moving_average(repair(vspd.array, _slice), 10)
-            engine = repair(eng.array, _slice)  # TODO: add moving_average here too?
+            engine = repair(eng.array, _slice)
             altitude = repair(alt.array, _slice)
+            
+            index_at_50 = index_closest_value(altitude, 50)
+            index_at_200 = index_closest_value(altitude, 200)
 
             # Determine whether Glideslope was used at 1000ft, if not ignore ILS
-            _1000 = index_at_value(altitude, 1000)
-            if _1000:
-                glide_est_at_1000ft = abs(glideslope[_1000]) < 1.5  # dots
-            else:
-                # didn't reach 1000 feet
-                glide_est_at_1000ft = False
+            glide_est_at_1000ft = False
+            if gdev and ldev:
+                _1000 = index_at_value(altitude, 1000)
+                if _1000:
+                    # If masked at 1000ft; bool(np.ma.masked) == False
+                    glide_est_at_1000ft = abs(glideslope[_1000]) < 1.5  # dots
 
             #== 1. Gear Down ==
             # Assume unstable due to Gear Down at first
@@ -5894,8 +5904,8 @@ class StableApproach(MultistateDerivedParameterNode):
             #== 3. Heading ==
             self.array[_slice][stable] = 3
             STABLE_HEADING = 10  # degrees
-            stable_heading = abs(heading) <= STABLE_HEADING
-            stable &= stable_heading.filled(False)  #Q: Should masked values assumed on track ???
+            stable_track_dev = abs(track_dev) <= STABLE_HEADING
+            stable &= stable_track_dev.filled(False)  #Q: Should masked values assumed on track ???
 
             if aspd:
                 #== 4. Airspeed Relative ==
@@ -5909,29 +5919,25 @@ class StableApproach(MultistateDerivedParameterNode):
                     STABLE_AIRSPEED_BELOW_REF = 0
                     STABLE_AIRSPEED_ABOVE_REF = 30
                 stable_airspeed = (airspeed >= STABLE_AIRSPEED_BELOW_REF) & (airspeed <= STABLE_AIRSPEED_ABOVE_REF)
-                # This can be removed when stability is continued below 50ft
-                stable_airspeed |= (altitude < 50)
-                # TODO: extend the stability at the end of the altitude threshold to landing
-                ##index_at_50 = index_closest_value(altitude, 50)
-                ##stable_airspeed[altitude < 50] = stable_airspeed[index_at_50]
+                # extend the stability at the end of the altitude threshold through to landing
+                stable_airspeed[altitude < 50] = stable_airspeed[index_at_50]
                 stable &= stable_airspeed.filled(True)  # if no V Ref speed, values are masked so consider stable as one is not flying to the vref speed??
 
             if glide_est_at_1000ft:
                 #== 5. Glideslope Deviation ==
                 self.array[_slice][stable] = 5
                 STABLE_GLIDESLOPE = 1.0  # dots
-                stable_gs = (abs(glideslope) <= STABLE_GLIDESLOPE) | (altitude < 200)
-                # TODO: extend the stability at the end of the altitude threshold to landing
-                ##index_at_200 = index_closest_value(altitude, 200)
-                ##stable_gs[altitude < 200] = stable_gs[index_at_200]
+                stable_gs = (abs(glideslope) <= STABLE_GLIDESLOPE)
+                # extend the stability at the end of the altitude threshold through to landing
+                stable_gs[altitude < 200] = stable_gs[index_at_200]
                 stable &= stable_gs.filled(False)  # masked values are usually because they are way outside of range and short spikes will have been repaired
 
                 #== 6. Localizer Deviation ==
                 self.array[_slice][stable] = 6
                 STABLE_LOCALIZER = 1.0  # dots
-                stable_loc = (abs(localizer) <= STABLE_LOCALIZER) | (altitude < 200)
-                # TODO: extend the stability at the end of the altitude threshold to landing
-                ## ...
+                stable_loc = (abs(localizer) <= STABLE_LOCALIZER)
+                # extend the stability at the end of the altitude threshold through to landing
+                stable_loc[altitude < 200] = stable_loc[index_at_200]
                 stable &= stable_loc.filled(False)  # masked values are usually because they are way outside of range and short spikes will have been repaired
 
             #== 7. Vertical Speed ==
@@ -5939,9 +5945,8 @@ class StableApproach(MultistateDerivedParameterNode):
             STABLE_VERTICAL_SPEED_MIN = -1000
             STABLE_VERTICAL_SPEED_MAX = -200
             stable_vert = (vertical_speed >= STABLE_VERTICAL_SPEED_MIN) & (vertical_speed <= STABLE_VERTICAL_SPEED_MAX) 
-            stable_vert |= altitude < 50
-            # TODO: extend the stability at the end of the altitude threshold to landing
-            ## ...
+            # extend the stability at the end of the altitude threshold through to landing
+            stable_vert[altitude < 50] = stable_vert[index_at_50]
             stable &= stable_vert.filled(True)  #Q: True best?
             
             #== 8. Engine Power (N1) ==
@@ -5949,9 +5954,9 @@ class StableApproach(MultistateDerivedParameterNode):
             # TODO: Patch this value depending upon aircraft type
             STABLE_N1_MIN = 45  # %
             stable_engine = (engine >= STABLE_N1_MIN)
-            stable_engine |= (altitude > 1000) | (altitude < 50)  # Only use in altitude band 1000-50 feet
-            # TODO: extend the stability at the end of the altitude threshold to landing
-            ## ...
+            stable_engine |= (altitude > 1000)  # Only use in altitude band below 1000 feet
+            # extend the stability at the end of the altitude threshold through to landing
+            stable_engine[altitude < 50] = stable_engine[index_at_50]
             stable &= stable_engine.filled(True)  #Q: True best?
 
             #== 9. Stable ==

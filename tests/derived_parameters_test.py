@@ -4055,6 +4055,18 @@ class TestVerticalSpeedInertial(unittest.TestCase):
         np.testing.assert_almost_equal(vsi.array, expected, decimal=-2)
 
 
+class TestWheelSpeed(unittest.TestCase):
+    def test_can_operate(self):
+        opts = WheelSpeed.get_operational_combinations()
+        self.assertIn(('Wheel Speed (1)', 'Wheel Speed (2)'), available)
+        self.assertIn(('Wheel Speed (1)', 'Wheel Speed (2)', 'Wheel Speed (3)', 'Wheel Speed (4)'), available)
+        self.assertIn(('Wheel Speed Inboard', 'Wheel Speed Outboard'), available)
+        
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
+    
+
 class TestWindDirectionContinuous(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -4362,14 +4374,24 @@ class TestApproachRange(TemporaryFileTest, unittest.TestCase):
         
 class TestStableApproach(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(
-            StableApproach.get_operational_combinations(),
-            [('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
-             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
-             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL', 'Vapp'),
-             ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL', 'Vapp'),
-                ])
-        
+        opts = StableApproach.get_operational_combinations()
+        combinations = [
+            # all
+            ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL', 'Vapp'),
+            # exc. Vapp
+            ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
+            # exc. Airspeed Relative
+            ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL', 'Vapp'),
+            # exc. Vapp and Airspeed Relative
+            ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
+            # exc. ILS Glideslope and Vapp
+            ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
+            # exc. ILS Glideslope and ILS Localizer and Vapp
+            ('Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
+        ]
+        for combo in combinations:
+            self.assertIn(combo, opts)
+
     def test_stable_approach(self):
         stable = StableApproach()
         
@@ -4390,12 +4412,12 @@ class TestStableApproach(unittest.TestCase):
         #4. airspeed relative within limits for periods except 0-3
         a = [50, 50, 50, 45,  9,  8,  3, 7,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
         aspd = P(array=np.ma.array(a))
-        #5. glideslope deviation is out for index 9-11, last 4 values ignored due to alt cutoff
-        g = [ 6,  6,  6,  6,  0, .5, .5,-.5,1.2,1.1,1.4,1.3,  0,  0,  0,  0,  0, -2, -2, -2, -2]
+        #5. glideslope deviation is out for index 8, index 10-11 ignored as under 200ft, last 4 values ignored due to alt cutoff
+        g = [ 6,  6,  6,  6,  0, .5, .5,-.5,1.2,0.9,1.4,1.3,  0,  0,  0,  0,  0, -2, -2, -2, -2]
         gm= [ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
         glide = P(array=np.ma.array(g, mask=gm))
-        #6. localizer deviation is out for index 7-10, last 4 values ignored due to alt cutoff
-        l = [ 0,  0,  0,  0,  0,  0,  0,  2,  2,  2, -3,  0,  0,  0,  0,  0,  0, -2, -2, -2, -2]
+        #6. localizer deviation is out for index 7, index 10 ignored as just under 200ft, last 4 values ignored due to alt cutoff
+        l = [ 0,  0,  0,  0,  0,  0,  0,  2,  0.8, 0.1, -3,  0,  0,  0,  0,  0,  0, -2, -2, -2, -2]
         loc = P(array=np.ma.array(l))
         #7. Vertical Speed too great at index 8, but change is smoothed out and at 17 (59ft)
         v = [-500] * 20
@@ -4418,7 +4440,7 @@ class TestStableApproach(unittest.TestCase):
         
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
-               [0, 1, 1, 4, 9, 2, 8, 6, 5, 5, 8, 3, 3, 8, 9, 9, 9, 9, 9, 9, 0])
+               [0, 1, 1, 4, 9, 2, 8, 6, 5, 8, 8, 3, 3, 8, 9, 9, 9, 9, 9, 9, 0])
         self.assertEqual(list(stable.array.mask),
                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
         
@@ -4433,14 +4455,27 @@ class TestStableApproach(unittest.TestCase):
         
         #========== VERTICAL SPEED ==========
         # Test with a lot of vertical speed (rather than just gusts above)
-        v = [-1800] * 20
-        vert_spd = P(array=np.ma.array(v))
-        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide2, loc, eng, alt)
+        v2 = [-1800] * 20
+        vert_spd2 = P(array=np.ma.array(v2))
+        stable.derive(apps, gear, flap, head, aspd, vert_spd2, glide2, loc, eng, alt)
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
                [0, 1, 1, 4, 9, 2, 7, 7, 7, 7, 7, 3, 3, 7, 7, 7, 9, 9, 9, 9, 0])
 
-
+        #========== UNSTABLE GLIDESLOPE JUST ABOVE 200ft ==========
+        # Test that with unstable glideslope just before 200ft, this stability 
+        # reason is continued to touchdown. Higher level checks (Heading at 3) 
+        # still take priority at indexes 11-12
+        #                                        219ft == 1.5 dots
+        g3 = [ 6,  6,  6,  6,  0, .5, .5,-.5,1.2,1.5,1.4,1.3,  0,  0,  0,  0,  0, -2, -2, -2, -2]
+        gm = [ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
+        glide3 = P(array=np.ma.array(g3, mask=gm))
+        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide3, loc, eng, alt)
+        self.assertEqual(list(stable.array.data),
+        #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
+               [0, 1, 1, 4, 9, 2, 8, 6, 5, 5, 5, 3, 3, 5, 5, 5, 5, 5, 5, 5, 0])
+        
+        
 class TestMasterWarning(unittest.TestCase, NodeTest):
 
     def setUp(self):
