@@ -916,7 +916,8 @@ class AltitudeRadio(DerivedParameterNode):
         sources = [source_A, source_B, source_C, source_E, source_L, source_R]
         params = [p for p in sources if p]
         self.offset = 0.0
-        self.frequency = 1.0
+        # blend_parameters does not currently manage downsampling correctly, so return the highest frequency for now.
+        self.frequency = max([p.frequency for p in sources if p])
         self.array = blend_parameters(params, 
                                       offset=self.offset, 
                                       frequency=self.frequency)
@@ -2849,16 +2850,15 @@ class GearDown(MultistateDerivedParameterNode):
     def derive(self,
                gl=M('Gear (L) Down'),
                gn=M('Gear (N) Down'),
-               gr=M('Gear (R) Down'),):
-               #gear_sel=M('Gear Down Selected')):  #FIXME: Avoid circular dependency for now!
-
+               gr=M('Gear (R) Down'),
+               gear_sel=M('Gear Down Selected')):
         # Join all available gear parameters and use whichever are available.
         if gl or gn or gr:
             v = vstack_params(gl, gn, gr)
             wheels_down = v.sum(axis=0) >= (v.shape[0] / 2.0)
             self.array = np.ma.where(wheels_down, self.state['Down'], self.state['Up'])
-        #else:
-            #self.array = gear_sel.array
+        else:
+            self.array = gear_sel.array
 
 
 class GearOnGround(MultistateDerivedParameterNode):
@@ -3148,7 +3148,45 @@ class FlapLeverDetent(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap_steps, step_at='move_start')
+            self.array = step_values(flap.array, flap.frequency, flap_steps)
+
+class FlapLeverSynthetic(DerivedParameterNode):
+    """
+    Steps raw Flap angle from lever into detents. This is being developed,
+    along with extensions to the step_values algorithm, to cater for aircraft
+    that do not record flap lever position separately.
+    
+    At the same time, extensions to step_values to reflect the different
+    needs of safety and maintenance organisations are being included, so for
+    the present version the step_at keyword should not be used.
+    """
+    units = 'deg'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('Flap Surface' in available) and \
+               all_of(('Series', 'Family'), available)
+    
+
+    def derive(self, flap_lvr=P('Flap Lever'), flap_surf=P('Flap Surface'), 
+               series=A('Series'), family=A('Family')):
+        
+
+        
+        flap=flap_surf
+
+            
+        try:
+            flap_steps = get_flap_map(series.value, family.value)
+        except KeyError:
+            # no flaps mapping, round to nearest 5 degrees
+            self.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            self.array = round_to_nearest(flap.array, 5.0)
+        else:
+            self.array = step_values(flap.array, flap.frequency, 
+                                     flap_steps, 
+                                     skip=True)
 
 
 class FlapSurface(DerivedParameterNode):
@@ -3222,7 +3260,7 @@ class Flap(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap_steps, step_at='move_end')
+            self.array = step_values(flap.array, flap.frequency, flap_steps)
 
 
 '''
@@ -3267,7 +3305,7 @@ class Slat(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(slat.array, 5.0)
         else:
-            self.array = step_values(slat.array, slat_steps)
+            self.array = step_values(slat.array, slat.frequency, slat_steps)
 
 
 class SlopeToLanding(DerivedParameterNode):
@@ -3390,6 +3428,7 @@ class HeadingContinuous(DerivedParameterNode):
     (val % 360 in Python) returns the value to display to the user.
     """
     units = 'deg'
+    
     def derive(self, head_mag=P('Heading')):
         self.array = repair_mask(straighten_headings(head_mag.array))
 
@@ -3403,37 +3442,63 @@ class HeadingIncreasing(DerivedParameterNode):
     interested in the total angular changes, not the sign of these changes.
     """
     units = 'deg'
+    
     def derive(self, head=P('Heading Continuous')):
         rot = np.ma.ediff1d(head.array, to_begin = 0.0)
         self.array = integrate(np.ma.abs(rot), head.frequency)
 
 
 class HeadingTrueContinuous(DerivedParameterNode):
+    '''
+    For all internal computing purposes we use this parameter which does not
+    jump as it passes through North. To recover the compass display, modulus
+    (val % 360 in Python) returns the value to display to the user.
+    '''
     units = 'deg'
+    
     def derive(self, hdg=P('Heading True')):
         self.array = repair_mask(straighten_headings(hdg.array))
 
 
 class Heading(DerivedParameterNode):
     """
-    Compensates for magnetic variation, which will have been computed previously.
+    Compensates for magnetic variation, which will have been computed
+    previously based on the magnetic declanation at the aricraft's location.
     """
-
     units = 'deg'
+    
     def derive(self, head_true=P('Heading True Continuous'),
-               var=P('Magnetic Variation')):
-        self.array = (head_true.array - var.array) % 360.0
+               mag_var=P('Magnetic Variation')):
+        self.array = (head_true.array - mag_var.array) % 360.0
 
 
 class HeadingTrue(DerivedParameterNode):
     """
-    Compensates for magnetic variation, which will have been computed previously.
+    Compensates for magnetic variation, which will have been computed
+    previously.
+    
+    The Magnetic Variation from identified Takeoff and Landing runways is
+    taken in preference to that calculated based on geographical latitude and
+    longitude in order to account for any compass drift or out of date
+    magnetic variation databases on the aircraft.
     """
-
     units = 'deg'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return 'Heading Continuous' in available and \
+               any_of(('Magnetic Variation From Runway', 'Magnetic Variation'),
+                      available)
+        
     def derive(self, head=P('Heading Continuous'),
-               var=P('Magnetic Variation')):
-        self.array = (head.array + var.array) % 360.0
+               rwy_var=P('Magnetic Variation From Runway'),
+               mag_var=P('Magnetic Variation')):
+        if rwy_var and np.ma.count(rwy_var.array):
+            # use this in preference
+            var = rwy_var.array
+        else:
+            var = mag_var.array
+        self.array = (head.array + var) % 360.0
 
 
 class ILSFrequency(DerivedParameterNode):
@@ -3551,10 +3616,12 @@ class ILSGlideslope(DerivedParameterNode):
                    ]
         params=[p for p in sources if p]
         self.offset = 0.0
-        self.frequency = 1.0
+        # blend_parameters does not currently manage downsampling correctly, so return the highest frequency for now.
+        self.frequency = max([p.frequency for p in sources if p])
         self.array=blend_parameters(params, 
                                     offset=self.offset, 
-                                    frequency=self.frequency)
+                                    frequency=self.frequency,
+                                    )
 
 
 class AimingPointRange(DerivedParameterNode):
@@ -3649,7 +3716,9 @@ class CoordinatesSmoothed(object):
 
     def _adjust_track(self, lon, lat, ils_loc, app_range, hdg, gspd, tas,
                       toff, toff_rwy, tdwns, approaches, mobile, precise):
-        
+        '''
+        Returns track adjustment 
+        '''
         # Set up a working space.
         lat_adj = np_ma_masked_zeros_like(hdg.array)
         lon_adj = np_ma_masked_zeros_like(hdg.array)
@@ -4089,6 +4158,70 @@ class MagneticVariation(DerivedParameterNode):
                 lat.array[index], lon.array[index],
                 alt_aal.array[index], time=start_date)
         self.array = repair_mask(array, extrapolate=True)
+
+
+class MagneticVariationFromRunway(DerivedParameterNode):
+    """
+    This computes local magnetic variation values on the runways and
+    interpolates between one airport and the next. The values at each airport
+    are kept constant.
+    
+    Runways identified by approaches are not included as the aircraft may
+    have drift and therefore cannot establish the heading of the runway as it
+    does not land on it.
+
+    The main idea here is that we can easily identify the ends of the runway
+    and the heading of the aircraft on the runway. This allows a Heading True
+    to be derived from the aircraft's perceived magnetic variation. This is
+    important as some aircraft's recorded Heading (magnetic) can be based
+    upon magnetic variation from out of date databases. Also, by using the
+    aircraft compass values to work out the variation, we inherently
+    accommodate compass drift for that day.
+    
+    TODO: Instead of linear interpolation, perhaps base it on distance flown.
+    """
+    units = 'deg'
+    align_frequency = 1/64.0
+    align_offset = 0.0
+
+    def derive(self, duration=A('HDF Duration'),
+               head_toff = KPV('Heading During Takeoff'),
+               head_land = KPV('Heading During Landing'),
+               toff_rwy = A('FDR Takeoff Runway'),
+               land_rwy = A('FDR Landing Runway')):
+        array_len = duration.value * self.frequency
+        dev = np.ma.zeros(array_len)
+        dev.mask = True
+        
+        # takeoff
+        tof_hdg_mag_kpv = head_toff.get_first()
+        if tof_hdg_mag_kpv and toff_rwy:
+            takeoff_hdg_mag = tof_hdg_mag_kpv.value
+            try:
+                takeoff_hdg_true = runway_heading(toff_rwy.value)
+            except ValueError:
+                # runway does not have coordinates to calculate true heading
+                pass
+            else:
+                dev[tof_hdg_mag_kpv.index] = takeoff_hdg_true - takeoff_hdg_mag
+        
+        # landing
+        ldg_hdg_mag_kpv = head_land.get_last()
+        if ldg_hdg_mag_kpv and land_rwy:
+            landing_hdg_mag = ldg_hdg_mag_kpv.value
+            try:
+                landing_hdg_true = runway_heading(land_rwy.value)
+            except ValueError:
+                # runway does not have coordinates to calculate true heading
+                pass
+            else:
+                dev[ldg_hdg_mag_kpv.index] = landing_hdg_true - landing_hdg_mag
+
+        # linearly interpolate between values and extrapolate to ends of the
+        # array, even if only the takeoff variation is calculated as the
+        # landing variation is more likely to be the same as takeoff than 0
+        # degrees (and vice versa).
+        self.array = interpolate(dev, extrapolate=True)
 
 
 class VerticalSpeedInertial(DerivedParameterNode):
@@ -5267,22 +5400,8 @@ class ApproachRange(DerivedParameterNode):
                approaches=App('Approach Information'),
                ):
 
-        # Order Assumes Drift is more important than Magnetic Variation
-        if trk_true and np.ma.count(trk_true.array):
-            hdg = trk_true
-            magnetic = False
-        elif trk_mag and np.ma.count(trk_mag.array):
-            hdg = trk_mag
-            magnetic = True
-        elif hdg_true and np.ma.count(hdg_true.array):
-            hdg = hdg_true
-            magnetic = False
-        else:
-            hdg = hdg_mag
-            magnetic = True
-
-        app_range = np_ma_masked_zeros_like(hdg.array)
-        freq = hdg.frequency
+        app_range = np_ma_masked_zeros_like(hdg_mag.array)
+        freq = hdg_mag.frequency
 
         for approach in approaches:
             # We are going to reference the approach to a runway touchdown
@@ -5293,6 +5412,20 @@ class ApproachRange(DerivedParameterNode):
 
             # Retrieve the approach slice
             this_app_slice = approach.slice
+
+            # Let's use the best available information for this approach
+            if trk_true and np.ma.count(trk_true.array[this_app_slice]):
+                hdg = trk_true
+                magnetic = False
+            elif trk_mag and np.ma.count(trk_mag.array[this_app_slice]):
+                hdg = trk_mag
+                magnetic = True
+            elif hdg_true and np.ma.count(hdg_true.array[this_app_slice]):
+                hdg = hdg_true
+                magnetic = False
+            else:
+                hdg = hdg_mag
+                magnetic = True
 
             kwargs = {'runway': runway}
             

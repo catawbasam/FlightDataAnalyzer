@@ -2684,6 +2684,14 @@ class TestBlendParameters(unittest.TestCase):
         p1.array.mask = True
         result = blend_parameters((p1, p2))
         self.assertAlmostEqual(result[2], 3)
+        
+    def test_blend_two_parameters_lower_op_freq(self):
+        p1 = P(array=[5,10,7,8,5,7,4,2], frequency=2, offset=0.1, name='First')
+        p2 = P(array=[1,2,3,4,5,4,3,2], frequency=2, offset=0.0, name='Second')
+        p1.array[5:] = np.ma.masked
+        result = blend_parameters((p1, p2))
+        self.assertAlmostEqual(len(result), 4)
+
 
 
 class TestBlendParametersWeighting(unittest.TestCase):
@@ -2700,6 +2708,21 @@ class TestBlendParametersWeighting(unittest.TestCase):
         result = blend_parameters_weighting(array, 2.0)
         expected = [0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.1, 0.3, 0.5, 0.5, 0.5, 0.5]
         ma_test.assert_almost_equal(result.data, expected)
+        
+    def test_weighting_decreased_freq(self):
+        array=np.ma.array(data=[0,0,0,0,0,0],
+                          mask=[1,1,1,0,0,0])
+        result = blend_parameters_weighting(array, 0.5)
+        expected = [0.0, 0.05, 2.0]
+        ma_test.assert_almost_equal(result.data, expected)
+        
+    def test_weighting_decreased_freq_odd_samples(self):
+        array=np.ma.array(data=[0,0,0,0,0,0,0],
+                          mask=[1,1,1,0,0,0,0])
+        result = blend_parameters_weighting(array, 0.5)
+        expected = [0.0, 0.05, 2.0]
+        # When first run, the length of this array was 4, not 3 (!)
+        ma_test.assert_almost_equal(len(result.data), 3)
         
 class TestBlendTwoParameters(unittest.TestCase):
     def test_blend_two_parameters_p2_before_p1_equal_spacing(self):
@@ -3349,7 +3372,7 @@ class TestResample(unittest.TestCase):
     def test_resample_downsample(self):
         ma_test.assert_equal(
             resample(np.array([True, False, True, False, True]), 4, 2),
-            np.array([True, True, True]))
+            np.array([True, True]))
 
 
 class TestRoundToNearest(unittest.TestCase):

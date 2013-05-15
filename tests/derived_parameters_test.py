@@ -16,7 +16,7 @@ from flightdatautilities.filesystem_tools import copy_file
 from analysis_engine.flight_phase import Fast, Mobile
 from analysis_engine.library import (align, max_value, np_ma_masked_zeros_like)
 from analysis_engine.node import (
-    Attribute, A, App, ApproachItem, KPV, KeyTimeInstance, KTI, load, M,
+    Attribute, A, App, ApproachItem, KeyPointValue, KPV, KeyTimeInstance, KTI, load, M,
     Parameter, P, Section, S)
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import GRAVITY_IMPERIAL, METRES_TO_FEET
@@ -107,6 +107,7 @@ from analysis_engine.derived_parameters import (
     LongitudeSmoothed,
     Mach,
     MagneticVariation,
+    MagneticVariationFromRunway,
     MasterWarning,
     Pitch,
     Speedbrake,
@@ -2248,14 +2249,25 @@ class TestHeading(unittest.TestCase):
 class TestHeadingTrue(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(HeadingTrue.get_operational_combinations(),
-            [('Heading Continuous', 'Magnetic Variation')])
+            [('Heading Continuous', 'Magnetic Variation From Runway'),
+             ('Heading Continuous', 'Magnetic Variation'),
+             ('Heading Continuous', 'Magnetic Variation From Runway', 'Magnetic Variation')])
         
-    def test_basic(self):
+    def test_basic_magnetic(self):
         head = P('Heading Continuous', np.ma.array([0,5,6,355,356]))
         var = P('Magnetic Variation',np.ma.array([2,3,-8,-7,9]))
         true = HeadingTrue()
-        true.derive(head, var)
+        true.derive(head, None, var)
         expected = P('Heading True', np.ma.array([2.0, 8.0, 358.0, 348.0, 5.0]))
+        ma_test.assert_array_equal(true.array, expected.array)
+        
+    def test_from_runway_used_in_preference(self):
+        head = P('Heading Continuous', np.ma.array([0,5,6,355,356]))
+        mag_var = P('Magnetic Variation',np.ma.array([2,3,-8,-7,9]))
+        rwy_var = P('Magnetic Variation From Runway',np.ma.array([0,1,2,3,4]))
+        true = HeadingTrue()
+        true.derive(head, rwy_var, mag_var)
+        expected = P('Heading True', np.ma.array([0, 6, 8, 358, 0]))
         ma_test.assert_array_equal(true.array, expected.array)
 
 
@@ -3191,7 +3203,7 @@ class TestGearDown(unittest.TestCase):
         })
         down = GearDown()
         down.derive(None, None, None, sel_down)
-        self.assertEqual(down.array,
+        self.assertEqual(list(down.array),
                          ['Down', 'Up', 'Up', 'Down', 'Down'])
 
 
@@ -3440,7 +3452,77 @@ class TestMagneticVariation(unittest.TestCase):
             [-6.06444546099, -6.07639239453, 0, 0, 0, -6.12614056456],
             mask=[False, False, True, True, True, False])        
 
-
+class TestMagneticVariationFromRunway(unittest.TestCase):
+    def test_can_operate(self):
+        opts = MagneticVariationFromRunway.get_operational_combinations()
+        self.assertEqual(opts,
+                    [('HDF Duration',
+                     'Heading During Takeoff',
+                     'Heading During Landing',
+                     'FDR Takeoff Runway',
+                     'FDR Landing Runway',
+                     )])
+        
+    def test_derive_both_runways(self):
+        toff_rwy = {'end': {'elevation': 10,
+                            'latitude': 52.7100630002283,
+                            'longitude': -8.907803520515461},
+                    'start': {'elevation': 43,
+                              'latitude': 52.69327604095164,
+                              'longitude': -8.943465355819775},
+                    'strip': {'id': 2014, 'length': 10495, 
+                              'surface': 'ASP', 'width': 147}}
+        land_rwy = {'end': {'elevation': 374,
+                            'latitude': 49.024719,
+                            'longitude': 2.524892},
+                    'start': {'elevation': 377,
+                              'latitude': 49.026694,
+                              'longitude': 2.561689},
+                    'strip': {'id': 2322, 'length': 8858,
+                              'surface': 'ASP', 'width': 197}}
+        mag_var_rwy = MagneticVariationFromRunway()
+        mag_var_rwy.derive(
+            A('HDF Duration', 14272),
+            KPV([KeyPointValue(index=62.143, value=58.014, name='Heading During Takeoff')]),
+            KPV([KeyPointValue(index=213.869, value=266.5128, name='Heading During Landing')]),
+            A('FDR Takeoff Runway', toff_rwy),
+            A('FDR Landing Runway', land_rwy)
+        )
+        # 0 to takeoff index variation
+        self.assertAlmostEqual(mag_var_rwy.array[0], -5.84060605)
+        self.assertAlmostEqual(mag_var_rwy.array[62], -5.84060605)
+        # landing index to end
+        self.assertAlmostEqual(mag_var_rwy.array[213], -1.20610555)
+        self.assertAlmostEqual(mag_var_rwy.array[-1], -1.20610555)
+        
+    def test_derive_only_takeoff_available(self):
+        toff_rwy = {'end': {'elevation': 10,
+                            'latitude': 52.7100630002283,
+                            'longitude': -8.907803520515461},
+                    'start': {'elevation': 43,
+                              'latitude': 52.69327604095164,
+                              'longitude': -8.943465355819775},
+                    'strip': {'id': 2014, 'length': 10495, 
+                              'surface': 'ASP', 'width': 147}}
+        land_rwy = {# MISSING VITAL LAT/LONG INFORMATION
+                    'strip': {'id': 2322, 'length': 8858,
+                              'surface': 'ASP', 'width': 197}}
+        mag_var_rwy = MagneticVariationFromRunway()
+        mag_var_rwy.derive(
+            A('HDF Duration', 14272),
+            KPV([KeyPointValue(index=62.143, value=58.014, name='Heading During Takeoff')]),
+            KPV([KeyPointValue(index=213.869, value=266.5128, name='Heading During Landing')]),
+            A('FDR Takeoff Runway', toff_rwy),
+            A('FDR Landing Runway', land_rwy)
+        )
+        # 0 to takeoff index variation
+        self.assertAlmostEqual(mag_var_rwy.array[0], -5.84060605)
+        self.assertAlmostEqual(mag_var_rwy.array[62], -5.84060605)
+        # landing index to end
+        self.assertAlmostEqual(mag_var_rwy.array[213], -5.84060605)
+        self.assertAlmostEqual(mag_var_rwy.array[-1], -5.84060605)
+        
+                           
 class TestPackValvesOpen(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
