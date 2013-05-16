@@ -1070,9 +1070,11 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
         elif frame_name in ['747-200-GE']:
             # Rollover is at 2^12 x resolution of fine part.
             self.array = straighten_altitudes(fine.array, alt.array, 4096 * 1.220703125)
+        elif frame_name in ['A300-203-B4']:
+            # Fine part synchro used to compute altitude, as this does not match the coarse part synchro.
+            self.array = straighten_altitudes(fine.array, alt.array, 4096 * TBD)
         else:
             self.array = alt.array
-
 
 # TODO: Account for 'Touch & Go' - need to adjust QNH for additional airfields!
 class AltitudeQNH(DerivedParameterNode):
@@ -1323,63 +1325,62 @@ class AltitudeTail(DerivedParameterNode):
 ##############################################################################
 # Automated Systems
 
-
 class APEngaged(MultistateDerivedParameterNode):
     '''
-    This function assumes that either autopilot is capable of controlling the
-    aircraft.
-
-    This function will be extended to be multi-state parameter with states
-    Off/Single/Dual as a first step towards monitoring autoland function.
+    Determines if *any* of the "AP (*) Engaged" parameters are recording the
+    state of Engaged.
+    
+    This is a discrete with only the Engaged state.
     '''
 
     name = 'AP Engaged'
-    align = False
-    values_mapping = {0: '-', 1: 'Engaged', 2: 'Duplex', 3: 'Triplex'}
+    align = False  #TODO: Should this be here?
+    values_mapping = {0: '-', 1: 'Engaged'}
 
     @classmethod
     def can_operate(cls, available):
         return any_of(cls.get_dependency_names(), available)
 
-    def derive(self,
-               ap1=M('AP (1) Engaged'),
-               ap2=M('AP (2) Engaged'),
-               ap3=M('AP (3) Engaged')):
+    def derive(self, ap1=M('AP (1) Engaged'),
+                     ap2=M('AP (2) Engaged'),
+                     ap3=M('AP (3) Engaged')):
+        stacked = vstack_params_where_state(
+            (ap1, 'Engaged'),
+            (ap2, 'Engaged'),
+            (ap3, 'Engaged'),
+            )
+        self.array = stacked.any(axis=0)
+        self.frequency = ap1.frequency  # Assumes all are sampled at the same frequency
+        self.offset = offset_select('mean', [ap1, ap2, ap3])
 
 
+class Autoland(MultistateDerivedParameterNode):
+    '''
+    Assess the number of autopilot systems engaged to see if the autoland is
+    in Dual or Triple mode.
 
+    Airbus and Boeing = 1 autopilot at a time except when "Land" mode
+    selected when 2 (Dual) or 3 (Triple) can be engaged. Airbus favours only
+    2 APs, Boeing is happier with 3 though some older types may only have 2.
+    '''
+    align = False  #TODO: Should this be here?
+    values_mapping = {2: 'Dual', 3: 'Triple'}
 
-        # FIXME: use State checks rather than raw value usage.
-        # and CJ changed AP Engaged Selection to use 'Engaged' only.
+    @classmethod
+    def can_operate(cls, available):
+        return 'AP (1) Engaged' in available
 
-
-        if ap3:
-            if ap1 and ap2:
-                # Normal three axis operation, perhaps with autoland.
-                self.array = np.ma.sum(np.ma.hstack(ap1.array.raw, 
-                                                    ap2.array.raw, 
-                                                    ap3.array.raw),
-                                       axis=0)
-                self.offset = offset_select('mean', [ap1, ap2, ap3])
-            else:
-                # Three channel system working with only one channel in action.
-                self.array = ap3.array.raw
-                self.offset = ap3.offset
-            self.frequency = ap3.frequency
-        
-        elif ap2:
-            # Only got a duplex autopilot.
-            self.array = np.ma.sum(np.ma.hstack(ap1.array.raw,
-                                                ap2.array.raw),
-                                   axis=0)
-            self.offset = offset_select('mean', [ap1, ap2])
-            self.frequency = ap2.frequency
-
-        else:
-            # Probably got a multi-channel autopilot but only one (presumed AP1) is instrumented.
-            self.array = ap1.array.raw
-            self.offset = ap1.offset
-            self.frequency = ap1.frequency
+    def derive(self, ap1=M('AP (1) Engaged'),
+                     ap2=M('AP (2) Engaged'),
+                     ap3=M('AP (3) Engaged')):
+        stacked = vstack_params_where_state(
+            (ap1, 'Engaged'),
+            (ap2, 'Engaged'),
+            (ap3, 'Engaged'),
+            )
+        self.array = stacked.sum(axis=0)
+        self.frequency = ap1.frequency  # Assumes all are sampled at the same frequency
+        self.offset = offset_select('mean', [ap1, ap2, ap3])
 
 
 class ClimbForFlightPhases(DerivedParameterNode):
@@ -5157,7 +5158,7 @@ class Speedbrake(DerivedParameterNode):
         offset = (spoiler_a.offset + spoiler_b.offset) / 2.0
         array = np.ma.minimum(spoiler_a.array, spoiler_b.array)
         # Force small angles to indicate zero:
-        array = np.ma.where(array < 5.0, 0.0, array)
+        array = np.ma.where(array < 10.0, 0.0, array)
         return array, offset
 
     def derive(self,
@@ -5721,6 +5722,11 @@ class StableApproach(MultistateDerivedParameterNode):
     9. "Stable"
     
     If Vapp is recorded, a more constraint airspeed threshold is applied.
+    Where parameters are not monitored below a certain threshold (e.g. ILS
+    below 200ft) the stability criteria just before 200ft is reached is
+    continued through to landing. So if one was unstable due to ILS
+    Glideslope down to 200ft, that stability is assumed to continue through
+    to landing.
 
     TODO/REVIEW:
     ============
@@ -5748,18 +5754,23 @@ class StableApproach(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        deps = ['Approach', 'Gear Down', 'Flap', 'Track Deviation From Runway',
-                'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Glideslope', 
-                'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL']
-        # Allow Airspeed Relative to not exist
-        deps.remove('Airspeed Relative For 3 Sec')
+        # Commented out optional dependencies
+        # Airspeed Relative, ILS and Vapp are optional
+        deps = ['Approach And Landing', 'Gear Down', 'Flap', 
+                'Track Deviation From Runway',
+                #'Airspeed Relative For 3 Sec', 
+                'Vertical Speed', 
+                #'ILS Glideslope', 'ILS Localizer',
+                'Eng (*) N1 Min For 5 Sec', 'Altitude AAL',
+                #'Vapp',
+                ]
         return all_of(deps, available)
     
     def derive(self,
-               apps=S('Approach'),
+               apps=S('Approach And Landing'),
                gear=M('Gear Down'),
                flap=M('Flap'),
-               head=P('Track Deviation From Runway'),
+               tdev=P('Track Deviation From Runway'),
                aspd=P('Airspeed Relative For 3 Sec'),
                vspd=P('Vertical Speed'),
                gdev=P('ILS Glideslope'),
@@ -5784,22 +5795,25 @@ class StableApproach(MultistateDerivedParameterNode):
             # prepare data for this appproach:
             gear_down = repair(gear.array, _slice)
             flap_lever = repair(flap.array, _slice)
-            heading = repair(head.array, _slice)
+            track_dev = repair(tdev.array, _slice)
             airspeed = repair(aspd.array, _slice) if aspd else None  # optional
-            glideslope = repair(gdev.array, _slice)
-            localizer = repair(ldev.array, _slice)
+            glideslope = repair(gdev.array, _slice) if gdev else None  # optional
+            localizer = repair(ldev.array, _slice) if ldev else None  # optional
             # apply quite a large moving average to smooth over peaks and troughs
             vertical_speed = moving_average(repair(vspd.array, _slice), 10)
-            engine = repair(eng.array, _slice)  # TODO: add moving_average here too?
+            engine = repair(eng.array, _slice)
             altitude = repair(alt.array, _slice)
+            
+            index_at_50 = index_closest_value(altitude, 50)
+            index_at_200 = index_closest_value(altitude, 200)
 
             # Determine whether Glideslope was used at 1000ft, if not ignore ILS
-            _1000 = index_at_value(altitude, 1000)
-            if _1000:
-                glide_est_at_1000ft = abs(glideslope[_1000]) < 1.5  # dots
-            else:
-                # didn't reach 1000 feet
-                glide_est_at_1000ft = False
+            glide_est_at_1000ft = False
+            if gdev and ldev:
+                _1000 = index_at_value(altitude, 1000)
+                if _1000:
+                    # If masked at 1000ft; bool(np.ma.masked) == False
+                    glide_est_at_1000ft = abs(glideslope[_1000]) < 1.5  # dots
 
             #== 1. Gear Down ==
             # Assume unstable due to Gear Down at first
@@ -5816,8 +5830,8 @@ class StableApproach(MultistateDerivedParameterNode):
             #== 3. Heading ==
             self.array[_slice][stable] = 3
             STABLE_HEADING = 10  # degrees
-            stable_heading = abs(heading) <= STABLE_HEADING
-            stable &= stable_heading.filled(False)  #Q: Should masked values assumed on track ???
+            stable_track_dev = abs(track_dev) <= STABLE_HEADING
+            stable &= stable_track_dev.filled(False)  #Q: Should masked values assumed on track ???
 
             if aspd:
                 #== 4. Airspeed Relative ==
@@ -5831,29 +5845,25 @@ class StableApproach(MultistateDerivedParameterNode):
                     STABLE_AIRSPEED_BELOW_REF = 0
                     STABLE_AIRSPEED_ABOVE_REF = 30
                 stable_airspeed = (airspeed >= STABLE_AIRSPEED_BELOW_REF) & (airspeed <= STABLE_AIRSPEED_ABOVE_REF)
-                # This can be removed when stability is continued below 50ft
-                stable_airspeed |= (altitude < 50)
-                # TODO: extend the stability at the end of the altitude threshold to landing
-                ##index_at_50 = index_closest_value(altitude, 50)
-                ##stable_airspeed[altitude < 50] = stable_airspeed[index_at_50]
+                # extend the stability at the end of the altitude threshold through to landing
+                stable_airspeed[altitude < 50] = stable_airspeed[index_at_50]
                 stable &= stable_airspeed.filled(True)  # if no V Ref speed, values are masked so consider stable as one is not flying to the vref speed??
 
             if glide_est_at_1000ft:
                 #== 5. Glideslope Deviation ==
                 self.array[_slice][stable] = 5
                 STABLE_GLIDESLOPE = 1.0  # dots
-                stable_gs = (abs(glideslope) <= STABLE_GLIDESLOPE) | (altitude < 200)
-                # TODO: extend the stability at the end of the altitude threshold to landing
-                ##index_at_200 = index_closest_value(altitude, 200)
-                ##stable_gs[altitude < 200] = stable_gs[index_at_200]
+                stable_gs = (abs(glideslope) <= STABLE_GLIDESLOPE)
+                # extend the stability at the end of the altitude threshold through to landing
+                stable_gs[altitude < 200] = stable_gs[index_at_200]
                 stable &= stable_gs.filled(False)  # masked values are usually because they are way outside of range and short spikes will have been repaired
 
                 #== 6. Localizer Deviation ==
                 self.array[_slice][stable] = 6
                 STABLE_LOCALIZER = 1.0  # dots
-                stable_loc = (abs(localizer) <= STABLE_LOCALIZER) | (altitude < 200)
-                # TODO: extend the stability at the end of the altitude threshold to landing
-                ## ...
+                stable_loc = (abs(localizer) <= STABLE_LOCALIZER)
+                # extend the stability at the end of the altitude threshold through to landing
+                stable_loc[altitude < 200] = stable_loc[index_at_200]
                 stable &= stable_loc.filled(False)  # masked values are usually because they are way outside of range and short spikes will have been repaired
 
             #== 7. Vertical Speed ==
@@ -5861,9 +5871,8 @@ class StableApproach(MultistateDerivedParameterNode):
             STABLE_VERTICAL_SPEED_MIN = -1000
             STABLE_VERTICAL_SPEED_MAX = -200
             stable_vert = (vertical_speed >= STABLE_VERTICAL_SPEED_MIN) & (vertical_speed <= STABLE_VERTICAL_SPEED_MAX) 
-            stable_vert |= altitude < 50
-            # TODO: extend the stability at the end of the altitude threshold to landing
-            ## ...
+            # extend the stability at the end of the altitude threshold through to landing
+            stable_vert[altitude < 50] = stable_vert[index_at_50]
             stable &= stable_vert.filled(True)  #Q: True best?
             
             #== 8. Engine Power (N1) ==
@@ -5871,9 +5880,9 @@ class StableApproach(MultistateDerivedParameterNode):
             # TODO: Patch this value depending upon aircraft type
             STABLE_N1_MIN = 45  # %
             stable_engine = (engine >= STABLE_N1_MIN)
-            stable_engine |= (altitude > 1000) | (altitude < 50)  # Only use in altitude band 1000-50 feet
-            # TODO: extend the stability at the end of the altitude threshold to landing
-            ## ...
+            stable_engine |= (altitude > 1000)  # Only use in altitude band below 1000 feet
+            # extend the stability at the end of the altitude threshold through to landing
+            stable_engine[altitude < 50] = stable_engine[index_at_50]
             stable &= stable_engine.filled(True)  #Q: True best?
 
             #== 9. Stable ==

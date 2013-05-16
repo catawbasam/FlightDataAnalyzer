@@ -2781,7 +2781,7 @@ class TestPercentApproachStableBelow(unittest.TestCase):
                                              mask=[0,0,0,0,0, 1, 0,0,0,0,0,0,0]))
         alt2app = P(array=np.ma.array([1100,1000,900,800,700,
                                        600,
-                                       600,650,200,100,50,20,0]))
+                                       600,650,200,100,50,20,1]))
         percent_stable.derive(stable, alt2app)
         # both approaches below 
         self.assertEqual(len(percent_stable), 3)
