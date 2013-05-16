@@ -41,7 +41,7 @@ from analysis_engine.flight_phase import (Airborne,
 from analysis_engine.key_time_instances import TopOfClimb, TopOfDescent
 from analysis_engine.library import integrate
 from analysis_engine.node import (A, App, ApproachItem, M, Parameter, P,
-                                  Section, SectionNode, load)
+                                  S, Section, SectionNode, load)
 from analysis_engine.process_flight import process_flight
 
 from analysis_engine.settings import AIRSPEED_THRESHOLD
@@ -289,17 +289,19 @@ class TestILSGlideslopeEstablished(unittest.TestCase):
 
 class TestILSLocalizerEstablished(unittest.TestCase):
     def test_can_operate(self):
+        expected = [('ILS Localizer', 'Altitude AAL For Flight Phases', 'Approach And Landing'),
+                    ('ILS Localizer', 'Altitude AAL For Flight Phases', 'Approach And Landing', 'ILS Frequency')]
+
         self.assertEqual(ILSLocalizerEstablished.get_operational_combinations(),
-                         [('ILS Localizer', 'Altitude AAL For Flight Phases',
-                           'Approach And Landing')])
+                         expected)
 
     def test_ils_localizer_established_basic(self):
         ils = P('ILS Localizer',np.ma.arange(-3, 0, 0.3))
         alt_aal = P('Alttiude AAL For Flight Phases',
                     np.ma.arange(1000, 0, -100))
-        app = App(items=[ApproachItem('LANDING', slice(0, 10))])
+        app = S(items=[Section('Approach And Landing', slice(0, 10), 0, 10)])
         establish = ILSLocalizerEstablished()
-        establish.derive(ils, alt_aal, app)
+        establish.derive(ils, alt_aal, app, None)
         expected = buildsection('ILS Localizer Established', 10*2.0/3.0, 10)
         # Slightly daft choice of ils array makes exact equality impossible!
         self.assertAlmostEqual(establish.get_first().start_edge,
@@ -308,64 +310,75 @@ class TestILSLocalizerEstablished(unittest.TestCase):
     def test_ils_localizer_established_never_on_loc(self):
         ils = P('ILS Localizer',np.ma.array([3]*10))
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
-        app = App(items=[ApproachItem('LANDING', slice(2, 9))])
+        app = S(items=[Section('Approach And Landing', slice(2, 9), 2, 9)])
         establish = ILSLocalizerEstablished()
-        self.assertEqual(establish.derive(ils, alt_aal, app), None)
+        self.assertEqual(establish.derive(ils, alt_aal, app, None), None)
 
     def test_ils_localizer_established_always_on_loc(self):
         ils = P('ILS Localizer',np.ma.array([-0.2]*10))
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
-        app = App(items=[ApproachItem('LANDING', slice(2, 9))])
+        app = S(items=[Section('Approach And Landing', slice(2, 9), 2, 9)])
         establish = ILSLocalizerEstablished()
-        establish.derive(ils, alt_aal, app)
+        establish.derive(ils, alt_aal, app, None)
         expected = buildsection('ILS Localizer Established',2, 9)
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_established_only_last_segment(self):
-        app = App(items=[ApproachItem('LANDING', slice(2, 9))])
+        app = S(items=[Section('Approach And Landing', slice(2, 9), 2, 9)])
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         ils = P('ILS Localizer',np.ma.array([0,0,0,1,3,3,2,1,0,0]))
         establish = ILSLocalizerEstablished()
-        establish.derive(ils, alt_aal, app)
+        establish.derive(ils, alt_aal, app, None)
         expected = buildsection('ILS Localizer Established', 7, 9)
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_stays_established_with_large_visible_deviations(self):
-        app = App(items=[ApproachItem('LANDING', slice(1, 9))])
+        app = S(items=[Section('Approach And Landing', slice(1, 9), 1, 9)])
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         ils = P('ILS Localizer',np.ma.array([0,0,0,1,2.3,2.3,2,1,0,0]))
         establish = ILSLocalizerEstablished()
-        establish.derive(ils, alt_aal, app)
+        establish.derive(ils, alt_aal, app, None)
         expected = buildsection('ILS Localizer Established', 1, 9)
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_insensitive_to_few_masked_values(self):
-        app = App(items=[ApproachItem('LANDING', slice(1, 9))])
+        app = S(items=[Section('Approach And Landing', slice(1, 9), 1, 9)])
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         ils = P('ILS Localizer',np.ma.array(data=[0,0,0,1,2.3,2.3,2,1,0,0],
                                             mask=[0,0,0,0,0,1,1,0,0,0]))
         establish = ILSLocalizerEstablished()
-        establish.derive(ils, alt_aal, app)
+        establish.derive(ils, alt_aal, app, None)
         expected = buildsection('ILS Localizer Established', 1, 9)
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_skips_too_many_masked_values(self):
-        app = App(items=[ApproachItem('LANDING', slice(1, 9))])
+        app = S(items=[Section('Approach And Landing', slice(1, 9), 1, 9)])
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         ils = P('ILS Localizer',np.ma.array(data=[0.0]*20,
                                             mask=[0,1]*10))
         establish = ILSLocalizerEstablished()
-        establish.derive(ils, alt_aal, app)
+        establish.derive(ils, alt_aal, app, None)
         self.assertEqual(establish, [])
 
     def test_ils_localizer_skips_too_few_values(self):
-        app = App(items=[ApproachItem('LANDING', slice(2, 9))])
+        app = S(items=[Section('Approach And Landing', slice(2, 9), 2, 9)])
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         ils = P('ILS Localizer',np.ma.array(data=[0.0]*5,
                                             mask=[0]*5))
         establish = ILSLocalizerEstablished()
-        establish.derive(ils, alt_aal, app)
+        establish.derive(ils, alt_aal, app, None)
         self.assertEqual(establish, [])
+
+    def test_ils_localizer_multiple_frequencies(self):
+        ils_loc = load(os.path.join(test_data_path, 'ILS_localizer_established_ILS_localizer.nod'))
+        ils_freq  = load(os.path.join(test_data_path, 'ILS_localizer_established_ILS_frequency.nod'))
+        apps = load(os.path.join(test_data_path, 'ILS_localizer_established_approach.nod'))
+        alt_aal = load(os.path.join(test_data_path, 'ILS_localizer_established_alt_aal.nod'))
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils_loc, alt_aal, apps, ils_freq)
+        expected = [Section(name='ILS Localizer Established', slice=slice(12215.896484375, 12244.499993651203, None), start_edge=12215.896484375, stop_edge=12244.499993651203),
+                    Section(name='ILS Localizer Established', slice=slice(12363.052624896003, 351.91357867930947, None), start_edge=12363.052624896003, stop_edge=351.91357867930947)]
+        self.assertEqual(establish, expected)
 
 """
 class TestInitialApproach(unittest.TestCase):
