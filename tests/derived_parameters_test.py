@@ -1415,9 +1415,9 @@ class TestConfiguration(unittest.TestCase):
         conf = Configuration()
         conf.derive(self.flap, self.slat, self.ails, 
                       A('','A330-301'), A('','A330'))
-        self.assertEqual(list(np.ma.filled(conf.array[:17], fill_value=-999)),
-                         [0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,-999]
-                         )
+        self.assertEqual(list(conf.array[:17]),
+                         ['0','0','1','1','1+F','1+F','2','2',
+                          '3','3','4','4','5','5','Full','Full',np.ma.masked])
         
     def test_time_taken(self):
         from timeit import Timer

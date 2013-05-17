@@ -3338,7 +3338,7 @@ class SlopeToLanding(DerivedParameterNode):
         self.array = alt_aal.array / (dist.array * FEET_PER_NM)
 
 
-class Configuration(DerivedParameterNode):
+class Configuration(MultistateDerivedParameterNode):
     """
     Multi-state with the following mapping:
     {
@@ -3361,6 +3361,19 @@ class Configuration(DerivedParameterNode):
     Note: Values that do not map directly to a required state are masked with
     the data being random (memory alocated)
     """
+    values_mapping = {
+        0 : '0',
+        1 : '1',
+        2 : '1+F',
+        3 : '2(a)',  #Q: should display be (a) or 2* or 1* ?!
+        4 : '2',
+        5 : '3(b)',
+        6 : '3',
+        7 : '4',
+        8 : '5',
+        9 : 'Full',
+    }
+    
     @classmethod
     def can_operate(cls, available):
         return 'Flap' in available and \
@@ -3388,8 +3401,8 @@ class Configuration(DerivedParameterNode):
         summed = vstack_params(*(flap, slat, aileron)[:qty_param]).sum(axis=0)
 
         # create a placeholder array fully masked
-        self.array = np.ma.empty_like(flap.array)
-        self.array.mask=True
+        self.array = MappedArray(np_ma_masked_zeros_like(flap.array), 
+                                 self.values_mapping)
         for state, values in mapping.iteritems():
             s = np.ma.sum(values[:qty_param])
             # unmask bits we know about
