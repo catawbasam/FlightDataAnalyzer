@@ -119,7 +119,10 @@ from analysis_engine.derived_parameters import (
     ThrustReversers,
     TAWSAlert,
     TrackDeviationFromRunway,
+    Track,
+    TrackContinuous,
     TrackTrue,
+    TrackTrueContinuous,
     TurbulenceRMSG,
     V2,
     V2Lookup,
@@ -2073,28 +2076,82 @@ class TestHeadingContinuous(unittest.TestCase):
         np.testing.assert_array_equal(head.array.data, answer.data)
 
 
+class TestTrack(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(Track.get_operational_combinations(),
+                         [('Track Continuous',)])
+    
+    def test_derive_basic(self):
+        track_cont = Parameter('Track Continuous', array=np.ma.arange(0, 1000, 100))
+        node = Track()
+        node.derive(track_cont)
+        ma_test.assert_equal(node.array,
+                             [0, 100, 200, 300, 40, 140, 240, 340, 80, 180])
+
+
+class TestTrackContinuous(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TrackContinuous.get_operational_combinations(),
+                         [('Heading Continuous', 'Drift')])
+    
+    def test_derive_basic(self):
+        head = Parameter('Heading Continuous', array=np.ma.arange(0, 100, 10))
+        drift = Parameter('Drift', array=np.ma.arange(0, 1, 0.1))
+        node = TrackContinuous()
+        node.derive(head, drift)
+        ma_test.assert_equal(node.array,
+                             [0, 10.1, 20.2, 30.3, 40.4, 50.5, 60.6, 70.7, 80.8, 90.9])
+
+
+class TestTrackTrue(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TrackTrue.get_operational_combinations(),
+                         [('Track True Continuous',)])
+    
+    def test_derive_basic(self):
+        track_cont = Parameter('Track Continuous', array=np.ma.arange(0, 1000, 100))
+        node = Track()
+        node.derive(track_cont)
+        ma_test.assert_equal(node.array,
+                             [0, 100, 200, 300, 40, 140, 240, 340, 80, 180])
+
+
+class TestTrackTrueContinuous(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TrackTrueContinuous.get_operational_combinations(),
+                         [('Heading True Continuous', 'Drift')])
+    
+    def test_derive_basic(self):
+        head_true = Parameter('Heading True Continuous', array=np.ma.arange(0, 100, 10))
+        drift = Parameter('Drift', array=np.ma.arange(0, 1, 0.1))
+        node = TrackContinuous()
+        node.derive(head_true, drift)
+        ma_test.assert_equal(node.array,
+                             [0, 10.1, 20.2, 30.3, 40.4, 50.5, 60.6, 70.7, 80.8, 90.9])
+
+
 class TestTrackDeviationFromRunway(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             TrackDeviationFromRunway.get_operational_combinations(),
-            [('Track True', 'FDR Takeoff Runway'),
-             ('Track True', 'Approach Information'),
-             ('Track', 'FDR Takeoff Runway'),
-             ('Track', 'Approach Information'),
-             ('Track True', 'Track', 'FDR Takeoff Runway'),
-             ('Track True', 'Track', 'Approach Information'),
-             ('Track True', 'Takeoff', 'FDR Takeoff Runway'),
-             ('Track True', 'Takeoff', 'Approach Information'),
-             ('Track True', 'FDR Takeoff Runway', 'Approach Information'),
-             ('Track', 'Takeoff', 'FDR Takeoff Runway'),
-             ('Track', 'Takeoff', 'Approach Information'),
-             ('Track', 'FDR Takeoff Runway', 'Approach Information'),
-             ('Track True', 'Track', 'Takeoff', 'FDR Takeoff Runway'),
-             ('Track True', 'Track', 'Takeoff', 'Approach Information'),
-             ('Track True', 'Track', 'FDR Takeoff Runway', 'Approach Information'),
-             ('Track True', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
-             ('Track', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
-             ('Track True', 'Track', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information')]
+            [('Track True Continuous', 'FDR Takeoff Runway'),
+             ('Track True Continuous', 'Approach Information'),
+             ('Track Continuous', 'FDR Takeoff Runway'),
+             ('Track Continuous', 'Approach Information'),
+             ('Track True Continuous', 'Track Continuous', 'FDR Takeoff Runway'),
+             ('Track True Continuous', 'Track Continuous', 'Approach Information'),
+             ('Track True Continuous', 'Takeoff', 'FDR Takeoff Runway'),
+             ('Track True Continuous', 'Takeoff', 'Approach Information'),
+             ('Track True Continuous', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track Continuous', 'Takeoff', 'FDR Takeoff Runway'),
+             ('Track Continuous', 'Takeoff', 'Approach Information'),
+             ('Track Continuous', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True Continuous', 'Track Continuous', 'Takeoff', 'FDR Takeoff Runway'),
+             ('Track True Continuous', 'Track Continuous', 'Takeoff', 'Approach Information'),
+             ('Track True Continuous', 'Track Continuous', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True Continuous', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track Continuous', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True Continuous', 'Track Continuous', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information')]
         )
         
     def test_deviation(self):
