@@ -1744,7 +1744,7 @@ class KeyPointValueNode(FormattedNameNode):
                                          mark)
                     self.create_kpv(index, duration, **kwargs)
 
-    def create_kpvs_where(self, condition, frequency=1.0, phase=[],
+    def create_kpvs_where(self, condition, frequency=1.0, phase=None,
                           min_duration=0.0, exclude_leading_edge=False):
         '''
         For discrete and multi-state parameters, this detects a specified
@@ -1781,7 +1781,9 @@ class KeyPointValueNode(FormattedNameNode):
         TODO: Where Sections are provided, this method should test the
         partial edges allowed (e.g. 10.3 to 12.7)
         '''
-        if isinstance(phase, slice):
+        if phase is None:
+            slices = [slice(None)]
+        elif isinstance(phase, slice):
             # Handle single phase or slice
             slices = [phase]
         elif isinstance(phase, Section):
@@ -1789,7 +1791,8 @@ class KeyPointValueNode(FormattedNameNode):
         else:
             # Handle slices and phases with slice attributes
             slices = [getattr(p, 'slice', p) for p in phase]
-        for _slice in slices or [slice(None)]:
+            
+        for _slice in slices:
             start = _slice.start or 0
             # NOTE: TypeError: 'bool' object is not subscriptable:
             #     If condition is False check Values Mapping has correct
