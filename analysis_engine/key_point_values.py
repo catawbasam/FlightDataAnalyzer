@@ -2287,6 +2287,22 @@ class AltitudeWithGearDownMax(KeyPointValueNode):
             max_value)
 
 
+class AltitudeAtGearDownSelectionWithFlapUp(KeyPointValueNode):
+    
+    units = 'ft'
+    
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               gear_downs=KTI('Gear Down Selection'),
+               flap=P('Flap')):
+        
+        flap_ups = np.ma.clump_unmasked(np.ma.masked_greater(flap.array, 0))
+        flap_up_gear_downs = []
+        for _slice in flap_ups:
+            flap_up_gear_downs.extend(gear_downs.get(within_slice=_slice))
+        self.create_kpvs_at_ktis(alt_aal.array, flap_up_gear_downs)
+
+
 ########################################
 # Altitude: Automated Systems
 
