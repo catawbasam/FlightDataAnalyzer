@@ -1265,7 +1265,8 @@ class AirspeedWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d Max'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1284,7 +1285,8 @@ class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d Min'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1303,7 +1305,8 @@ class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOr
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Climb Max'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Climb Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1320,7 +1323,8 @@ class AirspeedWithFlapDuringClimbMin(KeyPointValueNode, FlapOrConfigurationMaxOr
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Climb Min'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Climb Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1337,7 +1341,8 @@ class AirspeedWithFlapDuringDescentMax(KeyPointValueNode, FlapOrConfigurationMax
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Descent Max'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Descent Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1354,7 +1359,8 @@ class AirspeedWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigurationMax
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Descent Min'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Descent Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1371,7 +1377,8 @@ class AirspeedRelativeWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigur
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed Relative With Flap %(flap)d During Descent Min'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed Relative With Flap %(flap)s During Descent Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1640,7 +1647,9 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     figures to set event thresholds, but a threshold based on in-service data
     may suffice.
     '''
-    NAME_FORMAT = 'AOA With Flap %(flap)d Max'
+
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'AOA With Flap %(flap)s Max'
     NAME_VALUES = NAME_VALUES_FLAP
     
     name = 'AOA With Flap Max'
@@ -3894,7 +3903,8 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
 
-    NAME_FORMAT = 'Mach With Flap %(flap)d Max'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Mach With Flap %(flap)s Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
