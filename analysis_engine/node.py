@@ -319,7 +319,12 @@ def can_operate(cls, available):
             self.frequency = dependencies_to_align[0].frequency
             self.offset = dependencies_to_align[0].offset
 
-        res = self.derive(*args)
+        try:
+            res = self.derive(*args)
+        except:
+            self.exception('Failed to derive parameter `%s`', self.name)
+            raise
+
         if res is NotImplemented:
             raise NotImplementedError("Class '%s' derive method is not implemented." % \
                                       self.__class__.__name__)

@@ -142,7 +142,7 @@ def track_to_kml(hdf_path, kti_list, kpv_list, approach_list,
     kml = simplekml.Kml()
     with hdf_file(hdf_path) as hdf:
         if 'Latitude Smoothed' not in hdf:
-            return        
+            return False
         if plot_altitude not in hdf:
             logger.warning("Disabling altitude on KML plot as it is unavailable.")
             plot_altitude = False
