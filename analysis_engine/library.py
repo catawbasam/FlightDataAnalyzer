@@ -563,6 +563,9 @@ def calculate_timebase(years, months, days, hours, mins, secs):
         try:
             dt = datetime(int(yr), int(mth), int(day), int(hr), int(mn), int(sc))
         except (ValueError, TypeError, np.ma.core.MaskError):
+            # ValueError is raised if values are out of range, e.g. 0..59.
+            # Q: Should we validate these parameters and switch to fallback_dt
+            #    if it fails?
             continue
         if not base_dt:
             base_dt = dt # store reference datetime
