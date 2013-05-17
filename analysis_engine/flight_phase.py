@@ -17,8 +17,9 @@ from analysis_engine.library import (
     index_closest_value,
     is_index_within_slice,
     is_slice_within_slice,
-    nearest_neighbour_mask_repair,
+    last_valid_sample,
     moving_average,
+    nearest_neighbour_mask_repair,
     rate_of_change,
     repair_mask,
     runs_of_ones,
@@ -599,82 +600,79 @@ class GearRetracting(FlightPhaseNode):
 
 def scan_ils(beam, ils_dots, height, scan_slice):
     '''
+    Scans ils dots and returns last slice where ils dots fall below 1 and remain below 2.5 dots
+    if beam is glideslope slice will not extend below 200ft.
+
     :param beam: 'localizer' or 'glideslope'
     :type beam: str
+    :param ils_dots: 'localizer' or 'glideslope'
+    :type ils_dots: str
+    :param height: 'localizer' or 'glideslope'
+    :type height: str
+    :param scan_slice: 'localizer' or 'glideslope'
+    :type scan_slice: str
     '''
     if beam not in ['localizer', 'glideslope']:
         raise ValueError('Unrecognised beam type in scan_ils')
 
-    # Find where we first see the ILS indication. We will start from 200ft to
-    # avoid getting spurious glideslope readings (hence this code is the same
-    # for glide and localizer).
-
-    # Scan for going through 200ft, or in the case of a go-around, the lowest
-    # point - hence 'closing' condition.
-    idx_200 = index_at_value(height, 200, slice(scan_slice.stop,
-                                                scan_slice.start, -1),
-                             endpoint='closing')
-
-    # In some error cases the height can be all zero or masked, leaving the
-    # end of the scan as the result. This is invalid so we return empty
-    # handed.
-    if idx_200 == scan_slice.start:
-        return None
-
-    # Scan back to 2 dots to avoid hitting 2.5 dots comming off ILS
-    idx_2dots = index_at_value(np.ma.abs(ils_dots), 2.0,
-                             slice(idx_200, scan_slice.start, -1))
-
-    # Now work back to 2.5 dots when the indication is first visible.
-    dots_25 = index_at_value(np.ma.abs(ils_dots), 2.5,
-                             slice(idx_2dots, scan_slice.start, -1))
-    if dots_25 is None:
-        dots_25 = scan_slice.start
-        
-    # Let's check to see if we have something sensible to work with...
-    # amount of valid data to proceed was changed from 70 to 40% as flights
-    # which switch runways during approach have large periods of masked data
-    # due to deviating from origional ILS before capturing new runway.
     if np.ma.count(ils_dots[scan_slice]) < 5 or \
        np.ma.count(ils_dots[scan_slice])/float(len(ils_dots[scan_slice])) < 0.4:
         return None
 
-    # And now work forwards to the point of "Capture", defined as the first
-    # time the ILS goes below 1 dot.
-    if int(dots_25) == int(idx_200):
-        ils_capture_idx = dots_25
-    elif first_valid_sample(
-        np.ma.abs(ils_dots[dots_25:idx_200]))[1] < 1.0:
-        # Aircraft came into the approach phase already on the centreline.
-        ils_capture_idx = dots_25
-    else:
-        ils_capture_idx = index_at_value(np.ma.abs(ils_dots), 1.0,
-                                         slice(dots_25, idx_200, +1))
-        if ils_capture_idx is None:
-            # Did we start with the ILS captured?
-            if np.ma.abs(ils_dots[dots_25]) < 1.0:
-                ils_capture_idx = dots_25
+    # get abs of ils dots as its used everywhere
+    ils_abs = np.ma.abs(ils_dots)
 
-    if beam == 'localizer':
-        # We ended either where the aircraft left the beam or when the
-        # approach or go-around phase ended.
-        ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5,
-                                     slice(idx_2dots, scan_slice.stop))
-        if ils_end_idx is None:
-            # Can either never have captured, or data can end at less than 2.5
-            # dots.
-            countback_idx, last_loc = first_valid_sample(ils_dots[scan_slice.stop::-1])
-            if abs(last_loc) < 2.5:
-                ils_end_idx = scan_slice.stop - countback_idx
-    elif beam == 'glideslope':
-        ils_end_idx = idx_200
-    else:
-        raise ValueError("Unrecognised beam type '%s' in scan_ils" % beam)
+    # ----------- Find loss of capture
 
-    if ils_capture_idx and ils_end_idx:
-        return slice(ils_capture_idx, ils_end_idx)
+    last_valid_idx, last_valid_value = last_valid_sample(ils_abs[scan_slice])
+
+    if last_valid_value < 2.5:
+        # finished established ? if established in first place
+        ils_lost_idx = scan_slice.start + last_valid_idx + 1
     else:
+        # find last time went below 2.5 dots
+        last_25_idx = index_at_value(ils_abs, 2.5, slice(scan_slice.stop, scan_slice.start, -1))
+        if last_25_idx is None:
+            # never went below 2.5 dots
+            return None
+        else:
+            ils_lost_idx = last_25_idx
+
+    if beam == 'glideslope':
+        # If Glideslope find index of height last passing 200ft and use the
+        # smaller of that and any index where the ILS was lost
+        idx_200 = index_at_value(height, 200, slice(scan_slice.stop,
+                                                scan_slice.start, -1),
+                             endpoint='closing')
+        if idx_200 is not None:
+            ils_lost_idx = min(ils_lost_idx, idx_200)
+
+    # ----------- Find start of capture
+
+    # Find where to start scanning for the point of "Capture", Look for the
+    # last time we were within 2.5dots
+    scan_start_idx = index_at_value(ils_abs, 2.5, slice(ils_lost_idx, scan_slice.start, -1))
+
+    if scan_start_idx:
+        # Found a point to start scanning from, now look for the ILS goes
+        # below 1 dot.
+        ils_capture_idx = index_at_value(ils_abs, 1.0, slice(scan_start_idx, ils_lost_idx))
+    else:
+        # Reached start of section without passing 2.5 dots so check if we
+        # started established
+        first_valid_idx, first_valid_value = first_valid_sample(ils_abs[slice(scan_slice.start, ils_lost_idx)])
+
+        if first_valid_value < 1.0:
+            # started established
+            ils_capture_idx = scan_slice.start + first_valid_idx
+        else:
+            # Find first index of 1.0 dots from start of scan slice
+            ils_capture_idx = index_at_value(ils_abs, 1.0, slice(scan_slice.start, ils_lost_idx))
+
+    if ils_capture_idx is None or ils_lost_idx is None:
         return None
+    else:
+        return slice(ils_capture_idx, ils_lost_idx)
 
 
 class ILSLocalizerEstablished(FlightPhaseNode):
@@ -692,7 +690,7 @@ class ILSLocalizerEstablished(FlightPhaseNode):
                ils_freq=P('ILS Frequency'),):
         
         slices = apps.get_slices()
-        
+
         if ils_freq and np.ma.count(ils_freq.array):
             # If we have ILS frequency tuned in check for multiple frequencies
             frequency_changes = np.ma.diff(nearest_neighbour_mask_repair(ils_freq.array))

@@ -377,7 +377,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         establish = ILSLocalizerEstablished()
         establish.derive(ils_loc, alt_aal, apps, ils_freq)
         expected = [Section(name='ILS Localizer Established', slice=slice(12215.896484375, 12244.499993651203, None), start_edge=12215.896484375, stop_edge=12244.499993651203),
-                    Section(name='ILS Localizer Established', slice=slice(12363.052624896003, 351.91357867930947, None), start_edge=12363.052624896003, stop_edge=351.91357867930947)]
+                    Section(name='ILS Localizer Established', slice=slice(12295, 12363.052624896003, None), start_edge=12295, stop_edge=12363.052624896003)]
         self.assertEqual(establish, expected)
 
 """
