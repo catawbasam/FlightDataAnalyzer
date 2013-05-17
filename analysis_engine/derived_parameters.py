@@ -2348,6 +2348,94 @@ class Eng_N3Min(DerivedParameterNode):
 
 
 ################################################################################
+# Engine Np
+
+
+class Eng_NpAvg(DerivedParameterNode):
+    '''
+    This returns the average Np in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
+    '''
+
+    name = 'Eng (*) Np Avg'
+    units = '%'
+    align_frequency = 4
+    align_offset = 0
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) Np'),
+               eng2=P('Eng (2) Np'),
+               eng3=P('Eng (3) Np'),
+               eng4=P('Eng (4) Np')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+class Eng_NpMax(DerivedParameterNode):
+    '''
+    This returns the highest Np in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
+    '''
+
+    name = 'Eng (*) Np Max'
+    units = '%'
+    align_frequency = 4
+    align_offset = 0
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) Np'),
+               eng2=P('Eng (2) Np'),
+               eng3=P('Eng (3) Np'),
+               eng4=P('Eng (4) Np')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+class Eng_NpMin(DerivedParameterNode):
+    '''
+    This returns the lowest Np in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
+    '''
+
+    name = 'Eng (*) Np Min'
+    units = '%'
+    align_frequency = 4
+    align_offset = 0
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) Np'),
+               eng2=P('Eng (2) Np'),
+               eng3=P('Eng (3) Np'),
+               eng4=P('Eng (4) Np')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+################################################################################
 # Engine Oil Pressure
 
 
@@ -4654,7 +4742,7 @@ class ThrustAsymmetry(DerivedParameterNode):
     Thrust asymmetry based on N1.
 
     For EPR rated aircraft, this measure should still be applicable as we are
-    not applying a manufaturer's limit to the value, rather this is being
+    not applying a manufacturer's limit to the value, rather this is being
     used to identify imbalance of thrust and as the thrust comes from engine
     speed, N1 is still applicable.
 
@@ -4665,7 +4753,7 @@ class ThrustAsymmetry(DerivedParameterNode):
     would be to treat EPR=2.0 as 100% and EPR=1.0 as 0% so the Thrust
     Asymmetry would be simply (EPRmax-EPRmin)*100.
 
-    For propellor aircraft the product of prop speed and torgue should be
+    For propeller aircraft the product of prop speed and torgue should be
     used to provide a similar single asymmetry value.
     '''
 
@@ -4678,7 +4766,7 @@ class ThrustAsymmetry(DerivedParameterNode):
 
 class ThrustReversers(MultistateDerivedParameterNode):
     '''
-    A single parameter with multistate mapping as below.
+    A single parameter with multi-state mapping as below.
     '''
 
     # We are interested in all stowed, all deployed or any other combination.

@@ -297,7 +297,8 @@ class FlapSet(KeyTimeInstanceNode):
     '''
     '''
 
-    NAME_FORMAT = 'Flap %(flap)d Set'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Flap %(flap)s Set'
     NAME_VALUES = NAME_VALUES_FLAP
 
     def derive(self,
