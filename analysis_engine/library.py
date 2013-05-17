@@ -14,6 +14,7 @@ from settings import (CURRENT_YEAR,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
                       REPAIR_DURATION,
+                      SLOPE_FOR_TOC_TOD,
                       TRUCK_OR_TRAILER_INTERVAL,
                       TRUCK_OR_TRAILER_PERIOD)
 
@@ -1111,8 +1112,13 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
     return result
 
 
-def closest_unmasked_value(array, index, _slice=slice(None)):
+def closest_unmasked_value(array, index, _slice=None):
     '''
+    Find the closest unmasked value in the array that's close to the index.
+    The index is relative to the start of the array, NOT the _slice
+    subsection. Supports negative index which is relative to the end of the
+    array however _slice argument cannot be used at the same time.
+    
     :param array: Array to find the closest unmasked value within.
     :type array: np.ma.array
     :param index: Find the closest unmasked value to this index.
@@ -1122,17 +1128,40 @@ def closest_unmasked_value(array, index, _slice=slice(None)):
     :returns: The closest index and value of an unmasked value.
     :rtype: Value
     '''
-    array = array[_slice]
+    if _slice is not None and index < 0:
+        # hard to understand what the programmer is expecting to be returned
+        raise NotImplementedError("Negative indexing on slice not supported")
+    if _slice is None:
+        _slice = slice(None)
+    if (_slice.step and _slice.step != 1):
+        return NotImplementedError("Step '%s' not supported" % slice.step)
+    
+    slice_start = (_slice.start or 0)
+    slice_stop = (_slice.stop or len(array))
+    
+    if index >= 0 and index > slice_stop:
+        raise IndexError("index is beyond length of sliced data")
+    elif index < 0 and abs(index) > len(array):
+        raise IndexError("negative index goes beyond array length")
+    
     if index < 0:
         index = abs(len(array) + index)
-    if not np.ma.count(array):
-        return None
-    indices = np.ma.arange(len(array))
+        
+    sliced_array = array[_slice]
+    # make index relative to the sliced section
+    rel_index = index - slice_start  
+    if not np.ma.count(sliced_array) or abs(rel_index) > len(sliced_array):
+        # slice contains no valid data or index is outside of the length of
+        # the array
+        #return Value(None, None)
+        raise IndexError("No valid data to find at index '%d' in sliced array "
+                         "of length '%d'" % (index, len(sliced_array)))
+    
+    indices = np.ma.arange(len(sliced_array))
     indices.mask = array.mask
-    index = np.ma.abs(indices - index).argmin()
-    value = array[index]
-    index = index + (_slice.start or 0)
-    return Value(index=index, value=value)
+    relative_pos = np.ma.abs(indices - rel_index).argmin()
+    pos = relative_pos + slice_start
+    return Value(index=pos, value=array[pos])
 
 
 def clump_multistate(array, state, _slices, condition=True):
@@ -1311,6 +1340,45 @@ def index_of_last_stop(bool_array, _slice=slice(0, None), min_dur=1,
         return runs[-1].stop + (_slice.start or 0) - 0.5
     else:
         return None
+
+
+def find_toc_tod(alt_data, ccd_slice, mode='Climb'):
+    '''
+    Find the Top Of Climb or Top Of Descent from an altitude trace.
+    
+    :param alt_data: Altitude array usually above FL100
+    :type alt_data: np.ma.array
+    :param ccd_slice: "cruise climb descent" slice of data, although similar will do
+    :type ccd_slice: slice
+    :param mode: Either 'Climb' or 'Descent' to define which to select.
+    :type mode: String
+    :returns: Index of location identified within slice, relative to start of alt_data
+    :rtype: Int
+    '''
+
+    # Find the maximum altitude in this slice to reduce the effort later
+    peak_index = np.ma.argmax(alt_data[ccd_slice])
+
+    if mode == 'Climb':
+        section = slice(ccd_slice.start, ccd_slice.start + peak_index + 1,
+                        None)
+        slope = SLOPE_FOR_TOC_TOD
+    else:
+        section = slice((ccd_slice.start or 0) + peak_index, ccd_slice.stop,
+                        None)
+        slope = -SLOPE_FOR_TOC_TOD
+
+    # Quit if there is nothing to do here.
+    if section.start == section.stop:
+        raise ValueError('No range of data for top of climb or descent check')
+
+    # Establish a simple monotonic timebase
+    timebase = np.arange(len(alt_data[section]))
+    # Then scale this to the required altitude data slope
+    ramp = timebase * slope
+    # For airborne data only, subtract the slope from the climb, then
+    # the peak is at the top of climb or descent.
+    return np.ma.argmax(alt_data[section] - ramp) + section.start
 
 
 def find_edges(array, _slice, direction='rising_edges'):
@@ -5334,8 +5402,10 @@ def second_window(array, frequency, seconds):
         ##for index in xrange(first_index, stacked_array.shape[1]):
         ##values = stacked_array[...,index]
         ##array_value, max_window, min_window = values.tolist()
-    
-    return np.ma.array(window_array)
+    ##from analysis_engine.plot_flight import plot_parameter
+    ##plot_parameter(window_array)
+    ##plot_parameter(array)
+    ##return np.ma.array(window_array)
 
 
 #---------------------------------------------------------------------------
