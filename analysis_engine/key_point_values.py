@@ -3306,23 +3306,15 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
 
     units = 'dots'
 
-    @classmethod
-    def can_operate(cls, available):
-        return all_of(('IAN Glidepath',
-                       'Altitude AAL For Flight Phases',
-                       'Approach And Landing' ), available)
-
     def derive(self,
                ian_glidepath=P('IAN Glidepath'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=S('Approach And Landing'),
-               ils_ests=S('ILS Glideslope Established')):
+               apps=App('Approach Information')):
 
-        if ils_ests:
-            # we do not want to create IAN KPVs for ILS approaches so mask out
-            ian_glidepath_array = mask_inside_slices(ian_glidepath.array, ils_ests.get_slices())
-        else:
-            ian_glidepath_array = ian_glidepath.array
+        for app in apps:
+            if app.gs_est:
+                # Mask IAN data for approaches where ILS is established
+                ian_glidepath.array[app.slice] = np.ma.masked
 
         for idx in range(len(self.NAME_VALUES['max_alt'])):
             max_alt = self.NAME_VALUES['max_alt'][idx]
@@ -3331,12 +3323,12 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                glidepath_est = scan_ils('glideslope', ian_glidepath_array, alt_aal.array, band)
-                if glidepath_est:
-                    ian_est_bands.append(glidepath_est)
+                ian_glide_est = scan_ils('glideslope', ian_glidepath.array, alt_aal.array, band)
+                if ian_glide_est:
+                    ian_est_bands.append(ian_glide_est)
 
             self.create_kpvs_within_slices(
-                ian_glidepath_array,
+                ian_glidepath.array,
                 ian_est_bands,
                 max_abs_value,
                 max_alt=max_alt,
@@ -3357,23 +3349,15 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
 
     units = 'dots'
 
-    @classmethod
-    def can_operate(cls, available):
-        return all_of(('IAN Final Approach Course',
-                       'Altitude AAL For Flight Phases',
-                       'Approach And Landing' ), available)
-
     def derive(self,
                ian_final=P('IAN Final Approach Course'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=S('Approach And Landing'),
-               ils_ests=S('ILS Localizer Established')):
+               apps=App('Approach Information')):
 
-        if ils_ests:
-            # we do not want to create IAN KPVs for ILS approaches so mask out
-            ian_final_array = mask_inside_slices(ian_final.array, ils_ests.get_slices())
-        else:
-            ian_final_array = ian_final.array
+        for app in apps:
+            if app.loc_est:
+                # Mask IAN data for approaches where ILS is established
+                ian_final.array[app.slice] = np.ma.masked
 
         for idx in range(len(self.NAME_VALUES['max_alt'])):
             max_alt = self.NAME_VALUES['max_alt'][idx]
@@ -3383,12 +3367,12 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                final_app_course_est = scan_ils('glideslope', ian_final_array, alt_aal.array, band)
+                final_app_course_est = scan_ils('glideslope', ian_final.array, alt_aal.array, band)
                 if final_app_course_est:
                     ian_est_bands.append(final_app_course_est)
 
             self.create_kpvs_within_slices(
-                ian_final_array,
+                ian_final.array,
                 ian_est_bands,
                 max_abs_value,
                 max_alt=max_alt,
