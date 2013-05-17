@@ -5430,9 +5430,7 @@ class ApproachRange(DerivedParameterNode):
                alt_aal=P('Altitude AAL'),
                approaches=App('Approach Information'),
                ):
-
-        app_range = np_ma_masked_zeros_like(hdg_mag.array)
-        freq = hdg_mag.frequency
+        app_range = np_ma_masked_zeros_like(alt_aal.array)
 
         for approach in approaches:
             # We are going to reference the approach to a runway touchdown
@@ -5482,6 +5480,7 @@ class ApproachRange(DerivedParameterNode):
                 speed = gspd.array[this_app_slice] * \
                     np.cos(np.radians(off_cl))
                 freq = gspd.frequency
+            
             if not gspd or not np.ma.count(speed):
                 speed = tas.array[this_app_slice] * \
                     np.cos(np.radians(off_cl))
