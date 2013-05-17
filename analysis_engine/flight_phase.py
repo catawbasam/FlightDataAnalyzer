@@ -17,9 +17,11 @@ from analysis_engine.library import (
     index_closest_value,
     is_index_within_slice,
     is_slice_within_slice,
+    nearest_neighbour_mask_repair,
     moving_average,
     rate_of_change,
     repair_mask,
+    runs_of_ones,
     shift_slice,
     shift_slices,
     slices_and,
@@ -619,15 +621,22 @@ def scan_ils(beam, ils_dots, height, scan_slice):
     if idx_200 == scan_slice.start:
         return None
 
+    # Scan back to 2 dots to avoid hitting 2.5 dots comming off ILS
+    idx_2dots = index_at_value(np.ma.abs(ils_dots), 2.0,
+                             slice(idx_200, scan_slice.start, -1))
+
     # Now work back to 2.5 dots when the indication is first visible.
     dots_25 = index_at_value(np.ma.abs(ils_dots), 2.5,
-                             slice(idx_200, scan_slice.start, -1))
+                             slice(idx_2dots, scan_slice.start, -1))
     if dots_25 is None:
         dots_25 = scan_slice.start
         
     # Let's check to see if we have something sensible to work with...
+    # amount of valid data to proceed was changed from 70 to 40% as flights
+    # which switch runways during approach have large periods of masked data
+    # due to deviating from origional ILS before capturing new runway.
     if np.ma.count(ils_dots[scan_slice]) < 5 or \
-       np.ma.count(ils_dots[scan_slice])/float(len(ils_dots[scan_slice])) < 0.7:
+       np.ma.count(ils_dots[scan_slice])/float(len(ils_dots[scan_slice])) < 0.4:
         return None
 
     # And now work forwards to the point of "Capture", defined as the first
@@ -650,7 +659,7 @@ def scan_ils(beam, ils_dots, height, scan_slice):
         # We ended either where the aircraft left the beam or when the
         # approach or go-around phase ended.
         ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5,
-                                     slice(idx_200, scan_slice.stop))
+                                     slice(idx_2dots, scan_slice.stop))
         if ils_end_idx is None:
             # Can either never have captured, or data can end at less than 2.5
             # dots.
@@ -670,16 +679,33 @@ def scan_ils(beam, ils_dots, height, scan_slice):
 
 class ILSLocalizerEstablished(FlightPhaseNode):
     name = 'ILS Localizer Established'
-    """
-    """
+
+    @classmethod
+    def can_operate(cls, available):
+        return all_of(('ILS Localizer',
+                       'Altitude AAL For Flight Phases',
+                       'Approach And Landing'), available)
+
     def derive(self, ils_loc=P('ILS Localizer'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=S('Approach And Landing')):
-        for app in apps:
-            ils_app = scan_ils('localizer', ils_loc.array, alt_aal.array,
-                               app.slice)
-            if ils_app is not None:
-                self.create_phase(ils_app)
+               apps=S('Approach And Landing'),
+               ils_freq=P('ILS Frequency'),):
+        
+        slices = apps.get_slices()
+        
+        if ils_freq and np.ma.count(ils_freq.array):
+            # If we have ILS frequency tuned in check for multiple frequencies
+            frequency_changes = np.ma.diff(nearest_neighbour_mask_repair(ils_freq.array))
+            # Create slices for each ILS frequency so they are scanned separately
+            frequency_slices = runs_of_ones(frequency_changes == 0)
+            if frequency_slices:
+                slices = slices_and(slices, frequency_slices)
+
+        for _slice in slices:
+            ils_slice = scan_ils('localizer', ils_loc.array, alt_aal.array,
+                               _slice)
+            if ils_slice is not None:
+                self.create_phase(ils_slice)
 
 
 '''
@@ -949,14 +975,22 @@ class LandingRoll(FlightPhaseNode):
     def derive(self, pitch=P('Pitch'), gspd=P('Groundspeed'),
                aspd=P('Airspeed True'), lands=S('Landing')):
         if gspd:
-            speed=gspd.array
+            speed = gspd.array
         else:
-            speed=aspd.array
+            speed = aspd.array
         for land in lands:
-            end = index_at_value(speed, 60.0, land.slice)
+            # Airspeed True on some aircraft do not record values below 61
+            end = index_at_value(speed, 65.0, land.slice)
+            if end is None:
+                # due to masked values, use the land.stop rather than
+                # searching from the end of the data
+                end = land.slice.stop
             begin = index_at_value(pitch.array, 2.0,
                                    slice(end,land.slice.start,-1),
                                    endpoint='nearest')
+            if begin is None:
+                # due to masked values, use land.start in place
+                begin = land.slice.start
             self.create_phase(slice(begin, end), begin=begin, end=end)
 
 

@@ -2,13 +2,13 @@ numpy
 scipy
 h5py>=2.0.1
 httplib2>=0.7.0
-networkx
+networkx>=1.7
 pygraphviz
 matplotlib
 simplekml
 simplejson
 argparse
-geomag==0.9.1
+geomag>=0.9
 FlightDataUtilities
 HDFAccess
 

@@ -106,10 +106,12 @@ from analysis_engine.key_point_values import (
     AltitudeAtAPEngagedSelection,
     AltitudeAtATDisengagedSelection,
     AltitudeAtATEngagedSelection,
-    AltitudeFirstStableDuringApproach,
+    AltitudeFirstStableDuringApproachBeforeGoAround,
+    AltitudeFirstStableDuringLastApproach,
     AltitudeAtFlapExtension,
     AltitudeAtFirstFlapRetractionDuringGoAround,
-    AltitudeLastUnstableDuringApproach,
+    AltitudeLastUnstableDuringApproachBeforeGoAround,
+    AltitudeLastUnstableDuringLastApproach,
     AltitudeSTDAtTouchdown,
     AltitudeSTDAtLiftoff,
     AltitudeQNHAtTouchdown,
@@ -215,6 +217,8 @@ from analysis_engine.key_point_values import (
     HeightLoss35To1000Ft,
     HeightLoss1000To2000Ft,
     HeightMinsToTouchdown,
+    IANFinalApproachCourseDeviationMax,
+    IANGlidepathDeviationMax,
     ILSFrequencyDuringApproach,
     ILSGlideslopeDeviation1500To1000FtMax,
     ILSGlideslopeDeviation1000To500FtMax,
@@ -224,6 +228,8 @@ from analysis_engine.key_point_values import (
     ILSLocalizerDeviation500To200FtMax,
     ILSLocalizerDeviationAtTouchdown,
     LastFlapChangeToTakeoffRollEndDuration,
+    LastUnstableStateDuringApproachBeforeGoAround,
+    LastUnstableStateDuringLastApproach,
     LatitudeAtLiftoff,
     LatitudeAtTouchdown,
     LatitudeSmoothedAtLiftoff,
@@ -241,8 +247,7 @@ from analysis_engine.key_point_values import (
     MachWithGearDownMax,
     MagneticVariationAtTakeoffTurnOntoRunway,
     MagneticVariationAtLandingTurnOffRunway,
-    PercentApproachStableBelow1000Ft,
-    PercentApproachStableBelow500Ft,
+    PercentApproachStable,
     Pitch1000To500FtMax,
     Pitch1000To500FtMin,
     Pitch35To400FtMax,
@@ -2449,6 +2454,66 @@ class TestILSLocalizerDeviationAtTouchdown(unittest.TestCase, ILSTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
+class TestIANGlidepathDeviationMax(unittest.TestCase):
+
+    def test_can_operate(self):
+        ops = self.node_class.get_operational_combinations()
+        expected = [('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach And Landing'),
+                    ('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach And Landing', 'ILS Glideslope Established')]
+        self.assertEqual(ops, expected)
+
+    def setUp(self):
+        self.node_class = IANGlidepathDeviationMax
+
+        self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
+        self.apps = S(items=[Section('Approach And Landing', slice(2, 12), 2, 12)])
+        self.ian = P(name='IAN Glidepath', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
+        self.ils = S(items=[Section('ILS Glideslope Established', slice(3, 12), 3, 12)])
+
+    def test_derive_basic(self):
+        kpv = self.node_class()
+        kpv.derive(self.ian, self.height, self.apps, None)
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 6)
+        self.assertAlmostEqual(kpv[0].value, 3)
+        self.assertAlmostEqual(kpv[0].name, 'IAN Glidepath Deviation 500 To 200 Ft Max')
+
+    def test_derive_with_ils_established(self):
+        kpv = self.node_class()
+        kpv.derive(self.ian, self.height, self.apps, self.ils)
+        self.assertEqual(len(kpv), 0)
+
+
+class TestIANFinalApproachCourseDeviationMax(unittest.TestCase):
+
+    def test_can_operate(self):
+        ops = self.node_class.get_operational_combinations()
+        expected = [('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach And Landing'),
+                    ('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach And Landing', 'ILS Localizer Established')]
+        self.assertEqual(ops, expected)
+
+    def setUp(self):
+        self.node_class = IANFinalApproachCourseDeviationMax
+
+        self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
+        self.apps = S(items=[Section('Approach And Landing', slice(2, 12), 2, 12)])
+        self.ian = P(name='IAN Final Approach Course', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
+        self.ils = S(items=[Section('ILS Localizer Established', slice(3, 12), 3, 12)])
+
+    def test_derive_basic(self):
+        kpv = self.node_class()
+        kpv.derive(self.ian, self.height, self.apps, None)
+        self.assertEqual(len(kpv), 1)
+        self.assertEqual(kpv[0].index, 6)
+        self.assertAlmostEqual(kpv[0].value, 3)
+        self.assertAlmostEqual(kpv[0].name, 'IAN Final Approach Course Deviation 500 To 200 Ft Max')
+
+    def test_derive_with_ils_established(self):
+        kpv = self.node_class()
+        kpv.derive(self.ian, self.height, self.apps, self.ils)
+        self.assertEqual(len(kpv), 0)
+
+
 ##############################################################################
 # Mach
 
@@ -2542,13 +2607,13 @@ class TestMachWhileGearExtendingMax(unittest.TestCase, CreateKPVsWithinSlicesTes
 ########################################
 
 
-class TestAltitudeFirstStableDuringApproach(unittest.TestCase):
+class TestAltitudeFirstStableDuringLastApproach(unittest.TestCase):
     def test_can_operate(self):
-        ops = AltitudeFirstStableDuringApproach.get_operational_combinations()
+        ops = AltitudeFirstStableDuringLastApproach.get_operational_combinations()
         self.assertEqual(ops, [('Stable Approach', 'Altitude AAL')])
 
-    def test_derive_stable(self):
-        firststable = AltitudeFirstStableDuringApproach()
+    def test_derive_stable_with_one_approach(self):
+        firststable = AltitudeFirstStableDuringLastApproach()
         stable = StableApproach(array=np.ma.array([1,4,9,9,3,2,9,2]))
         alt = P(array=np.ma.array([1000,900,800,700,600,500,400,300]))
         firststable.derive(stable, alt)
@@ -2556,88 +2621,232 @@ class TestAltitudeFirstStableDuringApproach(unittest.TestCase):
         self.assertEqual(firststable[0].index, 1.5)
         self.assertEqual(firststable[0].value, 850)
 
+    def test_derive_stable_with_one_approach_all_unstable(self):
+        firststable = AltitudeFirstStableDuringLastApproach()
+        stable = StableApproach(array=np.ma.array([1,4,3,3,3,2,3,2]))
+        alt = P(array=np.ma.array([1000,900,800,700,600,400,140,0]))
+        firststable.derive(stable, alt)
+        self.assertEqual(len(firststable), 1)
+        self.assertEqual(firststable[0].index, 7.5)
+        self.assertEqual(firststable[0].value, 0)
+        
     def test_derive_two_approaches(self):
         # two approaches
-        firststable = AltitudeFirstStableDuringApproach()
+        firststable = AltitudeFirstStableDuringLastApproach()
         #                                            stable tooshort stable
         stable = StableApproach(array=np.ma.array([1,4,9,9,  3,2,9,   2,9,9],
                                              mask=[0,0,0,0,  1,0,0,   0,0,0]))
         alt2app = P(array=np.ma.array([1000,900,800,700,600,500,400,300,200,100]))
         firststable.derive(stable, alt2app)
-        self.assertEqual(len(firststable), 2)
+        self.assertEqual(len(firststable), 1)
+        self.assertEqual(firststable[0].index, 7.5)
+        self.assertEqual(firststable[0].value, 250)
+
+
+class TestAltitudeFirstStableDuringApproachBeforeGoAround(unittest.TestCase):
+    def test_can_operate(self):
+        ops = AltitudeFirstStableDuringApproachBeforeGoAround.get_operational_combinations()
+        self.assertEqual(ops, [('Stable Approach', 'Altitude AAL')])
+
+    def test_derive_two_approaches_keeps_only_first(self):
+        # two approaches
+        firststable = AltitudeFirstStableDuringApproachBeforeGoAround()
+        #                                            stable tooshort stable
+        stable = StableApproach(array=np.ma.array([1,4,9,9,  3,2,9,   2,9,9],
+                                             mask=[0,0,0,0,  1,0,0,   0,0,0]))
+        alt2app = P(array=np.ma.array([1000,900,800,700,600,500,400,300,200,100]))
+        firststable.derive(stable, alt2app)
+        self.assertEqual(len(firststable), 1)
         self.assertEqual(firststable[0].index, 1.5)
         self.assertEqual(firststable[0].value, 850)
-        self.assertEqual(firststable[1].index, 7.5)
-        self.assertEqual(firststable[1].value, 250)
-
-
-class TestAltitudeLastUnstableDuringApproach(unittest.TestCase):
+        
+    def test_derive_stable_with_one_approach_is_ignored(self):
+        firststable = AltitudeFirstStableDuringApproachBeforeGoAround()
+        stable = StableApproach(array=np.ma.array([1,4,9,9,3,2,9,2]))
+        alt = P(array=np.ma.array([1000,900,800,700,600,500,400,300]))
+        firststable.derive(stable, alt)
+        self.assertEqual(len(firststable), 0)
+        
+        
+class TestAltitudeLastUnstableDuringLastApproach(unittest.TestCase):
     def test_can_operate(self):
-        ops = AltitudeLastUnstableDuringApproach.get_operational_combinations()
+        ops = AltitudeLastUnstableDuringLastApproach.get_operational_combinations()
+        self.assertEqual(ops, [('Stable Approach', 'Altitude AAL')])
+
+    def test_derive_two_approaches_uses_last_one(self):
+        # two approaches
+        lastunstable = AltitudeLastUnstableDuringLastApproach()
+        #                                                 stable tooshort stable
+        stable = StableApproach(array=np.ma.array([1,4,9,9,  3,2,9,   2,9,9,1,1],
+                                             mask=[0,0,0,0,  1,0,0,   0,0,0,0,0]))
+        alt2app = P(array=np.ma.array([1000,900,800,700,600,500,400,300,200,100,20,0]))
+        lastunstable.derive(stable, alt2app)
+        self.assertEqual(len(lastunstable), 1)
+        # stable to the end of the approach
+        self.assertEqual(lastunstable[0].index, 11.5)
+        self.assertEqual(lastunstable[0].value, 0)  # will always land with AAL of 0
+        
+    def test_never_stable_stores_a_value(self):
+        # if we were never stable, ensure we record a value at landing (0 feet)
+        lastunstable = AltitudeLastUnstableDuringLastApproach()
+        # not stable for either approach
+        stable = StableApproach(array=np.ma.array([1,4,4,4,  3,2,2,2,2,2,1,1],
+                                             mask=[0,0,0,0,  1,0,0,0,0,0,0,0]))
+        alt2app = P(array=np.ma.array([1000,900,800,700,600,500,400,300,200,100,50,0]))
+        lastunstable.derive(stable, alt2app)
+        self.assertEqual(len(lastunstable), 1)
+        # stable to the end of the approach
+        self.assertEqual(lastunstable[0].index, 11.5)
+        self.assertEqual(lastunstable[0].value, 0)
+
+
+class TestAltitudeLastUnstableDuringApproachBeforeGoAround(unittest.TestCase):
+    def test_can_operate(self):
+        ops = AltitudeLastUnstableDuringApproachBeforeGoAround.get_operational_combinations()
         self.assertEqual(ops, [('Stable Approach', 'Altitude AAL')])
 
     def test_derive_two_approaches(self):
         # two approaches
-        lastunstable = AltitudeLastUnstableDuringApproach()
-        #                                                 stable tooshort stable
-        stable = StableApproach(array=np.ma.array([1,4,9,9,  3,2,9,   2,9,9,1,1],
-                                                   mask=[0,0,0,0,  1,0,0,   0,0,0,0,0]))
-        alt2app = P(array=np.ma.array([1000,900,800,700,600,500,400,300,200,100,50,20]))
+        lastunstable = AltitudeLastUnstableDuringApproachBeforeGoAround()
+        #                                                 stable tooshort stable  last
+        stable = StableApproach(array=np.ma.array([1,4,9,9,  3,2,9,2,9,9,1,1, 1,3,9,9,9],
+                                             mask=[0,0,0,0,  1,0,0,0,0,0,0,0, 1,0,0,0,0]))
+        alt2app = P(array=np.ma.array([1500,1400,1200,1000,
+                                       900,800,700,600,500,400,300,200,
+                                       100,50,20,0,0]))
         lastunstable.derive(stable, alt2app)
         self.assertEqual(len(lastunstable), 2)
         # stable to the end of the approach
         self.assertEqual(lastunstable[0].index, 1.5)
-        self.assertEqual(lastunstable[0].value, 850)
+        self.assertEqual(lastunstable[0].value, 1300)
         self.assertEqual(lastunstable[1].index, 11.5)
-        self.assertEqual(lastunstable[1].value, 20)
+        self.assertEqual(lastunstable[1].value, 0)  # was not stable prior to go around
+        
+    def test_never_stable_reads_0(self):
+        lastunstable = AltitudeLastUnstableDuringApproachBeforeGoAround()
+        # not stable for either approach
+        stable = StableApproach(array=np.ma.array([1,4,4,4,  3,2,2,2,2,2,1,1],
+                                             mask=[0,0,0,0,  1,0,0,0,0,0,0,0]))
+        alt2app = P(array=np.ma.array([1000,900,800,700,600,500,400,300,200,100,50,20]))
+        lastunstable.derive(stable, alt2app)
+        self.assertEqual(len(lastunstable), 1)
+        # stable to the end of the approach
+        self.assertEqual(lastunstable[0].index, 3.5)
+        self.assertEqual(lastunstable[0].value, 0)
 
 
-class TestPercentApproachStableBelow1000(unittest.TestCase):
+class TestLastUnstableStateDuringLastApproach(unittest.TestCase):
     def test_can_operate(self):
-        ops = PercentApproachStableBelow1000Ft.get_operational_combinations()
+        ops = LastUnstableStateDuringLastApproach.get_operational_combinations()
+        self.assertEqual(ops, [('Stable Approach',)])
+        
+    def test_derive(self):
+        state = LastUnstableStateDuringLastApproach()
+        stable = StableApproach(array=np.ma.array([1,4,9,9,  3,2,4,2,9,9,9,9],
+                                             mask=[0,0,0,0,  1,0,0,0,0,0,0,0]))
+        state.derive(stable)
+        self.assertEqual(len(state), 1)
+        self.assertEqual(state[0].index, 7.5)
+        self.assertEqual(state[0].value, 2)
+
+    @unittest.skip('This is so unlikely that its deemed unrealistic')
+    def test_last_unstable_state_if_always_stable(self):
+        # pas possible
+        pass
+
+
+class TestLastUnstableStateDuringApproachBeforeGoAround(unittest.TestCase):
+    def test_can_operate(self):
+        ops = LastUnstableStateDuringApproachBeforeGoAround.get_operational_combinations()
+        self.assertEqual(ops, [('Stable Approach',)])
+        
+    def test_derive(self):
+        state = LastUnstableStateDuringApproachBeforeGoAround()
+        stable = StableApproach(array=np.ma.array([1,4,9,9,  3,2,4,2,9,9,9,9],
+                                             mask=[0,0,0,0,  1,0,0,0,0,0,0,0]))
+        state.derive(stable)
+        self.assertEqual(len(state), 1)
+        self.assertEqual(state[0].index, 1.5)
+        self.assertEqual(state[0].value, 4)
+        
+        
+class TestPercentApproachStableBelow(unittest.TestCase):
+    def test_can_operate(self):
+        ops = PercentApproachStable.get_operational_combinations()
         self.assertEqual(ops, [('Stable Approach', 'Altitude AAL')])
 
+    def test_derive_two_approaches(self):
+        percent_stable = PercentApproachStable()
+        stable = StableApproach(array=np.ma.array([1,4,9,9,9, 3, 2,9,2,9,9,1,1],
+                                             mask=[0,0,0,0,0, 1, 0,0,0,0,0,0,0]))
+        alt2app = P(array=np.ma.array([1100,1000,900,800,700,
+                                       600,
+                                       600,650,200,100,50,20,1]))
+        percent_stable.derive(stable, alt2app)
+        # both approaches below 
+        self.assertEqual(len(percent_stable), 3)
+
+        # First approach reaches only 1000 feet barrier (does not create 500ft)
+        self.assertEqual(percent_stable[0].name,
+            "Percent Approach Stable Below 1000 Ft During Approach Before Go Around")
+        self.assertEqual(percent_stable[0].index, 2)
+        self.assertEqual(percent_stable[0].value, 75)  #3/4 == 75% - 4 samples below 1000ft
+        
+        # Last approach is below 1000 and 500 feet
+        self.assertEqual(percent_stable[1].name,
+            "Percent Approach Stable Below 1000 Ft During Last Approach")
+        self.assertEqual(percent_stable[1].index, 7)
+        self.assertEqual(percent_stable[1].value, (3/7.0)*100)  #3/7
+
+        self.assertEqual(percent_stable[2].name,
+            "Percent Approach Stable Below 500 Ft During Last Approach")
+        self.assertEqual(percent_stable[2].index, 9)
+        self.assertEqual(percent_stable[2].value, 40)  #2/5 == 40%
+      
+        
     def test_derive_three_approaches(self):
         # three approaches
-        percent_stable = PercentApproachStableBelow1000Ft()
+        percent_stable = PercentApproachStable()
         stable = StableApproach(array=np.ma.array(
               [1,4,9,9,9, 3, 2,9,2,9,9,1,1, 3, 1,1,1,1,1],
          mask=[0,0,0,0,0, 1, 0,0,0,0,0,0,0, 1, 0,0,0,0,0]))
         alt2app = P(array=np.ma.array([1100,1000,900,800,700,  # approach 1
                                        1000,
-                                       600,300,200,100,50,20,10,  # approach 2
+                                       600,550,200,100,50,20,10,  # approach 2
                                        1000,
                                        300,200,100,30,0  # approach 3
                                        ]))
         percent_stable.derive(stable, alt2app)
-        self.assertEqual(len(percent_stable), 3)
-        self.assertEqual(percent_stable[0].index, 1)
+        self.assertEqual(len(percent_stable), 5)
+        
+        # First Approach
+        self.assertEqual(percent_stable[0].name,
+            "Percent Approach Stable Below 1000 Ft During Approach Before Go Around")
+        self.assertEqual(percent_stable[0].index, 2)
         self.assertEqual(percent_stable[0].value, 75)
-        self.assertEqual(percent_stable[1].index, 6)
+        
+        # Second Approach
+        self.assertEqual(percent_stable[1].name,
+            "Percent Approach Stable Below 1000 Ft During Approach Before Go Around")
+        self.assertEqual(percent_stable[1].index, 7)
         self.assertEqual(percent_stable[1].value, (3/7.0)*100)
+
+        self.assertEqual(percent_stable[2].name,
+            "Percent Approach Stable Below 500 Ft During Approach Before Go Around")
+        self.assertEqual(percent_stable[2].index, 9)
+        self.assertEqual(percent_stable[2].value, 40)  # 2/5
+        
+        # Last Approach (landing)
         # test that there was an approach but non was stable
-        self.assertEqual(percent_stable[2].index, 14)
-        self.assertEqual(percent_stable[2].value, 0)
+        self.assertEqual(percent_stable[3].name,
+            "Percent Approach Stable Below 1000 Ft During Last Approach")
+        self.assertEqual(percent_stable[3].index, 14)
+        self.assertEqual(percent_stable[3].value, 0)  # No stability == 0%
 
-
-class TestPercentApproachStableBelow500(unittest.TestCase):
-    def test_can_operate(self):
-        ops = PercentApproachStableBelow500Ft.get_operational_combinations()
-        self.assertEqual(ops, [('Stable Approach', 'Altitude AAL')])
-
-    def test_derive_two_approaches(self):
-        percent_stable = PercentApproachStableBelow500Ft()
-        stable = StableApproach(array=np.ma.array([1,4,9,9,9, 3, 2,9,2,9,9,1,1],
-                                             mask=[0,0,0,0,0, 1, 0,0,0,0,0,0,0]))
-        alt2app = P(array=np.ma.array([1100,1000,900,800,700,
-                                       600,
-                                       600,500,200,100,50,20]))
-        percent_stable.derive(stable, alt2app)
-        self.assertEqual(len(percent_stable), 1)
-        self.assertEqual(percent_stable[0].index, 7)
-        self.assertEqual(percent_stable[0].value, 50)  #3/6 == 50%
-
-        # TEST For No stability == 0%
+        self.assertEqual(percent_stable[4].name,
+            "Percent Approach Stable Below 500 Ft During Last Approach")
+        self.assertEqual(percent_stable[4].index, 14)
+        self.assertEqual(percent_stable[4].value, 0)  # No stability == 0%
 
 
 class TestDecelerateToStopOnRunwayDuration(unittest.TestCase):
