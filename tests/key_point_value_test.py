@@ -243,6 +243,7 @@ from analysis_engine.key_point_values import (
     LongitudeSmoothedAtLiftoff,
     LongitudeSmoothedAtTouchdown,
     LongitudeAtLowestAltitudeDuringApproach,
+    MachDuringCruiseAvg,
     MachWhileGearExtendingMax,
     MachWhileGearRetractingMax,
     MachMax,
@@ -2599,6 +2600,23 @@ class TestMachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestMachDuringCruiseAvg(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = MachDuringCruiseAvg
+        self.operational_combinations = [('Mach', 'Cruise')]
+    
+    def test_derive_basic(self):
+        mach_array = np.ma.concatenate([np.ma.arange(0, 1, 0.1),
+                                        np.ma.arange(1, 0, -0.1)])
+        mach = P('Mach', array=mach_array)
+        cruise = buildsection('Cruise', 5, 10)
+        node = self.node_class()
+        node.derive(mach, cruise)
+        self.assertEqual(node,
+                         [KeyPointValue(7, 0.7, 'Mach During Cruise Avg')])
 
 
 ########################################

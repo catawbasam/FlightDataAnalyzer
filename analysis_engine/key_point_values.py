@@ -3935,6 +3935,21 @@ class MachMax(KeyPointValueNode):
         self.create_kpvs_within_slices(mach.array, airs, max_value)
 
 
+class MachDuringCruiseAvg(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'Mach'
+
+    def derive(self,
+               mach=P('Mach'),
+               cruises=S('Cruise')):
+        
+        for _slice in cruises.get_slices():
+            self.create_kpv(_slice.start + (_slice.stop - _slice.start) / 2,
+                            np.ma.mean(mach.array[_slice]))
+
+
 ########################################
 # Mach: Flap
 
