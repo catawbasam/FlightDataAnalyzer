@@ -1069,10 +1069,10 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
                                         weightings=[0.25,0.5,0.25], pad=True)
         elif frame_name in ['747-200-GE']:
             # Rollover is at 2^12 x resolution of fine part.
-            self.array = straighten_altitudes(fine.array, alt.array, 4096 * 1.220703125)
+            self.array = straighten_altitudes(fine.array, alt.array, 5000)
         elif frame_name in ['A300-203-B4']:
             # Fine part synchro used to compute altitude, as this does not match the coarse part synchro.
-            self.array = straighten_altitudes(fine.array, alt.array, 4096 * TBD)
+            self.array = straighten_altitudes(fine.array, alt.array, 5000)
         else:
             self.array = alt.array
 
