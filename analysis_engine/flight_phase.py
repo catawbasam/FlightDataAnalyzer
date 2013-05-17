@@ -1,3 +1,4 @@
+import math
 import numpy as np
 # _ezclump clumps bool arrays into slices. Normally called by clump_masked
 # and clump_unmasked but used here to clump discrete arrays.
@@ -12,14 +13,18 @@ from analysis_engine.library import (
     closest_unmasked_value,
     cycle_finder,
     find_edges,
+    find_toc_tod,
     first_valid_sample,
     index_at_value,
     index_closest_value,
     is_index_within_slice,
     is_slice_within_slice,
+    last_valid_sample,
     moving_average,
+    nearest_neighbour_mask_repair,
     rate_of_change,
     repair_mask,
+    runs_of_ones,
     shift_slice,
     shift_slices,
     slices_and,
@@ -102,41 +107,55 @@ class GoAroundAndClimbout(FlightPhaseNode):
     We already know that the Key Time Instance has been identified at the
     lowest point of the go-around, and that it lies below the 3000ft
     approach thresholds. The function here is to expand the phase 500ft before
-    and 2000ft after.
+    to the first level off after (up to 2000ft maximum).
     '''
 
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'), 
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                gas=KTI('Go Around')):
-        # Prepare a home for multiple go-arounds. (Not a good day, eh?)
-        ga_slice = []
-
         # Find the ups and downs in the height trace.
         alt_idxs, alt_vals = cycle_finder(alt_aal.array, min_step=500.0)
-
+        # Smooth over very small negative rates of change in altitude to
+        # avoid index at closest value returning the slight negative change
+        # in place of the real altitude peak where the 500ft or 2000ft
+        # thresholds are not reached.
+        
+        # quite a bit of smoothing is required to remove bumpy altitude signals
+        smoothed_alt = moving_average(alt_aal.array, window=15)
         for ga in gas:
             ga_idx = ga.index
             for n_alt, alt_idx in enumerate(alt_idxs):
-                if abs(ga_idx - alt_idx) < 20:
-                    index, value = closest_unmasked_value(
-                        alt_aal.array, ga_idx, slice(alt_idxs[n_alt - 1],
-                                                     alt_idxs[n_alt + 1]))
-                    # We have matched the cycle to the (possibly radio height
-                    # based) go-around KTI.
-                    start_slice = slice(index, alt_idxs[n_alt - 1], -1)
-                    start_array = alt_aal.array[start_slice]
-                    ga_start = index_closest_value(start_array, value + 500)
-                    if ga_start is None:
-                        continue
-                    
-                    stop_slice = slice(index, alt_idxs[n_alt + 1])
-                    stop_array = alt_aal.array[stop_slice]
-                    ga_stop = index_closest_value(stop_array, value + 2000)
-                    if ga_stop is None:
-                        continue
-
-                    ga_slice.append(slice(start_slice.start - ga_start,
-                                          ga_stop + stop_slice.start))
-        self.create_phases(ga_slice)
+                # TODO: Assert we're at the trough not peak in case a peak is
+                # detected very close to a go around index!
+                if abs(ga_idx - alt_idx) > 20:
+                    # go around is not close enough to this cycle
+                    continue
+                #--------------- Go-Around Altitude ---------------
+                # Find the go-around altitude
+                index, value = closest_unmasked_value(
+                    alt_aal.array, ga_idx, 
+                    slice(alt_idxs[n_alt - 1],  # previous peak index
+                          alt_idxs[n_alt + 1])  # next peak index
+                )
+                #--------------- 500ft before ---------------
+                # We have matched the cycle to the (possibly radio height
+                # based) go-around KTI.
+                # Establish an altitude range around this point
+                start_slice = slice(index, alt_idxs[n_alt - 1], -1)  # work backwards towards previous peak
+                ga_start = index_at_value(smoothed_alt, value + 500, start_slice, 'nearest')
+                #--------------- Level off or 2000ft after ---------------
+                stop_slice = slice(index, alt_idxs[n_alt + 1])  # look forwards towards next peak
+                # find the nearest value; we are protected by the cycle peak
+                # as the slice.stop from going too far forward.
+                ga_stop = index_at_value(smoothed_alt, value + 2000, stop_slice, 'nearest')
+                if smoothed_alt[ga_stop] < value + 1800:
+                    # we never got quite close enough to 2000ft above the
+                    # minimum go around altitude. Find the top of the climb.
+                    ga_stop = find_toc_tod(smoothed_alt, stop_slice, 'Climb')
+                # round to nearest positions
+                self.create_phase(slice(int(ga_start), math.ceil(ga_stop)))
+            #endfor altitude cycles
+        #endfor each goaround
+        return
 
 
 class Holding(FlightPhaseNode):
@@ -433,6 +452,10 @@ class DescentToFlare(FlightPhaseNode):
 
 
 class DescentLowClimb(FlightPhaseNode):
+    '''
+    Finds where the aircaft descends below the INITIAL_APPROACH_THRESHOLD and
+    then climbs out again - an indication of a go-around.
+    '''
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
         dlc = np.ma.masked_greater(alt_aal.array,
                                    INITIAL_APPROACH_THRESHOLD)
@@ -597,89 +620,110 @@ class GearRetracting(FlightPhaseNode):
 
 def scan_ils(beam, ils_dots, height, scan_slice):
     '''
+    Scans ils dots and returns last slice where ils dots fall below 1 and remain below 2.5 dots
+    if beam is glideslope slice will not extend below 200ft.
+
     :param beam: 'localizer' or 'glideslope'
     :type beam: str
+    :param ils_dots: 'localizer' or 'glideslope'
+    :type ils_dots: str
+    :param height: 'localizer' or 'glideslope'
+    :type height: str
+    :param scan_slice: 'localizer' or 'glideslope'
+    :type scan_slice: str
     '''
     if beam not in ['localizer', 'glideslope']:
         raise ValueError('Unrecognised beam type in scan_ils')
 
-    # Find where we first see the ILS indication. We will start from 200ft to
-    # avoid getting spurious glideslope readings (hence this code is the same
-    # for glide and localizer).
+    if np.ma.count(ils_dots[scan_slice]) < 5 or \
+       np.ma.count(ils_dots[scan_slice])/float(len(ils_dots[scan_slice])) < 0.4:
+        return None
 
-    # Scan for going through 200ft, or in the case of a go-around, the lowest
-    # point - hence 'closing' condition.
-    idx_200 = index_at_value(height, 200, slice(scan_slice.stop,
+    # get abs of ils dots as its used everywhere
+    ils_abs = np.ma.abs(ils_dots)
+
+    # ----------- Find loss of capture
+
+    last_valid_idx, last_valid_value = last_valid_sample(ils_abs[scan_slice])
+
+    if last_valid_value < 2.5:
+        # finished established ? if established in first place
+        ils_lost_idx = scan_slice.start + last_valid_idx + 1
+    else:
+        # find last time went below 2.5 dots
+        last_25_idx = index_at_value(ils_abs, 2.5, slice(scan_slice.stop, scan_slice.start, -1))
+        if last_25_idx is None:
+            # never went below 2.5 dots
+            return None
+        else:
+            ils_lost_idx = last_25_idx
+
+    if beam == 'glideslope':
+        # If Glideslope find index of height last passing 200ft and use the
+        # smaller of that and any index where the ILS was lost
+        idx_200 = index_at_value(height, 200, slice(scan_slice.stop,
                                                 scan_slice.start, -1),
                              endpoint='closing')
+        if idx_200 is not None:
+            ils_lost_idx = min(ils_lost_idx, idx_200)
 
-    # In some error cases the height can be all zero or masked, leaving the
-    # end of the scan as the result. This is invalid so we return empty
-    # handed.
-    if idx_200 == scan_slice.start:
-        return None
+    # ----------- Find start of capture
 
-    # Now work back to 2.5 dots when the indication is first visible.
-    dots_25 = index_at_value(np.ma.abs(ils_dots), 2.5,
-                             slice(idx_200, scan_slice.start, -1))
-    if dots_25 is None:
-        dots_25 = scan_slice.start
-        
-    # Let's check to see if we have something sensible to work with...
-    if np.ma.count(ils_dots[scan_slice]) < 5 or \
-       np.ma.count(ils_dots[scan_slice])/float(len(ils_dots[scan_slice])) < 0.7:
-        return None
+    # Find where to start scanning for the point of "Capture", Look for the
+    # last time we were within 2.5dots
+    scan_start_idx = index_at_value(ils_abs, 2.5, slice(ils_lost_idx, scan_slice.start, -1))
 
-    # And now work forwards to the point of "Capture", defined as the first
-    # time the ILS goes below 1 dot.
-    if int(dots_25) == int(idx_200):
-        ils_capture_idx = dots_25
-    elif first_valid_sample(
-        np.ma.abs(ils_dots[dots_25:idx_200]))[1] < 1.0:
-        # Aircraft came into the approach phase already on the centreline.
-        ils_capture_idx = dots_25
+    if scan_start_idx:
+        # Found a point to start scanning from, now look for the ILS goes
+        # below 1 dot.
+        ils_capture_idx = index_at_value(ils_abs, 1.0, slice(scan_start_idx, ils_lost_idx))
     else:
-        ils_capture_idx = index_at_value(np.ma.abs(ils_dots), 1.0,
-                                         slice(dots_25, idx_200, +1))
-        if ils_capture_idx is None:
-            # Did we start with the ILS captured?
-            if np.ma.abs(ils_dots[dots_25]) < 1.0:
-                ils_capture_idx = dots_25
+        # Reached start of section without passing 2.5 dots so check if we
+        # started established
+        first_valid_idx, first_valid_value = first_valid_sample(ils_abs[slice(scan_slice.start, ils_lost_idx)])
 
-    if beam == 'localizer':
-        # We ended either where the aircraft left the beam or when the
-        # approach or go-around phase ended.
-        ils_end_idx = index_at_value(np.ma.abs(ils_dots), 2.5,
-                                     slice(idx_200, scan_slice.stop))
-        if ils_end_idx is None:
-            # Can either never have captured, or data can end at less than 2.5
-            # dots.
-            countback_idx, last_loc = first_valid_sample(ils_dots[scan_slice.stop::-1])
-            if abs(last_loc) < 2.5:
-                ils_end_idx = scan_slice.stop - countback_idx
-    elif beam == 'glideslope':
-        ils_end_idx = idx_200
-    else:
-        raise ValueError("Unrecognised beam type '%s' in scan_ils" % beam)
+        if first_valid_value < 1.0:
+            # started established
+            ils_capture_idx = scan_slice.start + first_valid_idx
+        else:
+            # Find first index of 1.0 dots from start of scan slice
+            ils_capture_idx = index_at_value(ils_abs, 1.0, slice(scan_slice.start, ils_lost_idx))
 
-    if ils_capture_idx and ils_end_idx:
-        return slice(ils_capture_idx, ils_end_idx)
-    else:
+    if ils_capture_idx is None or ils_lost_idx is None:
         return None
+    else:
+        return slice(ils_capture_idx, ils_lost_idx)
 
 
 class ILSLocalizerEstablished(FlightPhaseNode):
     name = 'ILS Localizer Established'
-    """
-    """
+
+    @classmethod
+    def can_operate(cls, available):
+        return all_of(('ILS Localizer',
+                       'Altitude AAL For Flight Phases',
+                       'Approach And Landing'), available)
+
     def derive(self, ils_loc=P('ILS Localizer'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=S('Approach And Landing')):
-        for app in apps:
-            ils_app = scan_ils('localizer', ils_loc.array, alt_aal.array,
-                               app.slice)
-            if ils_app is not None:
-                self.create_phase(ils_app)
+               apps=S('Approach And Landing'),
+               ils_freq=P('ILS Frequency'),):
+        
+        slices = apps.get_slices()
+
+        if ils_freq and np.ma.count(ils_freq.array):
+            # If we have ILS frequency tuned in check for multiple frequencies
+            frequency_changes = np.ma.diff(nearest_neighbour_mask_repair(ils_freq.array))
+            # Create slices for each ILS frequency so they are scanned separately
+            frequency_slices = runs_of_ones(frequency_changes == 0)
+            if frequency_slices:
+                slices = slices_and(slices, frequency_slices)
+
+        for _slice in slices:
+            ils_slice = scan_ils('localizer', ils_loc.array, alt_aal.array,
+                               _slice)
+            if ils_slice is not None:
+                self.create_phase(ils_slice)
 
 
 '''

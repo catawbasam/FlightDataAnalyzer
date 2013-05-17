@@ -1148,6 +1148,18 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertEqual(list(knode),
                          [KeyPointValue(index=11, value=6, name='Kpv')])
         
+    def test_create_kpvs_where_in_empty_list(self):
+        knode = self.knode
+        array = np.ma.array([0.0] * 20, dtype=float)
+        array[5:8] = 1.0
+        array[11:17] = 1.0
+        mapping = {0: 'Down', 1: 'Up'}
+        param = P('Disc', MappedArray(array, values_mapping=mapping))
+        # do not create any kpvs as no slices to scan through
+        knode.create_kpvs_where(param.array == 'Up', param.hz,
+            phase=[])
+        self.assertEqual(list(knode), [])
+        
     def test_create_kpvs_where_in_list_of_slices(self):
         knode = self.knode
         array = np.ma.array([0.0] * 20, dtype=float)
