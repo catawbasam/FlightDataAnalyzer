@@ -1406,8 +1406,22 @@ class ClimbForFlightPhases(DerivedParameterNode):
 
 class Daylight(MultistateDerivedParameterNode):
     '''
-    Makes use of 64 second superframe boundaries.
+    Calculate Day or Night based upon Civil Twilight.
+    
+    FAA Regulation FAR 1.1 defines night as: "Night means the time between
+    the end of evening civil twilight and the beginning of morning civil
+    twilight, as published in the American Air Almanac, converted to local
+    time.
 
+    EASA EU OPS 1 Annex 1 item (76) states: 'night' means the period between
+    the end of evening civil twilight and the beginning of morning civil
+    twilight or such other period between sunset and sunrise as may be
+    prescribed by the appropriate authority, as defined by the Member State;
+
+    CAA regulations confusingly define night as 30 minutes either side of
+    sunset and sunrise, then include a civil twilight table in the AIP.
+
+    With these references, it was decided to make civil twilight the default.
     '''
     align = True
     align_frequency = 0.25

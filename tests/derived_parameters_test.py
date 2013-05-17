@@ -1500,8 +1500,8 @@ class TestDaylight(unittest.TestCase):
         
         don = Daylight()
         don.get_derived((lat, lon, start_dt, dur))
-        self.assertEqual(list(don.array), [np.ma.masked, 'Day'])
-        self.assertEqual(don.frequency, 1/64.0)
+        self.assertEqual(list(don.array), [np.ma.masked] + ['Day']*31)
+        self.assertEqual(don.frequency, 0.25)
         self.assertEqual(don.offset, 0)
 
     def test_father_christmas(self):
@@ -1515,7 +1515,7 @@ class TestDaylight(unittest.TestCase):
         don = Daylight()
         don.get_derived((lat, lon, start_dt, dur))
         expected = ['Day', 'Night', 'Night', 'Night']
-        np.testing.assert_array_equal(don.array, expected)
+        np.testing.assert_array_equal(don.array, expected)  # FIX required to test as no longer superframe samples
 
 
 class TestDescendForFlightPhases(unittest.TestCase):
