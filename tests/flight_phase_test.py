@@ -40,8 +40,9 @@ from analysis_engine.flight_phase import (Airborne,
                                           )
 from analysis_engine.key_time_instances import TopOfClimb, TopOfDescent
 from analysis_engine.library import integrate
-from analysis_engine.node import (A, App, ApproachItem, M, Parameter, P,
-                                  S, Section, SectionNode, load)
+from analysis_engine.node import (A, KTI, KeyTimeInstance,
+                                  M, Parameter, P, S,
+                                  Section, SectionNode, load)
 from analysis_engine.process_flight import process_flight
 
 from analysis_engine.settings import AIRSPEED_THRESHOLD
@@ -377,7 +378,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         establish = ILSLocalizerEstablished()
         establish.derive(ils_loc, alt_aal, apps, ils_freq)
         expected = [Section(name='ILS Localizer Established', slice=slice(12215.896484375, 12244.499993651203, None), start_edge=12215.896484375, stop_edge=12244.499993651203),
-                    Section(name='ILS Localizer Established', slice=slice(12363.052624896003, 351.91357867930947, None), start_edge=12363.052624896003, stop_edge=351.91357867930947)]
+                    Section(name='ILS Localizer Established', slice=slice(12295, 12363.052624896003, None), start_edge=12295, stop_edge=12363.052624896003)]
         self.assertEqual(establish, expected)
 
 """
@@ -882,7 +883,7 @@ class TestGoAroundAndClimbout(unittest.TestCase):
         self.assertEqual(GoAroundAndClimbout.get_operational_combinations(),
                          [('Altitude AAL For Flight Phases','Go Around')])
 
-    def test_go_around_and_climbout_phase_basic(self):
+    def test_go_around_and_climbout_phase_not_reaching_2000ft(self):
         '''
         down = np.ma.array(range(4000,1000,-490)+[1000]*7) - 4000
         up = np.ma.array([1000]*7+range(1000,4500,490)) - 1500
@@ -901,15 +902,10 @@ class TestGoAroundAndClimbout(unittest.TestCase):
         gas = load(os.path.join(test_data_path, 'go_around_kti_goaround.nod'))
         ga_phase = GoAroundAndClimbout()
         ga_phase.derive(alt_aal, gas)
-        expected = buildsections('Go Around And Climbout',
-                                 [3586.0, 3729], [4895, 5141], [7124, 7265])
-        for n in range(3):
-            self.assertAlmostEqual(ga_phase[n].start_edge,
-                                   expected[n].start_edge,
-                                   places=0)
-            self.assertAlmostEqual(ga_phase[n].stop_edge,
-                                   expected[n].stop_edge,
-                                   places=0)
+        self.assertEqual(len(ga_phase), 3)
+        self.assertEqual(ga_phase[0].slice, slice(3586, 3723))
+        self.assertEqual(ga_phase[1].slice, slice(4895, 5141))
+        self.assertEqual(ga_phase[2].slice, slice(7124, 7266))
 
     def test_go_around_and_climbout_real_data(self):
         alt_aal = load(os.path.join(test_data_path,
@@ -919,27 +915,49 @@ class TestGoAroundAndClimbout(unittest.TestCase):
         ga_phase = GoAroundAndClimbout()
         ga_phase.derive(alt_aal, gas)
         self.assertEqual(
-            ga_phase,
+            list(ga_phase),
             [Section(name='Go Around And Climbout',
-                     slice=slice(1057.4680851063829, 1170),
-                     start_edge=1057.4680851063829,
-                     stop_edge=1170),
+                     slice=slice(1057, 1169),
+                     start_edge=1057,
+                     stop_edge=1169),
              Section(name='Go Around And Climbout',
-                     slice=slice(1393.7412587412587, 1505, None),
-                     start_edge=1393.7412587412587,
+                     slice=slice(1393, 1505, None),
+                     start_edge=1393,
                      stop_edge=1505),
              Section(name='Go Around And Climbout',
-                     slice=slice(1722.2450331125829, 1837, None),
-                     start_edge=1722.2450331125829,
+                     slice=slice(1722, 1837, None),
+                     start_edge=1722,
                      stop_edge=1837),
              Section(name='Go Around And Climbout',
-                     slice=slice(2071.2133891213389, 2206, None),
-                     start_edge=2071.2133891213389,
-                     stop_edge=2206),
+                     slice=slice(2071, 2204, None),
+                     start_edge=2071,
+                     stop_edge=2204),
              Section(name='Go Around And Climbout',
-                     slice=slice(2391.4565217391305, 2506, None),
-                     start_edge=2391.4565217391305,
-                     stop_edge=2506)])
+                     slice=slice(2391, 2505, None),
+                     start_edge=2391,
+                     stop_edge=2505)])
+        
+    def test_two_go_arounds_for_atr42(self):
+        alt_aal = load(os.path.join(test_data_path,
+                                    'AltitudeAAL_ATR42_two_goarounds.nod'))
+        gas = KTI(items=[
+            KeyTimeInstance(index=10811.0, name='Go Around', datetime=None, latitude=None, longitude=None),
+            KeyTimeInstance(index=12630.0, name='Go Around', datetime=None, latitude=None, longitude=None),
+            ])
+        ga_phase = GoAroundAndClimbout()
+        ga_phase.derive(alt_aal, gas)
+                
+        self.assertEqual(
+            list(ga_phase),
+            [Section(name='Go Around And Climbout',
+                     slice=slice(10702, 10949),
+                     start_edge=10702,
+                     stop_edge=10949),
+             Section(name='Go Around And Climbout',
+                     slice=slice(12528, 12749, None),
+                     start_edge=12528,
+                     stop_edge=12749),
+             ])
 
 
 class TestHolding(unittest.TestCase):
@@ -1303,7 +1321,7 @@ class TestGearExtending(unittest.TestCase):
 class TestGoAround5MinRating(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(GoAround5MinRating.get_operational_combinations(),
-                         [('Go Around And Climbout',)])
+                         [('Go Around And Climbout', 'Touchdown')])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

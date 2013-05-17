@@ -1283,7 +1283,8 @@ class AirspeedWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d Max'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1302,7 +1303,8 @@ class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d Min'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1321,7 +1323,8 @@ class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOr
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Climb Max'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Climb Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1338,7 +1341,8 @@ class AirspeedWithFlapDuringClimbMin(KeyPointValueNode, FlapOrConfigurationMaxOr
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Climb Min'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Climb Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1355,7 +1359,8 @@ class AirspeedWithFlapDuringDescentMax(KeyPointValueNode, FlapOrConfigurationMax
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Descent Max'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Descent Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1372,7 +1377,8 @@ class AirspeedWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigurationMax
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Descent Min'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Descent Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1389,7 +1395,8 @@ class AirspeedRelativeWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigur
     '''
     '''
 
-    NAME_FORMAT = 'Airspeed Relative With Flap %(flap)d During Descent Min'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Airspeed Relative With Flap %(flap)s During Descent Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1658,7 +1665,9 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     figures to set event thresholds, but a threshold based on in-service data
     may suffice.
     '''
-    NAME_FORMAT = 'AOA With Flap %(flap)d Max'
+
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'AOA With Flap %(flap)s Max'
     NAME_VALUES = NAME_VALUES_FLAP
     
     name = 'AOA With Flap Max'
@@ -3374,23 +3383,15 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
 
     units = 'dots'
 
-    @classmethod
-    def can_operate(cls, available):
-        return all_of(('IAN Glidepath',
-                       'Altitude AAL For Flight Phases',
-                       'Approach And Landing' ), available)
-
     def derive(self,
                ian_glidepath=P('IAN Glidepath'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=S('Approach And Landing'),
-               ils_ests=S('ILS Glideslope Established')):
+               apps=App('Approach Information')):
 
-        if ils_ests:
-            # we do not want to create IAN KPVs for ILS approaches so mask out
-            ian_glidepath_array = mask_inside_slices(ian_glidepath.array, ils_ests.get_slices())
-        else:
-            ian_glidepath_array = ian_glidepath.array
+        for app in apps:
+            if app.gs_est:
+                # Mask IAN data for approaches where ILS is established
+                ian_glidepath.array[app.slice] = np.ma.masked
 
         for idx in range(len(self.NAME_VALUES['max_alt'])):
             max_alt = self.NAME_VALUES['max_alt'][idx]
@@ -3399,12 +3400,12 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                glidepath_est = scan_ils('glideslope', ian_glidepath_array, alt_aal.array, band)
-                if glidepath_est:
-                    ian_est_bands.append(glidepath_est)
+                ian_glide_est = scan_ils('glideslope', ian_glidepath.array, alt_aal.array, band)
+                if ian_glide_est:
+                    ian_est_bands.append(ian_glide_est)
 
             self.create_kpvs_within_slices(
-                ian_glidepath_array,
+                ian_glidepath.array,
                 ian_est_bands,
                 max_abs_value,
                 max_alt=max_alt,
@@ -3425,23 +3426,15 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
 
     units = 'dots'
 
-    @classmethod
-    def can_operate(cls, available):
-        return all_of(('IAN Final Approach Course',
-                       'Altitude AAL For Flight Phases',
-                       'Approach And Landing' ), available)
-
     def derive(self,
                ian_final=P('IAN Final Approach Course'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=S('Approach And Landing'),
-               ils_ests=S('ILS Localizer Established')):
+               apps=App('Approach Information')):
 
-        if ils_ests:
-            # we do not want to create IAN KPVs for ILS approaches so mask out
-            ian_final_array = mask_inside_slices(ian_final.array, ils_ests.get_slices())
-        else:
-            ian_final_array = ian_final.array
+        for app in apps:
+            if app.loc_est:
+                # Mask IAN data for approaches where ILS is established
+                ian_final.array[app.slice] = np.ma.masked
 
         for idx in range(len(self.NAME_VALUES['max_alt'])):
             max_alt = self.NAME_VALUES['max_alt'][idx]
@@ -3451,12 +3444,12 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                final_app_course_est = scan_ils('glideslope', ian_final_array, alt_aal.array, band)
+                final_app_course_est = scan_ils('glideslope', ian_final.array, alt_aal.array, band)
                 if final_app_course_est:
                     ian_est_bands.append(final_app_course_est)
 
             self.create_kpvs_within_slices(
-                ian_final_array,
+                ian_final.array,
                 ian_est_bands,
                 max_abs_value,
                 max_alt=max_alt,
@@ -3977,7 +3970,8 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
 
-    NAME_FORMAT = 'Mach With Flap %(flap)d Max'
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Mach With Flap %(flap)s Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -4834,6 +4828,69 @@ class EngN3DuringMaximumContinuousPowerMax(KeyPointValueNode):
 
         slices = to_ratings + ga_ratings + grounded
         self.create_kpv_outside_slices(eng_n3_max.array, slices, max_value)
+
+
+##############################################################################
+# Engine Np
+
+
+class EngNpDuringTaxiMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Taxi Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               taxiing=S('Taxiing')):
+
+        self.create_kpv_from_slices(eng_Np_max.array, taxiing, max_value)
+
+
+class EngNpDuringTakeoff5MinRatingMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Takeoff 5 Min Rating Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               ratings=S('Takeoff 5 Min Rating')):
+
+        self.create_kpvs_within_slices(eng_Np_max.array, ratings, max_value)
+
+
+class EngNpDuringGoAround5MinRatingMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Go Around 5 Min Rating Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               ratings=S('Go Around 5 Min Rating')):
+
+        self.create_kpvs_within_slices(eng_Np_max.array, ratings, max_value)
+
+
+class EngNpDuringMaximumContinuousPowerMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Maximum Continuous Power Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               to_ratings=S('Takeoff 5 Min Rating'),
+               ga_ratings=S('Go Around 5 Min Rating'),
+               grounded=S('Grounded')):
+
+        slices = to_ratings + ga_ratings + grounded
+        self.create_kpv_outside_slices(eng_Np_max.array, slices, max_value)
 
 
 ##############################################################################

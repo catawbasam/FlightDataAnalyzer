@@ -167,6 +167,10 @@ from analysis_engine.key_point_values import (
     EngN3DuringTakeoff5MinRatingMax,
     EngN3DuringGoAround5MinRatingMax,
     EngN3DuringMaximumContinuousPowerMax,
+    EngNpDuringTaxiMax,
+    EngNpDuringTakeoff5MinRatingMax,
+    EngNpDuringGoAround5MinRatingMax,
+    EngNpDuringMaximumContinuousPowerMax,
     EngOilPressMax,
     EngOilPressMin,
     EngOilQtyMax,
@@ -2527,29 +2531,28 @@ class TestIANGlidepathDeviationMax(unittest.TestCase):
 
     def test_can_operate(self):
         ops = self.node_class.get_operational_combinations()
-        expected = [('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach And Landing'),
-                    ('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach And Landing', 'ILS Glideslope Established')]
+        expected = [('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach Information')]
         self.assertEqual(ops, expected)
 
     def setUp(self):
         self.node_class = IANGlidepathDeviationMax
-
+        approaches = [ApproachItem('LANDING', slice(2, 12)),]
+        self.apps = App('Approach Information', items=approaches)
         self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
-        self.apps = S(items=[Section('Approach And Landing', slice(2, 12), 2, 12)])
         self.ian = P(name='IAN Glidepath', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
-        self.ils = S(items=[Section('ILS Glideslope Established', slice(3, 12), 3, 12)])
 
     def test_derive_basic(self):
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps, None)
+        kpv.derive(self.ian, self.height, self.apps)
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 6)
         self.assertAlmostEqual(kpv[0].value, 3)
         self.assertAlmostEqual(kpv[0].name, 'IAN Glidepath Deviation 500 To 200 Ft Max')
 
     def test_derive_with_ils_established(self):
+        self.apps[0].gs_est = slice(3, 12)
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps, self.ils)
+        kpv.derive(self.ian, self.height, self.apps)
         self.assertEqual(len(kpv), 0)
 
 
@@ -2557,29 +2560,28 @@ class TestIANFinalApproachCourseDeviationMax(unittest.TestCase):
 
     def test_can_operate(self):
         ops = self.node_class.get_operational_combinations()
-        expected = [('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach And Landing'),
-                    ('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach And Landing', 'ILS Localizer Established')]
+        expected = [('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach Information'),]
         self.assertEqual(ops, expected)
 
     def setUp(self):
         self.node_class = IANFinalApproachCourseDeviationMax
-
+        approaches = [ApproachItem('LANDING', slice(2, 12)),]
         self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
-        self.apps = S(items=[Section('Approach And Landing', slice(2, 12), 2, 12)])
+        self.apps = App('Approach Information', items=approaches)
         self.ian = P(name='IAN Final Approach Course', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
-        self.ils = S(items=[Section('ILS Localizer Established', slice(3, 12), 3, 12)])
 
     def test_derive_basic(self):
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps, None)
+        kpv.derive(self.ian, self.height, self.apps)
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 6)
         self.assertAlmostEqual(kpv[0].value, 3)
         self.assertAlmostEqual(kpv[0].name, 'IAN Final Approach Course Deviation 500 To 200 Ft Max')
 
     def test_derive_with_ils_established(self):
+        self.apps[0].loc_est = slice(3, 12)
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps, self.ils)
+        kpv.derive(self.ian, self.height, self.apps)
         self.assertEqual(len(kpv), 0)
 
 
@@ -3558,6 +3560,57 @@ class TestEngN3MaximumContinuousPowerMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = EngN3DuringMaximumContinuousPowerMax
         self.operational_combinations = [('Eng (*) N3 Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
+# Engine Np
+
+
+class TestEngNpDuringTaxiMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringTaxiMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Taxiing')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngNpDuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringTakeoff5MinRatingMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Takeoff 5 Min Rating')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngNpDuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringGoAround5MinRatingMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Go Around 5 Min Rating')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngNpMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringMaximumContinuousPowerMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

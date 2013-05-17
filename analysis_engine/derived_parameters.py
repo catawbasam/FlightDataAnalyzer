@@ -8,6 +8,9 @@ from analysis_engine.exceptions import DataFrameError
 from flightdatautilities.model_information import (get_conf_map,
                                                    get_flap_map,
                                                    get_slat_map)
+from flightdatautilities.velocity_speed import get_vspeed_map
+from hdfaccess.parameter import MappedArray
+
 from analysis_engine.flight_phase import scan_ils
 from analysis_engine.node import (
     A, App, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M,
@@ -80,7 +83,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      value_at_index,
                                      vstack_params,
                                      vstack_params_where_state)
-from analysis_engine.velocity_speed import get_vspeed_map
 
 from settings import (AZ_WASHOUT_TC,
                       FEET_PER_NM,
@@ -1069,10 +1071,10 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
                                         weightings=[0.25,0.5,0.25], pad=True)
         elif frame_name in ['747-200-GE']:
             # Rollover is at 2^12 x resolution of fine part.
-            self.array = straighten_altitudes(fine.array, alt.array, 4096 * 1.220703125)
+            self.array = straighten_altitudes(fine.array, alt.array, 5000)
         elif frame_name in ['A300-203-B4']:
             # Fine part synchro used to compute altitude, as this does not match the coarse part synchro.
-            self.array = straighten_altitudes(fine.array, alt.array, 4096 * TBD)
+            self.array = straighten_altitudes(fine.array, alt.array, 5000)
         else:
             self.array = alt.array
 
@@ -1364,11 +1366,11 @@ class Autoland(MultistateDerivedParameterNode):
     2 APs, Boeing is happier with 3 though some older types may only have 2.
     '''
     align = False  #TODO: Should this be here?
-    values_mapping = {2: 'Dual', 3: 'Triple'}
+    values_mapping = {0:'-', 2: 'Dual', 3: 'Triple'}
 
     @classmethod
     def can_operate(cls, available):
-        return 'AP (1) Engaged' in available
+        return len(available) >= 2
 
     def derive(self, ap1=M('AP (1) Engaged'),
                      ap2=M('AP (2) Engaged'),
@@ -1379,7 +1381,10 @@ class Autoland(MultistateDerivedParameterNode):
             (ap3, 'Engaged'),
             )
         self.array = stacked.sum(axis=0)
-        self.frequency = ap1.frequency  # Assumes all are sampled at the same frequency
+        # Force single autopilot to 0 state to avoid confusion
+        self.array[self.array == 1] = 0
+        # Assume all are sampled at the same frequency
+        self.frequency = ap1.frequency
         self.offset = offset_select('mean', [ap1, ap2, ap3])
 
 
@@ -1403,8 +1408,22 @@ class ClimbForFlightPhases(DerivedParameterNode):
 
 class Daylight(MultistateDerivedParameterNode):
     '''
-    Makes use of 64 second superframe boundaries.
+    Calculate Day or Night based upon Civil Twilight.
+    
+    FAA Regulation FAR 1.1 defines night as: "Night means the time between
+    the end of evening civil twilight and the beginning of morning civil
+    twilight, as published in the American Air Almanac, converted to local
+    time.
 
+    EASA EU OPS 1 Annex 1 item (76) states: 'night' means the period between
+    the end of evening civil twilight and the beginning of morning civil
+    twilight or such other period between sunset and sunrise as may be
+    prescribed by the appropriate authority, as defined by the Member State;
+
+    CAA regulations confusingly define night as 30 minutes either side of
+    sunset and sunrise, then include a civil twilight table in the AIP.
+
+    With these references, it was decided to make civil twilight the default.
     '''
     align = True
     align_frequency = 0.25
@@ -2323,6 +2342,94 @@ class Eng_N3Min(DerivedParameterNode):
                eng2=P('Eng (2) N3'),
                eng3=P('Eng (3) N3'),
                eng4=P('Eng (4) N3')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+
+
+################################################################################
+# Engine Np
+
+
+class Eng_NpAvg(DerivedParameterNode):
+    '''
+    This returns the average Np in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
+    '''
+
+    name = 'Eng (*) Np Avg'
+    units = '%'
+    align_frequency = 4
+    align_offset = 0
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) Np'),
+               eng2=P('Eng (2) Np'),
+               eng3=P('Eng (3) Np'),
+               eng4=P('Eng (4) Np')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.average(engines, axis=0)
+
+
+class Eng_NpMax(DerivedParameterNode):
+    '''
+    This returns the highest Np in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
+    '''
+
+    name = 'Eng (*) Np Max'
+    units = '%'
+    align_frequency = 4
+    align_offset = 0
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) Np'),
+               eng2=P('Eng (2) Np'),
+               eng3=P('Eng (3) Np'),
+               eng4=P('Eng (4) Np')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+
+
+class Eng_NpMin(DerivedParameterNode):
+    '''
+    This returns the lowest Np in any sample period for up to four engines.
+
+    All engines data aligned (using interpolation) and forced the frequency to
+    be a higher 4Hz to protect against smoothing of peaks.
+    '''
+
+    name = 'Eng (*) Np Min'
+    units = '%'
+    align_frequency = 4
+    align_offset = 0
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) Np'),
+               eng2=P('Eng (2) Np'),
+               eng3=P('Eng (3) Np'),
+               eng4=P('Eng (4) Np')):
 
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
@@ -3321,7 +3428,7 @@ class SlopeToLanding(DerivedParameterNode):
         self.array = alt_aal.array / (dist.array * FEET_PER_NM)
 
 
-class Configuration(DerivedParameterNode):
+class Configuration(MultistateDerivedParameterNode):
     """
     Multi-state with the following mapping:
     {
@@ -3344,6 +3451,19 @@ class Configuration(DerivedParameterNode):
     Note: Values that do not map directly to a required state are masked with
     the data being random (memory alocated)
     """
+    values_mapping = {
+        0 : '0',
+        1 : '1',
+        2 : '1+F',
+        3 : '2(a)',  #Q: should display be (a) or 2* or 1* ?!
+        4 : '2',
+        5 : '3(b)',
+        6 : '3',
+        7 : '4',
+        8 : '5',
+        9 : 'Full',
+    }
+    
     @classmethod
     def can_operate(cls, available):
         return 'Flap' in available and \
@@ -3371,8 +3491,8 @@ class Configuration(DerivedParameterNode):
         summed = vstack_params(*(flap, slat, aileron)[:qty_param]).sum(axis=0)
 
         # create a placeholder array fully masked
-        self.array = np.ma.empty_like(flap.array)
-        self.array.mask=True
+        self.array = MappedArray(np_ma_masked_zeros_like(flap.array), 
+                                 self.values_mapping)
         for state, values in mapping.iteritems():
             s = np.ma.sum(values[:qty_param])
             # unmask bits we know about
@@ -4622,7 +4742,7 @@ class ThrustAsymmetry(DerivedParameterNode):
     Thrust asymmetry based on N1.
 
     For EPR rated aircraft, this measure should still be applicable as we are
-    not applying a manufaturer's limit to the value, rather this is being
+    not applying a manufacturer's limit to the value, rather this is being
     used to identify imbalance of thrust and as the thrust comes from engine
     speed, N1 is still applicable.
 
@@ -4633,7 +4753,7 @@ class ThrustAsymmetry(DerivedParameterNode):
     would be to treat EPR=2.0 as 100% and EPR=1.0 as 0% so the Thrust
     Asymmetry would be simply (EPRmax-EPRmin)*100.
 
-    For propellor aircraft the product of prop speed and torgue should be
+    For propeller aircraft the product of prop speed and torgue should be
     used to provide a similar single asymmetry value.
     '''
 
@@ -4646,7 +4766,7 @@ class ThrustAsymmetry(DerivedParameterNode):
 
 class ThrustReversers(MultistateDerivedParameterNode):
     '''
-    A single parameter with multistate mapping as below.
+    A single parameter with multi-state mapping as below.
     '''
 
     # We are interested in all stowed, all deployed or any other combination.
@@ -5400,9 +5520,7 @@ class ApproachRange(DerivedParameterNode):
                alt_aal=P('Altitude AAL'),
                approaches=App('Approach Information'),
                ):
-
-        app_range = np_ma_masked_zeros_like(hdg_mag.array)
-        freq = hdg_mag.frequency
+        app_range = np_ma_masked_zeros_like(alt_aal.array)
 
         for approach in approaches:
             # We are going to reference the approach to a runway touchdown
@@ -5452,6 +5570,7 @@ class ApproachRange(DerivedParameterNode):
                 speed = gspd.array[this_app_slice] * \
                     np.cos(np.radians(off_cl))
                 freq = gspd.frequency
+            
             if not gspd or not np.ma.count(speed):
                 speed = tas.array[this_app_slice] * \
                     np.cos(np.radians(off_cl))
@@ -5812,7 +5931,13 @@ class StableApproach(MultistateDerivedParameterNode):
         repair = lambda ar, ap: repair_mask(ar[ap], zero_if_masked=True)
 
         for approach in apps:
-            _slice = approach.slice
+            # Restrict slice to 10 seconds after landing if we hit the ground
+            gnd = index_at_value(alt.array, 0, approach.slice)
+            if gnd and gnd + 10 < approach.slice.stop:
+                stop = gnd + 10
+            else:
+                stop = approach.slice.stop
+            _slice = slice(approach.slice.start, stop)
             # prepare data for this appproach:
             gear_down = repair(gear.array, _slice)
             flap_lever = repair(flap.array, _slice)
