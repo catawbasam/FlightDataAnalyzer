@@ -11,7 +11,7 @@ from flightdatautilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, KPV, KTI, M, P, KeyPointValue,
+    A, App, ApproachItem, KPV, KTI, M, P, KeyPointValue,
     KeyTimeInstance, Section, S
 )
 
@@ -113,6 +113,7 @@ from analysis_engine.key_point_values import (
     AltitudeAtFlapExtension,
     AltitudeAtFirstFlapExtensionAfterLiftoff,
     AltitudeAtFirstFlapRetractionDuringGoAround,
+    AltitudeAtLastAPDisengagedDuringApproach,
     AltitudeLastUnstableDuringApproachBeforeGoAround,
     AltitudeLastUnstableDuringLastApproach,
     AltitudeSTDAtTouchdown,
@@ -2887,8 +2888,7 @@ class TestPercentApproachStableBelow(unittest.TestCase):
             "Percent Approach Stable Below 500 Ft During Last Approach")
         self.assertEqual(percent_stable[2].index, 9)
         self.assertEqual(percent_stable[2].value, 40)  #2/5 == 40%
-      
-        
+
     def test_derive_three_approaches(self):
         # three approaches
         percent_stable = PercentApproachStable()
@@ -2932,6 +2932,32 @@ class TestPercentApproachStableBelow(unittest.TestCase):
             "Percent Approach Stable Below 500 Ft During Last Approach")
         self.assertEqual(percent_stable[4].index, 14)
         self.assertEqual(percent_stable[4].value, 0)  # No stability == 0%
+
+
+class TestAltitudeAtLastAPDisengagedDuringApproach(unittest.TestCase):
+    '''
+    '''
+    def test_can_operate(self):
+        ops = AltitudeAtLastAPDisengagedDuringApproach.get_operational_combinations()
+        self.assertEqual(ops, [('Altitude AAL', 'AP Disengaged Selection', 'Approach Information')])
+    
+    def test_derive_basic(self):
+        alt_array = np.ma.concatenate([np.ma.arange(10, 0, -1),
+                                       np.ma.arange(10),
+                                       np.ma.arange(10, 0, -1)])
+        alt_aal = P('Altitude AAL', array=alt_array)
+        ap_dis = KTI('AP Disengaged Selection',
+                     items=[KeyTimeInstance(name='AP Disengaged', index=3),
+                            KeyTimeInstance(name='AP Disengaged', index=7),
+                            KeyTimeInstance(name='AP Disengaged', index=25)])
+        apps = App('Approach Information',
+                   items=[ApproachItem('TOUCH_AND_GO', slice(0, 10)),
+                          ApproachItem('LANDING', slice(20, 30)),])
+        node = AltitudeAtLastAPDisengagedDuringApproach()
+        node.derive(alt_aal, ap_dis, apps)
+        self.assertEqual(node,
+                         [KeyPointValue(index=7, value=3.0, name='Altitude At Last AP Disengaged During Approach'),
+                          KeyPointValue(index=25, value=5.0, name='Altitude At Last AP Disengaged During Approach')])
 
 
 class TestDecelerateToStopOnRunwayDuration(unittest.TestCase):

@@ -2561,6 +2561,25 @@ class PercentApproachStable(KeyPointValueNode):
                                 altitude=level, approach=approach_type)
 
 
+class AltitudeAtLastAPDisengagedDuringApproach(KeyPointValueNode):
+    '''
+    This monitors the altitude at which autopilot was last disengaged during
+    the cruise.
+    '''
+    name = 'Altitude At Last AP Disengaged During Approach'
+    units = 'ft'
+
+    def derive(self, alt_aal=P('Altitude AAL'), 
+               ap_dis=KTI('AP Disengaged Selection'),
+               apps=App('Approach Information')):
+        ktis = []
+        for app in apps:
+            ap_dis_kti = ap_dis.get_last(within_slice=app.slice)
+            if ap_dis_kti:
+                ktis.append(ap_dis_kti)
+        self.create_kpvs_at_ktis(alt_aal.array, ktis)
+
+
 ##############################################################################
 # Autopilot
 
