@@ -1063,17 +1063,30 @@ class TestClosestUnmaskedValue(unittest.TestCase):
     def test_closest_unmasked_value(self):
         array = np.ma.arange(10)
         self.assertEqual(closest_unmasked_value(array, 5), Value(5, 5))
-        self.assertEqual(closest_unmasked_value(array, 20), Value(9, 9))
         self.assertEqual(closest_unmasked_value(array, -3), Value(7, 7))
         array[5:8] = np.ma.masked
         self.assertEqual(closest_unmasked_value(array, 6), Value(4, 4))
         array[5:8] = np.ma.masked
         self.assertEqual(closest_unmasked_value(array, 7), Value(8, 8))
-        self.assertEqual(closest_unmasked_value(array, 1, _slice=slice(2, 5)),
+        self.assertEqual(closest_unmasked_value(array, 3, _slice=slice(2, 5)),
                          Value(3, 3))
-        self.assertEqual(closest_unmasked_value(array, -1, _slice=slice(2, 5)),
-                                 Value(4, 4))
-
+        # negative index and slice not supported
+        self.assertRaises(NotImplementedError, closest_unmasked_value,
+                          array, -8, _slice=slice(2, 5))
+        # index out of range
+        self.assertRaises(IndexError, closest_unmasked_value, array, 20)
+        
+    def test_closest_unmasked_index_relative_to_start(self):
+        array = np.ma.arange(10)
+        self.assertEqual(closest_unmasked_value(array, 6, slice(0, None)),
+                                                Value(6, 6))
+        self.assertEqual(closest_unmasked_value(array, 6, slice(3, 7)),
+                                                Value(6, 6))
+        # test index out of range
+        self.assertRaises(IndexError, closest_unmasked_value, array, 0, slice(3, 4))
+        self.assertRaises(IndexError, closest_unmasked_value, array, 6, slice(3, 4))
+        self.assertRaises(IndexError, closest_unmasked_value, array, 6, slice(0, 3))
+        self.assertRaises(IndexError, closest_unmasked_value, array, 200, slice(3, 4))
 
 class TestActuatorMismatch(unittest.TestCase):
     '''
