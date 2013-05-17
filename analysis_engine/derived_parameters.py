@@ -5820,7 +5820,13 @@ class StableApproach(MultistateDerivedParameterNode):
         repair = lambda ar, ap: repair_mask(ar[ap], zero_if_masked=True)
 
         for approach in apps:
-            _slice = approach.slice
+            # Restrict slice to 10 seconds after landing if we hit the ground
+            gnd = index_at_value(alt.array, 0, approach.slice)
+            if gnd and gnd + 10 < approach.slice.stop:
+                stop = gnd + 10
+            else:
+                stop = approach.slice.stop
+            _slice = slice(approach.slice.start, stop)
             # prepare data for this appproach:
             gear_down = repair(gear.array, _slice)
             flap_lever = repair(flap.array, _slice)
