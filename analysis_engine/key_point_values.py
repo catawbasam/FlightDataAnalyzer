@@ -2133,6 +2133,21 @@ class AltitudeAtFlapExtension(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
+class AltitudeAtFirstFlapExtensionAfterLiftoff(KeyPointValueNode):
+    '''
+    Separates the first flap extension.
+    '''
+
+    units = 'ft'
+
+    def derive(self, flap_exts=KPV('Altitude At Flap Extension')):
+        # First Flap Extension within Airborne section should be first after
+        # liftoff.
+        flap_ext = flap_exts.get_first()
+        if flap_ext:
+            self.create_kpv(flap_ext.index, flap_ext.value)
+
+
 class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
     '''
     '''

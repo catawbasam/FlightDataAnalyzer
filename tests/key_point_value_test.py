@@ -110,6 +110,7 @@ from analysis_engine.key_point_values import (
     AltitudeFirstStableDuringApproachBeforeGoAround,
     AltitudeFirstStableDuringLastApproach,
     AltitudeAtFlapExtension,
+    AltitudeAtFirstFlapExtensionAfterLiftoff,
     AltitudeAtFirstFlapRetractionDuringGoAround,
     AltitudeLastUnstableDuringApproachBeforeGoAround,
     AltitudeLastUnstableDuringLastApproach,
@@ -2087,6 +2088,22 @@ class TestAltitudeAtFlapExtension(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeAtFirstFlapExtensionAfterLiftoff(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtFirstFlapExtensionAfterLiftoff
+        self.operational_combinations = [('Altitude At Flap Extension',)]
+
+    def test_derive_basic(self):
+        flap_exts = KPV('Altitude At Flap Extension',
+                        items=[KeyPointValue(index=7, value=21),
+                               KeyPointValue(index=14, value=43)])
+        node = self.node_class()
+        node.derive(flap_exts)
+        self.assertEqual(node, [KeyPointValue(name='Altitude At First Flap Extension After Liftoff',
+                                              index=7, value=21)])
 
 
 class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase, NodeTest):
