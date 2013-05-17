@@ -4620,7 +4620,7 @@ class ThrustAsymmetry(DerivedParameterNode):
     Thrust asymmetry based on N1.
 
     For EPR rated aircraft, this measure should still be applicable as we are
-    not applying a manufaturer's limit to the value, rather this is being
+    not applying a manufacturer's limit to the value, rather this is being
     used to identify imbalance of thrust and as the thrust comes from engine
     speed, N1 is still applicable.
 
@@ -4631,7 +4631,7 @@ class ThrustAsymmetry(DerivedParameterNode):
     would be to treat EPR=2.0 as 100% and EPR=1.0 as 0% so the Thrust
     Asymmetry would be simply (EPRmax-EPRmin)*100.
 
-    For propellor aircraft the product of prop speed and torgue should be
+    For propeller aircraft the product of prop speed and torgue should be
     used to provide a similar single asymmetry value.
     '''
 
@@ -4644,7 +4644,7 @@ class ThrustAsymmetry(DerivedParameterNode):
 
 class ThrustReversers(MultistateDerivedParameterNode):
     '''
-    A single parameter with multistate mapping as below.
+    A single parameter with multi-state mapping as below.
     '''
 
     # We are interested in all stowed, all deployed or any other combination.
