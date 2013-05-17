@@ -8,6 +8,9 @@ from analysis_engine.exceptions import DataFrameError
 from flightdatautilities.model_information import (get_conf_map,
                                                    get_flap_map,
                                                    get_slat_map)
+from flightdatautilities.velocity_speed import get_vspeed_map
+from hdfaccess.parameter import MappedArray
+
 from analysis_engine.flight_phase import scan_ils
 from analysis_engine.node import (
     A, App, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M,
@@ -80,7 +83,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      value_at_index,
                                      vstack_params,
                                      vstack_params_where_state)
-from analysis_engine.velocity_speed import get_vspeed_map
 
 from settings import (AZ_WASHOUT_TC,
                       FEET_PER_NM,
