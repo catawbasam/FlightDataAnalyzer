@@ -163,6 +163,10 @@ from analysis_engine.key_point_values import (
     EngN3DuringTakeoff5MinRatingMax,
     EngN3DuringGoAround5MinRatingMax,
     EngN3DuringMaximumContinuousPowerMax,
+    EngNpDuringTaxiMax,
+    EngNpDuringTakeoff5MinRatingMax,
+    EngNpDuringGoAround5MinRatingMax,
+    EngNpDuringMaximumContinuousPowerMax,
     EngOilPressMax,
     EngOilPressMin,
     EngOilQtyMax,
@@ -3447,6 +3451,57 @@ class TestEngN3MaximumContinuousPowerMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = EngN3DuringMaximumContinuousPowerMax
         self.operational_combinations = [('Eng (*) N3 Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
+# Engine Np
+
+
+class TestEngNpDuringTaxiMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringTaxiMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Taxiing')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngNpDuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringTakeoff5MinRatingMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Takeoff 5 Min Rating')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngNpDuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringGoAround5MinRatingMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Go Around 5 Min Rating')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngNpMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringMaximumContinuousPowerMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

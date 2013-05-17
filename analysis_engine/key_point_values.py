@@ -4754,6 +4754,69 @@ class EngN3DuringMaximumContinuousPowerMax(KeyPointValueNode):
 
 
 ##############################################################################
+# Engine Np
+
+
+class EngNpDuringTaxiMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Taxi Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               taxiing=S('Taxiing')):
+
+        self.create_kpv_from_slices(eng_Np_max.array, taxiing, max_value)
+
+
+class EngNpDuringTakeoff5MinRatingMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Takeoff 5 Min Rating Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               ratings=S('Takeoff 5 Min Rating')):
+
+        self.create_kpvs_within_slices(eng_Np_max.array, ratings, max_value)
+
+
+class EngNpDuringGoAround5MinRatingMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Go Around 5 Min Rating Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               ratings=S('Go Around 5 Min Rating')):
+
+        self.create_kpvs_within_slices(eng_Np_max.array, ratings, max_value)
+
+
+class EngNpDuringMaximumContinuousPowerMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Maximum Continuous Power Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               to_ratings=S('Takeoff 5 Min Rating'),
+               ga_ratings=S('Go Around 5 Min Rating'),
+               grounded=S('Grounded')):
+
+        slices = to_ratings + ga_ratings + grounded
+        self.create_kpv_outside_slices(eng_Np_max.array, slices, max_value)
+
+
+##############################################################################
 # Engine Throttles
 
 
