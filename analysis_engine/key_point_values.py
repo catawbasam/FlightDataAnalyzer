@@ -530,6 +530,24 @@ class AirspeedMax(KeyPointValueNode):
         self.create_kpvs_within_slices(air_spd.array, airborne, max_value)
 
 
+class AirspeedAt8000Ft(KeyPointValueNode):
+    '''
+    Refactor to be a formatted name node if multiple Airspeed At Altitude
+    KPVs are required. Could depend on either Altitude When Climbing or
+    Altitude When Descending, but the assumption is that we'll have both.
+    '''
+
+    units = 'kt'
+
+    def derive(self,
+               air_spd=P('Airspeed'),
+               alt_climbs=S('Altitude When Climbing'),
+               alt_descs=S('Altitude When Descending')):
+        
+        altitude_ktis = (list(alt_climbs.get(name='8000 Ft Climbing')) +
+                         list(alt_descs.get(name='8000 Ft Descending')))
+        self.create_kpvs_at_ktis(air_spd.array, altitude_ktis)
+
 
 class AirspeedDuringCruiseMax(KeyPointValueNode):
     '''

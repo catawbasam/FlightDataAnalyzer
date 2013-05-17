@@ -50,6 +50,7 @@ from analysis_engine.key_point_values import (
     Airspeed8000To5000FtMax,
     AirspeedWhileGearExtendingMax,
     AirspeedWhileGearRetractingMax,
+    AirspeedAt8000Ft,
     AirspeedAt35FtDuringTakeoff,
     AirspeedAtGearDownSelection,
     AirspeedAtGearUpSelection,
@@ -365,7 +366,11 @@ from analysis_engine.key_point_values import (
     PackValvesOpenAtLiftoff,
     IsolationValveOpenAtLiftoff,
 )
-from analysis_engine.key_time_instances import EngStop
+from analysis_engine.key_time_instances import (
+    AltitudeWhenClimbing,
+    AltitudeWhenDescending,
+    EngStop,
+)
 from analysis_engine.library import (max_abs_value, max_value, min_value)
 from analysis_engine.flight_phase import Fast
 from flight_phase_test import buildsection
@@ -860,6 +865,31 @@ class TestAccelerationNormalOffset(unittest.TestCase, NodeTest):
 
 ########################################
 # Airspeed: General
+
+
+class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = AirspeedAt8000Ft
+        self.operational_combinations = [('Airspeed', 'Altitude When Climbing', 'Altitude When Descending')]
+    
+    def test_derive_basic(self):
+        air_spd = P('Airspeed', array=np.ma.arange(0, 200, 10))
+        alt_climbs = AltitudeWhenClimbing(
+            items=[KeyTimeInstance(9, '7000 Ft Climbing'),
+                   KeyTimeInstance(10, '8000 Ft Climbing'),
+                   KeyTimeInstance(11, '9000 Ft Climbing')])
+        alt_descs = AltitudeWhenDescending(
+            items=[KeyTimeInstance(15, '9000 Ft Descending'),
+                   KeyTimeInstance(16, '8000 Ft Descending'),
+                   KeyTimeInstance(17, '7000 Ft Descending'),
+                   KeyTimeInstance(18, '8000 Ft Descending'),
+                   KeyTimeInstance(19, '6000 Ft Descending')])
+        node = self.node_class()
+        node.derive(air_spd, alt_climbs, alt_descs)
+        self.assertEqual(node,
+                         [KeyPointValue(index=10, value=100.0, name='Airspeed At 8000 Ft'),
+                          KeyPointValue(index=16, value=160.0, name='Airspeed At 8000 Ft'),
+                          KeyPointValue(index=18, value=180.0, name='Airspeed At 8000 Ft')])
 
 
 class TestAirspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
