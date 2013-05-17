@@ -160,7 +160,7 @@ def graph_nodes(node_mgr):
     gr_all = nx.DiGraph()
     # create nodes without attributes now as you can only add attributes once
     # (limitation of add_node_attribute())
-    gr_all.add_nodes_from(node_mgr.hdf_keys, color='#72f4eb') # turquoise
+    gr_all.add_nodes_from(node_mgr.hdf_keys, color='#72f4eb')  # turquoise
     derived_minus_lfl = dict_filter(node_mgr.derived_nodes,
                                     remove=node_mgr.hdf_keys)
     # Group into node types to apply colour. TODO: Make colours less garish.
@@ -249,9 +249,9 @@ def process_order(gr_all, node_mgr):
     gr_st.remove_nodes_from(inactive_nodes)
     
     for node in inactive_nodes:
-        gr_all.node[node]['color'] = 'Silver'
+        gr_all.node[node]['color'] = '#c0c0c0'  # silver
         inactive_edges = gr_all.in_edges(node)
-        gr_all.add_edges_from(inactive_edges, color='Silver')
+        gr_all.add_edges_from(inactive_edges, color='#c0c0c0')  # silver
         
     inoperable_required = list(set(node_mgr.requested) - set(process_order))
     if inoperable_required:
