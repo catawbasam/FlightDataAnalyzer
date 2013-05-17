@@ -1364,11 +1364,11 @@ class Autoland(MultistateDerivedParameterNode):
     2 APs, Boeing is happier with 3 though some older types may only have 2.
     '''
     align = False  #TODO: Should this be here?
-    values_mapping = {2: 'Dual', 3: 'Triple'}
+    values_mapping = {0:'-', 2: 'Dual', 3: 'Triple'}
 
     @classmethod
     def can_operate(cls, available):
-        return 'AP (1) Engaged' in available
+        return len(available) >= 2
 
     def derive(self, ap1=M('AP (1) Engaged'),
                      ap2=M('AP (2) Engaged'),
@@ -1379,7 +1379,10 @@ class Autoland(MultistateDerivedParameterNode):
             (ap3, 'Engaged'),
             )
         self.array = stacked.sum(axis=0)
-        self.frequency = ap1.frequency  # Assumes all are sampled at the same frequency
+        # Force single autopilot to 0 state to avoid confusion
+        self.array[self.array == 1] = 0
+        # Assume all are sampled at the same frequency
+        self.frequency = ap1.frequency
         self.offset = offset_select('mean', [ap1, ap2, ap3])
 
 

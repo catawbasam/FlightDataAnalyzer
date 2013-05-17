@@ -49,6 +49,7 @@ from analysis_engine.derived_parameters import (
     #AltitudeSTD,
     AltitudeTail,
     ApproachRange,
+    Autoland,
     ClimbForFlightPhases,
     Configuration,
     ControlColumn,
@@ -190,7 +191,77 @@ class NodeTest(object):
 ##############################################################################
 # Automated Systems
 
+class TestAutoland(unittest.TestCase, NodeTest):
 
+    def setUp(self):
+        self.node_class = Autoland
+        self.operational_combinations = [
+            ('AP (1) Engaged', 'AP (2) Engaged'),
+            ('AP (1) Engaged', 'AP (3) Engaged'),
+            ('AP (2) Engaged', 'AP (3) Engaged'),
+            ('AP (1) Engaged', 'AP (2) Engaged', 'AP (3) Engaged'),
+        ]
+
+    def test_single_ap(self):
+        # Cannot auto_land on one AP
+        ap1 = M(array=np.ma.array(data=[0,0,0,0,0,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (1) Engaged')        
+        eng = Autoland()
+        eng.derive(ap1, None, None)
+        expected = M(array=np.ma.array(data=[0,0,0,0,0,0]),
+                   values_mapping={2: 'Dual', 3: 'Triple'},
+                   name='Autoland', 
+                   frequency=1, 
+                   offset=0.1)        
+        ma_test.assert_array_equal(expected.array, eng.array)
+
+    def test_dual_ap(self):
+        ap1 = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (1) Engaged')        
+        ap2 = M(array=np.ma.array(data=[0,0,0,1,1,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (2) Engaged')        
+        ap3 = None
+        eng = Autoland()
+        eng.derive(ap1, ap2, ap3)
+        expected = M(array=np.ma.array(data=[0,0,0,2,0,0]),
+                   values_mapping={2: 'Dual', 3: 'Triple'},
+                   name='Autoland', 
+                   frequency=1, 
+                   offset=0.1)        
+        
+        ma_test.assert_array_equal(expected.array, eng.array)
+
+    def test_triple_ap(self):
+        ap1 = M(array=np.ma.array(data=[0,0,1,1,0,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (1) Engaged', 
+                   frequency=1, 
+                   offset=0.1)        
+        ap2 = M(array=np.ma.array(data=[0,1,0,1,1,0]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (2) Engaged', 
+                   frequency=1, 
+                   offset=0.2)        
+        ap3 = M(array=np.ma.array(data=[0,0,1,1,1,1]),
+                   values_mapping={1:'Engaged',0:'-'},
+                   name='AP (3) Engaged', 
+                   frequency=1, 
+                   offset=0.4)        
+        eng = Autoland()
+        eng.derive(ap1, ap2, ap3)
+        expected = M(array=np.ma.array(data=[0,0,2,3,2,0]),
+                   values_mapping={2: 'Dual', 3: 'Triple'},
+                   name='Autoland', 
+                   frequency=1, 
+                   offset=0.25)        
+        
+        ma_test.assert_array_equal(expected.array, eng.array)
+
+        
+        
 class TestAPEngaged(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -204,7 +275,6 @@ class TestAPEngaged(unittest.TestCase, NodeTest):
             ('AP (2) Engaged', 'AP (3) Engaged'),
             ('AP (1) Engaged', 'AP (2) Engaged', 'AP (3) Engaged'),
         ]
-
     def test_single_ap(self):
         ap1 = M(array=np.ma.array(data=[0,0,1,1,0,0]),
                    values_mapping={1:'Engaged',0:'-'},
@@ -216,9 +286,10 @@ class TestAPEngaged(unittest.TestCase, NodeTest):
                    name='AP Engaged', 
                    frequency=1, 
                    offset=0.1)        
-        ma_test.assert_array_equal(expected.array.data, eng.array.data)
+        ma_test.assert_array_equal(expected.array, eng.array)
 
     def test_dual_ap(self):
+        # Two result in just "Engaged" state still
         ap1 = M(array=np.ma.array(data=[0,0,1,1,0,0]),
                    values_mapping={1:'Engaged',0:'-'},
                    name='AP (1) Engaged')        
@@ -228,13 +299,13 @@ class TestAPEngaged(unittest.TestCase, NodeTest):
         ap3 = None
         eng = APEngaged()
         eng.derive(ap1, ap2, ap3)
-        expected = M(array=np.ma.array(data=[0,0,1,2,1,0]),
-                   values_mapping={0: '-', 1: 'Engaged', 2: 'Duplex'},
+        expected = M(array=np.ma.array(data=[0,0,1,1,1,0]),
+                   values_mapping={0: '-', 1: 'Engaged'},
                    name='AP Engaged', 
                    frequency=1, 
                    offset=0.1)        
         
-        ma_test.assert_array_equal(expected.array.data, eng.array.data)
+        ma_test.assert_array_equal(expected.array, eng.array)
 
     def test_triple_ap(self):
         ap1 = M(array=np.ma.array(data=[0,0,1,1,0,0]),
@@ -254,13 +325,13 @@ class TestAPEngaged(unittest.TestCase, NodeTest):
                    offset=0.4)        
         eng = APEngaged()
         eng.derive(ap1, ap2, ap3)
-        expected = M(array=np.ma.array(data=[0,1,2,3,2,1]),
-                   values_mapping={0: '-', 1: 'Engaged', 2: 'Duplex', 3: 'Triplex'},
+        expected = M(array=np.ma.array(data=[0,1,1,1,1,1]),
+                   values_mapping={0: '-', 1: 'Engaged'},
                    name='AP Engaged', 
                    frequency=1, 
                    offset=0.25)        
         
-        ma_test.assert_array_equal(expected.array.data, eng.array.data)
+        ma_test.assert_array_equal(expected.array, eng.array)
 
         
 
@@ -591,7 +662,7 @@ class TestAirspeedReferenceLookup(unittest.TestCase):
                                'series':None,
                                'family':None}
 
-    @patch('analysis_engine.derived_parameters.get_vspeed_map')
+    @patch('flightdatautilities.derived_parameters.get_vspeed_map')
     def test_airspeed_reference__boeing_lookup(self, vspeed_map):
         vspeed_table = Mock
         vspeed_table.vref = Mock(side_effect = [135, 130])
