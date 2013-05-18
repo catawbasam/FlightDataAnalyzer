@@ -1284,7 +1284,8 @@ class AirspeedWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)s Max'
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)d Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1304,7 +1305,8 @@ class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)s Min'
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)d Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1324,7 +1326,7 @@ class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOr
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Climb Max'
+    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Climb Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1342,7 +1344,8 @@ class AirspeedWithFlapDuringClimbMin(KeyPointValueNode, FlapOrConfigurationMaxOr
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Climb Min'
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Climb Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1360,7 +1363,8 @@ class AirspeedWithFlapDuringDescentMax(KeyPointValueNode, FlapOrConfigurationMax
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Descent Max'
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Descent Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1378,7 +1382,8 @@ class AirspeedWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigurationMax
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Descent Min'
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
+    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Descent Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1396,7 +1401,8 @@ class AirspeedRelativeWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigur
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed Relative With Flap %(flap)s During Descent Min'
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
+    NAME_FORMAT = 'Airspeed Relative With Flap %(flap)d During Descent Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1667,7 +1673,8 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'AOA With Flap %(flap)s Max'
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
+    NAME_FORMAT = 'AOA With Flap %(flap)d Max'
     NAME_VALUES = NAME_VALUES_FLAP
     
     name = 'AOA With Flap Max'
@@ -3971,7 +3978,8 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Mach With Flap %(flap)s Max'
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
+    NAME_FORMAT = 'Mach With Flap %(flap)d Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -6255,7 +6263,7 @@ class RateOfClimbDuringGoAroundMax(KeyPointValueNode):
 # Rate of Descent
 
 
-# FIXME: Should rate of descent KPVs should occur for 3+ seconds?
+# FIXME: Should rate of descent KPVs should occur for 3+ seconds? No (DJ)
 
 
 class RateOfDescentMax(KeyPointValueNode):
@@ -6290,7 +6298,6 @@ class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
             self.create_kpvs_within_slices(vrt_spd.array, drops, min_value)
 
 
-# XXX: Should use 'Altitude STD Smoothed'?
 class RateOfDescentBelow10000FtMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
