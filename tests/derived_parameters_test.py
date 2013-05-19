@@ -14,10 +14,24 @@ from flightdatautilities import masked_array_testutils as ma_test
 from flightdatautilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
-from analysis_engine.library import (align, max_value, np_ma_masked_zeros_like)
-from analysis_engine.node import (
-    Attribute, A, App, ApproachItem, KeyPointValue, KPV, KeyTimeInstance, KTI, load, M,
-    Parameter, P, Section, S)
+from analysis_engine.library import (align, 
+                                     max_value, 
+                                     np_ma_masked_zeros_like, 
+                                     np_ma_ones_like)
+from analysis_engine.node import (Attribute, 
+                                  A, 
+                                  App, 
+                                  ApproachItem, 
+                                  KeyPointValue, 
+                                  KPV, 
+                                  KeyTimeInstance, 
+                                  KTI, 
+                                  load, 
+                                  M,
+                                  Parameter, 
+                                  P, 
+                                  Section, 
+                                  S)
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import GRAVITY_IMPERIAL, METRES_TO_FEET
 
@@ -72,6 +86,9 @@ from analysis_engine.derived_parameters import (
     Eng_N3Avg,
     Eng_N3Max,
     Eng_N3Min,
+    Eng_NpAvg,
+    Eng_NpMax,
+    Eng_NpMin,
     Eng_VibN1Max,
     Eng_VibN2Max,
     Eng_VibN3Max,
@@ -111,6 +128,7 @@ from analysis_engine.derived_parameters import (
     MagneticVariationFromRunway,
     MasterWarning,
     Pitch,
+    RollRate,
     Speedbrake,
     SpeedbrakeSelected,
     StableApproach,
@@ -120,7 +138,10 @@ from analysis_engine.derived_parameters import (
     ThrustReversers,
     TAWSAlert,
     TrackDeviationFromRunway,
+    Track,
+    TrackContinuous,
     TrackTrue,
+    TrackTrueContinuous,
     TurbulenceRMSG,
     V2,
     V2Lookup,
@@ -1747,18 +1768,18 @@ class TestEng_N2Min(unittest.TestCase):
             np.array([999, # both masked, so filled with 999
                       1,2,3,4,5,6,7,8,9])
         )
-        
-        
+
+
 class TestEng_N3Avg(unittest.TestCase):
     def test_can_operate(self):
         opts = Eng_N3Avg.get_operational_combinations()
         self.assertEqual(opts[0], ('Eng (1) N3',))
         self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
         self.assertEqual(len(opts), 15) # 15 combinations accepted!
-        
-    
+
+
     def test_derive_two_engines(self):
-        # this tests that average is performed on incomplete dependencies and 
+        # this tests that average is performed on incomplete dependencies and
         # more than one dependency provided.
         a = np.ma.array(range(0, 10))
         b = np.ma.array(range(10,20))
@@ -1774,15 +1795,16 @@ class TestEng_N3Avg(unittest.TestCase):
                       9]) # only second engine value masked
         )
 
+
 class TestEng_N3Max(unittest.TestCase):
     def test_can_operate(self):
         opts = Eng_N3Max.get_operational_combinations()
         self.assertEqual(opts[0], ('Eng (1) N3',))
         self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
         self.assertEqual(len(opts), 15) # 15 combinations accepted!
-  
+
     def test_derive_two_engines(self):
-        # this tests that average is performed on incomplete dependencies and 
+        # this tests that average is performed on incomplete dependencies and
         # more than one dependency provided.
         a = np.ma.array(range(0, 10))
         b = np.ma.array(range(10,20))
@@ -1796,17 +1818,17 @@ class TestEng_N3Max(unittest.TestCase):
             np.array([999, # both masked, so filled with 999
                       11,12,13,14,15,16,17,18,9])
         )
-        
-        
+
+
 class TestEng_N3Min(unittest.TestCase):
     def test_can_operate(self):
         opts = Eng_N3Min.get_operational_combinations()
         self.assertEqual(opts[0], ('Eng (1) N3',))
         self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
         self.assertEqual(len(opts), 15) # 15 combinations accepted!
-  
+
     def test_derive_two_engines(self):
-        # this tests that average is performed on incomplete dependencies and 
+        # this tests that average is performed on incomplete dependencies and
         # more than one dependency provided.
         a = np.ma.array(range(0, 10))
         b = np.ma.array(range(10,20))
@@ -1820,8 +1842,82 @@ class TestEng_N3Min(unittest.TestCase):
             np.array([999, # both masked, so filled with 999
                       1,2,3,4,5,6,7,8,9])
         )
-        
-        
+
+
+class TestEng_NpAvg(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_NpAvg.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) Np',))
+        self.assertEqual(opts[-1], ('Eng (1) Np', 'Eng (2) Np', 'Eng (3) Np', 'Eng (4) Np'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+
+
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng_avg = Eng_NpAvg()
+        eng_avg.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng_avg.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      6,7,8,9,10,11,12,13, # unmasked avg of two engines
+                      9]) # only second engine value masked
+        )
+
+
+class TestEng_NpMax(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_NpMax.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) Np',))
+        self.assertEqual(opts[-1], ('Eng (1) Np', 'Eng (2) Np', 'Eng (3) Np', 'Eng (4) Np'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng = Eng_NpMax()
+        eng.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      11,12,13,14,15,16,17,18,9])
+        )
+
+
+class TestEng_NpMin(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Eng_NpMin.get_operational_combinations()
+        self.assertEqual(opts[0], ('Eng (1) Np',))
+        self.assertEqual(opts[-1], ('Eng (1) Np', 'Eng (2) Np', 'Eng (3) Np', 'Eng (4) Np'))
+        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+
+    def test_derive_two_engines(self):
+        # this tests that average is performed on incomplete dependencies and
+        # more than one dependency provided.
+        a = np.ma.array(range(0, 10))
+        b = np.ma.array(range(10,20))
+        a[0] = np.ma.masked
+        b[0] = np.ma.masked
+        b[-1] = np.ma.masked
+        eng = Eng_NpMin()
+        eng.derive(P('a',a), P('b',b), None, None)
+        ma_test.assert_array_equal(
+            np.ma.filled(eng.array, fill_value=999),
+            np.array([999, # both masked, so filled with 999
+                      1,2,3,4,5,6,7,8,9])
+        )
+
+
 class TestFlap(unittest.TestCase):
     def test_can_operate(self):
         opts = Flap.get_operational_combinations()
@@ -2147,28 +2243,82 @@ class TestHeadingContinuous(unittest.TestCase):
         np.testing.assert_array_equal(head.array.data, answer.data)
 
 
+class TestTrack(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(Track.get_operational_combinations(),
+                         [('Track Continuous',)])
+    
+    def test_derive_basic(self):
+        track_cont = Parameter('Track Continuous', array=np.ma.arange(0, 1000, 100))
+        node = Track()
+        node.derive(track_cont)
+        ma_test.assert_equal(node.array,
+                             [0, 100, 200, 300, 40, 140, 240, 340, 80, 180])
+
+
+class TestTrackContinuous(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TrackContinuous.get_operational_combinations(),
+                         [('Heading Continuous', 'Drift')])
+    
+    def test_derive_basic(self):
+        head = Parameter('Heading Continuous', array=np.ma.arange(0, 100, 10))
+        drift = Parameter('Drift', array=np.ma.arange(0, 1, 0.1))
+        node = TrackContinuous()
+        node.derive(head, drift)
+        ma_test.assert_equal(node.array,
+                             [0, 10.1, 20.2, 30.3, 40.4, 50.5, 60.6, 70.7, 80.8, 90.9])
+
+
+class TestTrackTrue(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TrackTrue.get_operational_combinations(),
+                         [('Track True Continuous',)])
+    
+    def test_derive_basic(self):
+        track_cont = Parameter('Track Continuous', array=np.ma.arange(0, 1000, 100))
+        node = Track()
+        node.derive(track_cont)
+        ma_test.assert_equal(node.array,
+                             [0, 100, 200, 300, 40, 140, 240, 340, 80, 180])
+
+
+class TestTrackTrueContinuous(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(TrackTrueContinuous.get_operational_combinations(),
+                         [('Heading True Continuous', 'Drift')])
+    
+    def test_derive_basic(self):
+        head_true = Parameter('Heading True Continuous', array=np.ma.arange(0, 100, 10))
+        drift = Parameter('Drift', array=np.ma.arange(0, 1, 0.1))
+        node = TrackContinuous()
+        node.derive(head_true, drift)
+        ma_test.assert_equal(node.array,
+                             [0, 10.1, 20.2, 30.3, 40.4, 50.5, 60.6, 70.7, 80.8, 90.9])
+
+
 class TestTrackDeviationFromRunway(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
             TrackDeviationFromRunway.get_operational_combinations(),
-            [('Track True', 'FDR Takeoff Runway'),
-             ('Track True', 'Approach Information'),
-             ('Track', 'FDR Takeoff Runway'),
-             ('Track', 'Approach Information'),
-             ('Track True', 'Track', 'FDR Takeoff Runway'),
-             ('Track True', 'Track', 'Approach Information'),
-             ('Track True', 'Takeoff', 'FDR Takeoff Runway'),
-             ('Track True', 'Takeoff', 'Approach Information'),
-             ('Track True', 'FDR Takeoff Runway', 'Approach Information'),
-             ('Track', 'Takeoff', 'FDR Takeoff Runway'),
-             ('Track', 'Takeoff', 'Approach Information'),
-             ('Track', 'FDR Takeoff Runway', 'Approach Information'),
-             ('Track True', 'Track', 'Takeoff', 'FDR Takeoff Runway'),
-             ('Track True', 'Track', 'Takeoff', 'Approach Information'),
-             ('Track True', 'Track', 'FDR Takeoff Runway', 'Approach Information'),
-             ('Track True', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
-             ('Track', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
-             ('Track True', 'Track', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information')]
+            [('Track True Continuous', 'FDR Takeoff Runway'),
+             ('Track True Continuous', 'Approach Information'),
+             ('Track Continuous', 'FDR Takeoff Runway'),
+             ('Track Continuous', 'Approach Information'),
+             ('Track True Continuous', 'Track Continuous', 'FDR Takeoff Runway'),
+             ('Track True Continuous', 'Track Continuous', 'Approach Information'),
+             ('Track True Continuous', 'Takeoff', 'FDR Takeoff Runway'),
+             ('Track True Continuous', 'Takeoff', 'Approach Information'),
+             ('Track True Continuous', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track Continuous', 'Takeoff', 'FDR Takeoff Runway'),
+             ('Track Continuous', 'Takeoff', 'Approach Information'),
+             ('Track Continuous', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True Continuous', 'Track Continuous', 'Takeoff', 'FDR Takeoff Runway'),
+             ('Track True Continuous', 'Track Continuous', 'Takeoff', 'Approach Information'),
+             ('Track True Continuous', 'Track Continuous', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True Continuous', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track Continuous', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information'),
+             ('Track True Continuous', 'Track Continuous', 'Takeoff', 'FDR Takeoff Runway', 'Approach Information')]
         )
         
     def test_deviation(self):
@@ -3638,14 +3788,16 @@ class TestRoll(unittest.TestCase):
 
 
 class TestRollRate(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = RollRate.get_operational_combinations()
+        self.assertTrue(('Roll',) in opts)
         
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
+        roll = P(array=[0,2,4,6,8,10,12], name='Roll', frequency=2.0)
+        rr = RollRate()
+        rr.derive(roll)
+        expected=np_ma_ones_like(roll.array)*4.0
+        ma_test.assert_array_equal(expected[2:4], rr.array[2:4]) # Differential process blurs ends of the array, so just test the core part.
 
 class TestSlat(unittest.TestCase):
     @unittest.skip('Test Not Implemented')

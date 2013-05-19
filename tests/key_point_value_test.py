@@ -11,7 +11,7 @@ from flightdatautilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, KPV, KTI, M, P, KeyPointValue,
+    A, App, ApproachItem, KPV, KTI, M, P, KeyPointValue,
     KeyTimeInstance, Section, S
 )
 
@@ -50,6 +50,7 @@ from analysis_engine.key_point_values import (
     Airspeed8000To5000FtMax,
     AirspeedWhileGearExtendingMax,
     AirspeedWhileGearRetractingMax,
+    AirspeedAt8000Ft,
     AirspeedAt35FtDuringTakeoff,
     AirspeedAtGearDownSelection,
     AirspeedAtGearUpSelection,
@@ -101,6 +102,7 @@ from analysis_engine.key_point_values import (
     AltitudeAtMachMax,
     AltitudeOvershootAtSuspectedLevelBust,
     AltitudeAtGearDownSelection,
+    AltitudeAtGearDownSelectionWithFlapUp,
     AltitudeAtGearUpSelection,
     AltitudeAtAPDisengagedSelection,
     AltitudeAtAPEngagedSelection,
@@ -109,7 +111,9 @@ from analysis_engine.key_point_values import (
     AltitudeFirstStableDuringApproachBeforeGoAround,
     AltitudeFirstStableDuringLastApproach,
     AltitudeAtFlapExtension,
+    AltitudeAtFirstFlapExtensionAfterLiftoff,
     AltitudeAtFirstFlapRetractionDuringGoAround,
+    AltitudeAtLastAPDisengagedDuringApproach,
     AltitudeLastUnstableDuringApproachBeforeGoAround,
     AltitudeLastUnstableDuringLastApproach,
     AltitudeSTDAtTouchdown,
@@ -163,6 +167,10 @@ from analysis_engine.key_point_values import (
     EngN3DuringTakeoff5MinRatingMax,
     EngN3DuringGoAround5MinRatingMax,
     EngN3DuringMaximumContinuousPowerMax,
+    EngNpDuringTaxiMax,
+    EngNpDuringTakeoff5MinRatingMax,
+    EngNpDuringGoAround5MinRatingMax,
+    EngNpDuringMaximumContinuousPowerMax,
     EngOilPressMax,
     EngOilPressMin,
     EngOilQtyMax,
@@ -240,6 +248,7 @@ from analysis_engine.key_point_values import (
     LongitudeSmoothedAtLiftoff,
     LongitudeSmoothedAtTouchdown,
     LongitudeAtLowestAltitudeDuringApproach,
+    MachDuringCruiseAvg,
     MachWhileGearExtendingMax,
     MachWhileGearRetractingMax,
     MachMax,
@@ -365,7 +374,11 @@ from analysis_engine.key_point_values import (
     PackValvesOpenAtLiftoff,
     IsolationValveOpenAtLiftoff,
 )
-from analysis_engine.key_time_instances import EngStop
+from analysis_engine.key_time_instances import (
+    AltitudeWhenClimbing,
+    AltitudeWhenDescending,
+    EngStop,
+)
 from analysis_engine.library import (max_abs_value, max_value, min_value)
 from analysis_engine.flight_phase import Fast
 from flight_phase_test import buildsection
@@ -860,6 +873,31 @@ class TestAccelerationNormalOffset(unittest.TestCase, NodeTest):
 
 ########################################
 # Airspeed: General
+
+
+class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = AirspeedAt8000Ft
+        self.operational_combinations = [('Airspeed', 'Altitude When Climbing', 'Altitude When Descending')]
+    
+    def test_derive_basic(self):
+        air_spd = P('Airspeed', array=np.ma.arange(0, 200, 10))
+        alt_climbs = AltitudeWhenClimbing(
+            items=[KeyTimeInstance(9, '7000 Ft Climbing'),
+                   KeyTimeInstance(10, '8000 Ft Climbing'),
+                   KeyTimeInstance(11, '9000 Ft Climbing')])
+        alt_descs = AltitudeWhenDescending(
+            items=[KeyTimeInstance(15, '9000 Ft Descending'),
+                   KeyTimeInstance(16, '8000 Ft Descending'),
+                   KeyTimeInstance(17, '7000 Ft Descending'),
+                   KeyTimeInstance(18, '8000 Ft Descending'),
+                   KeyTimeInstance(19, '6000 Ft Descending')])
+        node = self.node_class()
+        node.derive(air_spd, alt_climbs, alt_descs)
+        self.assertEqual(node,
+                         [KeyPointValue(index=10, value=100.0, name='Airspeed At 8000 Ft'),
+                          KeyPointValue(index=16, value=160.0, name='Airspeed At 8000 Ft'),
+                          KeyPointValue(index=18, value=180.0, name='Airspeed At 8000 Ft')])
 
 
 class TestAirspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
@@ -2059,6 +2097,22 @@ class TestAltitudeAtFlapExtension(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestAltitudeAtFirstFlapExtensionAfterLiftoff(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtFirstFlapExtensionAfterLiftoff
+        self.operational_combinations = [('Altitude At Flap Extension',)]
+
+    def test_derive_basic(self):
+        flap_exts = KPV('Altitude At Flap Extension',
+                        items=[KeyPointValue(index=7, value=21),
+                               KeyPointValue(index=14, value=43)])
+        node = self.node_class()
+        node.derive(flap_exts)
+        self.assertEqual(node, [KeyPointValue(name='Altitude At First Flap Extension After Liftoff',
+                                              index=7, value=21)])
+
+
 class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -2160,6 +2214,25 @@ class TestAltitudeAtGearUpSelectionDuringGoAround(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeAtGearDownSelectionWithFlapUp(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = AltitudeAtGearDownSelectionWithFlapUp
+        self.operational_combinations = [('Altitude AAL', 'Gear Down Selection', 'Flap')]
+    
+    def test_derive_basic(self):
+        alt_aal = P('Altitude AAL', array=np.ma.arange(0, 1000, 100))
+        gear_downs = KTI('Gear Down Selection', items=[KeyTimeInstance(2),
+                                                       KeyTimeInstance(4),
+                                                       KeyTimeInstance(6),
+                                                       KeyTimeInstance(8)])
+        flap = P('Flap', array=[5] * 3 + [0] * 5 + [20] * 2)
+        node = self.node_class()
+        node.derive(alt_aal, gear_downs, flap)
+        self.assertEqual(node, [KeyPointValue(4, 400, 'Altitude At Gear Down Selection With Flap Up'),
+                                KeyPointValue(6, 600, 'Altitude At Gear Down Selection With Flap Up')])
 
 
 ########################################
@@ -2458,29 +2531,28 @@ class TestIANGlidepathDeviationMax(unittest.TestCase):
 
     def test_can_operate(self):
         ops = self.node_class.get_operational_combinations()
-        expected = [('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach And Landing'),
-                    ('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach And Landing', 'ILS Glideslope Established')]
+        expected = [('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach Information')]
         self.assertEqual(ops, expected)
 
     def setUp(self):
         self.node_class = IANGlidepathDeviationMax
-
+        approaches = [ApproachItem('LANDING', slice(2, 12)),]
+        self.apps = App('Approach Information', items=approaches)
         self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
-        self.apps = S(items=[Section('Approach And Landing', slice(2, 12), 2, 12)])
         self.ian = P(name='IAN Glidepath', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
-        self.ils = S(items=[Section('ILS Glideslope Established', slice(3, 12), 3, 12)])
 
     def test_derive_basic(self):
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps, None)
+        kpv.derive(self.ian, self.height, self.apps)
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 6)
         self.assertAlmostEqual(kpv[0].value, 3)
         self.assertAlmostEqual(kpv[0].name, 'IAN Glidepath Deviation 500 To 200 Ft Max')
 
     def test_derive_with_ils_established(self):
+        self.apps[0].gs_est = slice(3, 12)
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps, self.ils)
+        kpv.derive(self.ian, self.height, self.apps)
         self.assertEqual(len(kpv), 0)
 
 
@@ -2488,29 +2560,28 @@ class TestIANFinalApproachCourseDeviationMax(unittest.TestCase):
 
     def test_can_operate(self):
         ops = self.node_class.get_operational_combinations()
-        expected = [('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach And Landing'),
-                    ('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach And Landing', 'ILS Localizer Established')]
+        expected = [('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach Information'),]
         self.assertEqual(ops, expected)
 
     def setUp(self):
         self.node_class = IANFinalApproachCourseDeviationMax
-
+        approaches = [ApproachItem('LANDING', slice(2, 12)),]
         self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
-        self.apps = S(items=[Section('Approach And Landing', slice(2, 12), 2, 12)])
+        self.apps = App('Approach Information', items=approaches)
         self.ian = P(name='IAN Final Approach Course', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
-        self.ils = S(items=[Section('ILS Localizer Established', slice(3, 12), 3, 12)])
 
     def test_derive_basic(self):
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps, None)
+        kpv.derive(self.ian, self.height, self.apps)
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 6)
         self.assertAlmostEqual(kpv[0].value, 3)
         self.assertAlmostEqual(kpv[0].name, 'IAN Final Approach Course Deviation 500 To 200 Ft Max')
 
     def test_derive_with_ils_established(self):
+        self.apps[0].loc_est = slice(3, 12)
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps, self.ils)
+        kpv.derive(self.ian, self.height, self.apps)
         self.assertEqual(len(kpv), 0)
 
 
@@ -2532,6 +2603,23 @@ class TestMachMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestMachDuringCruiseAvg(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = MachDuringCruiseAvg
+        self.operational_combinations = [('Mach', 'Cruise')]
+    
+    def test_derive_basic(self):
+        mach_array = np.ma.concatenate([np.ma.arange(0, 1, 0.1),
+                                        np.ma.arange(1, 0, -0.1)])
+        mach = P('Mach', array=mach_array)
+        cruise = buildsection('Cruise', 5, 10)
+        node = self.node_class()
+        node.derive(mach, cruise)
+        self.assertEqual(node,
+                         [KeyPointValue(7, 0.7, 'Mach During Cruise Avg')])
 
 
 ########################################
@@ -2802,8 +2890,7 @@ class TestPercentApproachStableBelow(unittest.TestCase):
             "Percent Approach Stable Below 500 Ft During Last Approach")
         self.assertEqual(percent_stable[2].index, 9)
         self.assertEqual(percent_stable[2].value, 40)  #2/5 == 40%
-      
-        
+
     def test_derive_three_approaches(self):
         # three approaches
         percent_stable = PercentApproachStable()
@@ -2847,6 +2934,32 @@ class TestPercentApproachStableBelow(unittest.TestCase):
             "Percent Approach Stable Below 500 Ft During Last Approach")
         self.assertEqual(percent_stable[4].index, 14)
         self.assertEqual(percent_stable[4].value, 0)  # No stability == 0%
+
+
+class TestAltitudeAtLastAPDisengagedDuringApproach(unittest.TestCase):
+    '''
+    '''
+    def test_can_operate(self):
+        ops = AltitudeAtLastAPDisengagedDuringApproach.get_operational_combinations()
+        self.assertEqual(ops, [('Altitude AAL', 'AP Disengaged Selection', 'Approach Information')])
+    
+    def test_derive_basic(self):
+        alt_array = np.ma.concatenate([np.ma.arange(10, 0, -1),
+                                       np.ma.arange(10),
+                                       np.ma.arange(10, 0, -1)])
+        alt_aal = P('Altitude AAL', array=alt_array)
+        ap_dis = KTI('AP Disengaged Selection',
+                     items=[KeyTimeInstance(name='AP Disengaged', index=3),
+                            KeyTimeInstance(name='AP Disengaged', index=7),
+                            KeyTimeInstance(name='AP Disengaged', index=25)])
+        apps = App('Approach Information',
+                   items=[ApproachItem('TOUCH_AND_GO', slice(0, 10)),
+                          ApproachItem('LANDING', slice(20, 30)),])
+        node = AltitudeAtLastAPDisengagedDuringApproach()
+        node.derive(alt_aal, ap_dis, apps)
+        self.assertEqual(node,
+                         [KeyPointValue(index=7, value=3.0, name='Altitude At Last AP Disengaged During Approach'),
+                          KeyPointValue(index=25, value=5.0, name='Altitude At Last AP Disengaged During Approach')])
 
 
 class TestDecelerateToStopOnRunwayDuration(unittest.TestCase):
@@ -3447,6 +3560,57 @@ class TestEngN3MaximumContinuousPowerMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = EngN3DuringMaximumContinuousPowerMax
         self.operational_combinations = [('Eng (*) N3 Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+##############################################################################
+# Engine Np
+
+
+class TestEngNpDuringTaxiMax(unittest.TestCase, CreateKPVFromSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringTaxiMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Taxiing')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngNpDuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringTakeoff5MinRatingMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Takeoff 5 Min Rating')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngNpDuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringGoAround5MinRatingMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Go Around 5 Min Rating')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEngNpMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngNpDuringMaximumContinuousPowerMax
+        self.operational_combinations = [('Eng (*) Np Max', 'Takeoff 5 Min Rating', 'Go Around 5 Min Rating', 'Grounded')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

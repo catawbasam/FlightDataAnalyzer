@@ -530,6 +530,24 @@ class AirspeedMax(KeyPointValueNode):
         self.create_kpvs_within_slices(air_spd.array, airborne, max_value)
 
 
+class AirspeedAt8000Ft(KeyPointValueNode):
+    '''
+    Refactor to be a formatted name node if multiple Airspeed At Altitude
+    KPVs are required. Could depend on either Altitude When Climbing or
+    Altitude When Descending, but the assumption is that we'll have both.
+    '''
+
+    units = 'kt'
+
+    def derive(self,
+               air_spd=P('Airspeed'),
+               alt_climbs=S('Altitude When Climbing'),
+               alt_descs=S('Altitude When Descending')):
+        
+        altitude_ktis = (list(alt_climbs.get(name='8000 Ft Climbing')) +
+                         list(alt_descs.get(name='8000 Ft Descending')))
+        self.create_kpvs_at_ktis(air_spd.array, altitude_ktis)
+
 
 class AirspeedDuringCruiseMax(KeyPointValueNode):
     '''
@@ -1265,6 +1283,8 @@ class AirspeedWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
 
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
     NAME_FORMAT = 'Airspeed With Flap %(flap)d Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
@@ -1284,6 +1304,8 @@ class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
 
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
     NAME_FORMAT = 'Airspeed With Flap %(flap)d Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
@@ -1303,6 +1325,7 @@ class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOr
     '''
     '''
 
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
     NAME_FORMAT = 'Airspeed With Flap %(flap)d During Climb Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
@@ -1320,6 +1343,8 @@ class AirspeedWithFlapDuringClimbMin(KeyPointValueNode, FlapOrConfigurationMaxOr
     '''
     '''
 
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
     NAME_FORMAT = 'Airspeed With Flap %(flap)d During Climb Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
@@ -1337,6 +1362,8 @@ class AirspeedWithFlapDuringDescentMax(KeyPointValueNode, FlapOrConfigurationMax
     '''
     '''
 
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
     NAME_FORMAT = 'Airspeed With Flap %(flap)d During Descent Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
@@ -1354,6 +1381,8 @@ class AirspeedWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigurationMax
     '''
     '''
 
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
     NAME_FORMAT = 'Airspeed With Flap %(flap)d During Descent Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
@@ -1371,6 +1400,8 @@ class AirspeedRelativeWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigur
     '''
     '''
 
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
     NAME_FORMAT = 'Airspeed Relative With Flap %(flap)d During Descent Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
@@ -1640,6 +1671,9 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     figures to set event thresholds, but a threshold based on in-service data
     may suffice.
     '''
+
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
     NAME_FORMAT = 'AOA With Flap %(flap)d Max'
     NAME_VALUES = NAME_VALUES_FLAP
     
@@ -2115,6 +2149,21 @@ class AltitudeAtFlapExtension(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
+class AltitudeAtFirstFlapExtensionAfterLiftoff(KeyPointValueNode):
+    '''
+    Separates the first flap extension.
+    '''
+
+    units = 'ft'
+
+    def derive(self, flap_exts=KPV('Altitude At Flap Extension')):
+        # First Flap Extension within Airborne section should be first after
+        # liftoff.
+        flap_ext = flap_exts.get_first()
+        if flap_ext:
+            self.create_kpv(flap_ext.index, flap_ext.value)
+
+
 class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
     '''
     '''
@@ -2252,6 +2301,22 @@ class AltitudeWithGearDownMax(KeyPointValueNode):
         self.create_kpvs_within_slices(
             alt_aal.array, slices_and(airs.get_slices(), gear_downs),
             max_value)
+
+
+class AltitudeAtGearDownSelectionWithFlapUp(KeyPointValueNode):
+    
+    units = 'ft'
+    
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               gear_downs=KTI('Gear Down Selection'),
+               flap=P('Flap')):
+        
+        flap_ups = np.ma.clump_unmasked(np.ma.masked_greater(flap.array, 0))
+        flap_up_gear_downs = []
+        for _slice in flap_ups:
+            flap_up_gear_downs.extend(gear_downs.get(within_slice=_slice))
+        self.create_kpvs_at_ktis(alt_aal.array, flap_up_gear_downs)
 
 
 ########################################
@@ -2510,6 +2575,25 @@ class PercentApproachStable(KeyPointValueNode):
                 index = np.ma.argmax(is_stable) + app.start
                 self.create_kpv(index, percent, 
                                 altitude=level, approach=approach_type)
+
+
+class AltitudeAtLastAPDisengagedDuringApproach(KeyPointValueNode):
+    '''
+    This monitors the altitude at which autopilot was last disengaged during
+    the cruise.
+    '''
+    name = 'Altitude At Last AP Disengaged During Approach'
+    units = 'ft'
+
+    def derive(self, alt_aal=P('Altitude AAL'), 
+               ap_dis=KTI('AP Disengaged Selection'),
+               apps=App('Approach Information')):
+        ktis = []
+        for app in apps:
+            ap_dis_kti = ap_dis.get_last(within_slice=app.slice)
+            if ap_dis_kti:
+                ktis.append(ap_dis_kti)
+        self.create_kpvs_at_ktis(alt_aal.array, ktis)
 
 
 ##############################################################################
@@ -3306,23 +3390,15 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
 
     units = 'dots'
 
-    @classmethod
-    def can_operate(cls, available):
-        return all_of(('IAN Glidepath',
-                       'Altitude AAL For Flight Phases',
-                       'Approach And Landing' ), available)
-
     def derive(self,
                ian_glidepath=P('IAN Glidepath'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=S('Approach And Landing'),
-               ils_ests=S('ILS Glideslope Established')):
+               apps=App('Approach Information')):
 
-        if ils_ests:
-            # we do not want to create IAN KPVs for ILS approaches so mask out
-            ian_glidepath_array = mask_inside_slices(ian_glidepath.array, ils_ests.get_slices())
-        else:
-            ian_glidepath_array = ian_glidepath.array
+        for app in apps:
+            if app.gs_est:
+                # Mask IAN data for approaches where ILS is established
+                ian_glidepath.array[app.slice] = np.ma.masked
 
         for idx in range(len(self.NAME_VALUES['max_alt'])):
             max_alt = self.NAME_VALUES['max_alt'][idx]
@@ -3331,12 +3407,12 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                glidepath_est = scan_ils('glideslope', ian_glidepath_array, alt_aal.array, band)
-                if glidepath_est:
-                    ian_est_bands.append(glidepath_est)
+                ian_glide_est = scan_ils('glideslope', ian_glidepath.array, alt_aal.array, band)
+                if ian_glide_est:
+                    ian_est_bands.append(ian_glide_est)
 
             self.create_kpvs_within_slices(
-                ian_glidepath_array,
+                ian_glidepath.array,
                 ian_est_bands,
                 max_abs_value,
                 max_alt=max_alt,
@@ -3357,23 +3433,15 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
 
     units = 'dots'
 
-    @classmethod
-    def can_operate(cls, available):
-        return all_of(('IAN Final Approach Course',
-                       'Altitude AAL For Flight Phases',
-                       'Approach And Landing' ), available)
-
     def derive(self,
                ian_final=P('IAN Final Approach Course'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=S('Approach And Landing'),
-               ils_ests=S('ILS Localizer Established')):
+               apps=App('Approach Information')):
 
-        if ils_ests:
-            # we do not want to create IAN KPVs for ILS approaches so mask out
-            ian_final_array = mask_inside_slices(ian_final.array, ils_ests.get_slices())
-        else:
-            ian_final_array = ian_final.array
+        for app in apps:
+            if app.loc_est:
+                # Mask IAN data for approaches where ILS is established
+                ian_final.array[app.slice] = np.ma.masked
 
         for idx in range(len(self.NAME_VALUES['max_alt'])):
             max_alt = self.NAME_VALUES['max_alt'][idx]
@@ -3383,12 +3451,12 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                final_app_course_est = scan_ils('glideslope', ian_final_array, alt_aal.array, band)
+                final_app_course_est = scan_ils('glideslope', ian_final.array, alt_aal.array, band)
                 if final_app_course_est:
                     ian_est_bands.append(final_app_course_est)
 
             self.create_kpvs_within_slices(
-                ian_final_array,
+                ian_final.array,
                 ian_est_bands,
                 max_abs_value,
                 max_alt=max_alt,
@@ -3886,6 +3954,21 @@ class MachMax(KeyPointValueNode):
         self.create_kpvs_within_slices(mach.array, airs, max_value)
 
 
+class MachDuringCruiseAvg(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'Mach'
+
+    def derive(self,
+               mach=P('Mach'),
+               cruises=S('Cruise')):
+        
+        for _slice in cruises.get_slices():
+            self.create_kpv(_slice.start + (_slice.stop - _slice.start) / 2,
+                            np.ma.mean(mach.array[_slice]))
+
+
 ########################################
 # Mach: Flap
 
@@ -3894,6 +3977,8 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
 
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
     NAME_FORMAT = 'Mach With Flap %(flap)d Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
@@ -4751,6 +4836,69 @@ class EngN3DuringMaximumContinuousPowerMax(KeyPointValueNode):
 
         slices = to_ratings + ga_ratings + grounded
         self.create_kpv_outside_slices(eng_n3_max.array, slices, max_value)
+
+
+##############################################################################
+# Engine Np
+
+
+class EngNpDuringTaxiMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Taxi Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               taxiing=S('Taxiing')):
+
+        self.create_kpv_from_slices(eng_Np_max.array, taxiing, max_value)
+
+
+class EngNpDuringTakeoff5MinRatingMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Takeoff 5 Min Rating Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               ratings=S('Takeoff 5 Min Rating')):
+
+        self.create_kpvs_within_slices(eng_Np_max.array, ratings, max_value)
+
+
+class EngNpDuringGoAround5MinRatingMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Go Around 5 Min Rating Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               ratings=S('Go Around 5 Min Rating')):
+
+        self.create_kpvs_within_slices(eng_Np_max.array, ratings, max_value)
+
+
+class EngNpDuringMaximumContinuousPowerMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Np During Maximum Continuous Power Max'
+    units = '%'
+
+    def derive(self,
+               eng_Np_max=P('Eng (*) Np Max'),
+               to_ratings=S('Takeoff 5 Min Rating'),
+               ga_ratings=S('Go Around 5 Min Rating'),
+               grounded=S('Grounded')):
+
+        slices = to_ratings + ga_ratings + grounded
+        self.create_kpv_outside_slices(eng_Np_max.array, slices, max_value)
 
 
 ##############################################################################
@@ -6115,7 +6263,7 @@ class RateOfClimbDuringGoAroundMax(KeyPointValueNode):
 # Rate of Descent
 
 
-# FIXME: Should rate of descent KPVs should occur for 3+ seconds?
+# FIXME: Should rate of descent KPVs should occur for 3+ seconds? No (DJ)
 
 
 class RateOfDescentMax(KeyPointValueNode):
@@ -6150,7 +6298,6 @@ class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
             self.create_kpvs_within_slices(vrt_spd.array, drops, min_value)
 
 
-# XXX: Should use 'Altitude STD Smoothed'?
 class RateOfDescentBelow10000FtMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
