@@ -1355,7 +1355,9 @@ def find_toc_tod(alt_data, ccd_slice, mode='Climb'):
     :returns: Index of location identified within slice, relative to start of alt_data
     :rtype: Int
     '''
-
+    #NOTE: If this is changed to support slices with negative step, be sure to
+    # update index_at_value_or_level_off() which currently reverses the slice.
+    
     # Find the maximum altitude in this slice to reduce the effort later
     peak_index = np.ma.argmax(alt_data[ccd_slice])
 
@@ -5156,7 +5158,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             try:
                 value = closest_unmasked_value(array, _slice.start or 0,
                                                _slice=_slice)[1]
-            except:
+            except:  # IndexError? tuple index out of range
                 return None
             if threshold >= value:
                 diff_where = np.ma.where(diff < 0)
@@ -5184,6 +5186,43 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             r = (float(threshold) - a) / (b - a)
 
     return (begin + step * (n + r))
+
+
+def index_at_value_or_level_off(array, threshold, _slice):
+    '''
+    Find the index closest to the value unless it doesn't get
+    within 10% of that value in which case find the point of
+    level off.
+    
+    Designed for finding sections around Go Arounds where the
+    _slice region defines the area to search within.
+    
+    Negative step in slice supported.
+    
+    :param array: Normally an Altitude based array.
+    :type array: np.ma.array
+    :param threshold: Value to seek to
+    :type threshold: Float
+    :param _slice: Constraint within array to search until
+    :type _slice: slice
+    :returns: Index at closest value or at level off
+    :rtype: Int
+    '''
+    index = index_at_value(array, threshold, _slice, 'nearest')
+    # did we get within 90% of the threshold?
+    if array[index] > threshold * 0.9:
+        return index
+    else:
+        # we never got quite close enough to 2000ft above the
+        # minimum go around altitude. Find the top of the climb.
+        if _slice.step in (1, None):
+            return find_toc_tod(array, _slice, 'Climb')
+        else:
+            # negative step provided which is not supported by find_toc_tod
+            # so reverse the start and stop
+            stop = _slice.stop -1 if _slice.stop > 0 else 0
+            rev_slice = slice(stop, _slice.start, 1)
+            return find_toc_tod(array, rev_slice, 'Descent')
 
 
 def _value(array, _slice, operator):
