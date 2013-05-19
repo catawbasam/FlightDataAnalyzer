@@ -4642,8 +4642,8 @@ class TestStableApproach(unittest.TestCase):
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
                [0, 1, 1, 4, 9, 2, 8, 6, 5, 5, 5, 3, 3, 5, 5, 5, 5, 5, 5, 5, 0])
-        
-        
+
+
 class TestMasterWarning(unittest.TestCase, NodeTest):
 
     def setUp(self):
