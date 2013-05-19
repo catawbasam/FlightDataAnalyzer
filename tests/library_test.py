@@ -3300,6 +3300,14 @@ class TestRateOfChange(unittest.TestCase):
         answer = np.ma.array(data=[0.01]*10,mask=False)
         ma_test.assert_masked_array_approx_equal(sloped, answer)
 
+    def test_rate_of_change_regression(self):
+        sloped = rate_of_change(P('Test',
+                                  np.ma.array([0,0,0,0,0,0,1,1,1,1,1,1],
+                                              dtype=float), 1), 5, method='regression')
+        answer = np.ma.array(data=[0.0,0.0,0.0,0.0,0.2,0.3,0.3,0.2,0.0,0.0,0.0,0.0],
+                             mask=False)
+        ma_test.assert_mask_eqivalent(sloped, answer)
+
 
 class TestRepairMask(unittest.TestCase):
     def test_repair_mask_basic_1(self):

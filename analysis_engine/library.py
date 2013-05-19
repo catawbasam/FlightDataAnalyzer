@@ -4138,9 +4138,14 @@ def peak_index(a):
                 return loc+peak
 
 
-def rate_of_change_array(to_diff, hz, width=2.0):
+def rate_of_change_array(to_diff, hz, width=2.0, method='two_points'):
     '''
-    Lower level access to rate of change algorithm. See rate_of_change for description.
+    Lower level access to rate of change algorithm. See rate_of_change for
+    description.
+    
+    The regression method was added to provide greater smoothing over an
+    extended period. This is required where the parameter being
+    differentiated has poor quantisation, e.g. Altitude STD with 32ft steps.
 
     :param to_diff: input data
     :type to_diff: Numpy masked array
@@ -4148,6 +4153,8 @@ def rate_of_change_array(to_diff, hz, width=2.0):
     :type hz: float
     :param width: the differentiation time period (sec)
     :type width: float
+    :param method: selects 'two_point' simple differentiation or 'regression'
+    type method: string
 
     :returns: masked array of values with differentiation applied
 
@@ -4159,15 +4166,35 @@ def rate_of_change_array(to_diff, hz, width=2.0):
         logger.info("Rate of change called with short data segment. Zero rate "
                     "returned")
         return np_ma_zeros_like(to_diff)
+    
+    if method=='two_points':
+        # Set up an array of masked zeros for extending arrays.
+        slope = np.ma.copy(to_diff)
+        slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])/width
+        slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
+        slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
+        return slope
 
-    # Set up an array of masked zeros for extending arrays.
-    slope = np.ma.copy(to_diff)
-    slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])/width
-    slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
-    slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
-    return slope
+    elif method=='regression':
+        # Neat solution; works well, but for height data smoothing the raw
+        # values works better and for pitch and roll attitudes the
+        # improvement was small and would result in more masked results than
+        # the preceding technique.
+        
+        # The fit will be for equi-spaced samples around the midpoint.
+        x=np.arange(-hw,hw+1) 
+        # Scaling is given by:
+        sx2_hz=np.sum(x*x)/hz 
+        # We extended data array to allow for convolution overruns.
+        z=np.array([to_diff[0]]*hw+list(to_diff)+[to_diff[-1]]*hw) 
+        # The compute the least squares fit for each point over the required
+        # range and re-scale to allow for width and sample rate.
+        return np.convolve(z,-x,'same')[hw:-hw]/sx2_hz 
+        
+    else:
+        raise ValueError('Rate of change called with unrecognised method')
 
-def rate_of_change(diff_param, width):
+def rate_of_change(diff_param, width, method='two_points'):
     '''
     @param to_diff: Parameter object with .array attr (masked array)
 
@@ -4182,12 +4209,14 @@ def rate_of_change(diff_param, width):
     :type diff_param.frequency: float
     :param width: the differentiation time period (sec)
     :type width: float
+    :param method: selects 'two_point' simple differentiation or 'regression'
+    type method: string
 
     :returns: masked array of values with differentiation applied
     '''
     hz = diff_param.frequency
     to_diff = diff_param.array
-    return rate_of_change_array(to_diff, hz, width)
+    return rate_of_change_array(to_diff, hz, width, method=method)
 
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
