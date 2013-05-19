@@ -3511,8 +3511,8 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
     future, allowing for control of the first derivative at the ends of
     the data, but that's in the future...
 
-    :param params: the parameters to be merged
-    :type params: tuple of parameters 
+    :param params: list of parameters to be merged, can be None if not available
+    :type params: List of parameters 
     :param offset: the offset of the resulting parameter
     :type offset: float (sec)
     :param frequency: the frequency of the resulting parameter
@@ -3525,6 +3525,10 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
         import matplotlib.pyplot as plt
         plt.figure()
     assert frequency>0.0
+    
+    # accept as many params as required
+    params = [p for p in params if p is not None]
+    assert len(params), "No parameters to merge"
     
     p_valid_slices = []
     p_offset = []

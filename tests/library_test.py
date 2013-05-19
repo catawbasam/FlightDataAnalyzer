@@ -2695,7 +2695,7 @@ class TestBlendParameters(unittest.TestCase):
         p1 = P(array=[5,10,7,8,9], frequency=1, offset=0.1, name='First')
         p2 = P(array=[1,2,3,4,5], frequency=1, offset=0.0, name='Second')
         p1.array.mask = True
-        result = blend_parameters((p1, p2))
+        result = blend_parameters((p1, None, p2))  # random None parameter too
         self.assertAlmostEqual(result[2], 3)
         
     def test_blend_two_parameters_lower_op_freq(self):
