@@ -183,7 +183,7 @@ class TestApproachAndLanding(unittest.TestCase):
 
     def test_approach_and_landing_landing_and_go_around_overlap(self):
         alt = np.ma.array([3500, 2500, 2000, 2500, 3500, 3500])
-        land = buildsection('Landing', 5, 6)
+        land = buildsection('Landing', 4, 6)
         ga = buildsection('Go Around And Climbout', 2.5, 3.5)
         app = ApproachAndLanding()
         app.derive(
@@ -197,7 +197,32 @@ class TestApproachAndLanding(unittest.TestCase):
         app = ApproachAndLanding()
         app.derive(
             Parameter('Altitude AAL For Flight Phases', alt), land, ga)
-        self.assertEqual(app.get_slices(), [slice(0, 2), slice(3, 6)])
+        self.assertEqual(app.get_slices(), [slice(0, 2), slice(4, 6)])
+        
+    def test_with_go_around_and_climbout_atr42_data(self):
+        alt_aal = load(os.path.join(test_data_path,
+                                    'AltitudeAAL_ATR42_two_goarounds.nod'))
+        
+        lands = SectionNode(items=[
+            Section(name='Landing',
+                    slice=slice(27343, 27500, None),
+                    start_edge=27342, stop_edge=27499),
+        ])
+        gas = SectionNode(items=[
+            Section(name='Go Around And Climbout',
+                    slice=slice(10702, 10949),
+                    start_edge=10702, stop_edge=10949),
+            Section(name='Go Around And Climbout',
+                    slice=slice(12528, 12749, None),
+                    start_edge=12528, stop_edge=12749),
+        ])
+        
+        app_ldg = ApproachAndLanding()
+        app_ldg.derive(alt_aal, lands, gas)
+        self.assertEqual(len(app_ldg), 3)
+        self.assertEqual(app_ldg[0].slice, slice(9770, 10949))
+        self.assertEqual(app_ldg[1].slice, slice(12056, 12749))
+        self.assertEqual(app_ldg[2].slice, slice(26925, 27500))
 
 
 class TestApproach(unittest.TestCase):
