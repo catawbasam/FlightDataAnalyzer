@@ -3646,14 +3646,13 @@ class ILSGlideslope(DerivedParameterNode):
                    source_J,
                    source_M, source_N
                    ]
-        params=[p for p in sources if p]
         self.offset = 0.0
         # blend_parameters does not currently manage downsampling correctly, so return the highest frequency for now.
         self.frequency = max([p.frequency for p in sources if p])
-        self.array=blend_parameters(params, 
-                                    offset=self.offset, 
-                                    frequency=self.frequency,
-                                    )
+        self.array = blend_parameters(sources, 
+                                      offset=self.offset, 
+                                      frequency=self.frequency,
+                                      )
 
 
 class AimingPointRange(DerivedParameterNode):
