@@ -2038,6 +2038,12 @@ class TestFuelQtyLow(unittest.TestCase):
         self.assertIn(('Fuel Qty (1) Low', 'Fuel Qty (2) Low'), opts)
 
     def test_derive_fuel_qty_low_warning(self):
+        low = M(array=np.ma.array([0,0,0,1,1,0]), values_mapping={1: 'Warning'})
+        warn = FuelQty_Low()
+        warn.derive(low, None, None)
+        self.assertEqual(warn.array.sum(), 2)
+        
+    def test_derive_fuel_qty_low_warning_two_params(self):
         one = M(array=np.ma.array([0,0,0,1,1,0]), values_mapping={1: 'Warning'})
         two = M(array=np.ma.array([0,0,1,1,0,0]), values_mapping={1: 'Warning'})
         warn = FuelQty_Low()
