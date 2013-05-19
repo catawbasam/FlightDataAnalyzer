@@ -125,6 +125,9 @@ from analysis_engine.derived_parameters import (
     V2,
     V2Lookup,
     VerticalSpeedInertial,
+    WheelSpeed,
+    WheelSpeedLeft,
+    WheelSpeedRight,
     WindAcrossLandingRunway,
 )
 
@@ -4042,14 +4045,37 @@ class TestVerticalSpeedInertial(unittest.TestCase):
 class TestWheelSpeed(unittest.TestCase):
     def test_can_operate(self):
         opts = WheelSpeed.get_operational_combinations()
-        self.assertIn(('Wheel Speed (1)', 'Wheel Speed (2)'), available)
-        self.assertIn(('Wheel Speed (1)', 'Wheel Speed (2)', 'Wheel Speed (3)', 'Wheel Speed (4)'), available)
-        self.assertIn(('Wheel Speed Inboard', 'Wheel Speed Outboard'), available)
-        
+        self.assertEqual(opts, 
+                         [('Wheel Speed (L)', 'Wheel Speed (R)'),
+                          #('Wheel Speed (L)', 'Wheel Speed (C)', 'Wheel Speed (R)'),
+                          ])
+         
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         pass
-    
+
+
+class TestWheelSpeedLeft(unittest.TestCase):
+    def test_can_operate(self):
+        opts = WheelSpeedLeft.get_operational_combinations()
+        self.assertIn(('Wheel Speed (L) (1)', 'Wheel Speed (L) (2)'), opts)
+        self.assertIn(('Wheel Speed (L) (1)', 'Wheel Speed (L) (2)', 'Wheel Speed (L) (3)', 'Wheel Speed (L) (4)'), opts)
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
+
+
+class TestWheelSpeedRight(unittest.TestCase):
+    def test_can_operate(self):
+        opts = WheelSpeedRight.get_operational_combinations()
+        self.assertIn(('Wheel Speed (R) (1)', 'Wheel Speed (R) (2)'), opts)
+        self.assertIn(('Wheel Speed (R) (1)', 'Wheel Speed (R) (2)', 'Wheel Speed (R) (3)', 'Wheel Speed (R) (4)'), opts)
+         
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
+
 
 class TestWindDirectionContinuous(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
