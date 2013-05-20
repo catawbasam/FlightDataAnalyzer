@@ -127,8 +127,7 @@ class FlapOrConfigurationMaxOrMin(object):
 
             # Ensure KPVs with integer detents don't have decimal places and
             # that those that are floats only have one decimal place:
-            detent = int(detent) if detent.is_integer() else '%.1f' % detent
-
+            detent = int(detent) if detent-int(detent)==0.0 else '%.1f' % detent
             key = 'flap' if conflap.name == 'Flap' else 'conf'
             self.create_kpv(index, value, **{key: detent})
 
@@ -2077,7 +2076,8 @@ class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
     units = 'ft'
 
     def derive(self,
-               alt_std=P('Altitude STD Smoothed')):
+               alt_std=P('Altitude STD Smoothed'),
+               alt_aal=P('Altitude AAL')):
 
         bust = 300  # ft
         bust_time = 3 * 60  # 3 mins
@@ -2109,14 +2109,17 @@ class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
                         alt_a = np.ma.min(alt_std.array[idx_from:idxs[num + 1]])
                         alt_c = np.ma.min(alt_std.array[idxs[num + 1]:idx_to])
                         overshoot = min(b - a, b - alt_a, b - alt_c, b - c)
-                        if overshoot > 5000:
-                            # This happens normally on short sectors
+                        #if overshoot > 5000:
+                        if overshoot > alt_aal.array[idxs[num + 1]]/4:
+                            # This happens normally on short sectors or training flights.
                             continue
                         self.create_kpv(idx, overshoot)
                     else:
                         alt_a = np.ma.max(alt_std.array[idx_from:idxs[num + 1]])
                         alt_c = np.ma.max(alt_std.array[idxs[num + 1]:idx_to])
                         undershoot = max(b - a, b - alt_a, b - alt_c, b - c)
+                        if undershoot < -alt_aal.array[idxs[num + 1]]/4:
+                            continue                        
                         self.create_kpv(idx, undershoot)
 
 
