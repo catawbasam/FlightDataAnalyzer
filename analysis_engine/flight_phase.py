@@ -194,39 +194,43 @@ class Holding(FlightPhaseNode):
 
 
 class ApproachAndLanding(FlightPhaseNode):
+    '''
+    Approaches from 3000ft to lowest point in the approach (where a go around
+    is performed) or down to and including the landing phase.
+    
+    Q: Suitable to replace this with BottomOfDescent and working back from
+    those KTIs rather than having to deal with GoAround AND Landings?
+    '''
     # Force to remove problem with desynchronising of approaches and landings
     # (when offset > 0.5)
     align_offset = 0
 
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               lands=S('Landing'), go_arounds=S('Go Around And Climbout')):
+               lands=S('Landing'), gas=KTI('Go Around')):
         # Prepare to extract the slices
         app_slices = []
         ga_slices = []
 
+        # Find the ups and downs in the height trace to restrict search ranges
+        cycle_idxs, _ = cycle_finder(alt_aal.array, min_step=500.0)
         for land in lands:
-            _slice = slice(land.slice.start, 0, -1)
+            prev_peak, _ = cycle_match(land.slice.start, cycle_idxs, dist=10000)
+            _slice = slice(land.slice.start, prev_peak, -1)
             app_start = index_at_value_or_level_off(
                 alt_aal.array, INITIAL_APPROACH_THRESHOLD, _slice)
             app_slices.append(slice(app_start, land.slice.stop))
 
-        last_ga = 0  # Q: Better to use half of the first go around's index?
-        for ga in go_arounds:
-            # The go-around KTI is based on only a 500ft 'pit' but to include
-            # the approach phase we stretch the start point back towards
-            # 3000ft. To avoid merging multiple go-arounds, the endpoint is
-            # carried across from one to the next, which is a safe thing to
-            # do because the KTI algorithm works on the cycle finder results
-            # which are inherently ordered.
-            
-            # look backwards from the beginning of the go-around towards the
-            # previous go around
-            _slice = slice(ga.slice.start, last_ga, -1)
-            # find the closest to 3000ft or the top of descent
-            index = index_at_value_or_level_off(
-                alt_aal.array, INITIAL_APPROACH_THRESHOLD, _slice)
-            ga_slices.append(slice(index, ga.slice.stop))
-            last_ga = ga.slice.stop
+        for ga in gas:
+            # Establish the altitude up to 3000ft before go-around. We know
+            # we are below 3000ft as that's the definition of the Go-Around
+            # (below 3000ft followed by climb of 500ft). Restrict the search
+            # to the previous peak to avoid searching for 3000ft at the start
+            # of the flight!
+            prev_peak, _ = cycle_match(ga.index, cycle_idxs, dist=20)
+            start_slice = slice(ga.index, prev_peak, -1)  # work backwards
+            ga_start = index_at_value_or_level_off(
+                alt_aal.array, 3000, start_slice)
+            ga_slices.append(slice(ga_start, ga.index+1))
 
         all_apps = slices_or(app_slices, ga_slices)
         if not all_apps:
@@ -239,6 +243,11 @@ class ApproachAndLanding(FlightPhaseNode):
 class Approach(FlightPhaseNode):
     """
     This separates out the approach phase excluding the landing.
+    
+    Includes all approaches such as Go Arounds, but does not include any
+    climbout afterwards.
+    
+    Landing starts at 50ft, therefore this phase is until 50ft.
     """
     def derive(self, apps=S('Approach And Landing'), lands=S('Landing')):
         app_slices = []

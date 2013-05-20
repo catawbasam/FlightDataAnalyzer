@@ -171,57 +171,66 @@ class TestAirborne(unittest.TestCase):
 
 
 class TestApproachAndLanding(unittest.TestCase):
+    def test_can_operate(self):
+        opts = ApproachAndLanding.get_operational_combinations()
+        self.assertEqual(opts, [
+            ('Altitude AAL For Flight Phases', 'Landing', 'Go Around')
+            ])
+        
     def test_approach_and_landing_basic(self):
         alt = np.ma.array(range(5000, 500, -500) + [0] * 10)
         land = buildsection('Landing', 11, 20)
-        # Go-around above 3000ft will be ignored.
-        ga = buildsection('Go Around And Climbout', 8, 13)
+        # No Go-arounds detected
+        gas = KTI(items=[])
         app = ApproachAndLanding()
         app.derive(
-            Parameter('Altitude AAL For Flight Phases', alt), land, ga)
+            Parameter('Altitude AAL For Flight Phases', alt), land, gas)
         self.assertEqual(app.get_slices(), [slice(4.0, 20)])
 
-    def test_approach_and_landing_landing_and_go_around_overlap(self):
-        alt = np.ma.array([3500, 2500, 2000, 2500, 3500, 3500])
-        land = buildsection('Landing', 4, 6)
-        ga = buildsection('Go Around And Climbout', 2.5, 3.5)
-        app = ApproachAndLanding()
-        app.derive(
-            Parameter('Altitude AAL For Flight Phases', alt), land, ga)
-        self.assertEqual(app.get_slices(), [slice(0, 6)])
-
     def test_approach_and_landing_separate_landing_phase_go_around(self):
-        alt = np.ma.array([3500, 2500, 2000, 2500, 3500, 3500])
-        land = buildsection('Landing', 5, 6)
-        ga = buildsection('Go Around And Climbout', 1.5, 2.0)
+        alt = np.ma.array([3500, 2500, 2000, 2500, 3500, 3500, 2500, 1600, 0])
+        land = buildsection('Landing', 5.5, 9)
+        gas = KTI(items=[KeyTimeInstance(2)])
         app = ApproachAndLanding()
         app.derive(
-            Parameter('Altitude AAL For Flight Phases', alt), land, ga)
-        self.assertEqual(app.get_slices(), [slice(0, 2), slice(4, 6)])
+            Parameter('Altitude AAL For Flight Phases', alt), land, gas)
+        self.assertEqual(app.get_slices(), [slice(0, 3), slice(5, 9)])
+        
+    def test_with_real_data_with_go_around_below_1500ft(self):
+        alt_aal = load(os.path.join(test_data_path,
+                                    'GoAroundAndClimbout_alt_aal.nod'))
+        land = buildsection('Landing', 2793, 3000)
+        gas = load(os.path.join(test_data_path,
+                                'GoAroundAndClimbout_gas.nod'))
+        phase = ApproachAndLanding()
+        phase.derive(alt_aal, land, gas)
+        self.assertEqual(
+            [s.slice for s in phase],
+            [slice(1005, 1112),
+             slice(1378, 1458, None),
+             slice(1676, 1782, None),
+             slice(2021, 2132, None),
+             slice(2208, 2462, None),
+             slice(2680, 3000, None),  # landing
+             ])
         
     def test_with_go_around_and_climbout_atr42_data(self):
         alt_aal = load(os.path.join(test_data_path,
                                     'AltitudeAAL_ATR42_two_goarounds.nod'))
-        
         lands = SectionNode(items=[
             Section(name='Landing',
                     slice=slice(27343, 27500, None),
                     start_edge=27342, stop_edge=27499),
         ])
-        gas = SectionNode(items=[
-            Section(name='Go Around And Climbout',
-                    slice=slice(10702, 10949),
-                    start_edge=10702, stop_edge=10949),
-            Section(name='Go Around And Climbout',
-                    slice=slice(12528, 12749, None),
-                    start_edge=12528, stop_edge=12749),
+        gas = KTI(items=[
+            KeyTimeInstance(index=10811.0, name='Go Around'),
+            KeyTimeInstance(index=12630.0, name='Go Around'),
         ])
-        
         app_ldg = ApproachAndLanding()
         app_ldg.derive(alt_aal, lands, gas)
         self.assertEqual(len(app_ldg), 3)
-        self.assertEqual(app_ldg[0].slice, slice(9770, 10949))
-        self.assertEqual(app_ldg[1].slice, slice(12056, 12749))
+        self.assertEqual(app_ldg[0].slice, slice(9770, 10812))
+        self.assertEqual(app_ldg[1].slice, slice(12056, 12631))
         self.assertEqual(app_ldg[2].slice, slice(26925, 27500))
 
 
