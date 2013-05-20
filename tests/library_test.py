@@ -1455,12 +1455,10 @@ class TestCycleMatch(unittest.TestCase):
         self.assertEqual(cycle_match(8, cycles), (None, 30))
         # no next
         self.assertEqual(cycle_match(160, cycles, dist=50), (129, None))
-        
-        # TODO: nice to have functionality!
-        ## finds closest
-        #self.assertEqual(cycle_match(200, cycles, dist=4000), (100, None))
-        ## equal distance rounds up
-        #self.assertEqual(cycle_match(20, cycles), (10, 30))
+        # finds closest
+        self.assertEqual(cycle_match(120, cycles, dist=4000), (100, 144))
+        # equal distance rounds down
+        self.assertEqual(cycle_match(20, cycles), (None, 30))
         
  
 class TestDatetimeOfIndex(unittest.TestCase):

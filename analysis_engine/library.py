@@ -970,14 +970,12 @@ def cycle_match(idx, cycle_idxs, dist=None):
     if dist is None:
         dist = np.min(np.diff(cycle_idxs)) / 4.0
     
-    for n, cidx in enumerate(cycle_idxs):
-        if abs(idx - cidx) < dist:
-            # index is close to this position
-            prev = cycle_idxs[n-1] if n > 0 else None
-            post = cycle_idxs[n+1] if n-1 <= len(cycle_idxs) else None
-            return prev, post
-        else:
-            continue
+    min_idx = np.argmin(np.abs(np.array(cycle_idxs) - idx))
+    if min_idx < dist:
+        # index is close to this position
+        prev = cycle_idxs[min_idx-1] if min_idx > 0 else None
+        post = cycle_idxs[min_idx+1] if min_idx < len(cycle_idxs)-1 else None
+        return prev, post
     raise ValueError("Did not find a match for index '%d' within cycles" % idx)
 
 
