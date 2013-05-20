@@ -703,20 +703,21 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     def can_operate(cls, available):
         return all_of(('ILS Localizer',
                        'Altitude AAL For Flight Phases',
-                       'Approach And Landing'), available)
+                       'Approach'), available)
 
     def derive(self, ils_loc=P('ILS Localizer'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=S('Approach And Landing'),
+               apps=S('Approach'),
                ils_freq=P('ILS Frequency'),):
         
         slices = apps.get_slices()
 
         if ils_freq and np.ma.count(ils_freq.array):
             # If we have ILS frequency tuned in check for multiple frequencies
-            # convert to ints as 110.7 != 110.7 when dealing with floats
-            ils_freq_as_int = (ils_freq.array * 100).astype(np.int)
-            frequency_changes = np.ma.diff(nearest_neighbour_mask_repair(ils_freq_as_int))
+            # useing around as 110.7 == 110.7 is not always the case when
+            # dealing with floats
+            ils_freq_repaired = nearest_neighbour_mask_repair(ils_freq.array)
+            frequency_changes = np.ma.diff(np.ma.around(ils_freq_repaired, decimals=2))
             # Create slices for each ILS frequency so they are scanned separately
             frequency_slices = runs_of_ones(frequency_changes == 0)
             if frequency_slices:
