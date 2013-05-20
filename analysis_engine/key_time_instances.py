@@ -298,8 +298,7 @@ class FlapSet(KeyTimeInstanceNode):
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
-    NAME_FORMAT = 'Flap %(flap)d Set'
+    NAME_FORMAT = 'Flap %(flap)s Set'
     NAME_VALUES = NAME_VALUES_FLAP
 
     def derive(self,
@@ -705,7 +704,7 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
     NAME_FORMAT = '%(altitude)d Ft Descending'
     NAME_VALUES = NAME_VALUES_DESCENT
 
-    HYSTERESIS = 0 # Was 10 Q: Better as setting?
+    HYSTERESIS = 0 # Was 10 Q: Better as a constant in the settings?
 
     def derive(self, descending=S('Descending'), alt_aal=P('Altitude AAL')):
         alt_array = alt_aal.array
@@ -720,6 +719,22 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
                                              descend.slice.start, -1))
                 if index:
                     self.create_kti(index, altitude=alt_threshold)
+
+
+class AltitudeSTD8000Ft(KeyTimeInstanceNode):
+    
+    name = 'Altitude STD 8000 Ft'
+    
+    def derive(self, alt_std=P('Altitude STD')):
+        # XXX: Could create too many KPVs if there is a section of altitude
+        # data at exactly 8000 Ft or the aircraft fluctuates up and down.
+        _slice = slice(None)
+        while True:
+            index = index_at_value(alt_std.array, 8000, _slice)
+            if not index:
+                break
+            self.create_kti(index)
+            _slice = slice(index + 1, None)
 
 
 class MinsToTouchdown(KeyTimeInstanceNode):

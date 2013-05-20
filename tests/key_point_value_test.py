@@ -256,6 +256,7 @@ from analysis_engine.key_point_values import (
     MachWithGearDownMax,
     MagneticVariationAtTakeoffTurnOntoRunway,
     MagneticVariationAtLandingTurnOffRunway,
+    ModeControlPanelAirspeedSelectedAt8000Ft,
     PercentApproachStable,
     Pitch1000To500FtMax,
     Pitch1000To500FtMin,
@@ -374,11 +375,7 @@ from analysis_engine.key_point_values import (
     PackValvesOpenAtLiftoff,
     IsolationValveOpenAtLiftoff,
 )
-from analysis_engine.key_time_instances import (
-    AltitudeWhenClimbing,
-    AltitudeWhenDescending,
-    EngStop,
-)
+from analysis_engine.key_time_instances import EngStop
 from analysis_engine.library import (max_abs_value, max_value, min_value)
 from analysis_engine.flight_phase import Fast
 from flight_phase_test import buildsection
@@ -875,29 +872,43 @@ class TestAccelerationNormalOffset(unittest.TestCase, NodeTest):
 # Airspeed: General
 
 
-class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
+class TestAirspeedAt8000Ft(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = AirspeedAt8000Ft
-        self.operational_combinations = [('Airspeed', 'Altitude When Climbing', 'Altitude When Descending')]
+        self.operational_combinations = [('Airspeed', 'Altitude STD 8000 Ft')]
     
     def test_derive_basic(self):
         air_spd = P('Airspeed', array=np.ma.arange(0, 200, 10))
-        alt_climbs = AltitudeWhenClimbing(
-            items=[KeyTimeInstance(9, '7000 Ft Climbing'),
-                   KeyTimeInstance(10, '8000 Ft Climbing'),
-                   KeyTimeInstance(11, '9000 Ft Climbing')])
-        alt_descs = AltitudeWhenDescending(
-            items=[KeyTimeInstance(15, '9000 Ft Descending'),
-                   KeyTimeInstance(16, '8000 Ft Descending'),
-                   KeyTimeInstance(17, '7000 Ft Descending'),
-                   KeyTimeInstance(18, '8000 Ft Descending'),
-                   KeyTimeInstance(19, '6000 Ft Descending')])
+        alt_8000 = KTI('Altitude STD 8000 Ft',
+            items=[KeyTimeInstance(10, 'Altitude STD 8000 Ft Climbing'),
+                   KeyTimeInstance(16, 'Altitude STD 8000 Ft Climbing'),
+                   KeyTimeInstance(18, 'Altitude STD 8000 Ft Climbing')])
         node = self.node_class()
-        node.derive(air_spd, alt_climbs, alt_descs)
+        node.derive(air_spd, alt_8000)
         self.assertEqual(node,
                          [KeyPointValue(index=10, value=100.0, name='Airspeed At 8000 Ft'),
                           KeyPointValue(index=16, value=160.0, name='Airspeed At 8000 Ft'),
                           KeyPointValue(index=18, value=180.0, name='Airspeed At 8000 Ft')])
+
+
+class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase,
+                                                   CreateKPVsAtKTIsTest):
+    def setUp(self):
+        self.node_class = ModeControlPanelAirspeedSelectedAt8000Ft
+        self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude STD 8000 Ft')]
+    
+    def test_derive_basic(self):
+        air_spd = P('Mode Control Panel Airspeed Selected', array=np.ma.arange(0, 200, 5))
+        alt_8000 = KTI('Altitude STD 8000 Ft',
+            items=[KeyTimeInstance(13, 'Altitude STD 8000 Ft'),
+                   KeyTimeInstance(26, 'Altitude STD 8000 Ft'),
+                   KeyTimeInstance(32, 'Altitude STD 8000 Ft')])
+        node = self.node_class()
+        node.derive(air_spd, alt_8000)
+        self.assertEqual(node,
+                         [KeyPointValue(index=13, value=65.0, name='Mode Control Panel Airspeed Selected At 8000 Ft'),
+                          KeyPointValue(index=26, value=130.0, name='Mode Control Panel Airspeed Selected At 8000 Ft'),
+                          KeyPointValue(index=32, value=160.0, name='Mode Control Panel Airspeed Selected At 8000 Ft')])
 
 
 class TestAirspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
@@ -2531,7 +2542,7 @@ class TestIANGlidepathDeviationMax(unittest.TestCase):
 
     def test_can_operate(self):
         ops = self.node_class.get_operational_combinations()
-        expected = [('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach Information')]
+        expected = [('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach Information', 'Displayed App Source (Capt)', 'Displayed App Source (FO)')]
         self.assertEqual(ops, expected)
 
     def setUp(self):
@@ -2540,10 +2551,20 @@ class TestIANGlidepathDeviationMax(unittest.TestCase):
         self.apps = App('Approach Information', items=approaches)
         self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
         self.ian = P(name='IAN Glidepath', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
+        self.app_src_capt = M(
+                    name='Displayed App Source (Capt)',
+                    array=np.ma.array([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+                    values_mapping={0: 'No Source', 1: 'FMC', 5: 'LOC/FMC', 6: 'GLS', 7: 'ILS'},
+                )
+        self.app_src_fo = M(
+                    name='Displayed App Source (FO)',
+                    array=np.ma.array([0, 0, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5]),
+                    values_mapping={0: 'No Source', 1: 'FMC', 5: 'LOC/FMC', 6: 'GLS', 7: 'ILS'},
+                )
 
     def test_derive_basic(self):
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps)
+        kpv.derive(self.ian, self.height, self.apps, self.app_src_capt, self.app_src_fo)
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 6)
         self.assertAlmostEqual(kpv[0].value, 3)
@@ -2552,7 +2573,7 @@ class TestIANGlidepathDeviationMax(unittest.TestCase):
     def test_derive_with_ils_established(self):
         self.apps[0].gs_est = slice(3, 12)
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps)
+        kpv.derive(self.ian, self.height, self.apps, self.app_src_capt, self.app_src_fo)
         self.assertEqual(len(kpv), 0)
 
 
@@ -2560,7 +2581,7 @@ class TestIANFinalApproachCourseDeviationMax(unittest.TestCase):
 
     def test_can_operate(self):
         ops = self.node_class.get_operational_combinations()
-        expected = [('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach Information'),]
+        expected = [('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach Information', 'Displayed App Source (Capt)', 'Displayed App Source (FO)'),]
         self.assertEqual(ops, expected)
 
     def setUp(self):
@@ -2569,10 +2590,20 @@ class TestIANFinalApproachCourseDeviationMax(unittest.TestCase):
         self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
         self.apps = App('Approach Information', items=approaches)
         self.ian = P(name='IAN Final Approach Course', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
+        self.app_src_capt = M(
+                    name='Displayed App Source (Capt)',
+                    array=np.ma.array([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+                    values_mapping={0: 'No Source', 1: 'FMC', 5: 'LOC/FMC', 6: 'GLS', 7: 'ILS'},
+                )
+        self.app_src_fo = M(
+                    name='Displayed App Source (FO)',
+                    array=np.ma.array([0, 0, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5]),
+                    values_mapping={0: 'No Source', 1: 'FMC', 5: 'LOC/FMC', 6: 'GLS', 7: 'ILS'},
+                )
 
     def test_derive_basic(self):
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps)
+        kpv.derive(self.ian, self.height, self.apps, self.app_src_capt, self.app_src_fo)
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 6)
         self.assertAlmostEqual(kpv[0].value, 3)
@@ -2581,7 +2612,7 @@ class TestIANFinalApproachCourseDeviationMax(unittest.TestCase):
     def test_derive_with_ils_established(self):
         self.apps[0].loc_est = slice(3, 12)
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps)
+        kpv.derive(self.ian, self.height, self.apps, self.app_src_capt, self.app_src_fo)
         self.assertEqual(len(kpv), 0)
 
 

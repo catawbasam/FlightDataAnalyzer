@@ -73,59 +73,64 @@ class FlapOrConfigurationMaxOrMin(object):
     '''
     Abstract superclass.
     '''
-    def flap_or_conf_max_or_min(self, conflap, airspeed, function, scope=None, include_zero=False):
+    def flap_or_conf_max_or_min(self, conflap, parameter, function, scope=None, include_zero=False):
         '''
-        Generic flap and conf event creation process.
-        :param conflap: Conf or Flap data, restricted to detent settings.
-        :type conflap: Numpy masked array, in conf values (floating point) or flap (degrees or %).
-        :param airspeed: airspeed parameter
-        :type airspeed: Numpy masked array
-        :param function: function to be applied to the airspeed values
-        :type function: 'max_value' or 'min_value'
-        :param scope: Periods to restrict period to be monitored. Essential for minimum speed checks, otherwise all the results relate to taxi periods!
-        :type scope: optional list of slices.
-        :param include_zero: option to include zero flap settings. Used for monitoring AOA with clean configuration.
-        :type include_zero: boolean, default = False.
+        Generic flap and conf key point value creation process.
 
-        :returns: Nothing. KPVs are created within the routine.
+        :param conflap: conf or flap data, restricted to detent settings.
+        :type conflap: parameter (conf = float or flap = degrees or %)
+        :param parameter: parameter to be measured at flap/conf detent.
+        :type parameter: parameter
+        :param function: function to be applied to the parameter values
+        :type function: function ('max_value' or 'min_value')
+        :param scope: Periods to restrict period to be monitored. Essential for
+            minimum speed checks, otherwise all the results relate to taxi
+            periods! (Optional)
+        :type scope: list of slice
+        :param include_zero: option to include zero flap settings. Used for
+            monitoring AOA with clean configuration. (Default: False)
+        :type include_zero: boolean
+        :returns: Nothing as KPVs are created within the routine.
         '''
         if scope == []:
-            return # Can't have an event if the scope is empty.
+            return  # Can't have an event if the scope is empty.
 
         if scope:
-            scope_array = np_ma_masked_zeros_like(airspeed.array)
+            scope_array = np_ma_masked_zeros_like(parameter.array)
             for valid in scope:
                 scope_array.mask[
                     int(valid.slice.start or 0):
                     int(valid.slice.stop or len(scope_array)) + 1] = False
 
-        for conflap_setting in np.ma.unique(conflap.array):
-            if np.ma.is_masked(conflap_setting):
-                # ignore masked values
+        for detent in np.ma.unique(conflap.array):
+            if np.ma.is_masked(detent):
                 continue
-            if conflap_setting == 0.0 and \
-               include_zero == False:
+            if detent == 0.0 and include_zero == False:
                 continue
 
-            spd_with_conflap = np.ma.copy(airspeed.array)
-            # apply flap mask
-            spd_with_conflap.mask = np.ma.mask_or(airspeed.array.mask,
-                                                  conflap.array.mask)
-            spd_with_conflap[conflap.array != conflap_setting] = np.ma.masked
+            p_with_conflap = np.ma.copy(parameter.array)
+            p_with_conflap.mask = np.ma.mask_or(parameter.array.mask,
+                                                conflap.array.mask)
+            p_with_conflap[conflap.array != detent] = np.ma.masked
             if scope:
-                spd_with_conflap.mask = np.ma.mask_or(spd_with_conflap.mask,
-                                                      scope_array.mask)
-            #TODO: Check logical OR is sensible for all values (probably ok as
-            #airspeed will always be higher than max flap setting!)
-            index, value = function(spd_with_conflap)
+                p_with_conflap.mask = np.ma.mask_or(p_with_conflap.mask,
+                                                    scope_array.mask)
 
-            # Check we have a result to record. Note that most flap setting will
-            # not be used in the climb, hence this is normal operation.
-            if index and value:
-                if conflap.name == 'Flap':
-                    self.create_kpv(index, value, flap=conflap_setting)
-                else:
-                    self.create_kpv(index, value, conf=conflap_setting)
+            # TODO: Check logical or is sensible for all values. (Probably fine
+            #       as airspeed will always be higher than max flap setting!)
+            index, value = function(p_with_conflap)
+
+            # Check we have a result to record. Note that most flap settings
+            # will not be used in the climb, hence this is normal operation.
+            if not index or not value:
+                continue
+
+            # Ensure KPVs with integer detents don't have decimal places and
+            # that those that are floats only have one decimal place:
+            detent = int(detent) if detent.is_integer() else '%.1f' % detent
+
+            key = 'flap' if conflap.name == 'Flap' else 'conf'
+            self.create_kpv(index, value, **{key: detent})
 
 
 ##############################################################################
@@ -541,12 +546,9 @@ class AirspeedAt8000Ft(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_climbs=S('Altitude When Climbing'),
-               alt_descs=S('Altitude When Descending')):
+               alt_8000=S('Altitude STD 8000 Ft')):
         
-        altitude_ktis = (list(alt_climbs.get(name='8000 Ft Climbing')) +
-                         list(alt_descs.get(name='8000 Ft Descending')))
-        self.create_kpvs_at_ktis(air_spd.array, altitude_ktis)
+        self.create_kpvs_at_ktis(air_spd.array, alt_8000)
 
 
 class AirspeedDuringCruiseMax(KeyPointValueNode):
@@ -1284,8 +1286,7 @@ class AirspeedWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d Max'
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1305,8 +1306,7 @@ class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d Min'
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1326,7 +1326,7 @@ class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOr
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Climb Max'
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Climb Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1344,8 +1344,7 @@ class AirspeedWithFlapDuringClimbMin(KeyPointValueNode, FlapOrConfigurationMaxOr
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Climb Min'
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Climb Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1363,8 +1362,7 @@ class AirspeedWithFlapDuringDescentMax(KeyPointValueNode, FlapOrConfigurationMax
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Descent Max'
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Descent Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1382,8 +1380,7 @@ class AirspeedWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigurationMax
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)d During Descent Min'
+    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Descent Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1401,8 +1398,7 @@ class AirspeedRelativeWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigur
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
-    NAME_FORMAT = 'Airspeed Relative With Flap %(flap)d During Descent Min'
+    NAME_FORMAT = 'Airspeed Relative With Flap %(flap)s During Descent Min'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -1657,6 +1653,23 @@ class AirspeedDuringLevelFlightMax(KeyPointValueNode):
             self.create_kpv(*max_value(air_spd.array, section.slice))
 
 
+class ModeControlPanelAirspeedSelectedAt8000Ft(KeyPointValueNode):
+    '''
+    Refactor to be a formatted name node if multiple Airspeed At Altitude
+    KPVs are required. Could depend on either Altitude When Climbing or
+    Altitude When Descending, but the assumption is that we'll have both.
+    '''
+
+    units = 'kt'
+    
+    def derive(self,
+               mcp=P('Mode Control Panel Airspeed Selected'),
+               alt_8000=S('Altitude STD 8000 Ft')):
+        
+        # TODO: Confirm MCP parameter name.
+        self.create_kpvs_at_ktis(mcp.array, alt_8000)
+
+
 ##############################################################################
 # Angle of Attack
 
@@ -1673,8 +1686,7 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
-    NAME_FORMAT = 'AOA With Flap %(flap)d Max'
+    NAME_FORMAT = 'AOA With Flap %(flap)s Max'
     NAME_VALUES = NAME_VALUES_FLAP
     
     name = 'AOA With Flap Max'
@@ -3393,7 +3405,13 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
     def derive(self,
                ian_glidepath=P('IAN Glidepath'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=App('Approach Information')):
+               apps=App('Approach Information'),
+               app_src_capt=P('Displayed App Source (Capt)'),
+               app_src_fo=P('Displayed App Source (FO)')):
+
+        # Displayed App Source required to ensure that IAN is being followed
+        in_fmc = (app_src_capt.array == 'FMC') | (app_src_fo.array == 'FMC')
+        ian_glidepath.array[~in_fmc] = np.ma.masked
 
         for app in apps:
             if app.gs_est:
@@ -3436,7 +3454,13 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
     def derive(self,
                ian_final=P('IAN Final Approach Course'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=App('Approach Information')):
+               apps=App('Approach Information'),
+               app_src_capt=M('Displayed App Source (Capt)'),
+               app_src_fo=M('Displayed App Source (FO)')):
+
+        # Displayed App Source required to ensure that IAN is being followed
+        in_fmc = (app_src_capt.array == 'FMC') | (app_src_fo.array == 'FMC')
+        ian_final.array[~in_fmc] = np.ma.masked
 
         for app in apps:
             if app.loc_est:
@@ -3978,8 +4002,7 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
-    NAME_FORMAT = 'Mach With Flap %(flap)d Max'
+    NAME_FORMAT = 'Mach With Flap %(flap)s Max'
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'kt'
@@ -6261,9 +6284,6 @@ class RateOfClimbDuringGoAroundMax(KeyPointValueNode):
 
 ##############################################################################
 # Rate of Descent
-
-
-# FIXME: Should rate of descent KPVs should occur for 3+ seconds? No (DJ)
 
 
 class RateOfDescentMax(KeyPointValueNode):
