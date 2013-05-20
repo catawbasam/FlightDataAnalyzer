@@ -673,7 +673,10 @@ def coreg(y, indep_var=None, force_zero=False):
     sy2 = np.ma.sum(y_*y_)
 
     # Correlation
-    p = abs((n_*sxy - sx*sy)/(sqrt(n_*sx2-sx*sx)*sqrt(n_*sy2-sy*sy)))
+    try: # in case sqrt of a negative number is attempted
+        p = abs((n_*sxy - sx*sy)/(sqrt(n_*sx2-sx*sx)*sqrt(n_*sy2-sy*sy)))
+    except ValueError:
+        return None, None, None
 
     # Regression
     if force_zero:
