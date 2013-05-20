@@ -673,7 +673,10 @@ def coreg(y, indep_var=None, force_zero=False):
     sy2 = np.ma.sum(y_*y_)
 
     # Correlation
-    p = abs((n_*sxy - sx*sy)/(sqrt(n_*sx2-sx*sx)*sqrt(n_*sy2-sy*sy)))
+    try: # in case sqrt of a negative number is attempted
+        p = abs((n_*sxy - sx*sy)/(sqrt(n_*sx2-sx*sx)*sqrt(n_*sy2-sy*sy)))
+    except ValueError:
+        return None, None, None
 
     # Regression
     if force_zero:
@@ -1358,7 +1361,9 @@ def find_toc_tod(alt_data, ccd_slice, mode='Climb'):
     :returns: Index of location identified within slice, relative to start of alt_data
     :rtype: Int
     '''
-
+    #NOTE: If this is changed to support slices with negative step, be sure to
+    # update index_at_value_or_level_off() which currently reverses the slice.
+    
     # Find the maximum altitude in this slice to reduce the effort later
     peak_index = np.ma.argmax(alt_data[ccd_slice])
 
@@ -3512,8 +3517,8 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
     future, allowing for control of the first derivative at the ends of
     the data, but that's in the future...
 
-    :param params: the parameters to be merged
-    :type params: tuple of parameters 
+    :param params: list of parameters to be merged, can be None if not available
+    :type params: List of parameters 
     :param offset: the offset of the resulting parameter
     :type offset: float (sec)
     :param frequency: the frequency of the resulting parameter
@@ -3526,6 +3531,10 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
         import matplotlib.pyplot as plt
         plt.figure()
     assert frequency>0.0
+    
+    # accept as many params as required
+    params = [p for p in params if p is not None]
+    assert len(params), "No parameters to merge"
     
     p_valid_slices = []
     p_offset = []
@@ -4138,9 +4147,14 @@ def peak_index(a):
                 return loc+peak
 
 
-def rate_of_change_array(to_diff, hz, width=2.0):
+def rate_of_change_array(to_diff, hz, width=2.0, method='two_points'):
     '''
-    Lower level access to rate of change algorithm. See rate_of_change for description.
+    Lower level access to rate of change algorithm. See rate_of_change for
+    description.
+    
+    The regression method was added to provide greater smoothing over an
+    extended period. This is required where the parameter being
+    differentiated has poor quantisation, e.g. Altitude STD with 32ft steps.
 
     :param to_diff: input data
     :type to_diff: Numpy masked array
@@ -4148,6 +4162,8 @@ def rate_of_change_array(to_diff, hz, width=2.0):
     :type hz: float
     :param width: the differentiation time period (sec)
     :type width: float
+    :param method: selects 'two_point' simple differentiation or 'regression'
+    type method: string
 
     :returns: masked array of values with differentiation applied
 
@@ -4159,15 +4175,35 @@ def rate_of_change_array(to_diff, hz, width=2.0):
         logger.info("Rate of change called with short data segment. Zero rate "
                     "returned")
         return np_ma_zeros_like(to_diff)
+    
+    if method=='two_points':
+        # Set up an array of masked zeros for extending arrays.
+        slope = np.ma.copy(to_diff)
+        slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])/width
+        slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
+        slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
+        return slope
 
-    # Set up an array of masked zeros for extending arrays.
-    slope = np.ma.copy(to_diff)
-    slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])/width
-    slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
-    slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
-    return slope
+    elif method=='regression':
+        # Neat solution; works well, but for height data smoothing the raw
+        # values works better and for pitch and roll attitudes the
+        # improvement was small and would result in more masked results than
+        # the preceding technique.
+        
+        # The fit will be for equi-spaced samples around the midpoint.
+        x=np.arange(-hw,hw+1) 
+        # Scaling is given by:
+        sx2_hz=np.sum(x*x)/hz 
+        # We extended data array to allow for convolution overruns.
+        z=np.array([to_diff[0]]*hw+list(to_diff)+[to_diff[-1]]*hw) 
+        # The compute the least squares fit for each point over the required
+        # range and re-scale to allow for width and sample rate.
+        return np.convolve(z,-x,'same')[hw:-hw]/sx2_hz 
+        
+    else:
+        raise ValueError('Rate of change called with unrecognised method')
 
-def rate_of_change(diff_param, width):
+def rate_of_change(diff_param, width, method='two_points'):
     '''
     @param to_diff: Parameter object with .array attr (masked array)
 
@@ -4182,12 +4218,14 @@ def rate_of_change(diff_param, width):
     :type diff_param.frequency: float
     :param width: the differentiation time period (sec)
     :type width: float
+    :param method: selects 'two_point' simple differentiation or 'regression'
+    type method: string
 
     :returns: masked array of values with differentiation applied
     '''
     hz = diff_param.frequency
     to_diff = diff_param.array
-    return rate_of_change_array(to_diff, hz, width)
+    return rate_of_change_array(to_diff, hz, width, method=method)
 
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
@@ -5159,7 +5197,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             try:
                 value = closest_unmasked_value(array, _slice.start or 0,
                                                _slice=_slice)[1]
-            except:
+            except:  # IndexError? tuple index out of range
                 return None
             if threshold >= value:
                 diff_where = np.ma.where(diff < 0)
@@ -5187,6 +5225,43 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             r = (float(threshold) - a) / (b - a)
 
     return (begin + step * (n + r))
+
+
+def index_at_value_or_level_off(array, threshold, _slice):
+    '''
+    Find the index closest to the value unless it doesn't get
+    within 10% of that value in which case find the point of
+    level off.
+    
+    Designed for finding sections around Go Arounds where the
+    _slice region defines the area to search within.
+    
+    Negative step in slice supported.
+    
+    :param array: Normally an Altitude based array.
+    :type array: np.ma.array
+    :param threshold: Value to seek to
+    :type threshold: Float
+    :param _slice: Constraint within array to search until
+    :type _slice: slice
+    :returns: Index at closest value or at level off
+    :rtype: Int
+    '''
+    index = index_at_value(array, threshold, _slice, 'nearest')
+    # did we get within 90% of the threshold?
+    if array[index] > threshold * 0.9:
+        return index
+    else:
+        # we never got quite close enough to 2000ft above the
+        # minimum go around altitude. Find the top of the climb.
+        if _slice.step in (1, None):
+            return find_toc_tod(array, _slice, 'Climb')
+        else:
+            # negative step provided which is not supported by find_toc_tod
+            # so reverse the start and stop
+            stop = _slice.stop -1 if _slice.stop > 0 else 0
+            rev_slice = slice(stop, _slice.start, 1)
+            return find_toc_tod(array, rev_slice, 'Descent')
 
 
 def _value(array, _slice, operator):

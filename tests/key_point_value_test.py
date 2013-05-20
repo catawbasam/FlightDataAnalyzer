@@ -2542,7 +2542,7 @@ class TestIANGlidepathDeviationMax(unittest.TestCase):
 
     def test_can_operate(self):
         ops = self.node_class.get_operational_combinations()
-        expected = [('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach Information')]
+        expected = [('IAN Glidepath', 'Altitude AAL For Flight Phases', 'Approach Information', 'Displayed App Source (Capt)', 'Displayed App Source (FO)')]
         self.assertEqual(ops, expected)
 
     def setUp(self):
@@ -2551,10 +2551,20 @@ class TestIANGlidepathDeviationMax(unittest.TestCase):
         self.apps = App('Approach Information', items=approaches)
         self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
         self.ian = P(name='IAN Glidepath', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
+        self.app_src_capt = M(
+                    name='Displayed App Source (Capt)',
+                    array=np.ma.array([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+                    values_mapping={0: 'No Source', 1: 'FMC', 5: 'LOC/FMC', 6: 'GLS', 7: 'ILS'},
+                )
+        self.app_src_fo = M(
+                    name='Displayed App Source (FO)',
+                    array=np.ma.array([0, 0, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5]),
+                    values_mapping={0: 'No Source', 1: 'FMC', 5: 'LOC/FMC', 6: 'GLS', 7: 'ILS'},
+                )
 
     def test_derive_basic(self):
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps)
+        kpv.derive(self.ian, self.height, self.apps, self.app_src_capt, self.app_src_fo)
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 6)
         self.assertAlmostEqual(kpv[0].value, 3)
@@ -2563,7 +2573,7 @@ class TestIANGlidepathDeviationMax(unittest.TestCase):
     def test_derive_with_ils_established(self):
         self.apps[0].gs_est = slice(3, 12)
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps)
+        kpv.derive(self.ian, self.height, self.apps, self.app_src_capt, self.app_src_fo)
         self.assertEqual(len(kpv), 0)
 
 
@@ -2571,7 +2581,7 @@ class TestIANFinalApproachCourseDeviationMax(unittest.TestCase):
 
     def test_can_operate(self):
         ops = self.node_class.get_operational_combinations()
-        expected = [('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach Information'),]
+        expected = [('IAN Final Approach Course', 'Altitude AAL For Flight Phases', 'Approach Information', 'Displayed App Source (Capt)', 'Displayed App Source (FO)'),]
         self.assertEqual(ops, expected)
 
     def setUp(self):
@@ -2580,10 +2590,20 @@ class TestIANFinalApproachCourseDeviationMax(unittest.TestCase):
         self.height = P(name='Altitude AAL For Flight Phases', array=np.ma.arange(600, 300, -25))
         self.apps = App('Approach Information', items=approaches)
         self.ian = P(name='IAN Final Approach Course', array=np.ma.array([4, 2, 2, 1, 0.5, 0.5, 3, 0, 0, 0, 0, 0], dtype=np.float,))
+        self.app_src_capt = M(
+                    name='Displayed App Source (Capt)',
+                    array=np.ma.array([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+                    values_mapping={0: 'No Source', 1: 'FMC', 5: 'LOC/FMC', 6: 'GLS', 7: 'ILS'},
+                )
+        self.app_src_fo = M(
+                    name='Displayed App Source (FO)',
+                    array=np.ma.array([0, 0, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5]),
+                    values_mapping={0: 'No Source', 1: 'FMC', 5: 'LOC/FMC', 6: 'GLS', 7: 'ILS'},
+                )
 
     def test_derive_basic(self):
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps)
+        kpv.derive(self.ian, self.height, self.apps, self.app_src_capt, self.app_src_fo)
         self.assertEqual(len(kpv), 1)
         self.assertEqual(kpv[0].index, 6)
         self.assertAlmostEqual(kpv[0].value, 3)
@@ -2592,7 +2612,7 @@ class TestIANFinalApproachCourseDeviationMax(unittest.TestCase):
     def test_derive_with_ils_established(self):
         self.apps[0].loc_est = slice(3, 12)
         kpv = self.node_class()
-        kpv.derive(self.ian, self.height, self.apps)
+        kpv.derive(self.ian, self.height, self.apps, self.app_src_capt, self.app_src_fo)
         self.assertEqual(len(kpv), 0)
 
 

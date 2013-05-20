@@ -16,6 +16,7 @@ from analysis_engine.library import (
     find_toc_tod,
     first_valid_sample,
     index_at_value,
+    index_at_value_or_level_off,
     index_closest_value,
     is_index_within_slice,
     is_slice_within_slice,
@@ -141,16 +142,14 @@ class GoAroundAndClimbout(FlightPhaseNode):
                 # based) go-around KTI.
                 # Establish an altitude range around this point
                 start_slice = slice(index, alt_idxs[n_alt - 1], -1)  # work backwards towards previous peak
-                ga_start = index_at_value(smoothed_alt, value + 500, start_slice, 'nearest')
+                ga_start = index_at_value_or_level_off(smoothed_alt, 
+                                                       value+500, start_slice)
                 #--------------- Level off or 2000ft after ---------------
                 stop_slice = slice(index, alt_idxs[n_alt + 1])  # look forwards towards next peak
                 # find the nearest value; we are protected by the cycle peak
                 # as the slice.stop from going too far forward.
-                ga_stop = index_at_value(smoothed_alt, value + 2000, stop_slice, 'nearest')
-                if smoothed_alt[ga_stop] < value + 1800:
-                    # we never got quite close enough to 2000ft above the
-                    # minimum go around altitude. Find the top of the climb.
-                    ga_stop = find_toc_tod(smoothed_alt, stop_slice, 'Climb')
+                ga_stop = index_at_value_or_level_off(smoothed_alt,
+                                                      value+2000, stop_slice)
                 # round to nearest positions
                 self.create_phase(slice(int(ga_start), math.ceil(ga_stop)))
             #endfor altitude cycles
@@ -211,12 +210,12 @@ class ApproachAndLanding(FlightPhaseNode):
         ga_slices = []
 
         for land in lands:
-            app_start = index_closest_value(
-                alt_aal.array, INITIAL_APPROACH_THRESHOLD,
-                slice(land.slice.start, 0, -1))
+            _slice = slice(land.slice.start, 0, -1)
+            app_start = index_at_value_or_level_off(
+                alt_aal.array, INITIAL_APPROACH_THRESHOLD, _slice)
             app_slices.append(slice(app_start, land.slice.stop))
 
-        last_ga = 0
+        last_ga = 0  # Q: Better to use half of the first go around's index?
         for ga in go_arounds:
             # The go-around KTI is based on only a 500ft 'pit' but to include
             # the approach phase we stretch the start point back towards
@@ -224,18 +223,20 @@ class ApproachAndLanding(FlightPhaseNode):
             # carried across from one to the next, which is a safe thing to
             # do because the KTI algorithm works on the cycle finder results
             # which are inherently ordered.
-            gapp_start = index_closest_value(
-                alt_aal.array, INITIAL_APPROACH_THRESHOLD,
-                slice(ga.slice.start, last_ga, -1))
-            ga_slices.append(slice(gapp_start, ga.slice.stop))
+            
+            # look backwards from the beginning of the go-around towards the
+            # previous go around
+            _slice = slice(ga.slice.start, last_ga, -1)
+            # find the closest to 3000ft or the top of descent
+            index = index_at_value_or_level_off(
+                alt_aal.array, INITIAL_APPROACH_THRESHOLD, _slice)
+            ga_slices.append(slice(index, ga.slice.stop))
             last_ga = ga.slice.stop
 
         all_apps = slices_or(app_slices, ga_slices)
-
         if not all_apps:
             self.warning('Flight with no valid approach or go-around phase. '
                          'Probably truncated data')
-
         else:
             self.create_phases(all_apps)
 
@@ -702,20 +703,21 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     def can_operate(cls, available):
         return all_of(('ILS Localizer',
                        'Altitude AAL For Flight Phases',
-                       'Approach And Landing'), available)
+                       'Approach'), available)
 
     def derive(self, ils_loc=P('ILS Localizer'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=S('Approach And Landing'),
+               apps=S('Approach'),
                ils_freq=P('ILS Frequency'),):
         
         slices = apps.get_slices()
 
         if ils_freq and np.ma.count(ils_freq.array):
             # If we have ILS frequency tuned in check for multiple frequencies
-            # convert to ints as 110.7 != 110.7 when dealing with floats
-            ils_freq_as_int = (ils_freq.array * 100).astype(np.int)
-            frequency_changes = np.ma.diff(nearest_neighbour_mask_repair(ils_freq_as_int))
+            # useing around as 110.7 == 110.7 is not always the case when
+            # dealing with floats
+            ils_freq_repaired = nearest_neighbour_mask_repair(ils_freq.array)
+            frequency_changes = np.ma.diff(np.ma.around(ils_freq_repaired, decimals=2))
             # Create slices for each ILS frequency so they are scanned separately
             frequency_slices = runs_of_ones(frequency_changes == 0)
             if frequency_slices:

@@ -916,11 +916,10 @@ class AltitudeRadio(DerivedParameterNode):
                source_L = P('Altitude Radio EFIS (L)'),
                source_R = P('Altitude Radio EFIS (R)')):
         sources = [source_A, source_B, source_C, source_E, source_L, source_R]
-        params = [p for p in sources if p]
         self.offset = 0.0
         # blend_parameters does not currently manage downsampling correctly, so return the highest frequency for now.
         self.frequency = max([p.frequency for p in sources if p])
-        self.array = blend_parameters(params, 
+        self.array = blend_parameters(sources,
                                       offset=self.offset, 
                                       frequency=self.frequency)
 
@@ -3735,14 +3734,13 @@ class ILSGlideslope(DerivedParameterNode):
                    source_J,
                    source_M, source_N
                    ]
-        params=[p for p in sources if p]
         self.offset = 0.0
         # blend_parameters does not currently manage downsampling correctly, so return the highest frequency for now.
         self.frequency = max([p.frequency for p in sources if p])
-        self.array=blend_parameters(params, 
-                                    offset=self.offset, 
-                                    frequency=self.frequency,
-                                    )
+        self.array = blend_parameters(sources, 
+                                      offset=self.offset, 
+                                      frequency=self.frequency,
+                                      )
 
 
 class AimingPointRange(DerivedParameterNode):
@@ -5704,31 +5702,55 @@ class WindDirection(DerivedParameterNode):
             blend_two_parameters(wind_1, wind_2)
 
 
-class WheelSpeedInboard(DerivedParameterNode):
+class WheelSpeedLeft(DerivedParameterNode):
     '''
-    Required for Embraer 135-145 Data Frame
+    Merge the various recorded wheel speed signals from the left hand bogie.
     '''
-    def derive(self, ws_1=P('Wheel Speed Inboard (1)'), ws_2=P('Wheel Speed Inboard (2)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(ws_1, ws_2)
+    name = 'Wheel Speed (L)'
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+        return 'Wheel Speed (L) (1)' in available
+    
+    def derive(self, ws_1=P('Wheel Speed (L) (1)'), ws_2=P('Wheel Speed (L) (2)'),
+               ws_3=P('Wheel Speed (L) (3)'), ws_4=P('Wheel Speed (L) (4)')):
+        sources = [ws_1, ws_2, ws_3, ws_4]
+        self.offset = 0.0
+        self.frequency = max([p.frequency for p in sources if p])
+        self.array = blend_parameters(sources, self.offset, self.frequency)
 
 
-class WheelSpeedOutboard(DerivedParameterNode):
+
+class WheelSpeedRight(DerivedParameterNode):
     '''
-    Required for Embraer 135-145 Data Frame
+    Merge the various recorded wheel speed signals from the right hand bogie.
     '''
-    def derive(self, ws_1=P('Wheel Speed Outboard (1)'), ws_2=P('Wheel Speed Outboard (2)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(ws_1, ws_2)
+    name = 'Wheel Speed (R)'
+    align = False
+    
+    @classmethod
+    def can_operate(cls, available):
+        return 'Wheel Speed (R) (1)' in available
+
+    def derive(self, ws_1=P('Wheel Speed (R) (1)'), ws_2=P('Wheel Speed (R) (2)'),
+               ws_3=P('Wheel Speed (R) (3)'), ws_4=P('Wheel Speed (R) (4)')):
+        sources = [ws_1, ws_2, ws_3, ws_4]
+        self.offset = 0.0
+        self.frequency = max([p.frequency for p in sources if p])
+        self.array = blend_parameters(sources, self.offset, self.frequency)
 
 
 class WheelSpeed(DerivedParameterNode):
     '''
-    Required for Embraer 135-145 Data Frame
+    Merge Left and Right wheel speeds.
+    
+    Q: Should wheel speed Centre (C) be merged too?
     '''
-    def derive(self, ws_in=P('Wheel Speed Inboard'), ws_out=P('Wheel Speed Outboard')):
+    
+    def derive(self, ws_l=P('Wheel Speed (L)'), ws_r=P('Wheel Speed (R)')):
         self.array, self.frequency, self.offset = \
-            blend_two_parameters(ws_in, ws_out)
+            blend_two_parameters(ws_l, ws_r)
 
 
 class TrackContinuous(DerivedParameterNode):

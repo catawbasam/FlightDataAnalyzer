@@ -14,10 +14,24 @@ from flightdatautilities import masked_array_testutils as ma_test
 from flightdatautilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
-from analysis_engine.library import (align, max_value, np_ma_masked_zeros_like)
-from analysis_engine.node import (
-    Attribute, A, App, ApproachItem, KeyPointValue, KPV, KeyTimeInstance, KTI, load, M,
-    Parameter, P, Section, S)
+from analysis_engine.library import (align, 
+                                     max_value, 
+                                     np_ma_masked_zeros_like, 
+                                     np_ma_ones_like)
+from analysis_engine.node import (Attribute, 
+                                  A, 
+                                  App, 
+                                  ApproachItem, 
+                                  KeyPointValue, 
+                                  KPV, 
+                                  KeyTimeInstance, 
+                                  KTI, 
+                                  load, 
+                                  M,
+                                  Parameter, 
+                                  P, 
+                                  Section, 
+                                  S)
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import GRAVITY_IMPERIAL, METRES_TO_FEET
 
@@ -114,6 +128,7 @@ from analysis_engine.derived_parameters import (
     MagneticVariationFromRunway,
     MasterWarning,
     Pitch,
+    RollRate,
     Speedbrake,
     SpeedbrakeSelected,
     StableApproach,
@@ -131,6 +146,9 @@ from analysis_engine.derived_parameters import (
     V2,
     V2Lookup,
     VerticalSpeedInertial,
+    WheelSpeed,
+    WheelSpeedLeft,
+    WheelSpeedRight,
     WindAcrossLandingRunway,
 )
 
@@ -3770,14 +3788,16 @@ class TestRoll(unittest.TestCase):
 
 
 class TestRollRate(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        opts = RollRate.get_operational_combinations()
+        self.assertTrue(('Roll',) in opts)
         
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
+        roll = P(array=[0,2,4,6,8,10,12], name='Roll', frequency=2.0)
+        rr = RollRate()
+        rr.derive(roll)
+        expected=np_ma_ones_like(roll.array)*4.0
+        ma_test.assert_array_equal(expected[2:4], rr.array[2:4]) # Differential process blurs ends of the array, so just test the core part.
 
 class TestSlat(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
@@ -4177,14 +4197,37 @@ class TestVerticalSpeedInertial(unittest.TestCase):
 class TestWheelSpeed(unittest.TestCase):
     def test_can_operate(self):
         opts = WheelSpeed.get_operational_combinations()
-        self.assertIn(('Wheel Speed (1)', 'Wheel Speed (2)'), available)
-        self.assertIn(('Wheel Speed (1)', 'Wheel Speed (2)', 'Wheel Speed (3)', 'Wheel Speed (4)'), available)
-        self.assertIn(('Wheel Speed Inboard', 'Wheel Speed Outboard'), available)
-        
+        self.assertEqual(opts, 
+                         [('Wheel Speed (L)', 'Wheel Speed (R)'),
+                          #('Wheel Speed (L)', 'Wheel Speed (C)', 'Wheel Speed (R)'),
+                          ])
+         
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         pass
-    
+
+
+class TestWheelSpeedLeft(unittest.TestCase):
+    def test_can_operate(self):
+        opts = WheelSpeedLeft.get_operational_combinations()
+        self.assertIn(('Wheel Speed (L) (1)', 'Wheel Speed (L) (2)'), opts)
+        self.assertIn(('Wheel Speed (L) (1)', 'Wheel Speed (L) (2)', 'Wheel Speed (L) (3)', 'Wheel Speed (L) (4)'), opts)
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
+
+
+class TestWheelSpeedRight(unittest.TestCase):
+    def test_can_operate(self):
+        opts = WheelSpeedRight.get_operational_combinations()
+        self.assertIn(('Wheel Speed (R) (1)', 'Wheel Speed (R) (2)'), opts)
+        self.assertIn(('Wheel Speed (R) (1)', 'Wheel Speed (R) (2)', 'Wheel Speed (R) (3)', 'Wheel Speed (R) (4)'), opts)
+         
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
+
 
 class TestWindDirectionContinuous(unittest.TestCase):
     @unittest.skip('Test Not Implemented')

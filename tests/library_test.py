@@ -2695,7 +2695,7 @@ class TestBlendParameters(unittest.TestCase):
         p1 = P(array=[5,10,7,8,9], frequency=1, offset=0.1, name='First')
         p2 = P(array=[1,2,3,4,5], frequency=1, offset=0.0, name='Second')
         p1.array.mask = True
-        result = blend_parameters((p1, p2))
+        result = blend_parameters((p1, None, p2))  # random None parameter too
         self.assertAlmostEqual(result[2], 3)
         
     def test_blend_two_parameters_lower_op_freq(self):
@@ -3299,6 +3299,14 @@ class TestRateOfChange(unittest.TestCase):
         sloped = rate_of_change(P('Test',np.ma.arange(10)/100.0, 1), 4)
         answer = np.ma.array(data=[0.01]*10,mask=False)
         ma_test.assert_masked_array_approx_equal(sloped, answer)
+
+    def test_rate_of_change_regression(self):
+        sloped = rate_of_change(P('Test',
+                                  np.ma.array([0,0,0,0,0,0,1,1,1,1,1,1],
+                                              dtype=float), 1), 5, method='regression')
+        answer = np.ma.array(data=[0.0,0.0,0.0,0.0,0.2,0.3,0.3,0.2,0.0,0.0,0.0,0.0],
+                             mask=False)
+        ma_test.assert_mask_eqivalent(sloped, answer)
 
 
 class TestRepairMask(unittest.TestCase):

@@ -183,7 +183,7 @@ class TestApproachAndLanding(unittest.TestCase):
 
     def test_approach_and_landing_landing_and_go_around_overlap(self):
         alt = np.ma.array([3500, 2500, 2000, 2500, 3500, 3500])
-        land = buildsection('Landing', 5, 6)
+        land = buildsection('Landing', 4, 6)
         ga = buildsection('Go Around And Climbout', 2.5, 3.5)
         app = ApproachAndLanding()
         app.derive(
@@ -197,7 +197,32 @@ class TestApproachAndLanding(unittest.TestCase):
         app = ApproachAndLanding()
         app.derive(
             Parameter('Altitude AAL For Flight Phases', alt), land, ga)
-        self.assertEqual(app.get_slices(), [slice(0, 2), slice(3, 6)])
+        self.assertEqual(app.get_slices(), [slice(0, 2), slice(4, 6)])
+        
+    def test_with_go_around_and_climbout_atr42_data(self):
+        alt_aal = load(os.path.join(test_data_path,
+                                    'AltitudeAAL_ATR42_two_goarounds.nod'))
+        
+        lands = SectionNode(items=[
+            Section(name='Landing',
+                    slice=slice(27343, 27500, None),
+                    start_edge=27342, stop_edge=27499),
+        ])
+        gas = SectionNode(items=[
+            Section(name='Go Around And Climbout',
+                    slice=slice(10702, 10949),
+                    start_edge=10702, stop_edge=10949),
+            Section(name='Go Around And Climbout',
+                    slice=slice(12528, 12749, None),
+                    start_edge=12528, stop_edge=12749),
+        ])
+        
+        app_ldg = ApproachAndLanding()
+        app_ldg.derive(alt_aal, lands, gas)
+        self.assertEqual(len(app_ldg), 3)
+        self.assertEqual(app_ldg[0].slice, slice(9770, 10949))
+        self.assertEqual(app_ldg[1].slice, slice(12056, 12749))
+        self.assertEqual(app_ldg[2].slice, slice(26925, 27500))
 
 
 class TestApproach(unittest.TestCase):
@@ -290,8 +315,8 @@ class TestILSGlideslopeEstablished(unittest.TestCase):
 
 class TestILSLocalizerEstablished(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('ILS Localizer', 'Altitude AAL For Flight Phases', 'Approach And Landing'),
-                    ('ILS Localizer', 'Altitude AAL For Flight Phases', 'Approach And Landing', 'ILS Frequency')]
+        expected = [('ILS Localizer', 'Altitude AAL For Flight Phases', 'Approach'),
+                    ('ILS Localizer', 'Altitude AAL For Flight Phases', 'Approach', 'ILS Frequency')]
 
         self.assertEqual(ILSLocalizerEstablished.get_operational_combinations(),
                          expected)
@@ -300,7 +325,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         ils = P('ILS Localizer',np.ma.arange(-3, 0, 0.3))
         alt_aal = P('Alttiude AAL For Flight Phases',
                     np.ma.arange(1000, 0, -100))
-        app = S(items=[Section('Approach And Landing', slice(0, 10), 0, 10)])
+        app = S(items=[Section('Approach', slice(0, 10), 0, 10)])
         establish = ILSLocalizerEstablished()
         establish.derive(ils, alt_aal, app, None)
         expected = buildsection('ILS Localizer Established', 10*2.0/3.0, 10)
@@ -311,21 +336,21 @@ class TestILSLocalizerEstablished(unittest.TestCase):
     def test_ils_localizer_established_never_on_loc(self):
         ils = P('ILS Localizer',np.ma.array([3]*10))
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
-        app = S(items=[Section('Approach And Landing', slice(2, 9), 2, 9)])
+        app = S(items=[Section('Approach', slice(2, 9), 2, 9)])
         establish = ILSLocalizerEstablished()
         self.assertEqual(establish.derive(ils, alt_aal, app, None), None)
 
     def test_ils_localizer_established_always_on_loc(self):
         ils = P('ILS Localizer',np.ma.array([-0.2]*10))
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
-        app = S(items=[Section('Approach And Landing', slice(2, 9), 2, 9)])
+        app = S(items=[Section('Approach', slice(2, 9), 2, 9)])
         establish = ILSLocalizerEstablished()
         establish.derive(ils, alt_aal, app, None)
         expected = buildsection('ILS Localizer Established',2, 9)
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_established_only_last_segment(self):
-        app = S(items=[Section('Approach And Landing', slice(2, 9), 2, 9)])
+        app = S(items=[Section('Approach', slice(2, 9), 2, 9)])
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         ils = P('ILS Localizer',np.ma.array([0,0,0,1,3,3,2,1,0,0]))
         establish = ILSLocalizerEstablished()
@@ -334,7 +359,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_stays_established_with_large_visible_deviations(self):
-        app = S(items=[Section('Approach And Landing', slice(1, 9), 1, 9)])
+        app = S(items=[Section('Approach', slice(1, 9), 1, 9)])
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         ils = P('ILS Localizer',np.ma.array([0,0,0,1,2.3,2.3,2,1,0,0]))
         establish = ILSLocalizerEstablished()
@@ -343,7 +368,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_insensitive_to_few_masked_values(self):
-        app = S(items=[Section('Approach And Landing', slice(1, 9), 1, 9)])
+        app = S(items=[Section('Approach', slice(1, 9), 1, 9)])
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         ils = P('ILS Localizer',np.ma.array(data=[0,0,0,1,2.3,2.3,2,1,0,0],
                                             mask=[0,0,0,0,0,1,1,0,0,0]))
@@ -353,7 +378,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(establish, expected)
 
     def test_ils_localizer_skips_too_many_masked_values(self):
-        app = S(items=[Section('Approach And Landing', slice(1, 9), 1, 9)])
+        app = S(items=[Section('Approach', slice(1, 9), 1, 9)])
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         ils = P('ILS Localizer',np.ma.array(data=[0.0]*20,
                                             mask=[0,1]*10))
@@ -362,7 +387,7 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(establish, [])
 
     def test_ils_localizer_skips_too_few_values(self):
-        app = S(items=[Section('Approach And Landing', slice(2, 9), 2, 9)])
+        app = S(items=[Section('Approach', slice(2, 9), 2, 9)])
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
         ils = P('ILS Localizer',np.ma.array(data=[0.0]*5,
                                             mask=[0]*5))
