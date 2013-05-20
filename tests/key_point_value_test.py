@@ -375,7 +375,10 @@ from analysis_engine.key_point_values import (
     PackValvesOpenAtLiftoff,
     IsolationValveOpenAtLiftoff,
 )
-from analysis_engine.key_time_instances import EngStop
+from analysis_engine.key_time_instances import (
+    AltitudeSTDWhenDescending,
+    EngStop,
+)
 from analysis_engine.library import (max_abs_value, max_value, min_value)
 from analysis_engine.flight_phase import Fast
 from flight_phase_test import buildsection
@@ -872,39 +875,40 @@ class TestAccelerationNormalOffset(unittest.TestCase, NodeTest):
 # Airspeed: General
 
 
-class TestAirspeedAt8000Ft(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AirspeedAt8000Ft
-        self.operational_combinations = [('Airspeed', 'Altitude STD 8000 Ft')]
+        self.operational_combinations = [('Airspeed', 'Altitude STD When Descending')]
     
     def test_derive_basic(self):
         air_spd = P('Airspeed', array=np.ma.arange(0, 200, 10))
-        alt_8000 = KTI('Altitude STD 8000 Ft',
-            items=[KeyTimeInstance(10, 'Altitude STD 8000 Ft Climbing'),
-                   KeyTimeInstance(16, 'Altitude STD 8000 Ft Climbing'),
-                   KeyTimeInstance(18, 'Altitude STD 8000 Ft Climbing')])
+        alt_std_desc = AltitudeSTDWhenDescending(
+            items=[KeyTimeInstance(8, '6000 Ft Descending'),
+                   KeyTimeInstance(10, '8000 Ft Descending'),
+                   KeyTimeInstance(16, '8000 Ft Descending'),
+                   KeyTimeInstance(18, '8000 Ft Descending')])
         node = self.node_class()
-        node.derive(air_spd, alt_8000)
+        node.derive(air_spd, alt_std_desc)
         self.assertEqual(node,
                          [KeyPointValue(index=10, value=100.0, name='Airspeed At 8000 Ft'),
                           KeyPointValue(index=16, value=160.0, name='Airspeed At 8000 Ft'),
                           KeyPointValue(index=18, value=180.0, name='Airspeed At 8000 Ft')])
 
 
-class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase,
-                                                   CreateKPVsAtKTIsTest):
+class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = ModeControlPanelAirspeedSelectedAt8000Ft
-        self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude STD 8000 Ft')]
+        self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude STD When Descending')]
     
     def test_derive_basic(self):
         air_spd = P('Mode Control Panel Airspeed Selected', array=np.ma.arange(0, 200, 5))
-        alt_8000 = KTI('Altitude STD 8000 Ft',
-            items=[KeyTimeInstance(13, 'Altitude STD 8000 Ft'),
-                   KeyTimeInstance(26, 'Altitude STD 8000 Ft'),
-                   KeyTimeInstance(32, 'Altitude STD 8000 Ft')])
+        alt_std_desc = AltitudeSTDWhenDescending(
+            items=[KeyTimeInstance(13, '8000 Ft Descending'),
+                   KeyTimeInstance(26, '8000 Ft Descending'),
+                   KeyTimeInstance(32, '8000 Ft Descending'),
+                   KeyTimeInstance(35, '4000 Ft Descending')])
         node = self.node_class()
-        node.derive(air_spd, alt_8000)
+        node.derive(air_spd, alt_std_desc)
         self.assertEqual(node,
                          [KeyPointValue(index=13, value=65.0, name='Mode Control Panel Airspeed Selected At 8000 Ft'),
                           KeyPointValue(index=26, value=130.0, name='Mode Control Panel Airspeed Selected At 8000 Ft'),
