@@ -1650,6 +1650,8 @@ class Eng_AllRunning(MultistateDerivedParameterNode):
     TODO: Confirm that all engines were recording for the N2 Min / Fuel Flow
     Min parameters - theoretically there could be only three engines in the
     frame for a four engine aircraft. Use "Engine Count".
+    
+    TODO: Support shutdown for Propellor aircraft that don't record fuel flow.
     '''
     name = 'Eng (*) All Running'
     values_mapping = {

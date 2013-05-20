@@ -1444,6 +1444,23 @@ class TestCycleFinder(unittest.TestCase):
         np.testing.assert_array_equal(vals, [0, 3, 1, 6])
 
 
+class TestCycleMatch(unittest.TestCase):
+    def test_find_a_match(self):
+        cycles = [10, 30, 100, 129, 144]
+        self.assertEqual(cycle_match(30, cycles), (10, 100))
+        self.assertEqual(cycle_match(32, cycles), (10, 100))
+        # no matching index
+        self.assertRaises(ValueError, cycle_match, 36, cycles, dist=1)
+        # no previous
+        self.assertEqual(cycle_match(8, cycles), (None, 30))
+        # no next
+        self.assertEqual(cycle_match(160, cycles, dist=50), (129, None))
+        # finds closest
+        self.assertEqual(cycle_match(120, cycles, dist=4000), (100, 144))
+        # equal distance rounds down
+        self.assertEqual(cycle_match(20, cycles), (None, 30))
+        
+ 
 class TestDatetimeOfIndex(unittest.TestCase):
     def test_index_of_datetime(self):
         start_datetime = datetime.now()
@@ -2126,6 +2143,11 @@ class TestIndexOfLastStop(unittest.TestCase):
         # try scanning backwards
         self.assertRaises(ValueError, index_of_last_stop,
                           np.array([0,1,0]), slice(None, None, -1))
+
+
+class TestIndexAtValueOrLevelOff(unittest.TestCase):
+    def test_reverse_level_off(self):
+        pass
 
 
 class TestInterpolate(unittest.TestCase):
