@@ -948,6 +948,39 @@ def cycle_finder(array, min_step=0.0, include_ends=True):
         return idxs, vals
 
 
+def cycle_match(idx, cycle_idxs, dist=None):
+    '''
+    Finds the previous and next cycle indexes either side of idx plus
+    an allowable distance. For use after "cycle_finder".
+    
+    cycle_idxs are generally a "down up down up down" afair where you are
+    searching for the indexes either side of an "up" for instance. If no
+    index is available before or after a match, a None is returned in its
+    place. If no matching index found within cycle_idxs, ValueError is raised.
+
+    :param idx: Index to find cycle around
+    :type idx: Float
+    :param cycle_idxs: Indexes from cycle finder
+    :type cycle_idxs: List of indexes
+    :param dist: If None, uses a quarter of the minimum dist between cycles
+    :type dist: Float or None
+    :returns: previous and next cycle indexes
+    :rtype: float, float
+    '''
+    if dist is None:
+        dist = np.min(np.diff(cycle_idxs)) / 4.0
+    
+    for n, cidx in enumerate(cycle_idxs):
+        if abs(idx - cidx) < dist:
+            # index is close to this position
+            prev = cycle_idxs[n-1] if n > 0 else None
+            post = cycle_idxs[n+1] if n-1 <= len(cycle_idxs) else None
+            return prev, post
+        else:
+            continue
+    raise ValueError("Did not find a match for index '%d' within cycles" % idx)
+
+
 def datetime_of_index(start_datetime, index, frequency=1):
     '''
     Returns the datetime of an index within the flight at a particular
