@@ -976,7 +976,8 @@ def cycle_match(idx, cycle_idxs, dist=None):
         prev = cycle_idxs[min_idx-1] if min_idx > 0 else None
         post = cycle_idxs[min_idx+1] if min_idx < len(cycle_idxs)-1 else None
         return prev, post
-    raise ValueError("Did not find a match for index '%d' within cycles" % idx)
+    raise ValueError("Did not find a match for index '%d' within cycles %s" % (
+        idx, cycle_idxs))
 
 
 def datetime_of_index(start_datetime, index, frequency=1):
@@ -5277,7 +5278,7 @@ def index_at_value_or_level_off(array, threshold, _slice):
     '''
     index = index_at_value(array, threshold, _slice, 'nearest')
     # did we get within 90% of the threshold?
-    if array[index] > threshold * 0.9:
+    if index is not None and array[index] > threshold * 0.9:
         return index
     else:
         # we never got quite close enough to 2000ft above the
