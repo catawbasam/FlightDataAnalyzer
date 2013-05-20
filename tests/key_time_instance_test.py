@@ -10,6 +10,7 @@ from analysis_engine.flight_phase import Climbing
 
 from analysis_engine.key_time_instances import (
     AltitudePeak,
+    AltitudeSTD8000Ft,
     AltitudeWhenClimbing,
     AltitudeWhenDescending,
     APDisengagedSelection,
@@ -86,6 +87,25 @@ class TestAltitudePeak(unittest.TestCase):
         alt_peak.derive(self.alt_aal)
         expected = [KeyTimeInstance(name='Altitude Peak', index=9)]
         self.assertEqual(alt_peak, expected)
+
+
+class TestAltitudeSTD8000Ft(unittest.TestCase):
+    
+    def test_can_operate(self):
+        expected = [('Altitude STD',)]
+        self.assertEqual(AltitudeSTD8000Ft.get_operational_combinations(),
+                         expected)
+    
+    def test_derive_basic(self):
+        alt_std_array = np.ma.concatenate([np.ma.arange(0, 10000, 1000),
+                                           np.ma.arange(10000, 0, -1000)])
+        alt_std = P('Altitude STD', array=alt_std_array)
+        node = AltitudeSTD8000Ft()
+        node.derive(alt_std)
+        self.assertEqual(
+            node,
+            [KeyTimeInstance(index=8.0, name='Altitude STD 8000 Ft'),
+             KeyTimeInstance(index=12.0, name='Altitude STD 8000 Ft')])
 
 
 class TestBottomOfDescent(unittest.TestCase):
