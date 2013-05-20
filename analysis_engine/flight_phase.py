@@ -714,9 +714,10 @@ class ILSLocalizerEstablished(FlightPhaseNode):
 
         if ils_freq and np.ma.count(ils_freq.array):
             # If we have ILS frequency tuned in check for multiple frequencies
-            # convert to ints as 110.7 != 110.7 when dealing with floats
-            ils_freq_as_int = (ils_freq.array * 100).astype(np.int)
-            frequency_changes = np.ma.diff(nearest_neighbour_mask_repair(ils_freq_as_int))
+            # useing around as 110.7 == 110.7 is not always the case when
+            # dealing with floats
+            ils_freq_repaired = nearest_neighbour_mask_repair(ils_freq.array)
+            frequency_changes = np.ma.diff(np.ma.around(ils_freq_repaired, decimals=2))
             # Create slices for each ILS frequency so they are scanned separately
             frequency_slices = runs_of_ones(frequency_changes == 0)
             if frequency_slices:
