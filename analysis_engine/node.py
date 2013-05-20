@@ -1352,14 +1352,17 @@ class KeyTimeInstanceNode(FormattedNameNode):
         def kti_edges(array, _slice):
             edge_list = find_edges(array, _slice, direction=direction)
             for edge_index in edge_list:
+                kwargs = dict(replace_values=replace_values)
                 if name:
                     # Annotate the transition with the post-change state.
-                    self.create_kti(
-                        edge_index, replace_values=replace_values,
-                        **{name: array[int(math.floor(edge_index)) + 1]})
-                else:
-                    self.create_kti(edge_index, replace_values=replace_values)
-            return
+                    v = array[int(math.floor(edge_index)) + 1]
+                    if name in ['conf', 'flap']:
+                        # Ensure KTIs with integer detents don't have decimal
+                        # places and that those that are floats only have one
+                        # decimal place:
+                        v = int(v) if v.is_integer() else '%.1f' % v
+                    kwargs.update(**{name: v})
+                self.create_kti(edge_index, **kwargs)
 
         # High level function scans phase blocks or complete array and
         # presents appropriate arguments for analysis. We test for phase.name
@@ -1369,7 +1372,6 @@ class KeyTimeInstanceNode(FormattedNameNode):
         else:
             for each_period in phase:
                 kti_edges(array, each_period.slice)
-        return
 
     def create_ktis_on_state_change(self, state, array, change='entering',
                                     phase=None):

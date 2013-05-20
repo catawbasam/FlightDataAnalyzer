@@ -799,7 +799,7 @@ class TestFlapSet(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Flap', )]
         self.flap = P(
             name='Flap',
-            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
+            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0, 17.5]),
         )
 
     def test_derive(self):
@@ -812,6 +812,7 @@ class TestFlapSet(unittest.TestCase, NodeTest):
             KeyTimeInstance(index=6.5, name='Flap 10 Set'),
             KeyTimeInstance(index=8.5, name='Flap 5 Set'),
             KeyTimeInstance(index=10.5, name='Flap 0 Set'),
+            KeyTimeInstance(index=12.5, name='Flap 17.5 Set'),
         ])
 
 
