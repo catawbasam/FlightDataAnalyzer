@@ -17,7 +17,9 @@ from analysis_engine.flight_phase import Fast, Mobile
 from analysis_engine.library import (align, 
                                      max_value, 
                                      np_ma_masked_zeros_like, 
-                                     np_ma_ones_like)
+                                     np_ma_ones_like,
+                                     rate_of_change_array)
+
 from analysis_engine.node import (Attribute, 
                                   A, 
                                   App, 
@@ -4160,41 +4162,43 @@ class TestVerticalSpeedInertial(unittest.TestCase):
         
     def test_derive(self):
         time = np.arange(100)
-        zero = np.array([0]*10)
+        zero = np.array([0]*50)
         acc_values = np.concatenate([zero, np.cos(time*np.pi*0.02), zero])
         vel_values = np.concatenate([zero, np.sin(time*np.pi*0.02), zero])
         ht_values = np.concatenate([zero, 1.0-np.cos(time*np.pi*0.02), zero])
         
-        # For a 0-400ft leap, the scaling is 200ft amplitude and 2*pi/100 for each differentiation.
+        # For a 0-400ft leap over 100 seconds, the scaling is 200ft amplitude and 2*pi/100 for each differentiation.
         amplitude = 200.0
         diff = 2.0 * np.pi / 100.0
         ht_values *= amplitude
-        vel_values *= amplitude * diff * 60.0
-        acc_values *= amplitude * diff**2.0 / GRAVITY_IMPERIAL
+        vel_values *= amplitude * diff * 60.0 # fpm
+        acc_values *= amplitude * diff**2.0 / GRAVITY_IMPERIAL # g
         
-        '''
-        import matplotlib.pyplot as plt
-        plt.plot(acc_values)
-        plt.plot(vel_values)
-        plt.plot(ht_values)
-        plt.show()
-        '''
+        #import wx
+        #import matplotlib.pyplot as plt
+        #plt.plot(acc_values,'k')
+        #plt.plot(vel_values,'b')
+        #plt.plot(ht_values,'r')
+        #plt.show()
+        
         az = P('Acceleration Vertical', acc_values)
         alt_std = P('Altitude STD Smoothed', ht_values + 30.0) # Pressure offset
+        #vs_baro = P('VS', rate_of_change_array(alt_std.array, 5))
+        vs_baro = P('VS', vel_values)
         alt_rad = P('Altitude STD Smoothed', ht_values-2.0) #Oleo compression
-        fast = buildsection('Fast', 5, len(acc_values)-5)
+        fast = buildsection('Fast', 10, len(acc_values)-10)
 
         vsi = VerticalSpeedInertial()
-        vsi.derive(az, alt_std, alt_rad, fast)
+        vsi.derive(az, alt_std, vs_baro, alt_rad, fast)
         
         expected = vel_values
 
-        '''
+        
         import matplotlib.pyplot as plt
         plt.plot(expected)
         plt.plot(vsi.array)
         plt.show()
-        '''
+        
         # Just check the graphs are similar in shape - there will always be
         # errors because of the integration technique used.
         np.testing.assert_almost_equal(vsi.array, expected, decimal=-2)

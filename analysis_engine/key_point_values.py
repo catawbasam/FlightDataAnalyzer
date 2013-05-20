@@ -6477,13 +6477,13 @@ class RateOfDescentAtTouchdown(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed Inertial'),
-               alt_aal=P('Altitude AAL'),
-               landings=S('Landing')):
+               tdns=KTI('Touchdown')):
+        self.create_kpvs_at_ktis(vrt_spd.array, tdns)
 
-        for landing in landings:
-            index, rod = touchdown_inertial(landing, vrt_spd, alt_aal)  # FIXME: Store this in a parameter or cache so that we don't have to repeat this!
-            if index:
-                self.create_kpv(index, rod)
+        ##for landing in landings:
+            ##index, rod = touchdown_inertial(landing, vrt_spd, alt_aal)  # FIXME: Store this in a parameter or cache so that we don't have to repeat this!
+            ##if index:
+                ##self.create_kpv(index, rod)
 
 
 class RateOfDescentDuringGoAroundMax(KeyPointValueNode):
