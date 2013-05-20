@@ -22,29 +22,31 @@ def flatten(l):
         else:
             yield el
 
+
+class MockParam(Node):
+    def __init__(self, dependencies=['a'], operational=True):
+        self.dependencies = dependencies
+        self.operational = operational
+        # Hack to allow objects rather than classes to be added
+        # to the tree.
+        self.__base__ = DerivedParameterNode
+        
+    def can_operate(self, avail):
+        return self.operational
+    
+    def derive(self, a=P('a')):
+        pass
+    
+    def get_derived(self, args):
+        pass
+    
+    def get_dependency_names(self):
+        return self.dependencies
+
+
 class TestDependencyGraph(unittest.TestCase):
 
     def setUp(self):
-        class MockParam(Node):
-            def __init__(self, dependencies=['a'], operational=True):
-                self.dependencies = dependencies
-                self.operational = operational
-                # Hack to allow objects rather than classes to be added
-                # to the tree.
-                self.__base__ = DerivedParameterNode
-                
-            def can_operate(self, avail):
-                return self.operational
-            
-            def derive(self, a=P('a')):
-                pass
-            
-            def get_derived(self, args):
-                pass
-            
-            def get_dependency_names(self):
-                return self.dependencies
-            
         # nodes found on this aircraft's LFL
         self.lfl_params = [
             'Raw1',
@@ -195,6 +197,7 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         order, _ = dependency_order(nodes, draw=False)
         pos = order.index
         self.assertTrue(len(order))
+        self.assertNotIn('Moment Of Takeoff', order)  # not available
         self.assertTrue(pos('Vertical Speed') > pos('Pressure Altitude'))
         self.assertTrue(pos('Slip On Runway') > pos('Groundspeed'))
         self.assertTrue(pos('Slip On Runway') > pos('Horizontal g Across Track'))
@@ -219,6 +222,29 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
                           {}, {})
         self.assertRaises(nx.NetworkXError, dependency_order, mgr, draw=False)
         
+    def test_avoiding_possible_circular_dependency(self):
+        # Possible circular dependency which can be avoided:
+        # Gear Selected Down depends on Gear Down which depends on Gear Selected Down...!
+        lfl_params = ['Airspeed', 'Gear (L) Down', 'Gear (L) Red Warning']
+        required_nodes = ['Airspeed At Gear Down Selected']
+        try:
+            # for test cmd line runners
+            derived = get_derived_nodes(['tests.sample_circular_dependency_nodes'])
+        except ImportError:
+            # for IDE test runners
+            derived = get_derived_nodes(['sample_circular_dependency_nodes'])
+        mgr = NodeManager(datetime.now(), 10, lfl_params, required_nodes, derived, 
+                          {}, {})
+        order, _ = dependency_order(mgr, draw=True)
+        # As Gear Selected Down depends upon Gear Down
+        
+        self.assertEqual(order,
+            ['Gear (L) Down', 'Gear Down', 'Gear (L) Red Warning', 
+             'Gear Down Selected', 'Airspeed', 'Airspeed At Gear Down Selected'])
+
+        # try a bigger cyclic dependency on top of the above one
+        
+
 
 class TestGraphAdjacencies(unittest.TestCase):
     def test_graph_adjacencies(self):

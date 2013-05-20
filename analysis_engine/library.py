@@ -14,6 +14,7 @@ from settings import (CURRENT_YEAR,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
                       REPAIR_DURATION,
+                      SLOPE_FOR_TOC_TOD,
                       TRUCK_OR_TRAILER_INTERVAL,
                       TRUCK_OR_TRAILER_PERIOD)
 
@@ -563,6 +564,9 @@ def calculate_timebase(years, months, days, hours, mins, secs):
         try:
             dt = datetime(int(yr), int(mth), int(day), int(hr), int(mn), int(sc))
         except (ValueError, TypeError, np.ma.core.MaskError):
+            # ValueError is raised if values are out of range, e.g. 0..59.
+            # Q: Should we validate these parameters and switch to fallback_dt
+            #    if it fails?
             continue
         if not base_dt:
             base_dt = dt # store reference datetime
@@ -1114,8 +1118,13 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
     return result
 
 
-def closest_unmasked_value(array, index, _slice=slice(None)):
+def closest_unmasked_value(array, index, _slice=None):
     '''
+    Find the closest unmasked value in the array that's close to the index.
+    The index is relative to the start of the array, NOT the _slice
+    subsection. Supports negative index which is relative to the end of the
+    array however _slice argument cannot be used at the same time.
+    
     :param array: Array to find the closest unmasked value within.
     :type array: np.ma.array
     :param index: Find the closest unmasked value to this index.
@@ -1125,17 +1134,40 @@ def closest_unmasked_value(array, index, _slice=slice(None)):
     :returns: The closest index and value of an unmasked value.
     :rtype: Value
     '''
-    array = array[_slice]
+    if _slice is not None and index < 0:
+        # hard to understand what the programmer is expecting to be returned
+        raise NotImplementedError("Negative indexing on slice not supported")
+    if _slice is None:
+        _slice = slice(None)
+    if (_slice.step and _slice.step != 1):
+        return NotImplementedError("Step '%s' not supported" % slice.step)
+    
+    slice_start = (_slice.start or 0)
+    slice_stop = (_slice.stop or len(array))
+    
+    if index >= 0 and index > slice_stop:
+        raise IndexError("index is beyond length of sliced data")
+    elif index < 0 and abs(index) > len(array):
+        raise IndexError("negative index goes beyond array length")
+    
     if index < 0:
         index = abs(len(array) + index)
-    if not np.ma.count(array):
-        return None
-    indices = np.ma.arange(len(array))
+        
+    sliced_array = array[_slice]
+    # make index relative to the sliced section
+    rel_index = index - slice_start  
+    if not np.ma.count(sliced_array) or abs(rel_index) > len(sliced_array):
+        # slice contains no valid data or index is outside of the length of
+        # the array
+        #return Value(None, None)
+        raise IndexError("No valid data to find at index '%d' in sliced array "
+                         "of length '%d'" % (index, len(sliced_array)))
+    
+    indices = np.ma.arange(len(sliced_array))
     indices.mask = array.mask
-    index = np.ma.abs(indices - index).argmin()
-    value = array[index]
-    index = index + (_slice.start or 0)
-    return Value(index=index, value=value)
+    relative_pos = np.ma.abs(indices - rel_index).argmin()
+    pos = relative_pos + slice_start
+    return Value(index=pos, value=array[pos])
 
 
 def clump_multistate(array, state, _slices, condition=True):
@@ -1314,6 +1346,47 @@ def index_of_last_stop(bool_array, _slice=slice(0, None), min_dur=1,
         return runs[-1].stop + (_slice.start or 0) - 0.5
     else:
         return None
+
+
+def find_toc_tod(alt_data, ccd_slice, mode='Climb'):
+    '''
+    Find the Top Of Climb or Top Of Descent from an altitude trace.
+    
+    :param alt_data: Altitude array usually above FL100
+    :type alt_data: np.ma.array
+    :param ccd_slice: "cruise climb descent" slice of data, although similar will do
+    :type ccd_slice: slice
+    :param mode: Either 'Climb' or 'Descent' to define which to select.
+    :type mode: String
+    :returns: Index of location identified within slice, relative to start of alt_data
+    :rtype: Int
+    '''
+    #NOTE: If this is changed to support slices with negative step, be sure to
+    # update index_at_value_or_level_off() which currently reverses the slice.
+    
+    # Find the maximum altitude in this slice to reduce the effort later
+    peak_index = np.ma.argmax(alt_data[ccd_slice])
+
+    if mode == 'Climb':
+        section = slice(ccd_slice.start, ccd_slice.start + peak_index + 1,
+                        None)
+        slope = SLOPE_FOR_TOC_TOD
+    else:
+        section = slice((ccd_slice.start or 0) + peak_index, ccd_slice.stop,
+                        None)
+        slope = -SLOPE_FOR_TOC_TOD
+
+    # Quit if there is nothing to do here.
+    if section.start == section.stop:
+        raise ValueError('No range of data for top of climb or descent check')
+
+    # Establish a simple monotonic timebase
+    timebase = np.arange(len(alt_data[section]))
+    # Then scale this to the required altitude data slope
+    ramp = timebase * slope
+    # For airborne data only, subtract the slope from the climb, then
+    # the peak is at the top of climb or descent.
+    return np.ma.argmax(alt_data[section] - ramp) + section.start
 
 
 def find_edges(array, _slice, direction='rising_edges'):
@@ -1841,7 +1914,7 @@ def runway_heading(runway):
         return float(brg.data)
     except:
         if runway:
-            raise ValueError("runway_heading unable to resolve heading for runway id='%s'" %runway['id'])
+            raise ValueError("runway_heading unable to resolve heading for runway: %s" % runway)
         else:
             raise ValueError("runway_heading unable to resolve heading; no runway")
 
@@ -2095,8 +2168,8 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     track_edges = np.ma.flatnotmasked_edges(np.ma.masked_less(speed, 1.0))
 
     # In cases where the data starts with no useful groundspeed data, throw in the towel now.
-    if track_edges==None:
-        return lat_return, lon_return, 0.0
+    if track_edges is None:
+        raise ValueError("No useful speed data for '%s' section" % mode)
 
     # Increment to allow for Python indexing, but don't step over the edge.
     track_edges[1] = min(track_edges[1]+1, len(speed))
@@ -2106,7 +2179,7 @@ def ground_track_precise(lat, lon, speed, hdg, frequency, mode):
     elif mode == 'takeoff':
         track_slice=slice(track_edges[0], len(speed))
     else:
-        raise 'unknown mode in ground_track_precise'
+        raise NotImplementedError("Unrecognised mode '%s' in ground_track_precise" % mode)
 
     rot = np.ma.abs(rate_of_change_array(hdg[track_slice], frequency, width=8.0))
     straights = np.ma.clump_unmasked(np.ma.masked_greater(rot, 2.0)) # 2deg/sec
@@ -3403,8 +3476,8 @@ def blend_parameters_weighting(array, wt):
     '''
     mask = np.ma.getmaskarray(array)
     param_weight = (1.0-mask)
-    result_weight = np_ma_masked_zeros_like(np.ma.arange(len(param_weight)*wt))
-    final_weight = np_ma_masked_zeros_like(np.ma.arange(len(param_weight)*wt))
+    result_weight = np_ma_masked_zeros_like(np.ma.arange(floor(len(param_weight)*wt)))
+    final_weight = np_ma_masked_zeros_like(np.ma.arange(floor(len(param_weight)*wt)))
     result_weight[0]=param_weight[0]/wt
     result_weight[-1]=param_weight[-1]/wt
 
@@ -3444,8 +3517,8 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
     future, allowing for control of the first derivative at the ends of
     the data, but that's in the future...
 
-    :param params: the parameters to be merged
-    :type params: tuple of parameters 
+    :param params: list of parameters to be merged, can be None if not available
+    :type params: List of parameters 
     :param offset: the offset of the resulting parameter
     :type offset: float (sec)
     :param frequency: the frequency of the resulting parameter
@@ -3458,6 +3531,10 @@ def blend_parameters(params, offset=0.0, frequency=1.0, debug=False):
         import matplotlib.pyplot as plt
         plt.figure()
     assert frequency>0.0
+    
+    # accept as many params as required
+    params = [p for p in params if p is not None]
+    assert len(params), "No parameters to merge"
     
     p_valid_slices = []
     p_offset = []
@@ -4070,9 +4147,14 @@ def peak_index(a):
                 return loc+peak
 
 
-def rate_of_change_array(to_diff, hz, width=2.0):
+def rate_of_change_array(to_diff, hz, width=2.0, method='two_points'):
     '''
-    Lower level access to rate of change algorithm. See rate_of_change for description.
+    Lower level access to rate of change algorithm. See rate_of_change for
+    description.
+    
+    The regression method was added to provide greater smoothing over an
+    extended period. This is required where the parameter being
+    differentiated has poor quantisation, e.g. Altitude STD with 32ft steps.
 
     :param to_diff: input data
     :type to_diff: Numpy masked array
@@ -4080,6 +4162,8 @@ def rate_of_change_array(to_diff, hz, width=2.0):
     :type hz: float
     :param width: the differentiation time period (sec)
     :type width: float
+    :param method: selects 'two_point' simple differentiation or 'regression'
+    type method: string
 
     :returns: masked array of values with differentiation applied
 
@@ -4091,15 +4175,35 @@ def rate_of_change_array(to_diff, hz, width=2.0):
         logger.info("Rate of change called with short data segment. Zero rate "
                     "returned")
         return np_ma_zeros_like(to_diff)
+    
+    if method=='two_points':
+        # Set up an array of masked zeros for extending arrays.
+        slope = np.ma.copy(to_diff)
+        slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])/width
+        slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
+        slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
+        return slope
 
-    # Set up an array of masked zeros for extending arrays.
-    slope = np.ma.copy(to_diff)
-    slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])/width
-    slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
-    slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
-    return slope
+    elif method=='regression':
+        # Neat solution; works well, but for height data smoothing the raw
+        # values works better and for pitch and roll attitudes the
+        # improvement was small and would result in more masked results than
+        # the preceding technique.
+        
+        # The fit will be for equi-spaced samples around the midpoint.
+        x=np.arange(-hw,hw+1) 
+        # Scaling is given by:
+        sx2_hz=np.sum(x*x)/hz 
+        # We extended data array to allow for convolution overruns.
+        z=np.array([to_diff[0]]*hw+list(to_diff)+[to_diff[-1]]*hw) 
+        # The compute the least squares fit for each point over the required
+        # range and re-scale to allow for width and sample rate.
+        return np.convolve(z,-x,'same')[hw:-hw]/sx2_hz 
+        
+    else:
+        raise ValueError('Rate of change called with unrecognised method')
 
-def rate_of_change(diff_param, width):
+def rate_of_change(diff_param, width, method='two_points'):
     '''
     @param to_diff: Parameter object with .array attr (masked array)
 
@@ -4114,12 +4218,14 @@ def rate_of_change(diff_param, width):
     :type diff_param.frequency: float
     :param width: the differentiation time period (sec)
     :type width: float
+    :param method: selects 'two_point' simple differentiation or 'regression'
+    type method: string
 
     :returns: masked array of values with differentiation applied
     '''
     hz = diff_param.frequency
     to_diff = diff_param.array
-    return rate_of_change_array(to_diff, hz, width)
+    return rate_of_change_array(to_diff, hz, width, method=method)
 
 
 def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
@@ -4198,7 +4304,9 @@ def resample(array, orig_hz, resample_hz):
     if modifier > 1:
         return np.ma.repeat(array, modifier)
     else:
-        return array[::1 / modifier]
+        # Only convert complete blocks of data.
+        endpoint = floor(len(array)*modifier)/modifier
+        return array[:endpoint:1 / modifier]
 
 
 def round_to_nearest(array, step):
@@ -4578,17 +4686,33 @@ def step_local_cusp(array):
                 
     
     
-def step_values(array, steps, step_at='midpoint'):
+def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_threshold=0.5):
     """
+    Note: ---------------
+    This algorithm is being extended to cater for aircraft that do not record
+    flap lever position separately.
+    
+    At the same time, extensions to step_values to reflect the different
+    needs of safety and maintenance organisations are being included, so for
+    the present version the step_at keyword should not be used.
+    /Note: ---------------
+    
+
     Rounds each value in array to nearest step. Maintains the
     original array mask.
 
     :param array: Masked array to step
     :type array: np.ma.array
+    :param array_hz: array sample rate
+    :type array_hz: float
     :param steps: Steps to round to nearest value
     :type steps: list of integers
     :param step_at: Step conversion mode
     :type step_at: String, default='midpoint', options'move_start', 'move_end'
+    :param skip: Selects whether steps that are passed straight through should be mapped or not.
+    :type skip: logical, default = False
+    :param rate_threshold: rate of change threshold for non-moving control
+    :type rate_threshold: float, default 0.5 is suitable for flap operation.
     
     :returns: Stepped masked array
     :rtype: np.ma.array
@@ -4596,6 +4720,7 @@ def step_values(array, steps, step_at='midpoint'):
     stepping_points = np.ediff1d(steps, to_end=[0])/2.0 + steps
     stepped_array = np.zeros_like(array.data)
     low = None
+    rt = rate_threshold/array_hz
     for level, high in zip(steps, stepping_points):
         if low is None:
             stepped_array[(-high < array) & (array <= high)] = level
@@ -4608,58 +4733,72 @@ def step_values(array, steps, step_at='midpoint'):
         
     if step_at!='midpoint':
         
-        
         # We are being asked to adjust the step point to either the beginning or
-        # end of a change period. First find where the changes took place,
-        # including endpoints to the array to allow indexing of the start and end
-        # cases.
-        changes = [0] + \
-            list(np.ediff1d(stepped_array, to_end=0.0).nonzero()[0]) + \
-            [len(stepped_array)]
-        
-        # Compute the slices between change points.
-        spans = []
-        for i in range(1, len(changes)-1):
-            if step_at == 'move_start':
-                spans.append(slice(changes[i], changes[i-1], -1))
-            else:
-                spans.append(slice(changes[i], changes[i+1], +1))
-
-        for span in spans:
-            to_chg = step_local_cusp(array[span])
-            
-            if to_chg==0:
-                if span==spans[0] or span==spans[-1]:
-                    # Don't alter end sections as this just gets messy.
-                    continue
-                # Continuous movement, so change at the step value if this passes through a step.
-                big = np.ma.max(array[span])
-                little = np.ma.min(array[span])
-                # See if the step in question is within this range:
-                this_step = None
-                for step in steps:
-                    if step<=big and step>=little:
-                        this_step = step
-                        break
-                if this_step:
-                    # Find where we passed through this value...
-                    idx = index_at_value(array, this_step, span)
-                    if idx:
-                        if step_at == 'move_start':
-                            stepped_array[ceil(idx):span.start+1] = stepped_array[span.start]
-                        else:
-                            stepped_array[span.start:floor(idx)] = stepped_array[span.start]
+        # end of a change period. First find where the changes took place:
+        if skip:
+            # We change to cover the movements of the output array
+            spans = np.ma.clump_unmasked(np.ma.masked_inside(np.ediff1d(array),-rt,rt))
+            for span in spans:
+                if step_at == 'move_start':
+                    stepped_array[span] = stepped_array[span.stop+1]
                 else:
-                    # OK - just ran from one step to another without dwelling, so fill with the start or end values.
-                    if step_at == 'move_start':
-                        stepped_array[span] = stepped_array[span.start]
-                    else:
-                        stepped_array[span] = stepped_array[span.start]
+                    stepped_array[span] = stepped_array[span.start-1]            
+        else:
+            # We change to cover the movements of the stepped array
+            #spans = np.ma.clump_unmasked(np.ma.masked_equal(np.ediff1d(stepped_array),0.0))
+
+            # Compute the slices between change points.
             
-            elif step_at == 'move_start':
-                stepped_array[span][:to_chg] = stepped_array[span.start]
-            else:
-                stepped_array[span][:to_chg] = stepped_array[span.start]
+            # We are being asked to adjust the step point to either the beginning or
+            # end of a change period. First find where the changes took place,
+            # including endpoints to the array to allow indexing of the start and end
+            # cases.
+            changes = [0] + \
+                list(np.ediff1d(stepped_array, to_end=0.0).nonzero()[0]) + \
+                [len(stepped_array)]
+            
+            spans = []
+            for i in range(1, len(changes)-1):
+                if step_at == 'move_start':
+                    spans.append(slice(changes[i], changes[i-1], -1))
+                else:
+                    spans.append(slice(changes[i], changes[i+1], +1))
+
+            for span in spans:
+                to_chg = step_local_cusp(array[span])
+            
+                if to_chg==0:
+                    if span==spans[0] or span==spans[-1]:
+                        # Don't alter end sections as this just gets messy.
+                        continue
+                    # Continuous movement, so change at the step value if this passes through a step.
+                    big = np.ma.max(array[span])
+                    little = np.ma.min(array[span])
+                    # See if the step in question is within this range:
+                    this_step = None
+                    for step in steps:
+                        if step<=big and step>=little:
+                            this_step = step
+                            break
+                    if this_step:
+                        # Find where we passed through this value...
+                        idx = index_at_value(array, this_step, span)
+                        if idx:
+                            if step_at == 'move_start':
+                                stepped_array[ceil(idx):span.start+1] = stepped_array[span.start]
+                            else:
+                                stepped_array[span.start:floor(idx)] = stepped_array[span.start]
+                    else:
+                        # OK - just ran from one step to another without dwelling, so fill with the start or end values.
+                        if step_at == 'move_start':
+                            stepped_array[span] = stepped_array[span.start]
+                        else:
+                            stepped_array[span] = stepped_array[span.start]
+                
+                elif step_at == 'move_start':
+                    stepped_array[span][:to_chg] = stepped_array[span.start]
+                else:
+                    stepped_array[span][:to_chg] = stepped_array[span.start]
                 
         """
         import matplotlib.pyplot as plt
@@ -4670,7 +4809,6 @@ def step_values(array, steps, step_at='midpoint'):
         plt.plot(stepped_array)
         plt.show()
         """
-    
     return np.ma.array(stepped_array, mask=array.mask)
         
             
@@ -4699,7 +4837,6 @@ def touchdown_inertial(land, roc, alt):
     :param rod: rate of descent at touchdown
     :type rod: float, units fpm
     """
-
     # Time constant of 6 seconds.
     tau = 1/6.0
     # Make space for the integrand
@@ -4713,7 +4850,7 @@ def touchdown_inertial(land, roc, alt):
     # Start at the beginning...
     sm_ht[0] = alt.array[startpoint]
     #...and calculate each with a weighted correction factor.
-    for i in range(1, len(sm_ht)):
+    for i in range(1, len(sm_ht)):  # FIXME: Slow - esp. when landing covers a large period - perhaps second check that altitude is sensible?
         sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
 
     '''
@@ -5060,7 +5197,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             try:
                 value = closest_unmasked_value(array, _slice.start or 0,
                                                _slice=_slice)[1]
-            except:
+            except:  # IndexError? tuple index out of range
                 return None
             if threshold >= value:
                 diff_where = np.ma.where(diff < 0)
@@ -5088,6 +5225,43 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             r = (float(threshold) - a) / (b - a)
 
     return (begin + step * (n + r))
+
+
+def index_at_value_or_level_off(array, threshold, _slice):
+    '''
+    Find the index closest to the value unless it doesn't get
+    within 10% of that value in which case find the point of
+    level off.
+    
+    Designed for finding sections around Go Arounds where the
+    _slice region defines the area to search within.
+    
+    Negative step in slice supported.
+    
+    :param array: Normally an Altitude based array.
+    :type array: np.ma.array
+    :param threshold: Value to seek to
+    :type threshold: Float
+    :param _slice: Constraint within array to search until
+    :type _slice: slice
+    :returns: Index at closest value or at level off
+    :rtype: Int
+    '''
+    index = index_at_value(array, threshold, _slice, 'nearest')
+    # did we get within 90% of the threshold?
+    if array[index] > threshold * 0.9:
+        return index
+    else:
+        # we never got quite close enough to 2000ft above the
+        # minimum go around altitude. Find the top of the climb.
+        if _slice.step in (1, None):
+            return find_toc_tod(array, _slice, 'Climb')
+        else:
+            # negative step provided which is not supported by find_toc_tod
+            # so reverse the start and stop
+            stop = _slice.stop -1 if _slice.stop > 0 else 0
+            rev_slice = slice(stop, _slice.start, 1)
+            return find_toc_tod(array, rev_slice, 'Descent')
 
 
 def _value(array, _slice, operator):
@@ -5306,8 +5480,10 @@ def second_window(array, frequency, seconds):
         ##for index in xrange(first_index, stacked_array.shape[1]):
         ##values = stacked_array[...,index]
         ##array_value, max_window, min_window = values.tolist()
-    
-    return np.ma.array(window_array)
+    ##from analysis_engine.plot_flight import plot_parameter
+    ##plot_parameter(window_array)
+    ##plot_parameter(array)
+    ##return np.ma.array(window_array)
 
 
 #---------------------------------------------------------------------------

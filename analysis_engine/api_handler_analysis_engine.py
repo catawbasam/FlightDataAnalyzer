@@ -361,14 +361,15 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
                                                        airport['longitude'])[1]
             airports.append(airport)
         
-        return min(airports, key=itemgetter('distance'))
-    
-    def get_nearest_runway(self, airport, heading, latitude=None,
+        airport = min(airports, key=itemgetter('distance'))
+        return airport
+
+    def get_nearest_runway(self, airport_id, heading, latitude=None,
                            longitude=None, ils_freq=None, hint=None):
         '''
         Get the nearest runway from a pre-defined list.
-        
-        :param airport: Not used.
+
+        :param airport_id: ID of the airport
         :param heading: Not used.
         :param latitude: Latitude value for looking up a runway.
         :type latitude: float
@@ -382,10 +383,21 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
         '''
         if not latitude or not longitude:
             # Not precise
-            if hint == 'landing':
-                return self.runways[1]
-        
+            if airport_id:
+                try:
+                    airport = self.get_airport(airport_id)
+                except NotFoundError:
+                    airport = None
+
+            if airport:
+                # If we know the airport we'll use the closest runway
+                latitude = airport['latitude']
+                longitude = airport['longitude']
+
+        if not latitude or not longitude:
+            # Still no luck? Fail.
             raise NotFoundError('Local API Handler: Runway could not be found')
+
         runways = []
         for runway in self.runways:
             runway = copy(runway)
@@ -396,7 +408,9 @@ class AnalysisEngineAPIHandlerLocal(AnalysisEngineAPI):
                 latitude, longitude, runway_coords['latitude'],
                 runway_coords['longitude'])[1]
             runways.append(runway)
-        return min(runways, key=itemgetter('distance'))
+
+        runway = min(runways, key=itemgetter('distance'))
+        return runway
 
     def get_data_exports(self, tail_number):
         '''

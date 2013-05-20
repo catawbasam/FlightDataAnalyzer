@@ -4,6 +4,7 @@ from analysis_engine.library import (all_of,
                                      any_of,
                                      coreg,
                                      find_edges_on_state_change,
+                                     find_toc_tod,
                                      hysteresis,
                                      index_at_value,
                                      max_value,
@@ -20,40 +21,9 @@ from settings import (CLIMB_THRESHOLD,
                       NAME_VALUES_DESCENT,
                       NAME_VALUES_ENGINE,
                       NAME_VALUES_FLAP,
-                      SLOPE_FOR_TOC_TOD,
                       TAKEOFF_ACCELERATION_THRESHOLD,
-                      VERTICAL_SPEED_FOR_LIFTOFF,)
-
-def find_toc_tod(alt_data, ccd_slice, mode):
-    '''
-    :alt_data : numpy masked array of pressure altitude data
-    : ccd_slice : slice of a climb/cruise/descent phase above FL100
-    : mode : Either 'Climb' or 'Descent' to define which to select.
-    '''
-
-    # Find the maximum altitude in this slice to reduce the effort later
-    peak_index = np.ma.argmax(alt_data[ccd_slice])
-
-    if mode == 'Climb':
-        section = slice(ccd_slice.start, ccd_slice.start + peak_index + 1,
-                        None)
-        slope = SLOPE_FOR_TOC_TOD
-    else:
-        section = slice((ccd_slice.start or 0) + peak_index, ccd_slice.stop,
-                        None)
-        slope = -SLOPE_FOR_TOC_TOD
-
-    # Quit if there is nothing to do here.
-    if section.start == section.stop:
-        raise ValueError('No range of data for top of climb or descent check')
-
-    # Establish a simple monotonic timebase
-    timebase = np.arange(len(alt_data[section]))
-    # Then scale this to the required altitude data slope
-    ramp = timebase * slope
-    # For airborne data only, subtract the slope from the climb, then
-    # the peak is at the top of climb or descent.
-    return np.ma.argmax(alt_data[section] - ramp) + section.start
+                      VERTICAL_SPEED_FOR_LIFTOFF,
+                      )
 
 
 class BottomOfDescent(KeyTimeInstanceNode):
@@ -98,11 +68,11 @@ class APEngagedSelection(KeyTimeInstanceNode):
     name = 'AP Engaged Selection'
 
     def derive(self, ap=M('AP Engaged'), phase=S('Airborne')):
-
+        # FIXME: Allow for other states?
         self.create_ktis_on_state_change(
-            '-',
+            'Engaged',
             ap.array,
-            change='leaving',
+            change='entering',
             phase=phase
         )
 
@@ -116,11 +86,11 @@ class APDisengagedSelection(KeyTimeInstanceNode):
     name = 'AP Disengaged Selection'
 
     def derive(self, ap=M('AP Engaged'), phase=S('Airborne')):
-
+        # FIXME: Allow for other states?
         self.create_ktis_on_state_change(
-            '-',
+            'Engaged',
             ap.array,
-            change='entering',
+            change='leaving',
             phase=phase
         )
 
@@ -267,8 +237,8 @@ class GoAround(KeyTimeInstanceNode):
             # is out of range, hence masked, at the lowest point of the
             # go-around.
             try:
-                pit = np.ma.argmin(alt_rad.array[dlc.slice])
-            except:
+                pit = np.ma.argmin(alt_rad.array[dlc.slice])  # if masked, argmin returns 0  - valid?
+            except:  # FIXME: Catch expected exception
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit + dlc.start_edge)
 
@@ -327,6 +297,8 @@ class FlapSet(KeyTimeInstanceNode):
     '''
     '''
 
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    # Disagree - for one Beech mid-flap setting, it's not worth adding .0 to every other aircraft and every other flap setting. DJ.
     NAME_FORMAT = 'Flap %(flap)d Set'
     NAME_VALUES = NAME_VALUES_FLAP
 

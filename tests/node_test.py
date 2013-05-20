@@ -1106,7 +1106,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         array[11:17] = 1.0
         mapping = {0: 'Down', 1: 'Up'}
         param = P('Disc', MappedArray(array, values_mapping=mapping))
-        knode.create_kpvs_where_state('Up', param.array, param.hz)
+        knode.create_kpvs_where(param.array == 'Up', param.hz)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=5, value=3, name='Kpv'),
                           KeyPointValue(index=11, value=6, name='Kpv')])
@@ -1118,7 +1118,7 @@ class TestKeyPointValueNode(unittest.TestCase):
         array[11:17] = 1.0
         mapping = {0: 'Down', 1: 'Up'}
         param = P('Disc', MappedArray(array, values_mapping=mapping))
-        knode.create_kpvs_where_state('Up', param.array, param.hz, exclude_leading_edge=True)
+        knode.create_kpvs_where(param.array == 'Up', param.hz, exclude_leading_edge=True)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=11, value=6, name='Kpv')])
 
@@ -1130,10 +1130,80 @@ class TestKeyPointValueNode(unittest.TestCase):
         mapping = {0: 'Down', 1: 'Up'}
         param = P('Disc', MappedArray(array, values_mapping=mapping),
                   frequency=2.0)
-        knode.create_kpvs_where_state('Up', param.array, param.hz,
+        knode.create_kpvs_where(param.array == 'Up', param.hz,
                                       min_duration=3)
         self.assertEqual(list(knode),
                          [KeyPointValue(index=11, value=3, name='Kpv')])
+        
+    def test_create_kpvs_where_in_slice(self):
+        knode = self.knode
+        array = np.ma.array([0.0] * 20, dtype=float)
+        array[5:8] = 1.0
+        array[11:17] = 1.0
+        mapping = {0: 'Down', 1: 'Up'}
+        param = P('Disc', MappedArray(array, values_mapping=mapping))
+        # find second using a slice
+        knode.create_kpvs_where(param.array == 'Up', param.hz,
+            phase=slice(10,None))
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=11, value=6, name='Kpv')])
+        
+    def test_create_kpvs_where_in_empty_list(self):
+        knode = self.knode
+        array = np.ma.array([0.0] * 20, dtype=float)
+        array[5:8] = 1.0
+        array[11:17] = 1.0
+        mapping = {0: 'Down', 1: 'Up'}
+        param = P('Disc', MappedArray(array, values_mapping=mapping))
+        # do not create any kpvs as no slices to scan through
+        knode.create_kpvs_where(param.array == 'Up', param.hz,
+            phase=[])
+        self.assertEqual(list(knode), [])
+        
+    def test_create_kpvs_where_in_list_of_slices(self):
+        knode = self.knode
+        array = np.ma.array([0.0] * 20, dtype=float)
+        array[5:8] = 1.0
+        array[11:17] = 1.0
+        mapping = {0: 'Down', 1: 'Up'}
+        param = P('Disc', MappedArray(array, values_mapping=mapping))
+        # find second using a list of slices
+        knode.create_kpvs_where(param.array == 'Up', param.hz,
+            phase=slice(10,None))
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=11, value=6, name='Kpv')])
+        
+    def test_create_kpvs_where_in_section(self):
+        "where and also test inverterd condition"
+        knode = self.knode
+        array = np.ma.array([0.0] * 20, dtype=float)
+        array[5:8] = 1.0
+        array[11:17] = 1.0
+        mapping = {0: 'Down', 1: 'Up'}
+        param = P('Disc', MappedArray(array, values_mapping=mapping))
+        # find second using a Section
+        knode.create_kpvs_where(param.array != 'Up', param.hz,
+            phase=Section('', slice(10,None), 10, None))
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=10, value=1, name='Kpv'),
+                          KeyPointValue(index=17, value=3, name='Kpv')])
+        
+    def test_create_kpvs_where_in_section_node(self):
+        knode = self.knode
+        array = np.ma.array([0.0] * 20, dtype=float)
+        array[5:8] = 1.0
+        array[11:17] = 1.0
+        mapping = {0: 'Down', 1: 'Up'}
+        param = P('Disc', MappedArray(array, values_mapping=mapping))
+        # find second using a SectionNode (and without frequency param)
+        knode.create_kpvs_where(param.array == 'Up',
+            phase=SectionNode(items=[
+                Section('', slice(0,7), 0, 7),
+                Section('', slice(10,None), 10, None),
+                ]))
+        self.assertEqual(list(knode),
+                         [KeyPointValue(index=5, value=2, name='Kpv'),
+                          KeyPointValue(index=11, value=6, name='Kpv')])
 
     def test_get_aligned(self):
         '''

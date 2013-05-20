@@ -3,6 +3,7 @@ import sys
 import logging 
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
+from collections import deque
 from pprint import pformat
 from flightdatautilities.dict_helpers import dict_filter
 
@@ -22,76 +23,71 @@ not_windows = sys.platform not in ('win32', 'win64') # False for Windows :-(
 """
 TODO:
 =====
-* Colour nodes by derived parameter type
 * reverse digraph to get arrows poitning towards the root - use pre's rather than successors in tree traversal
 """
 
-
-##def breadth_first_search_all_nodes(di_graph, root):
-    ##"""
-    ##only useful for us with a di_graph
-    
-    ##Returns all nodes traversed, not just new ones.
-    
-    ##Removed filter (as not required) 
-    ##"""
-    ##def bfs():
-        ##"""
-        ##Breadth-first search subfunction.
-        ##"""
-        ##while (queue != []):
-            ##node = queue.pop(0)
-            ##for other in di_graph[node]:
-                ###if other not in spanning_tree:
-                ##queue.append(other)
-                ##ordering.append(other)
-                ##spanning_tree[other] = node
-    ##if filter(lambda e: e[0] == e[1], di_graph.edges()):
-        ### If there is a recursive loop, raise an exception rather than looping
-        ### until a MemoryError is eventually raised.
-        ##raise ValueError("Traversal with fail with recursive dependencies in "
-                         ##"the digraph.")
-    ##queue = [root]            # Visiting queue
-    ##spanning_tree = dict(root=None)    # Spanning tree
-    ##ordering = [root]
-    ##bfs()
-    ####return spanning_tree, ordering
-    ##return ordering
-
-
 def dependencies3(di_graph, root, node_mgr):
     '''
-    :raises RuntimeError: If a loop exists within the dependency tree.
-    '''
+    Performs a Depth First Search down each dependency node in the tree
+    (di_graph) until each branch's dependencies are best satisfied.
     
+    Avoids circular dependencies within the DiGraph by building up a path of
+    the nodes visited down the current depth search and if encountering a
+    node already visited (in the path) this node is declared unavailable.
+    
+    This allows nodes to depend upon a possible circular dependency which may
+    or may not exist depending on the recorded parameters within the frame.
+    
+    e.g.
+    Heading -> Heading True + Magnetic Variation
+    Heading True -> Heading - Magnetic Variation
+    
+    :param di_graph: Directed graph of all nodes and their dependencies.
+    :type di_graph: nx.DiGraph
+    :param root: Root node to start traversing from, usually named 'root'
+    :type root: String
+    :param node_mgr: Node manager which can assess whether nodes are operational with the available dependencies at each layer of the tree.
+    :type node_mgr: analysis_engine.node.NodeManager
+    '''
     def traverse_tree(node):
-        # check this first to improve performance
+        "Begin the recursion at this node's position in the dependency tree"
+        if node in path:
+            # add node for it to be removed (pop'd) in a moment
+            path.append(node)
+            # we've met this node before; start of circular dependency?
+            logger.warning("Circular dependency avoided at node '%s'. "
+                           "Branch path: %s", node, path)
+            return False  # establishing if available; cannot yet be available
+        # we're recursing down
+        path.append(node)
         if node in active_nodes:
             # node already discovered operational
             return True
         
-        layer = []
+        layer = []  # layer of current node's available dependencies
         for dependency in di_graph.successors(node):
-            # traverse again
+            # traverse again, 'like we did last summer'
             if traverse_tree(dependency):
                 layer.append(dependency)
+            # each time traverse_tree returns, remove node from visited path
+            path.pop()
             
         if node_mgr.operational(node, layer):
-            # node will work at this level
+            # node will work at this level with the available dependencies
             active_nodes.add(node)
             ordering.append(node)
-            return True # layer below works
+            return True  # layer below works
         else:
-            # node does not work
+            # node will not work with available dependencies
             return False
         
-    ordering = [] # reverse
-    active_nodes = set() # operational nodes visited for fast lookup
-    traverse_tree(root) # start recursion
+    ordering = []
+    path = deque()  # current branch path
+    active_nodes = set()  # operational nodes visited for fast lookup
+    traverse_tree(root)  # start recursion
     return ordering
 
 
-# Display entire dependency graph, not taking into account which are active for a frame
 def draw_graph(graph, name, horizontal=False):
     """
     Draws a graph to file with label and filename taken from name argument.
@@ -99,6 +95,13 @@ def draw_graph(graph, name, horizontal=False):
     Note: Graphviz binaries cannot be easily installed on Windows (you must
     build it from source), therefore you shouldn't bother trying to
     draw_graph unless you've done so!
+    
+    :param graph: Dependency graph to draw
+    :type graph: nx.DiGraph
+    :param name: Name of graph being drawn. Added to filename: graph_[name].ps
+    :type name: String
+    :param horizontal: Draw graph from left to right. Default: False (top to bottom)
+    :type horizontal: Boolean
     """
     # hint: change filename extension to change type (.png .pdf .ps)
     file_path = 'graph_%s.ps' % name.lower().replace(' ', '_')
@@ -125,18 +128,28 @@ def draw_graph(graph, name, horizontal=False):
     G.graph_attr['label'] = name
     G.draw(file_path)
     logger.info("Dependency tree drawn: %s", os.path.abspath(file_path))
+
+
+def graph_adjacencies(graph):
+    '''
+    Create a dictionary of each nodes adjacencies within the graph. Useful for
+    JIT javascript presentation of the tree.
     
-def graph_adjacencies(G):
+    :param graph: Dependency tree graph
+    :type graph: nx.Graph
+    :returns: Restructured graph
+    '''
     data = []
-    for n,nbrdict in G.adjacency_iter():
+    for n,nbrdict in graph.adjacency_iter():
         # build the dict for this node
-        d = dict(id=n, name=G.node[n].get('label', n), data=G.node[n])
+        d = dict(id=n, name=graph.node[n].get('label', n), data=graph.node[n])
         adj = []
         for nbr, nbrd in nbrdict.items():
             adj.append(dict(nodeTo=nbr, data=nbrd))
         d['adjacencies'] = adj
         data.append(d)
     return data
+
 
 def graph_nodes(node_mgr):
     """
@@ -147,7 +160,7 @@ def graph_nodes(node_mgr):
     gr_all = nx.DiGraph()
     # create nodes without attributes now as you can only add attributes once
     # (limitation of add_node_attribute())
-    gr_all.add_nodes_from(node_mgr.hdf_keys, color='#72f4eb') # turquoise
+    gr_all.add_nodes_from(node_mgr.hdf_keys, color='#72f4eb')  # turquoise
     derived_minus_lfl = dict_filter(node_mgr.derived_nodes,
                                     remove=node_mgr.hdf_keys)
     # Group into node types to apply colour. TODO: Make colours less garish.
@@ -175,6 +188,9 @@ def graph_nodes(node_mgr):
     # add root - the top level application dependency structure based on required nodes
     # filter only nodes which are at the top of the tree (no predecessors)
     # TODO: Ask Chris about this causing problems with the trimmer.
+    # TODO: If requesting a single Node which has a circular dependency to 
+    #       itself in the graph, it will have predecessors and therefore not be
+    #       linked to the root and not be processed. Add more logic to 'if not'
     gr_all.add_node('root', color='#ffffff')
     root_edges = [('root', node_name) for node_name in node_mgr.requested \
                   if not gr_all.predecessors(node_name)]
@@ -233,9 +249,9 @@ def process_order(gr_all, node_mgr):
     gr_st.remove_nodes_from(inactive_nodes)
     
     for node in inactive_nodes:
-        gr_all.node[node]['color'] = 'Silver'
+        gr_all.node[node]['color'] = '#c0c0c0'  # silver
         inactive_edges = gr_all.in_edges(node)
-        gr_all.add_edges_from(inactive_edges, color='Silver')
+        gr_all.add_edges_from(inactive_edges, color='#c0c0c0')  # silver
         
     inoperable_required = list(set(node_mgr.requested) - set(process_order))
     if inoperable_required:
