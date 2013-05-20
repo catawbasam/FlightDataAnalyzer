@@ -4183,22 +4183,14 @@ class TestVerticalSpeedInertial(unittest.TestCase):
         
         az = P('Acceleration Vertical', acc_values)
         alt_std = P('Altitude STD Smoothed', ht_values + 30.0) # Pressure offset
-        #vs_baro = P('VS', rate_of_change_array(alt_std.array, 5))
-        vs_baro = P('VS', vel_values)
         alt_rad = P('Altitude STD Smoothed', ht_values-2.0) #Oleo compression
         fast = buildsection('Fast', 10, len(acc_values)-10)
 
         vsi = VerticalSpeedInertial()
-        vsi.derive(az, alt_std, vs_baro, alt_rad, fast)
+        vsi.derive(az, alt_std, alt_rad, fast)
         
         expected = vel_values
 
-        
-        import matplotlib.pyplot as plt
-        plt.plot(expected)
-        plt.plot(vsi.array)
-        plt.show()
-        
         # Just check the graphs are similar in shape - there will always be
         # errors because of the integration technique used.
         np.testing.assert_almost_equal(vsi.array, expected, decimal=-2)
