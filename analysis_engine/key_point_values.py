@@ -541,12 +541,9 @@ class AirspeedAt8000Ft(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_climbs=S('Altitude When Climbing'),
-               alt_descs=S('Altitude When Descending')):
+               alt_8000=S('Altitude STD 8000 Ft')):
         
-        altitude_ktis = (list(alt_climbs.get(name='8000 Ft Climbing')) +
-                         list(alt_descs.get(name='8000 Ft Descending')))
-        self.create_kpvs_at_ktis(air_spd.array, altitude_ktis)
+        self.create_kpvs_at_ktis(air_spd.array, alt_8000)
 
 
 class AirspeedDuringCruiseMax(KeyPointValueNode):
@@ -1649,6 +1646,23 @@ class AirspeedDuringLevelFlightMax(KeyPointValueNode):
 
         for section in lvl_flt:
             self.create_kpv(*max_value(air_spd.array, section.slice))
+
+
+class ModeControlPanelAirspeedSelectedAt8000Ft(KeyPointValueNode):
+    '''
+    Refactor to be a formatted name node if multiple Airspeed At Altitude
+    KPVs are required. Could depend on either Altitude When Climbing or
+    Altitude When Descending, but the assumption is that we'll have both.
+    '''
+
+    units = 'kt'
+    
+    def derive(self,
+               mcp=P('Mode Control Panel Airspeed Selected'),
+               alt_8000=S('Altitude STD 8000 Ft')):
+        
+        # TODO: Confirm MCP parameter name.
+        self.create_kpvs_at_ktis(mcp.array, alt_8000)
 
 
 ##############################################################################
