@@ -12,6 +12,7 @@ from analysis_engine.library import (
     bearing_and_distance,
     closest_unmasked_value,
     cycle_finder,
+    cycle_match,
     find_edges,
     find_toc_tod,
     first_valid_sample,
@@ -124,35 +125,29 @@ class GoAroundAndClimbout(FlightPhaseNode):
         smoothed_alt = moving_average(alt_aal.array, window=15)
         for ga in gas:
             ga_idx = ga.index
-            for n_alt, alt_idx in enumerate(alt_idxs):
-                # TODO: Assert we're at the trough not peak in case a peak is
-                # detected very close to a go around index!
-                if abs(ga_idx - alt_idx) > 20:
-                    # go around is not close enough to this cycle
-                    continue
-                #--------------- Go-Around Altitude ---------------
-                # Find the go-around altitude
-                index, value = closest_unmasked_value(
-                    alt_aal.array, ga_idx, 
-                    slice(alt_idxs[n_alt - 1],  # previous peak index
-                          alt_idxs[n_alt + 1])  # next peak index
-                )
-                #--------------- 500ft before ---------------
-                # We have matched the cycle to the (possibly radio height
-                # based) go-around KTI.
-                # Establish an altitude range around this point
-                start_slice = slice(index, alt_idxs[n_alt - 1], -1)  # work backwards towards previous peak
-                ga_start = index_at_value_or_level_off(smoothed_alt, 
-                                                       value+500, start_slice)
-                #--------------- Level off or 2000ft after ---------------
-                stop_slice = slice(index, alt_idxs[n_alt + 1])  # look forwards towards next peak
-                # find the nearest value; we are protected by the cycle peak
-                # as the slice.stop from going too far forward.
-                ga_stop = index_at_value_or_level_off(smoothed_alt,
-                                                      value+2000, stop_slice)
-                # round to nearest positions
-                self.create_phase(slice(int(ga_start), math.ceil(ga_stop)))
-            #endfor altitude cycles
+            prev_idx, post_idx = cycle_match(ga_idx, alt_idxs, dist=20)
+            #--------------- Go-Around Altitude ---------------
+            # Find the go-around altitude
+            index, value = closest_unmasked_value(
+                alt_aal.array, ga_idx, 
+                slice(prev_idx,  # previous peak index
+                      post_idx)  # next peak index
+            )
+            #--------------- 500ft before ---------------
+            # We have matched the cycle to the (possibly radio height
+            # based) go-around KTI.
+            # Establish an altitude range around this point
+            start_slice = slice(index, prev_idx, -1)  # work backwards towards previous peak
+            ga_start = index_at_value_or_level_off(smoothed_alt, 
+                                                   value+500, start_slice)
+            #--------------- Level off or 2000ft after ---------------
+            stop_slice = slice(index, post_idx)  # look forwards towards next peak
+            # find the nearest value; we are protected by the cycle peak
+            # as the slice.stop from going too far forward.
+            ga_stop = index_at_value_or_level_off(smoothed_alt,
+                                                  value+2000, stop_slice)
+            # round to nearest positions
+            self.create_phase(slice(int(ga_start), math.ceil(ga_stop)))
         #endfor each goaround
         return
 
