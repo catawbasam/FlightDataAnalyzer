@@ -607,7 +607,7 @@ class Touchdown(KeyTimeInstanceNode):
             # no touchdown found by Gear On Ground or it was not available
             if roc:
                 # Beware, Q-200 roc caused invalid touchdown results.
-                inertial_index, val = touchdown_inertial(land, roc, alt)
+                inertial_index = index_at_value(roc.array, 0.0, _slice=land.slice)
                 index = min(alt_index, inertial_index)
                 if index:
                     # found an intertial touchdown point

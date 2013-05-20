@@ -4886,13 +4886,14 @@ def touchdown_inertial(land, roc, alt):
         sm_ht[i] = (1.0-tau)*sm_ht[i-1] + tau*my_alt[i-1] + my_roc[i]/60.0/roc.hz
 
     
+    '''
     # Plot for ease of inspection during development.
     from analysis_engine.plot_flight import plot_parameter
     plot_parameter(alt.array[startpoint:endpoint], show=False)
     plot_parameter(roc.array[startpoint:endpoint]/100.0, show=False)
     #plot_parameter(on_gnd.array[startpoint:endpoint], show=False)
     plot_parameter(sm_ht)
-    
+    '''
 
     # Find where the smoothed height touches zero and hence the rod at this
     # point. Note that this may differ slightly from the touchdown measured

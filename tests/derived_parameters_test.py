@@ -935,11 +935,12 @@ class TestAltitudeAAL(unittest.TestCase):
                        phase_fast)
         
         
+        '''
         import matplotlib.pyplot as plt
         plt.plot(testwave)
         plt.plot(alt_aal.array)
         plt.show()
-        
+        '''
         
         np.testing.assert_equal(alt_aal.array[0], 0.0)
         np.testing.assert_almost_equal(alt_aal.array[34], 6620, decimal=0)
