@@ -3393,7 +3393,13 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
     def derive(self,
                ian_glidepath=P('IAN Glidepath'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=App('Approach Information')):
+               apps=App('Approach Information'),
+               app_src_capt=P('Displayed App Source (Capt)'),
+               app_src_fo=P('Displayed App Source (FO)')):
+
+        # Displayed App Source required to ensure that IAN is being followed
+        in_fmc = (app_src_capt.array == 'FMC') | (app_src_fo.array == 'FMC')
+        ian_glidepath.array[~in_fmc] = np.ma.masked
 
         for app in apps:
             if app.gs_est:
@@ -3436,7 +3442,13 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
     def derive(self,
                ian_final=P('IAN Final Approach Course'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=App('Approach Information')):
+               apps=App('Approach Information'),
+               app_src_capt=M('Displayed App Source (Capt)'),
+               app_src_fo=M('Displayed App Source (FO)')):
+
+        # Displayed App Source required to ensure that IAN is being followed
+        in_fmc = (app_src_capt.array == 'FMC') | (app_src_fo.array == 'FMC')
+        ian_final.array[~in_fmc] = np.ma.masked
 
         for app in apps:
             if app.loc_est:
