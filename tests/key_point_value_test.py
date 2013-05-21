@@ -375,7 +375,10 @@ from analysis_engine.key_point_values import (
     PackValvesOpenAtLiftoff,
     IsolationValveOpenAtLiftoff,
 )
-from analysis_engine.key_time_instances import EngStop
+from analysis_engine.key_time_instances import (
+    AltitudeSTDWhenDescending,
+    EngStop,
+)
 from analysis_engine.library import (max_abs_value, max_value, min_value)
 from analysis_engine.flight_phase import Fast
 from flight_phase_test import buildsection
@@ -872,39 +875,40 @@ class TestAccelerationNormalOffset(unittest.TestCase, NodeTest):
 # Airspeed: General
 
 
-class TestAirspeedAt8000Ft(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AirspeedAt8000Ft
-        self.operational_combinations = [('Airspeed', 'Altitude STD 8000 Ft')]
+        self.operational_combinations = [('Airspeed', 'Altitude STD When Descending')]
     
     def test_derive_basic(self):
         air_spd = P('Airspeed', array=np.ma.arange(0, 200, 10))
-        alt_8000 = KTI('Altitude STD 8000 Ft',
-            items=[KeyTimeInstance(10, 'Altitude STD 8000 Ft Climbing'),
-                   KeyTimeInstance(16, 'Altitude STD 8000 Ft Climbing'),
-                   KeyTimeInstance(18, 'Altitude STD 8000 Ft Climbing')])
+        alt_std_desc = AltitudeSTDWhenDescending(
+            items=[KeyTimeInstance(8, '6000 Ft Descending'),
+                   KeyTimeInstance(10, '8000 Ft Descending'),
+                   KeyTimeInstance(16, '8000 Ft Descending'),
+                   KeyTimeInstance(18, '8000 Ft Descending')])
         node = self.node_class()
-        node.derive(air_spd, alt_8000)
+        node.derive(air_spd, alt_std_desc)
         self.assertEqual(node,
                          [KeyPointValue(index=10, value=100.0, name='Airspeed At 8000 Ft'),
                           KeyPointValue(index=16, value=160.0, name='Airspeed At 8000 Ft'),
                           KeyPointValue(index=18, value=180.0, name='Airspeed At 8000 Ft')])
 
 
-class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase,
-                                                   CreateKPVsAtKTIsTest):
+class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = ModeControlPanelAirspeedSelectedAt8000Ft
-        self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude STD 8000 Ft')]
+        self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude STD When Descending')]
     
     def test_derive_basic(self):
         air_spd = P('Mode Control Panel Airspeed Selected', array=np.ma.arange(0, 200, 5))
-        alt_8000 = KTI('Altitude STD 8000 Ft',
-            items=[KeyTimeInstance(13, 'Altitude STD 8000 Ft'),
-                   KeyTimeInstance(26, 'Altitude STD 8000 Ft'),
-                   KeyTimeInstance(32, 'Altitude STD 8000 Ft')])
+        alt_std_desc = AltitudeSTDWhenDescending(
+            items=[KeyTimeInstance(13, '8000 Ft Descending'),
+                   KeyTimeInstance(26, '8000 Ft Descending'),
+                   KeyTimeInstance(32, '8000 Ft Descending'),
+                   KeyTimeInstance(35, '4000 Ft Descending')])
         node = self.node_class()
-        node.derive(air_spd, alt_8000)
+        node.derive(air_spd, alt_std_desc)
         self.assertEqual(node,
                          [KeyPointValue(index=13, value=65.0, name='Mode Control Panel Airspeed Selected At 8000 Ft'),
                           KeyPointValue(index=26, value=130.0, name='Mode Control Panel Airspeed Selected At 8000 Ft'),
@@ -1511,6 +1515,18 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
             KeyPointValue(index=17, value=17, name='Airspeed With Flap 40 Max'),
         ])
 
+    def test_derive_fractional_settings(self):
+        flap = [[0, 5.5, 10.1, 20.85]] * 5
+        flap = P('Flap', np.ma.array(reduce(operator.add, zip(*flap))))
+        air_spd = P('Airspeed', np.ma.array(range(30)))
+        fast = buildsection('Fast', 0, 30)
+        air_spd_flap_max = AirspeedWithFlapMax()
+        air_spd_flap_max.derive(flap, air_spd, fast)
+
+        self.assertEqual(len(air_spd_flap_max), 3)
+        self.assertEqual(air_spd_flap_max[0].name, 'Airspeed With Flap 5.5 Max')
+        self.assertEqual(air_spd_flap_max[1].name, 'Airspeed With Flap 10.1 Max')
+        self.assertEqual(air_spd_flap_max[2].name, 'Airspeed With Flap 20.9 Max')
 
 class TestAirspeedWithFlapMin(unittest.TestCase, NodeTest):
 
@@ -2002,11 +2018,11 @@ class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AltitudeOvershootAtSuspectedLevelBust
-        self.operational_combinations = [('Altitude STD Smoothed', )]
+        self.operational_combinations = [('Altitude STD Smoothed', 'Altitude AAL')]
 
     def test_derive_handling_no_data(self):
         alt_std = P(
-            name='Altitude STD',
+            name='Altitude STD Smoothed',
             array=np.ma.array([0] + [1000] * 4),
         )
         node = AltitudeOvershootAtSuspectedLevelBust()
@@ -2014,53 +2030,63 @@ class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase, NodeTest):
         self.assertEqual(node, [])
 
     def test_derive_up_down_and_up(self):
-        alt_std = P(
-            name='Altitude STD',
-            array=np.ma.array(1.0 + np.sin(np.arange(0, 12.6, 0.1))) * 1000,
-        )
-        node = AltitudeOvershootAtSuspectedLevelBust()
-        node.derive(alt_std)
+        alt_aal = P(name='Altitude AAL',
+                    array=np.ma.array((1.0-np.cos(np.arange(0,12.6,0.1)))*1000)+10000.0,
+                    )
+        alt_std = P(name='Altitude STD Smoothed',
+                    array=alt_aal.array+3000.0)
+        node = AltitudeOvershootAtSuspectedLevelBust()        
+        node.derive(alt_std, alt_aal)
         self.assertEqual(node, [
-            KeyPointValue(index=16, value=999.5736030415051,
+            KeyPointValue(index=31, value=1995.6772472964967,
                 name='Altitude Overshoot At Suspected Level Bust'),
-            KeyPointValue(index=47, value=-1998.4666029387058,
+            KeyPointValue(index=63, value=-1992.0839618360187,
                 name='Altitude Overshoot At Suspected Level Bust'),
-            KeyPointValue(index=79, value=1994.3775951461494,
-                name='Altitude Overshoot At Suspected Level Bust'),
-            # XXX: Was -933.6683091995028, ask Dave if min value is correct:
-            KeyPointValue(index=110, value=-834.386031102394,
-                name='Altitude Overshoot At Suspected Level Bust'),
+            KeyPointValue(index=94, value=1985.8853443140706,
+                name='Altitude Overshoot At Suspected Level Bust')
         ])
+        
+    def test_comparable_to_alt_aal(self):
+        # If the overshoot or undershoot is comparable to the height above the airfield, no level bust is declared.
+        alt_aal = P(name='Altitude AAL',
+                    array=np.ma.array((1.0-np.cos(np.arange(0,12.6,0.1)))*1000)+1000.0,
+                    )
+        alt_std = P(name='Altitude STD Smoothed',
+                    array=alt_aal.array+3000.0)
+        node = AltitudeOvershootAtSuspectedLevelBust()
+        
+        node.derive(alt_std, alt_aal)
+        self.assertEqual(node, [])
 
     def test_derive_too_slow(self):
         alt_std = P(
-            name='Altitude STD',
+            name='Altitude STD Smoothed',
             array=np.ma.array(1.0 + np.sin(np.arange(0, 12.6, 0.1))) * 1000,
             frequency=0.02,
         )
         node = AltitudeOvershootAtSuspectedLevelBust()
-        node.derive(alt_std)
+        node.derive(alt_std, alt_std) # Pretend the airfield is at sea level :o)
         self.assertEqual(node, [])
 
     def test_derive_straight_up_and_down(self):
         alt_std = P(
-            name='Altitude STD',
+            name='Altitude STD Smoothed',
             array=np.ma.array(range(0, 10000, 50) + range(10000, 0, -50)),
             frequency=1,
         )
         node = AltitudeOvershootAtSuspectedLevelBust()
-        node.derive(alt_std)
+        node.derive(alt_std, alt_std) # Pretend the airfield is at sea level :o)
         self.assertEqual(node, [])
 
     def test_derive_up_and_down_with_overshoot(self):
         alt_std = P(
-            name='Altitude STD',
+            name='Altitude STD Smoothed',
             array=np.ma.array(range(0, 10000, 50) + range(10000, 9000, -50)
                 + [9000] * 200 + range(9000, 0, -50)),
             frequency=1,
         )
         node = AltitudeOvershootAtSuspectedLevelBust()
-        node.derive(alt_std)
+        node.derive(alt_std, alt_std) # Pretend the airfield is at sea level :o)
         self.assertEqual(node, [
             KeyPointValue(index=200, value=1000,
                 name='Altitude Overshoot At Suspected Level Bust'),
@@ -2068,14 +2094,14 @@ class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase, NodeTest):
 
     def test_derive_up_and_down_with_undershoot(self):
         alt_std = P(
-            name='Altitude STD',
+            name='Altitude STD Smoothed',
             array=np.ma.array(range(0, 10000, 50) + [10000] * 200
                 + range(10000, 9000, -50) + range(9000, 20000, 50)
                 + range(20000, 0, -50)),
             frequency=1,
         )
         node = AltitudeOvershootAtSuspectedLevelBust()
-        node.derive(alt_std)
+        node.derive(alt_std, alt_std) # Pretend the airfield is at sea level :o)
         self.assertEqual(node, [
             KeyPointValue(index=420, value=-1000,
                 name='Altitude Overshoot At Suspected Level Bust'),
@@ -2659,8 +2685,9 @@ class TestMachDuringCruiseAvg(unittest.TestCase, NodeTest):
         cruise = buildsection('Cruise', 5, 10)
         node = self.node_class()
         node.derive(mach, cruise)
-        self.assertEqual(node,
-                         [KeyPointValue(7, 0.7, 'Mach During Cruise Avg')])
+        self.assertEqual(node[0].index, 7)
+        self.assertAlmostEqual(node[0].value,0.7)
+        self.assertEqual(node[0].name, 'Mach During Cruise Avg')
 
 
 ########################################
@@ -5385,7 +5412,7 @@ class TestRateOfDescentAtTouchdown(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = RateOfDescentAtTouchdown
-        self.operational_combinations = [('Vertical Speed Inertial', 'Altitude AAL', 'Landing')]
+        self.operational_combinations = [('Vertical Speed Inertial', 'Touchdown')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

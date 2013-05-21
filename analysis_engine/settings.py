@@ -289,7 +289,7 @@ VERTICAL_SPEED_FOR_LIFTOFF = 200  # fpm
 VERTICAL_SPEED_FOR_TOUCHDOWN = -100  # fpm
 
 # Vertical speed complementary filter timeconstant
-VERTICAL_SPEED_LAG_TC = 3.0  # sec
+VERTICAL_SPEED_LAG_TC = 5.0  # sec
 
 # Rate of turn limits for flight.
 # (Also used for validation of accelerometers on ground).

@@ -607,7 +607,7 @@ class Touchdown(KeyTimeInstanceNode):
             # no touchdown found by Gear On Ground or it was not available
             if roc:
                 # Beware, Q-200 roc caused invalid touchdown results.
-                inertial_index, val = touchdown_inertial(land, roc, alt)
+                inertial_index = index_at_value(roc.array, 0.0, _slice=land.slice)
                 index = min(alt_index, inertial_index)
                 if index:
                     # found an intertial touchdown point
@@ -721,20 +721,30 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
                     self.create_kti(index, altitude=alt_threshold)
 
 
-class AltitudeSTD8000Ft(KeyTimeInstanceNode):
-    
-    name = 'Altitude STD 8000 Ft'
-    
-    def derive(self, alt_std=P('Altitude STD')):
-        # XXX: Could create too many KPVs if there is a section of altitude
-        # data at exactly 8000 Ft or the aircraft fluctuates up and down.
-        _slice = slice(None)
-        while True:
-            index = index_at_value(alt_std.array, 8000, _slice)
-            if not index:
-                break
-            self.create_kti(index)
-            _slice = slice(index + 1, None)
+class AltitudeSTDWhenDescending(KeyTimeInstanceNode):
+    '''
+    Creates KTIs at certain Altitude STD heights when the aircraft is
+    descending.
+    '''
+    NAME = 'Altitude STD When Descending'
+    NAME_FORMAT = '%(altitude)d Ft Descending'
+    NAME_VALUES = NAME_VALUES_DESCENT
+
+    HYSTERESIS = 0 # Was 10 Q: Better as a constant in the settings?
+
+    def derive(self, descending=S('Descending'), alt_std=P('Altitude STD')):
+        alt_array = alt_std.array
+        for descend in descending:
+            for alt_threshold in self.NAME_VALUES['altitude']:
+                # Will trigger a single KTI per height (if threshold is
+                # crossed) per descending phase. The altitude array is
+                # scanned backwards to make sure we trap the last instance at
+                # each height.
+                index = index_at_value(alt_array, alt_threshold,
+                                       slice(descend.slice.stop,
+                                             descend.slice.start, -1))
+                if index:
+                    self.create_kti(index, altitude=alt_threshold)
 
 
 class MinsToTouchdown(KeyTimeInstanceNode):

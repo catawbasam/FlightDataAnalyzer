@@ -61,6 +61,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      offset_select,
                                      peak_curvature,
                                      rate_of_change,
+                                     rate_of_change_array,
                                      repair_mask,
                                      rms_noise,
                                      round_to_nearest,
@@ -818,7 +819,7 @@ class AltitudeAAL(DerivedParameterNode):
                                 'type': 'high',
                                 'slice': down_up,
                                 'alt_std': next_alt,
-                                'highest_ground': None,
+                                'highest_ground': next_alt,
                             })
                     n += 2
                 else:
@@ -1056,7 +1057,8 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
 
         frame_name = frame.value if frame else ''
 
-        if frame_name in ['737-i', '737-6']:
+        if frame_name in ['737-i'] or \
+           frame_name.startswith('737-6'):
             # The altitude signal is measured in steps of 32 ft so needs
             # smoothing. A 5-point Gaussian distribution was selected as a
             # balance between smoothing effectiveness and excessive
@@ -1351,7 +1353,12 @@ class APEngaged(MultistateDerivedParameterNode):
             (ap3, 'Engaged'),
             )
         self.array = stacked.any(axis=0)
-        self.frequency = ap1.frequency  # Assumes all are sampled at the same frequency
+        if ap1:
+            self.frequency = ap1.frequency
+        elif ap2:
+            self.frequency = ap2.frequency
+        else:
+            self.frequency = ap3.frequency
         self.offset = offset_select('mean', [ap1, ap2, ap3])
 
 
@@ -4345,6 +4352,7 @@ class MagneticVariationFromRunway(DerivedParameterNode):
         self.array = interpolate(dev, extrapolate=True)
 
 
+
 class VerticalSpeedInertial(DerivedParameterNode):
     '''
     See 'Vertical Speed' for pressure altitude based derived parameter.
@@ -4414,18 +4422,41 @@ class VerticalSpeedInertial(DerivedParameterNode):
                 up_slope = integrate(az_washout[up], hz)
                 blend = roc[climb.stop-1] - up_slope[-1]
                 blend_slope = np.linspace(0.0, blend, len(up_slope))
-                roc[up] = up_slope + blend_slope 
+                roc[up] = up_slope + blend_slope
+                roc[:lift_m5s] = 0.0
+                
+                '''
+                import matplotlib.pyplot as plt
+                plt.plot(az_washout[:climb.stop],'k')
+                #plt.plot(up_slope,'g')
+                #plt.plot(blend_slope,'b')
+                plt.plot(roc[:climb.stop],'r')
+                plt.show()
+                plt.clf()
+                '''
 
             descents = slices_from_to(alt_rad_repair, 100, 0)[1]
             for descent in descents:
-                # From 5 seconds after landing to 100ft
                 down = slice(descent.start, descent.stop+5*hz)
                 down_slope = integrate(az_washout[down], 
-                                       hz,
-                                       direction='backwards')
-                blend = roc[descent.start] - down_slope[0]
-                blend_slope = np.linspace(blend, 0.0, len(down_slope))
-                roc[down] = down_slope + blend_slope 
+                                       hz,)
+                                       #direction='backwards')
+                blend = roc[down.start] - down_slope[0]
+                blend_slope = np.linspace(blend, -down_slope[-1], len(down_slope))
+
+                '''
+                import matplotlib.pyplot as plt
+                plt.plot(az_washout[down],'k')
+                plt.plot(down_slope,'g')
+                plt.plot(roc[down],'r')
+                plt.plot(blend_slope,'b')
+                plt.plot(down_slope + blend_slope,'m')
+                plt.plot(alt_rad_repair[down], 'c')
+                plt.show()
+                '''
+                
+                roc[down] = down_slope + blend_slope
+                roc[descent.stop+5*hz:] = 0.0
 
             return roc * 60.0
 
@@ -4465,15 +4496,17 @@ class VerticalSpeedInertial(DerivedParameterNode):
                     alt_rad_repair[clump], az_repair[clump])
 
 
+
 class VerticalSpeed(DerivedParameterNode):
     '''
     The period for averaging altitude data is a trade-off between transient
     response and noise rejection.
 
-    Some older aircraft have poor resolution, and the 4 second timebase leaves a
-    noisy signal. We have inspected Hercules data, where the resolution is of the
-    order of 9 ft/bit, and data from the BAe 146 where the resolution is 15ft. In
-    these cases the wider timebase with greater smoothing is necessary, albeit at
+    Some older aircraft have poor resolution, and the 4 second timebase
+    leaves a noisy signal. We have inspected Hercules data, where the
+    resolution is of the order of 9 ft/bit, and data from the BAe 146 where
+    the resolution is 15ft and 737-6 frames with 32ft resolution. In these
+    cases the wider timebase with greater smoothing is necessary, albeit at
     the expense of transient response.
 
     For most aircraft however, a period of 4 seconds is used. This has been
@@ -4494,11 +4527,13 @@ class VerticalSpeed(DerivedParameterNode):
         frame_name = frame.value if frame else ''
 
         if frame_name in ['Hercules', '146'] or \
-           frame_name.startswith('747-200'):
-            timebase = 12.0
+           frame_name.startswith('747-200') or \
+           frame_name.startswith('737-6'):
+            timebase = 11.0 # midpoint and 5 seconds either side.
+            self.array = rate_of_change(alt_std, timebase) * 60.0
         else:
             timebase = 4.0
-        self.array = rate_of_change(alt_std, timebase) * 60.0
+            self.array = rate_of_change(alt_std, timebase) * 60.0
 
 
 class VerticalSpeedForFlightPhases(DerivedParameterNode):
@@ -4690,10 +4725,17 @@ class PitchRate(DerivedParameterNode):
 
     Comment: A two second period is used to remove excessive short period
     transients which the pilot could not realistically be asked to control.
-    It also means that low sample rate data (one airline reported having
+    It also means that low sample rate data (some aircraft have 
     pitch sampled at 1Hz) will still give comparable results. The drawback is
     that very brief transients, for example due to rough handling or
     turbulence, will not be detected.
+    
+    The rate_of_change algorithm was extended to allow regression
+    calculation. This provides a best fit slope over the two second period,
+    and so reduces the sensitivity to single samples, but tends to increase
+    the peak values. As this also makes the resulting computation suffer more
+    from masked values, and increases the computing load, it was decided not
+    to implement this for pitch and roll rates.
     """
 
     units = 'deg/sec'
@@ -4716,6 +4758,11 @@ class Roll(DerivedParameterNode):
 class RollRate(DerivedParameterNode):
     # TODO: Tests.
 
+    '''
+    The computational principles here are similar to Pitch Rate; see
+    commentary for that parameter.
+    '''
+    
     units = 'deg/sec'
 
     def derive(self, roll=P('Roll')):

@@ -127,8 +127,7 @@ class FlapOrConfigurationMaxOrMin(object):
 
             # Ensure KPVs with integer detents don't have decimal places and
             # that those that are floats only have one decimal place:
-            detent = int(detent) if detent.is_integer() else '%.1f' % detent
-
+            detent = int(detent) if detent-int(detent)==0.0 else '%.1f' % detent
             key = 'flap' if conflap.name == 'Flap' else 'conf'
             self.create_kpv(index, value, **{key: detent})
 
@@ -546,9 +545,10 @@ class AirspeedAt8000Ft(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_8000=S('Altitude STD 8000 Ft')):
+               alt_std_desc=S('Altitude STD When Descending')):
         
-        self.create_kpvs_at_ktis(air_spd.array, alt_8000)
+        self.create_kpvs_at_ktis(air_spd.array,
+                                 alt_std_desc.get(name='8000 Ft Descending'))
 
 
 class AirspeedDuringCruiseMax(KeyPointValueNode):
@@ -1664,10 +1664,11 @@ class ModeControlPanelAirspeedSelectedAt8000Ft(KeyPointValueNode):
     
     def derive(self,
                mcp=P('Mode Control Panel Airspeed Selected'),
-               alt_8000=S('Altitude STD 8000 Ft')):
+               alt_std_desc=S('Altitude STD When Descending')):
         
         # TODO: Confirm MCP parameter name.
-        self.create_kpvs_at_ktis(mcp.array, alt_8000)
+        self.create_kpvs_at_ktis(mcp.array,
+                                 alt_std_desc.get(name='8000 Ft Descending'))
 
 
 ##############################################################################
@@ -2075,7 +2076,8 @@ class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
     units = 'ft'
 
     def derive(self,
-               alt_std=P('Altitude STD Smoothed')):
+               alt_std=P('Altitude STD Smoothed'),
+               alt_aal=P('Altitude AAL')):
 
         bust = 300  # ft
         bust_time = 3 * 60  # 3 mins
@@ -2107,14 +2109,17 @@ class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
                         alt_a = np.ma.min(alt_std.array[idx_from:idxs[num + 1]])
                         alt_c = np.ma.min(alt_std.array[idxs[num + 1]:idx_to])
                         overshoot = min(b - a, b - alt_a, b - alt_c, b - c)
-                        if overshoot > 5000:
-                            # This happens normally on short sectors
+                        #if overshoot > 5000:
+                        if overshoot > alt_aal.array[idxs[num + 1]]/4:
+                            # This happens normally on short sectors or training flights.
                             continue
                         self.create_kpv(idx, overshoot)
                     else:
                         alt_a = np.ma.max(alt_std.array[idx_from:idxs[num + 1]])
                         alt_c = np.ma.max(alt_std.array[idxs[num + 1]:idx_to])
                         undershoot = max(b - a, b - alt_a, b - alt_c, b - c)
+                        if undershoot < -alt_aal.array[idxs[num + 1]]/4:
+                            continue                        
                         self.create_kpv(idx, undershoot)
 
 
@@ -6475,13 +6480,13 @@ class RateOfDescentAtTouchdown(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed Inertial'),
-               alt_aal=P('Altitude AAL'),
-               landings=S('Landing')):
+               tdns=KTI('Touchdown')):
+        self.create_kpvs_at_ktis(vrt_spd.array, tdns)
 
-        for landing in landings:
-            index, rod = touchdown_inertial(landing, vrt_spd, alt_aal)  # FIXME: Store this in a parameter or cache so that we don't have to repeat this!
-            if index:
-                self.create_kpv(index, rod)
+        ##for landing in landings:
+            ##index, rod = touchdown_inertial(landing, vrt_spd, alt_aal)  # FIXME: Store this in a parameter or cache so that we don't have to repeat this!
+            ##if index:
+                ##self.create_kpv(index, rod)
 
 
 class RateOfDescentDuringGoAroundMax(KeyPointValueNode):
