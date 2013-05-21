@@ -3437,20 +3437,28 @@ class SlopeToLanding(DerivedParameterNode):
 
 
 class Configuration(MultistateDerivedParameterNode):
-    """
-    Multi-state with the following mapping:
-    {
-        0 : '0',
-        1 : '1',
-        2 : '1 + F',
-        3 : '2(a)',  #Q: should display be (a) or 2* or 1* ?!
-        4 : '2',
-        5 : '3(b)',
-        6 : '3',
-        7 : 'FULL',
-    }
-    (a) corresponds to CONF 1*
-    (b) corresponds to CONF 2*
+    '''
+    Parameter for aircraft that use configuration.
+
+    Multi-state with the following mapping::
+
+        {
+            0 : '0',
+            1 : '1',
+            2 : '1+F',
+            3 : '1*',
+            4 : '2',
+            5 : '2*',
+            6 : '3',
+            7 : '4',
+            8 : '5',
+            9 : 'Full',
+        }
+
+    Some values are based on footnotes in various pieces of documentation:
+
+    - 2(a) corresponds to CONF 1*
+    - 3(b) corresponds to CONF 2*
 
     Note: Does not use the Flap Lever position. This parameter reflects the
     actual configuration state of the aircraft rather than the intended state
@@ -3458,26 +3466,24 @@ class Configuration(MultistateDerivedParameterNode):
 
     Note: Values that do not map directly to a required state are masked with
     the data being random (memory alocated)
-    """
+    '''
+
     values_mapping = {
         0 : '0',
         1 : '1',
         2 : '1+F',
-        3 : '2(a)',  #Q: should display be (a) or 2* or 1* ?!
+        3 : '1*',
         4 : '2',
-        5 : '3(b)',
+        5 : '2*',
         6 : '3',
         7 : '4',
         8 : '5',
         9 : 'Full',
     }
-    
+
     @classmethod
     def can_operate(cls, available):
-        return 'Flap' in available and \
-               'Slat' in available and \
-               'Series' in available and \
-               'Family' in available
+        return all_of(('Flap', 'Slat', 'Series', 'Family'), available)
 
     def derive(self, flap=P('Flap'), slat=P('Slat'), aileron=P('Aileron'),
                series=A('Series'), family=A('Family')):

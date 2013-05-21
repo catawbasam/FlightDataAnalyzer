@@ -7,6 +7,7 @@
 import os
 import sys
 
+from flightdatautilities import model_information
 
 # Note: Create an analyser_custom_settings.py module to override settings for
 # your local environment and append customised modules.
@@ -333,15 +334,14 @@ NAME_VALUES_ENGINE = {
     'number': [1, 2, 3, 4],
 }
 
-from flightdatautilities.model_information import get_flap_detents
+
 NAME_VALUES_FLAP = {
-    'flap': get_flap_detents()
+    'flap': model_information.get_flap_detents()
 }
 
 
 NAME_VALUES_CONF = {
-    # FIXME: Proper conf values needed from model_information as flap above
-    'conf': range(1, 6),
+    'conf': model_information.get_conf_detents(),
 }
 
 

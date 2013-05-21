@@ -1,11 +1,12 @@
 import numpy as np
 
-import os
-import sys
-import shutil
-import unittest
 import datetime
+import operator
+import os
+import shutil
+import sys
 import tempfile
+import unittest
 
 from mock import Mock, call, patch
 
@@ -1417,41 +1418,40 @@ class TestClimbForFlightPhases(unittest.TestCase):
         climb.derive(Parameter('Altitude STD Smoothed', up_and_down_data), phase_fast)
         expected = np.ma.array([0,0,2,5,0,0,3,4,6,0])
         ma_test.assert_masked_array_approx_equal(climb.array, expected)
-   
-   
 
-class TestConfiguration(unittest.TestCase):
-    
+
+class TestConfiguration(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        # last state is invalid
-        s = np.ma.array([0]*2 + [16]*4 + [20]*4 + [23]*6 + [16])
-        self.slat = P('Slat', np.tile(s, 10000)) # 23 long
-        f = np.ma.array([0]*4 + [8]*4 + [14]*4 + [22]*2 + [32]*2 + [14])
-        self.flap = P('Flap', np.tile(f, 10000))
-        a = np.ma.array([0]*4 + [5]*2 + [10]*10 + [10])
-        self.ails = P('Aileron', np.tile(a, 10000))
-        
-    def test_can_operate(self):
-        expected = [('Flap','Slat', 'Series', 'Family'),
-                    ('Flap','Slat', 'Aileron', 'Series', 'Family')]
-        opts = Configuration.get_operational_combinations()
-        self.assertEqual(opts, expected)
-        
+        self.node_class = Configuration
+        self.operational_combinations = [
+            ('Flap', 'Slat', 'Series', 'Family'),
+            ('Flap', 'Slat', 'Aileron', 'Series', 'Family'),
+        ]
+        # Note: The last state is invalid...
+        s = [0] * 2 + [16] * 4 + [20] * 4 + [23] * 6 + [16]
+        f = [0] * 4 + [8] * 4 + [14] * 4 + [22] * 2 + [32] * 2 + [14]
+        a = [0] * 4 + [5] * 2 + [10] * 10 + [10]
+        self.slat = P('Slat', np.tile(np.ma.array(s), 10000))
+        self.flap = P('Flap', np.tile(np.ma.array(f), 10000))
+        self.ails = P('Aileron', np.tile(np.ma.array(a), 10000))
+
     def test_conf_for_a330(self):
-        # last state is invalid
-        conf = Configuration()
-        conf.derive(self.flap, self.slat, self.ails, 
-                      A('','A330-301'), A('','A330'))
-        self.assertEqual(list(conf.array[:17]),
-                         ['0','0','1','1','1+F','1+F','2','2',
-                          '3','3','4','4','5','5','Full','Full',np.ma.masked])
-        
+        # Note: The last state is invalid...
+        expected = ['0', '1', '1+F', '1*', '2', '2*', '3', 'Full']
+        expected = list(reduce(operator.add, zip(expected, expected)))
+        expected += [np.ma.masked]
+        series = A('Series', 'A330-301')
+        family = A('Family', 'A330')
+        node = self.node_class()
+        node.derive(self.flap, self.slat, self.ails, series, family)
+        self.assertEqual(list(node.array[:17]), expected)
+
     def test_time_taken(self):
         from timeit import Timer
         timer = Timer(self.test_conf_for_a330)
         time = min(timer.repeat(1, 1))
-        print "Time taken %s secs" % time
-        self.assertLess(time, 0.2, msg="Took too long")
+        self.assertLess(time, 0.2, msg='Took too long: %.3fs' % time)
 
 
 class TestControlColumn(unittest.TestCase):
