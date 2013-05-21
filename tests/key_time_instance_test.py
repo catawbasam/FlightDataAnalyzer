@@ -627,19 +627,6 @@ class TestTouchdown(unittest.TestCase):
         # 4
         self.assertTrue(('Gear On Ground', 'Vertical Speed Inertial', 'Altitude AAL', 'Landing') in opts)
 
-    def test_touchdown_with_vertical_speed(self):
-        # Test 3
-        vert_spd = Parameter('Vertical Speed Inertial',
-                             np.ma.arange(10)*40 - 380.0)
-        altitude = Parameter('Altitude AAL',
-                             np.ma.array(data=[28.0, 21, 15, 10, 6, 3, 1, 0, 0,  0],
-                                         mask = False))
-        lands = buildsection('Landing', 2, 9)
-        tdwn = Touchdown()
-        tdwn.derive(None, vert_spd, altitude, lands)
-        expected = [KeyTimeInstance(index=6.7490996398559435, name='Touchdown')]
-        self.assertEqual(tdwn, expected)
-
     def test_touchdown_with_minimum_requirements(self):
         # Test 1
         altitude = Parameter('Altitude AAL',
@@ -647,20 +634,8 @@ class TestTouchdown(unittest.TestCase):
                                          mask = False))
         lands = buildsection('Landing', 2, 9)
         tdwn = Touchdown()
-        tdwn.derive(None, None, altitude, lands)
+        tdwn.derive(None, None, altitude, None, lands)
         expected = [KeyTimeInstance(index=7, name='Touchdown')]
-        self.assertEqual(tdwn, expected)
-
-    def test_touchdown_doesnt_land_with_vertical_speed(self):
-        # Test 3
-        vert_spd = Parameter('Vertical Speed', np.ma.arange(10)*40)
-        altitude = Parameter('Altitude AAL',
-                             np.ma.array(data=[28, 21, 15, 10, 10, 14, 20, 34, 50],
-                                         mask = False))
-        lands = buildsection('Landing', 2, 9)
-        tdwn = Touchdown()
-        tdwn.derive(None, vert_spd, altitude, lands)
-        expected = []
         self.assertEqual(tdwn, expected)
 
     def test_touchdown_using_alt(self):
@@ -679,7 +654,7 @@ class TestTouchdown(unittest.TestCase):
                                     'TestTouchdown-roc.nod'))
         lands = buildsection('Landing', 23279, 23361)
         tdwn = Touchdown()
-        tdwn.derive(gog, roc, alt, lands)
+        tdwn.derive(None, None, alt, gog, lands)
         self.assertEqual(tdwn.get_first().index, 23292.0)
 
 ##############################################################################
