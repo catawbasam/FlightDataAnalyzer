@@ -1,4 +1,5 @@
 import numpy as np
+from math import ceil, floor
 
 from analysis_engine.library import (all_of,
                                      any_of,
@@ -9,6 +10,7 @@ from analysis_engine.library import (all_of,
                                      index_at_value,
                                      max_value,
                                      minimum_unmasked,
+                                     np_ma_masked_zeros_like,
                                      peak_curvature,
                                      slices_and,
                                      slices_not,
@@ -569,8 +571,11 @@ class Touchdown(KeyTimeInstanceNode):
         # List the minimum required parameters.
         return all_of(('Altitude AAL', 'Landing'), available)
 
-    def derive(self, gog=M('Gear On Ground'), roc=P('Vertical Speed Inertial'),
-               alt=P('Altitude AAL'), lands=S('Landing')):
+    def derive(self, acc_norm=P('Acceleration Normal'),
+               acc_long=P('Acceleration Longitudinal'),
+               alt=P('Altitude AAL'), 
+               gog=M('Gear On Ground'), 
+               lands=S('Landing')):
         # The preamble here checks that the landing we are looking at is
         # genuine, it's not just because the data stopped in mid-flight. We
         # reduce the scope of the search for touchdown to avoid triggering in
@@ -578,7 +583,14 @@ class Touchdown(KeyTimeInstanceNode):
         # signal changes state on raising the gear (OK, if they do a gear-up
         # landing it won't work, but this will be the least of the problems).
 
+        dt = 5.0 # Seconds to scan across.
+        hz = alt.frequency
+        index_gog = None
+
         for land in lands:
+            
+            index_alt = index_at_value(alt.array, 0.0, land.slice)
+            
             if gog:
                 # try using Gear On Ground switch
                 edges = find_edges_on_state_change(
@@ -587,14 +599,8 @@ class Touchdown(KeyTimeInstanceNode):
                     # use the first contact with ground as touchdown point 
                     # (ignore bounces)
                     index = edges[0] + land.slice.start
-                    if not alt:
-                        self.create_kti(index)
-                        continue
-                    elif alt.array[index] < 5.0:
-                        # Check computation is OK - we've seen 747 "Gear On
-                        # Ground" at 21ft
-                        self.create_kti(index)
-                        continue
+                    if not alt or alt.array[index] < 5.0:
+                        index_gog = index
                     else:
                         # Did not find a realistic Gear On Ground trigger.
                         pass
@@ -603,25 +609,63 @@ class Touchdown(KeyTimeInstanceNode):
                     # no gear on ground switch found > work it out from height only
                     pass
 
-            alt_index = index_at_value(alt.array, 0.0, land.slice)
-            # no touchdown found by Gear On Ground or it was not available
-            if roc:
-                # Beware, Q-200 roc caused invalid touchdown results.
-                inertial_index = index_at_value(roc.array, 0.0, _slice=land.slice)
-                index = min(alt_index, inertial_index)
-                if index:
-                    # found an intertial touchdown point
-                    self.create_kti(index)
-                    continue
-
-            # no Gear On Ground or Intertial estimate, use altitude
-            index = alt_index
-            if index:
-                self.create_kti(index)
+            index_ref = min([x for x in index_alt, index_gog if x is not None])
+            
+            # Set up a period to scan across...
+            period = slice(floor(index_ref-dt*hz), ceil(index_ref+2*hz))
+            
+            index_ax = None
+            if acc_long:
+                drag = acc_long.array[period]
+                touch = np_ma_masked_zeros_like(drag)
+                for i in range(2, len(touch)-2):
+                    touch[i-2]=drag[i-2]-drag[i]*2.0+drag[i+2]
+                index_ax = np.argmax(touch)+1
+            
+            index_az=None
+            if acc_norm:
+                lift = acc_norm.array[period]
+                mean_az = np.mean(lift)
+                bump = np_ma_masked_zeros_like(lift)
+                for i in range(1, len(bump)-1):
+                    bump[i-1]=lift[i]*lift[i+1]-mean_az
+                index_az = np.argmax(bump)
+            
+            # We collect up to four estimates of the touchdown point...
+            index_list = [x for x in index_alt, 
+                          index_gog, 
+                          index_ax+index_ref-dt*hz, 
+                          index_az+index_ref-dt*hz if x is not None]
+            
+            # ...and use the second where possible, as this has been found to be more reliable than the first which may be erroneous.
+            if len(index_list)>1:
+                index_tdn = sorted(index_list)[1]
             else:
-                # Altitude did not get to 0 ft!
-                continue
+                index_tdn = index_list[0]
+                
+            self.create_kti(index_tdn)
 
+            '''
+            import matplotlib.pyplot as plt
+            timebase=np.linspace(-dt*hz, dt*hz, 2*dt*hz+1)
+            plot_period = slice(floor(index_ref-dt*hz), floor(index_ref-dt*hz+len(timebase)))
+            plt.plot(timebase, alt.array[plot_period], 'o-r')
+            plt.plot(timebase, acc_long.array[plot_period]*200, 'o-m')
+            plt.plot(timebase, acc_norm.array[plot_period]*100, 'o-g')
+            if gog:
+                plt.plot(timebase, gog.array[plot_period]*100, 'o-k')
+                plt.plot(index_gog-index_ref, 20.0,'ok', markersize=8)
+            plt.plot(index_ax-dt*hz, 5.0,'om', markersize=8)
+            plt.plot(index_az-dt*hz, 10.0,'og', markersize=8)
+            plt.plot(index_alt-index_ref, 15.0,'or', markersize=8)
+            plt.plot(index_tdn-index_ref, 0.0,'dr', markersize=8)
+            plt.title('Touchdown Check')
+            plt.grid()
+            plt.show()
+            plt.close()
+            print 'Touch max = ', np.max(touch)
+            print 'Bump max = ', np.max(bump)
+            '''
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.

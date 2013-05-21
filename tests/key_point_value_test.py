@@ -1480,7 +1480,7 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
     def test_derive(self):
         flap = [[0, 5, 10]] * 10
         flap = P('Flap', np.ma.array(reduce(operator.add, zip(*flap))))
-        air_spd = P('Airspeed', np.ma.array(range(30)))
+        air_spd = P('Airspeed', np.ma.arange(30))
         fast = buildsection('Fast', 0, 30)
         flap.array[19] = np.ma.masked  # mask the max value
         air_spd_flap_max = AirspeedWithFlapMax()
@@ -1498,7 +1498,7 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
         # Note: This test will produce the following warning:
         #       "No flap settings - rounding to nearest 5"
         flap = [[0, 1, 2, 5, 10, 15, 25, 30, 40, 0]] * 2
-        flap = P('Flap', np.ma.masked_array(reduce(operator.add, zip(*flap))))
+        flap = P('Flap', np.ma.array(reduce(operator.add, zip(*flap))))
         air_spd = P('Airspeed', np.ma.arange(20))
         fast = buildsection('Fast', 0, 20)
         step = Flap()
@@ -1515,10 +1515,12 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
             KeyPointValue(index=17, value=17, name='Airspeed With Flap 40 Max'),
         ])
 
+    @patch.dict('analysis_engine.key_point_values.AirspeedWithFlapMax.NAME_VALUES',
+            {'flap': (5.5, 10.1, 20.9)})
     def test_derive_fractional_settings(self):
         flap = [[0, 5.5, 10.1, 20.85]] * 5
         flap = P('Flap', np.ma.array(reduce(operator.add, zip(*flap))))
-        air_spd = P('Airspeed', np.ma.array(range(30)))
+        air_spd = P('Airspeed', np.ma.arange(30))
         fast = buildsection('Fast', 0, 30)
         air_spd_flap_max = AirspeedWithFlapMax()
         air_spd_flap_max.derive(flap, air_spd, fast)
@@ -6416,7 +6418,7 @@ class TestWindAcrossLandingRunwayAt50Ft(unittest.TestCase, NodeTest):
 # Weight
 
 
-class TestGrossWeightAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestGrossWeightAtLiftoff(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = GrossWeightAtLiftoff
@@ -6427,7 +6429,7 @@ class TestGrossWeightAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestGrossWeightAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestGrossWeightAtTouchdown(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = GrossWeightAtTouchdown

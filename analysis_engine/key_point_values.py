@@ -1,6 +1,6 @@
 import numpy as np
 
-from math import ceil
+from math import ceil, floor
 from flightdatautilities.geometry import midpoint
 
 from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
@@ -127,7 +127,7 @@ class FlapOrConfigurationMaxOrMin(object):
 
             # Ensure KPVs with integer detents don't have decimal places and
             # that those that are floats only have one decimal place:
-            detent = int(detent) if detent-int(detent)==0.0 else '%.1f' % detent
+            detent = int(detent) if float(detent).is_integer() else '%.1f' % detent
             key = 'flap' if conflap.name == 'Flap' else 'conf'
             self.create_kpv(index, value, **{key: detent})
 
@@ -6482,11 +6482,6 @@ class RateOfDescentAtTouchdown(KeyPointValueNode):
                vrt_spd=P('Vertical Speed Inertial'),
                tdns=KTI('Touchdown')):
         self.create_kpvs_at_ktis(vrt_spd.array, tdns)
-
-        ##for landing in landings:
-            ##index, rod = touchdown_inertial(landing, vrt_spd, alt_aal)  # FIXME: Store this in a parameter or cache so that we don't have to repeat this!
-            ##if index:
-                ##self.create_kpv(index, rod)
 
 
 class RateOfDescentDuringGoAroundMax(KeyPointValueNode):
