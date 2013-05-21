@@ -2080,6 +2080,16 @@ class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase, NodeTest):
             KeyPointValue(index=420, value=-1000,
                 name='Altitude Overshoot At Suspected Level Bust'),
         ])
+        
+    def test_derive_with_real_go_around_data_ignores_overshoot(self):
+        alt_std = load(os.path.join(test_data_path,
+                                    'alt_std_smoothed_go_around.nod'))
+        alt_aal = load(os.path.join(test_data_path,
+                                    'alt_aal_go_around.nod'))
+        bust = AltitudeOvershootAtSuspectedLevelBust()
+        bust.derive(alt_std, alt_aal)
+        self.assertEqual(len(bust), 0)
+        
 
 
 ########################################
