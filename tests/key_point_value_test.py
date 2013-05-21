@@ -6407,7 +6407,7 @@ class TestWindAcrossLandingRunwayAt50Ft(unittest.TestCase, NodeTest):
 # Weight
 
 
-class TestGrossWeightAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestGrossWeightAtLiftoff(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = GrossWeightAtLiftoff
@@ -6418,7 +6418,7 @@ class TestGrossWeightAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestGrossWeightAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestGrossWeightAtTouchdown(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = GrossWeightAtTouchdown
