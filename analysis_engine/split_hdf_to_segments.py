@@ -106,7 +106,7 @@ def _get_normalised_split_params(hdf):
     first_split_param = None
     for param_name in ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',
                        'Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2',
-                       'Eng (1) NP', 'Eng (2) NP', 'Eng (3) NP', 'Eng (4) NP'):
+                       'Eng (1) Np', 'Eng (2) Np', 'Eng (3) Np', 'Eng (4) Np'):
         try:
             param = hdf[param_name]
         except KeyError:

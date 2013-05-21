@@ -11,7 +11,7 @@ from flightdatautilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, App, ApproachItem, KPV, KTI, M, P, KeyPointValue,
+    A, App, ApproachItem, KPV, KTI, load, M, P, KeyPointValue,
     KeyTimeInstance, Section, S
 )
 
@@ -2108,6 +2108,17 @@ class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase, NodeTest):
             KeyPointValue(index=420, value=-1000,
                 name='Altitude Overshoot At Suspected Level Bust'),
         ])
+        
+    def test_derive_with_real_go_around_data_ignores_overshoot(self):
+        alt_std = load(os.path.join(test_data_path,
+                                    'alt_std_smoothed_go_around.nod'))
+        alt_aal = load(os.path.join(test_data_path,
+                                    'alt_aal_go_around.nod'))
+        alt_aal_aligned = alt_aal.get_aligned(alt_std)
+        bust = AltitudeOvershootAtSuspectedLevelBust()
+        bust.derive(alt_std, alt_aal_aligned)
+        self.assertEqual(len(bust), 0)
+        
 
 
 ########################################
