@@ -14,7 +14,7 @@ from analysis_engine.flight_attribute import LandingRunway
 import flightdatautilities.masked_array_testutils as ma_test
 
 from analysis_engine.library import *
-from analysis_engine.node import (A, P, S, M, KTI, KeyTimeInstance, Section)
+from analysis_engine.node import (A, P, S, load, M, KTI, KeyTimeInstance, Section)
 from analysis_engine.settings import METRES_TO_FEET
 from flight_phase_test import buildsections
 
@@ -4859,6 +4859,7 @@ class TestSecondWindow(unittest.TestCase):
                                mask=[False] * 9 + [True]))
         
     def test_three_second_window_decrementing(self):
+        print second_window(np.ma.arange(10, 0, -1), 2, 3)
         ma_test.assert_almost_equal(
             second_window(np.ma.arange(10, 0, -1), 2, 3),
             np.ma.masked_array([10, 9, 8, 7, 6, 5, 4, 3, 2, 0],
@@ -4930,6 +4931,11 @@ class TestSecondWindow(unittest.TestCase):
         ma_test.assert_almost_equal(
             sample_window(amv2, 3),
             [10, 10, 9, 8, 7, 6, 5, 4, 3, 2, 2, 2, 2, 4, 6, 8, 10, 12, 14, 16])
+
+    def test_three_second_window_with_real_data(self):
+        amv2 = load(os.path.join(test_data_path, 'airspeed_minus_v2.nod'))
+        res = second_window(amv2.array, amv2.frequency, 3)
+        self.assertEqual(np.ma.count(res), 40975)
 
 
 if __name__ == '__main__':

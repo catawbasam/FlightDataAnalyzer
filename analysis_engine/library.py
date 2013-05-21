@@ -5444,6 +5444,8 @@ def second_window(array, frequency, seconds):
     Only include values which are maintained for a number of seconds, shorter
     exceedances are excluded.
     
+    Only supports odd numbers of seconds and frequencies of whole numbers.
+    
     e.g. [0, 1, 2, 3, 2, 1, 2, 3] -> [0, 1, 2, 2, 2, 2, 2, 2]
     
     :type array: np.ma.masked_array
@@ -5454,10 +5456,11 @@ def second_window(array, frequency, seconds):
         (seconds % 2 == 1 and not frequency % 2 == 0)):
         raise ValueError('Invalid seconds for frequency')
     
+    frequency = int(frequency)  # only integer frequencies supported
     samples = (seconds * frequency) + 1
     # TODO: Fix for frequency..
     arrays = [array]
-    for roll_value in range((samples / 2) + 1):
+    for roll_value in range((samples / 2) + 1):  # 0 roll?
         positive_roll = np.roll(array, roll_value)
         positive_roll[:roll_value] = np.ma.masked
         negative_roll = np.roll(array, -roll_value)
@@ -5516,7 +5519,7 @@ def second_window(array, frequency, seconds):
     ##from analysis_engine.plot_flight import plot_parameter
     ##plot_parameter(window_array)
     ##plot_parameter(array)
-    ##return np.ma.array(window_array)
+    return np.ma.array(window_array)
 
 
 #---------------------------------------------------------------------------
