@@ -2112,8 +2112,9 @@ class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase, NodeTest):
                                     'alt_std_smoothed_go_around.nod'))
         alt_aal = load(os.path.join(test_data_path,
                                     'alt_aal_go_around.nod'))
+        alt_aal_aligned = alt_aal.get_aligned(alt_std)
         bust = AltitudeOvershootAtSuspectedLevelBust()
-        bust.derive(alt_std) #, alt_aal)
+        bust.derive(alt_std, alt_aal_aligned)
         self.assertEqual(len(bust), 0)
         
 
