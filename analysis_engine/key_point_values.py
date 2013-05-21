@@ -127,7 +127,7 @@ class FlapOrConfigurationMaxOrMin(object):
 
             # Ensure KPVs with integer detents don't have decimal places and
             # that those that are floats only have one decimal place:
-            detent = int(detent) if detent-int(detent)==0.0 else '%.1f' % detent
+            detent = int(detent) if float(detent).is_integer() else '%.1f' % detent
             key = 'flap' if conflap.name == 'Flap' else 'conf'
             self.create_kpv(index, value, **{key: detent})
 

@@ -1360,7 +1360,7 @@ class KeyTimeInstanceNode(FormattedNameNode):
                         # Ensure KTIs with integer detents don't have decimal
                         # places and that those that are floats only have one
                         # decimal place:
-                        v = int(v) if v.is_integer() else '%.1f' % v
+                        v = int(v) if float(v).is_integer() else '%.1f' % v
                     kwargs.update(**{name: v})
                 self.create_kti(edge_index, **kwargs)
 
