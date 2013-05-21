@@ -688,7 +688,7 @@ class TestAirspeedReferenceLookup(unittest.TestCase):
                                'series':None,
                                'family':None}
 
-    @patch('flightdatautilities.derived_parameters.get_vspeed_map')
+    @patch('analysis_engine.derived_parameters.get_vspeed_map')
     def test_airspeed_reference__boeing_lookup(self, vspeed_map):
         vspeed_table = Mock
         vspeed_table.vref = Mock(side_effect = [135, 130])
