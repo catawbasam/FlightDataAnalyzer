@@ -190,6 +190,7 @@ def derive_parameters(hdf, node_mgr, process_order):
                 # parameters then we will have an array length of 1412.
                 expected_length = duration * result.frequency
                 if result.array is None:
+                    logger.warning("No array set; creating a fully masked array for %s", param_name)
                     array_length = expected_length
                     # Where a parameter is wholly masked, we fill the HDF
                     # file with masked zeros to maintain structure.
