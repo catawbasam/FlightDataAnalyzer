@@ -5588,6 +5588,9 @@ class FlareDuration20FtToTouchdown(KeyPointValueNode):
                                         _slice=slice(tdown.index,
                                                      this_landing[0].start_edge,
                                                      -1))
+                if not idx_20:
+                    # why not?
+                    raise ValueError("Did not cross 20ft before touchdown point - sounds unlikely")
                 self.create_kpv(
                     tdown.index,
                     (tdown.index - idx_20) / alt_aal.frequency)
