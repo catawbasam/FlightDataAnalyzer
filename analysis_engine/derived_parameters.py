@@ -4274,7 +4274,7 @@ class MagneticVariation(DerivedParameterNode):
 
     units = 'deg'
     
-    align_frequency = 1/64.0
+    align_frequency = 1/4.0
     align_offset = 0.0
 
     @classmethod
@@ -4323,7 +4323,7 @@ class MagneticVariationFromRunway(DerivedParameterNode):
     TODO: Instead of linear interpolation, perhaps base it on distance flown.
     """
     units = 'deg'
-    align_frequency = 1/64.0
+    align_frequency = 1/4.0
     align_offset = 0.0
 
     def derive(self, duration=A('HDF Duration'),
