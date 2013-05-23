@@ -1605,6 +1605,11 @@ class TestFindEdgesOnStateChange(unittest.TestCase):
         multi = self.Switch(array=np.ma.array([0,1]))
         self.assertRaises(KeyError, find_edges_on_state_change, 'ha!', multi.array)
 
+    def test_no_state_change(self):
+        multi = self.Switch(array=np.ma.array([0,0,0,0,0,0]))
+        edges = find_edges_on_state_change('on', multi.array)
+        self.assertEqual(edges, [])
+
 
 class TestFirstOrderLag(unittest.TestCase):
 

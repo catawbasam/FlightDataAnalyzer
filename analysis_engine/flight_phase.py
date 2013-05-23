@@ -450,6 +450,7 @@ class DescentToFlare(FlightPhaseNode):
     def derive(self,
             descents=S('Descent'),
             alt_aal=P('Altitude AAL For Flight Phases')):
+        #TODO: Ensure we're still in the air
         for descent in descents:
             end = index_at_value(alt_aal.array, 50.0, descent.slice)
             if end is None:

@@ -1726,16 +1726,13 @@ class ThrustReversersDeployedDuration(KeyPointValueNode):
     '''
     units = 's'
 
-    def derive(self,
-               tr=M('Thrust Reversers'),
-               landings=S('Landing')):
-
+    def derive(self, tr=M('Thrust Reversers'), landings=S('Landing')):
         for landing in landings:
             tr_in_ldg = tr.array[landing.slice]
             dur_deployed = np.ma.sum(tr_in_ldg == 'Deployed') / tr.frequency
-            if dur_deployed:
-                dep_start = find_edges_on_state_change('Deployed', tr_in_ldg)[0]
-                index = dep_start + landing.slice.start
+            dep_start = find_edges_on_state_change('Deployed', tr_in_ldg)
+            if dur_deployed and dep_start:
+                index = dep_start[0] + landing.slice.start
             else:
                 index = landing.slice.start
             self.create_kpv(index, dur_deployed)
