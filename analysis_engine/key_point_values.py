@@ -3396,6 +3396,7 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
     '''
 
     '''
+    name = "IAN Glidepath Deviation"
     NAME_FORMAT = "IAN Glidepath Deviation %(max_alt)d To %(min_alt)s Ft Max"
     NAME_VALUES = {
         'max_alt' : (1500, 1000, 500),
@@ -3445,6 +3446,7 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
     '''
 
     '''
+    name = "IAN Final Approach Course Deviation"
     NAME_FORMAT = "IAN Final Approach Course Deviation %(max_alt)d To %(min_alt)s Ft Max"
     NAME_VALUES = {
         'max_alt' : (1500, 1000, 500),
@@ -3650,8 +3652,8 @@ class LongitudeAtTouchdown(KeyPointValueNode):
     def can_operate(cls, available):
         return 'Touchdown' in available and any_of(('Longitude',
                                                     'Longitude (Coarse)',
-                                                    'AFR Touchdown Runway',
-                                                    'AFR Touchdown Airport'),
+                                                    'AFR Landing Runway',
+                                                    'AFR Landing Airport'),
                                                    available)
 
     def derive(self,

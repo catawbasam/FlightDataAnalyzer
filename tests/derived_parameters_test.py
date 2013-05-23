@@ -52,6 +52,7 @@ from analysis_engine.derived_parameters import (
     Aileron,
     AimingPointRange,
     AirspeedForFlightPhases,
+    AirspeedMinusV2,
     AirspeedMinusV2For3Sec,
     AirspeedReference,
     AirspeedReferenceLookup,
@@ -597,14 +598,39 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
 
 
 class TestAirspeedMinusV2(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        expected = [('Airspeed', 'V2'),
+                    ('Airspeed', 'V2 Lookup'),
+                    ('Airspeed', 'V2', 'V2 Lookup')]
+        opts = AirspeedMinusV2.get_operational_combinations()
+        self.assertEqual(opts, expected)
         
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
+    def test_recorded_v2(self):
+        air_spd = P('Airspeed', np.ma.array([102] * 6))
+        v2 = P('V2', np.ma.arange(90,120,5))
+        amv2 = AirspeedMinusV2()
+        result = amv2.get_derived([air_spd, v2, None])
+        expected = np.ma.arange(12,-18,-5)
+        ma_test.assert_array_equal(result.array, expected)
+        
+    def test_lookup_v2(self):
+        air_spd = P('Airspeed', np.ma.array([102] * 6))
+        v2_lu = P('V2 Lookup', np.ma.arange(90,120,5))
+        amv2 = AirspeedMinusV2()
+        result = amv2.get_derived([air_spd, None, v2_lu])
+        expected = np.ma.arange(12,-18,-5)
+        ma_test.assert_array_equal(result.array, expected)
+        
+    def test_recorded_preferred_to_lookup_v2(self):
+        # If both forms are available, the recorded version is used in preference to the lookup tables.
+        air_spd = P('Airspeed', np.ma.array([102] * 6))
+        v2 = P('V2', np.ma.arange(90,120,5))
+        v2_lu = P('V2 Lookup', np.ma.arange(80,110,5))
+        amv2 = AirspeedMinusV2()
+        result = amv2.get_derived([air_spd, v2, v2_lu])
+        expected = np.ma.arange(12,-18,-5)
+        ma_test.assert_array_equal(result.array, expected)
+        
 
 class TestAirspeedReference(unittest.TestCase, NodeTest):
 
