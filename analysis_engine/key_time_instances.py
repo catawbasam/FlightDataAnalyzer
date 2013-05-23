@@ -596,7 +596,7 @@ class Touchdown(KeyTimeInstanceNode):
         dt_pre = 4.0 # Seconds to scan before estimate.
         dt_post = 3.0 # Seconds to scan after estimate.
         hz = alt.frequency
-        index_gog = index_ax = index_az = index_daz = index_dax= None
+        index_gog = index_ax = index_az = index_daz = index_dax = index_z = None
 
         for land in lands:
             # We have to have an altitude signal, so this forms an initial
@@ -670,16 +670,18 @@ class Touchdown(KeyTimeInstanceNode):
                 # The first real contact is indicated by an increase in g of
                 # more than 0.075, but this must be positive (hence the
                 # masking above the local mean).
-                for i in range(0, len(bump)-1):
+                for i in range(0, len(lift)-1):
                     if lift[i] and lift[i+1]:
                         delta=lift[i+1]-lift[i]
-                        if delta > 0.05:
+                        if delta > 0.1:
                             index_daz = i+1+index_ref-dt_pre*hz
                             break
                 
             # Pick the first of the two normal accelerometer measures to
             # avoid triggering a touchdown from a single faulty sensor:
-            index_z = min([x for x in index_az, index_daz if x is not None])
+            index_z_list = [x for x in index_az, index_daz if x is not None]
+            if index_z_list:
+                index_z = min(index_z_list)
             # ...then collect up to four estimates of the touchdown point...
             index_list = [x for x in index_alt, 
                           index_gog, 
