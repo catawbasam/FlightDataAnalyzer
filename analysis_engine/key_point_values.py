@@ -3653,8 +3653,8 @@ class LongitudeAtTouchdown(KeyPointValueNode):
     def can_operate(cls, available):
         return 'Touchdown' in available and any_of(('Longitude',
                                                     'Longitude (Coarse)',
-                                                    'AFR Touchdown Runway',
-                                                    'AFR Touchdown Airport'),
+                                                    'AFR Landing Runway',
+                                                    'AFR Landing Airport'),
                                                    available)
 
     def derive(self,
