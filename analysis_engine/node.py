@@ -73,7 +73,8 @@ def load(path):
 
     Convention is to use the .nod file extension.
     
-    FIXME: MappedArray should take values_mapping and apply it itself
+    :param path: Path to pickled Node object file
+    :type path: String
     '''
     with gzip.open(path) as file_obj:
         try:
@@ -731,6 +732,26 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
                              % type(value))
 
         return object.__setattr__(self, name, value)
+    
+    def __getstate__(self):
+        '''
+        Get the state of the object for pickling.
+        
+        :rtype: dict
+        '''
+        odict = self.__dict__.copy()
+        return odict
+    
+    def __setstate__(self, state):
+        '''
+        Set the state of the unpickled object.
+        
+        :type state: dict
+        '''
+        array = state.pop('array')
+        self.__dict__.update(state)
+        self.array = MappedArray(array,
+                                 values_mapping=state['values_mapping'])
 
 
 M = MultistateDerivedParameterNode  # shorthand

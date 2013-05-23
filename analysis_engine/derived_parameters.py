@@ -6011,8 +6011,8 @@ class StableApproach(MultistateDerivedParameterNode):
         # the altitude above airfield level corresponding to each cause
         # options are FLAP, GEAR GS HI/LO, LOC, SPD HI/LO and VSI HI/LO
 
-        # create an empty fuly masked array
-        self.array = np_ma_masked_zeros_like(gear.array)
+        # create an empty fully masked array
+        self.array = np.ma.zeros(len(alt.array))
         self.array.mask = True
         # shortcut for repairing masks
         repair = lambda ar, ap: repair_mask(ar[ap], zero_if_masked=True)
@@ -6052,19 +6052,20 @@ class StableApproach(MultistateDerivedParameterNode):
             # Assume unstable due to Gear Down at first
             self.array[_slice] = 1
             landing_gear_set = (gear_down == 'Down')
-            stable = landing_gear_set.filled(False) # replace masked with false
+            stable = landing_gear_set.filled(True)  # assume stable (gear down)
 
             #== 2. Landing Flap ==
             # not due to landing gear so try to prove it wasn't due to Landing Flap
             self.array[_slice][stable] = 2
-            landing_flap_set = (flap_lever == flap_lever[-1])
-            stable &= landing_flap_set.filled(False)
+            landing_flap = last_valid_sample(flap_lever)
+            landing_flap_set = (flap_lever == landing_flap.value)
+            stable &= landing_flap_set.filled(True)  # assume stable (flap set)
 
             #== 3. Heading ==
             self.array[_slice][stable] = 3
             STABLE_HEADING = 10  # degrees
             stable_track_dev = abs(track_dev) <= STABLE_HEADING
-            stable &= stable_track_dev.filled(False)  #Q: Should masked values assumed on track ???
+            stable &= stable_track_dev.filled(True)  # assume stable (on track)
 
             if aspd:
                 #== 4. Airspeed Relative ==
@@ -6106,7 +6107,7 @@ class StableApproach(MultistateDerivedParameterNode):
             stable_vert = (vertical_speed >= STABLE_VERTICAL_SPEED_MIN) & (vertical_speed <= STABLE_VERTICAL_SPEED_MAX) 
             # extend the stability at the end of the altitude threshold through to landing
             stable_vert[altitude < 50] = stable_vert[index_at_50]
-            stable &= stable_vert.filled(True)  #Q: True best?
+            stable &= stable_vert.filled(True)
             
             #== 8. Engine Power (N1) ==
             self.array[_slice][stable] = 8
@@ -6116,7 +6117,7 @@ class StableApproach(MultistateDerivedParameterNode):
             stable_engine |= (altitude > 1000)  # Only use in altitude band below 1000 feet
             # extend the stability at the end of the altitude threshold through to landing
             stable_engine[altitude < 50] = stable_engine[index_at_50]
-            stable &= stable_engine.filled(True)  #Q: True best?
+            stable &= stable_engine.filled(True)
 
             #== 9. Stable ==
             # Congratulations; whatever remains in this approach is stable!

@@ -1914,6 +1914,7 @@ class TestFlap(unittest.TestCase):
         
     def test_flap_using_md82_settings(self):
         # MD82 has flaps (0, 11, 15, 28, 40)
+        #or now it's:         #(0, 13, 20, 25, 30, 40)?
         flap = P('Flap Surface', np.ma.array(range(50) + range(-5,0) + [13.1,1.3,10,10]))
         flap.array[1] = np.ma.masked
         flap.array[57] = np.ma.masked
@@ -1921,6 +1922,7 @@ class TestFlap(unittest.TestCase):
         fstep = Flap()
         fstep.derive(flap, A('Series', None), A('Family', 'DC-9'))
         self.assertEqual(len(fstep.array), 59)
+        
         self.assertEqual(
             list(np.ma.filled(fstep.array, fill_value=-999)), 
             [0,-999,0,0,0,0, # 0 -> 5.5
@@ -4553,11 +4555,13 @@ class TestStableApproach(unittest.TestCase):
         eng = P(array=np.ma.array(e))
         
         # Altitude for cutoff heights, 9th element is 200 below, last 4 values are below 100ft last 2 below 50ft
-        al = range(2000,219,-200) + range(219,18, -20)
+        al = range(2000,219,-200) + range(219,18, -20) + [0]
         # == [2000, 1800, 1600, 1400, 1200, 1000, 800, 600, 400, 219, 199, 179, 159, 139, 119, 99, 79, 59, 39, 19]
         alt = P(array=np.ma.array(al))
         # DERIVE without using Vapp (using Vref limits)
         stable.derive(apps, gear, flap, head, aspd, vert_spd, glide, loc, eng, alt, None)
+        self.assertEqual(len(stable.array), len(alt.array))
+        self.assertEqual(len(stable.array), len(head.array))
         
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
@@ -4595,6 +4599,57 @@ class TestStableApproach(unittest.TestCase):
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
                [0, 1, 1, 4, 9, 2, 8, 6, 5, 5, 5, 3, 3, 5, 5, 5, 5, 5, 5, 5, 0])
+        
+        
+    def test_with_real_data(self):
+        
+        apps = S(items=[Section(name='Approach And Landing', 
+                                slice=slice(2702, 2993, None), 
+                                start_edge=2702.0, stop_edge=2993.0)])
+        
+        #def save_test_node(param):
+            #param.save('../tests/test_data/Stable Approach - '+param.name+'.nod')
+
+        def test_node(name):
+            return load(os.path.join(test_data_path, 'Stable Approach - '+name+'.nod'))
+        stable = StableApproach()
+        
+        gear = test_node('Gear Down')
+        flap = test_node('Flap')
+        tdev = test_node('Track Deviation From Runway')
+        vspd = test_node('Vertical Speed')
+        gdev = test_node('ILS Glideslope')
+        ldev = test_node('ILS Localizer')
+        eng = test_node('Eng (star) N1 Min For 5 Sec')
+        alt = test_node('Altitude AAL')
+
+        stable.derive(
+            apps=apps,
+            gear=gear,
+            flap=flap,
+            tdev=tdev,
+            aspd=None,
+            vspd=vspd,
+            gdev=gdev,
+            ldev=ldev,
+            eng=eng,
+            alt=alt,
+            vapp=None)
+        
+        self.assertEqual(len(stable.array), len(alt.array))
+        analysed = np.ma.clump_unmasked(stable.array)
+        self.assertEqual(len(analysed), 1)
+        # valid for the approach slice
+        self.assertEqual(analysed[0].start, apps[0].slice.start)
+        # stop is 10 secs after touchdown
+        self.assertEqual(analysed[0].stop, 2946)
+        
+        sect = stable.array[analysed[0]]
+        # assert that last few values are correct (masked in gear and flap params should not influence end result)
+        self.assertEqual(list(sect[-4:]), ['Stable']*4)
+        self.assertEqual(list(sect[0:73]), ['Gear Not Down']*73)
+        self.assertEqual(list(sect[74:117]), ['Not Landing Flap']*43)
+        self.assertTrue(np.all(sect[117:] == ['Stable']))
 
 
 class TestMasterWarning(unittest.TestCase, NodeTest):

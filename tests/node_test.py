@@ -30,9 +30,6 @@ from hdfaccess.parameter import MappedArray
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
 
-class TestAbstractNode(unittest.TestCase):
-    def test_node(self):
-        pass
 
 def _get_mock_params():
     param1 = mock.Mock()
@@ -48,6 +45,7 @@ def _get_mock_params():
     param2.get_aligned = mock.Mock()
     param2.get_aligned.return_value = 2
     return param1, param2
+
 
 class TestNode(unittest.TestCase):
 
@@ -150,11 +148,11 @@ class TestNode(unittest.TestCase):
     def test_get_derived_default(self):
         param1, param2 = _get_mock_params()
 
-        class TestNode(Node):
+        class ExampleNode(Node):
             def derive(self, kwarg1=param1, kwarg2=param2):
                 pass
 
-        node = TestNode()
+        node = ExampleNode()
         node.derive = mock.Mock()
         node.derive.return_value = None
         node.get_derived([param1, param2])
@@ -1669,7 +1667,7 @@ class TestDerivedParameterNode(unittest.TestCase):
     def test_save_and_load_node(self):
         node = P('Altitude AAL', np.ma.array([0,1,2,3], mask=[0,1,1,0]),
               frequency=2, offset=0.123, data_type='Signed')
-        dest = os.path.join(test_data_path, 'altitude.node')
+        dest = os.path.join(test_data_path, 'altitude.nod')
         node.save(dest)
         self.assertTrue(os.path.isfile(dest))
         # load
@@ -1792,12 +1790,7 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
         mapping = {0:'zero', 2:'two', 3:'three'}
         array = np.ma.array(range(5)+range(5), mask=[1,1,1,0,0,0,0,0,1,1])
         multi_p = MultistateDerivedParameterNode('multi', array, values_mapping=mapping)
-
         multi_p.array[0] = 'three'
-
-
-        #multi_p.array =
-
         # save array to hdf and close
         with hdf_file(self.hdf_path, create=True) as hdf1:
             hdf1['multi'] = multi_p
@@ -1808,6 +1801,27 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
             self.assertEqual(list(np.ma.filled(saved.array, 999)),
                              [  3, 999, 999,   3,   4,   0,   1,   2, 999, 999])
             self.assertEqual(saved.array.data.dtype, np.int)
+            
+    def test_pickle_load_includes_values_mapping(self):
+        mapping = {0:'zero', 1:'one', 2:'two', 3:'three'}
+        input_array = np.ma.array(['one', 'two']*5, mask=[1,0,0,0,0,0,0,0,0,1], dtype=object)
+        node = MultistateDerivedParameterNode('multi', array=input_array, 
+                                              values_mapping=mapping)
+        self.assertEqual(node.values_mapping, mapping)
+        self.assertEqual(node.array.values_mapping, mapping)
+        dest = os.path.join(test_data_path, 'multistate.nod')
+        if os.path.isfile(dest):
+            os.remove(dest)
+        node.save(dest)
+        self.assertTrue(os.path.isfile(dest))
+        # load
+        res = load(dest)
+        self.assertIsInstance(res, MultistateDerivedParameterNode)
+        self.assertEqual(res.values_mapping, mapping)
+        self.assertEqual(res.array.values_mapping, mapping)
+        expected = [np.ma.masked, 'two', 'one', 'two', 'one', 'two', 'one', 'two', 'one', np.ma.masked]
+        self.assertEqual(list(res.array), expected)
+        os.remove(dest)
 
 
 if __name__ == '__main__':
