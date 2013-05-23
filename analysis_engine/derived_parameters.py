@@ -1071,7 +1071,7 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             # manipulation of the data.
             gauss = [0.054488683, 0.244201343, 0.402619948, 0.244201343, 0.054488683]
             self.array = moving_average(alt.array, window=5, weightings=gauss)
-        elif frame_name in ['E135-145']:
+        elif frame_name in ['E135-145', 'L382-Hercules']:
             # Here two sources are sampled alternately, so this form of
             # weighting merges the two to create a smoothed average.
             self.array = moving_average(alt.array, window=3,
@@ -3320,14 +3320,12 @@ class FlapSurface(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return ('Altitude AAL' in available) and \
-               any_of(('Flap (L)', 'Flap (R)', 'Flap (L) Inboard',
-                       'Flap (R) Inboard'), available)
+        return ('Altitude AAL' in available)
 
     def derive(self, flap_A=P('Flap (L)'), flap_B=P('Flap (R)'),
                flap_A_inboard=P('Flap (L) Inboard'),
                flap_B_inboard=P('Flap (R) Inboard'),
-               frame=A('Frame'), apps=S('Approach'), alt_aal=P('Altitude AAL')):
+               frame=A('Frame'), alt_aal=P('Altitude AAL')):
         frame_name = frame.value if frame else ''
         
         flap_A = flap_A or flap_A_inboard
@@ -3342,14 +3340,18 @@ class FlapSurface(DerivedParameterNode):
 
         elif frame_name in ['L382-Hercules']:
             # Flap is not recorded, so invent one of the correct length.
-            flap_herc = np.ma.array(np.zeros_like(alt_aal.array))
-            if apps:
-                for app in apps:
-                    # The flap setting is not recorded, so we have to assume that
-                    # the flap is probably set to 50% above 1000ft, and 100% from
-                    # 500ft down.
-                    scope = app.slice
-                    flap_herc[scope] = np.ma.where(alt_aal.array[scope]>1000.0,100.0,50.0)
+            flap_herc = np_ma_zeros_like(alt_aal.array)
+            
+            # Takeoff is normally with 50% flap
+            _, toffs = slices_from_to(alt_aal.array, 0.0,1000.0)
+            for toff in toffs:
+                flap_herc[toff] = 50.0
+                
+            # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
+            _, apps = slices_from_to(alt_aal.array, 2000.0,0.0)
+            for app in apps:
+                flap_herc[app] = np.ma.where(alt_aal.array[app]>1000.0,50.0,100.0)
+
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
             
@@ -4538,14 +4540,14 @@ class VerticalSpeed(DerivedParameterNode):
     def derive(self, alt_std=P('Altitude STD Smoothed'), frame=A('Frame')):
         frame_name = frame.value if frame else ''
 
-        if frame_name in ['Hercules', '146'] or \
+        if frame_name in ['146'] or \
            frame_name.startswith('747-200') or \
            frame_name.startswith('737-6'):
-            timebase = 11.0 # midpoint and 5 seconds either side.
-            self.array = rate_of_change(alt_std, timebase) * 60.0
+            self.array = rate_of_change(alt_std, 11.0) * 60.0
+        elif frame_name in ['L382-Hercules']:
+             self.array = rate_of_change(alt_std, 15.0, method='regression') * 60.0
         else:
-            timebase = 4.0
-            self.array = rate_of_change(alt_std, timebase) * 60.0
+            self.array = rate_of_change(alt_std, 4.0) * 60.0
 
 
 class VerticalSpeedForFlightPhases(DerivedParameterNode):
@@ -4752,8 +4754,14 @@ class PitchRate(DerivedParameterNode):
 
     units = 'deg/sec'
 
-    def derive(self, pitch=P('Pitch')):
-        self.array = rate_of_change(pitch, 2.0)
+    def derive(self, pitch=P('Pitch'), frame=A('Frame')):
+        frame_name = frame.value if frame else ''
+        
+        if frame_name in ['L382-Hercules']:
+            self.array = rate_of_change(pitch, 8.0, method='regression')
+        else:
+            # See http://www.flightdatacommunity.com/blog/ for commentary on pitch rate techniques.
+            self.array = rate_of_change(pitch, 2.0)
 
 
 class Roll(DerivedParameterNode):
@@ -4762,9 +4770,20 @@ class Roll(DerivedParameterNode):
     """
     units = 'deg'
     align = False
-    def derive(self, r1=P('Roll (1)'), r2=P('Roll (2)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(r1, r2)
+    def derive(self, r1=P('Roll (1)'), r2=P('Roll (2)'), 
+               hdg=P('Heading Continuous'), frame=A('Frame')):
+        frame_name = frame.value if frame else ''
+        
+        if frame_name in ['L382-Hercules']:
+            # Many Hercules aircraft do not have roll recorded. This is a
+            # simple substitute, derived from examination of the roll vs
+            # heading rate of aircraft with a roll sensor.
+            roll = 6.0 * rate_of_change(hdg, 12.0, method='regression')
+        else:
+            # Far more typically, we combine two roll signals.
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(r1, r2)
+        
 
 
 class RollRate(DerivedParameterNode):
