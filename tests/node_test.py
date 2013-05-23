@@ -30,9 +30,6 @@ from hdfaccess.parameter import MappedArray
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'test_data')
 
-class TestAbstractNode(unittest.TestCase):
-    def test_node(self):
-        pass
 
 def _get_mock_params():
     param1 = mock.Mock()
@@ -48,6 +45,7 @@ def _get_mock_params():
     param2.get_aligned = mock.Mock()
     param2.get_aligned.return_value = 2
     return param1, param2
+
 
 class TestNode(unittest.TestCase):
 
@@ -150,11 +148,11 @@ class TestNode(unittest.TestCase):
     def test_get_derived_default(self):
         param1, param2 = _get_mock_params()
 
-        class TestNode(Node):
+        class ExampleNode(Node):
             def derive(self, kwarg1=param1, kwarg2=param2):
                 pass
 
-        node = TestNode()
+        node = ExampleNode()
         node.derive = mock.Mock()
         node.derive.return_value = None
         node.get_derived([param1, param2])
