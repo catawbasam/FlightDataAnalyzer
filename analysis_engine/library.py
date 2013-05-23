@@ -5244,8 +5244,7 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
             closing_array = abs(array-threshold)
             return begin + step * np.ma.argmin(closing_array[_slice])
         else:
-            return None
-
+            return None  #TODO: raise exception when not found?
     else:
         n, dummy = np.ma.flatnotmasked_edges(test_array)
         a = array[begin + (step * n)]
@@ -5464,7 +5463,7 @@ def second_window(array, frequency, seconds):
         positive_roll = np.roll(array, roll_value)
         positive_roll[:roll_value] = np.ma.masked
         negative_roll = np.roll(array, -roll_value)
-        negative_roll[-roll_value:] = np.ma.masked
+        negative_roll[-roll_value:] = np.ma.masked  # [-0:] will mask everything!
         arrays.append(positive_roll)
         arrays.append(negative_roll)
     combined_array = np.ma.array(arrays)
