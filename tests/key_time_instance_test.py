@@ -617,16 +617,13 @@ class TestTopOfDescent(unittest.TestCase):
 class TestTouchdown(unittest.TestCase):
     def test_can_operate(self):
         opts = Touchdown.get_operational_combinations()
-        self.assertEqual(len(opts), 4)
-        # 1
+        # There are eight permutations
+        self.assertEqual(len(opts), 8)
+        # Minimal case
         self.assertTrue(('Altitude AAL', 'Landing') in opts)
-        # 2
-        self.assertTrue(('Gear On Ground', 'Altitude AAL', 'Landing') in opts)
-        # 3
-        self.assertTrue(('Vertical Speed Inertial', 'Altitude AAL', 'Landing') in opts)
-        # 4
-        self.assertTrue(('Gear On Ground', 'Vertical Speed Inertial', 'Altitude AAL', 'Landing') in opts)
-
+        # Maximum case
+        self.assertTrue(('Acceleration Normal', 'Acceleration Longitudinal', 'Altitude AAL', 'Gear On Ground', 'Landing') in opts)
+ 
     def test_touchdown_with_minimum_requirements(self):
         # Test 1
         altitude = Parameter('Altitude AAL',
