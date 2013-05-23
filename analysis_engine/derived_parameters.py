@@ -257,6 +257,9 @@ class AirspeedMinusV2(DerivedParameterNode):
     A fixed value will most likely be zero making this relative airspeed
     derived parameter the same as the original absolute airspeed parameter.
     '''
+    @classmethod
+    def can_operate(cls, available):
+        return ('Airspeed' in available and ('V2' in available or 'V2 Lookup' in available))
 
     units = 'kts'
 
