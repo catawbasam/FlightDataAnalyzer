@@ -45,9 +45,11 @@ class TypedWriter(object):
     ref: http://stackoverflow.com/questions/2982642/specifying-formatting-for-csv-writer-in-python
     """
 
-    def __init__(self, f, fieldnames, fieldformats, **kwds):
+    def __init__(self, f, fieldnames, fieldformats, skip_header=False, **kwds):
         self.writer = csv.DictWriter(f, fieldnames, **kwds)
-        self.writer.writeheader()
+        if not skip_header:
+            self.writer.writeheader()
+
         self.formats = fieldformats
 
     def _format(self, row):
@@ -387,7 +389,8 @@ def _index_or_slice(x):
         return x.slice.start
 
 
-def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None):
+def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list,
+                       dest_path=None, append_to_file=False):
     """
     Currently writes to csv and prints to a table.
     
@@ -448,17 +451,24 @@ def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list, dest_path=None)
 
     # sort rows
     rows = sorted(rows, key=lambda x: x['index'])
-    
+
+    skip_header = False
+
     # print to CSV
     if not dest_path:
         dest_path = 'combined_test_output.csv'
     elif os.path.isfile(dest_path):
-        logger.info("Deleting existing copy of: %s", dest_path)
-        os.remove(dest_path)
-        
+        if not append_to_file:
+            logger.info("Deleting existing copy of: %s", dest_path)
+            os.remove(dest_path)
+        else:
+            # If we are appending and the file exista, we don't want to output
+            # the header again
+            skip_header = True
+
     with open(dest_path, 'ab') as dest:
         writer = TypedWriter(dest, fieldnames=header, fieldformats=formats,
-                             extrasaction='ignore')
+                             skip_header=skip_header, extrasaction='ignore')
         writer.writerows(rows)
         # print to Debug I/O
         logger.info(indent([header] + writer.rowlist(rows), hasHeader=True, 
