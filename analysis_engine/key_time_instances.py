@@ -637,14 +637,16 @@ class Touchdown(KeyTimeInstanceNode):
                 # Only use this if the value was significant.
                 if peak_ax>0.0005:
                     ix_ax2 = np.argmax(touch)
+                    ix_ax = ix_ax2
                     # See if this was the second of a pair, with the first a little smaller.
-                    ix_ax1 = np.argmax(touch[:ix_ax2])
-                    if ix_ax1 and touch[ix_ax1] > peak_ax*0.2:
-                        ix_ax = ix_ax1 # This earlier touch was a better guess.
-                        peak_ax = touch[ix_ax1]
-                    else:
-                        ix_ax = ix_ax2 # We will stick with the original touch.
-                        
+                    if np.ma.count(touch[:ix_ax2]) > 0:
+                        # I have some valid data to scan
+                        ix_ax1 = np.argmax(touch[:ix_ax2])
+                        if touch[ix_ax1] > peak_ax*0.2:
+                            # This earlier touch was a better guess.
+                            peak_ax = touch[ix_ax1]
+                            ix_ax = ix_ax1 
+                                
                     index_ax = ix_ax+1+index_ref-dt_pre*hz
 
                 # Trap landings with immediate braking where there is no skip effect.
@@ -702,7 +704,7 @@ class Touchdown(KeyTimeInstanceNode):
                 index_tdn = index_gog
                 
 
-            """
+            
             # Plotting process to view the results in an easy manner.
             import matplotlib.pyplot as plt
             name = 'Touchdown with values Ax=%.4f, Az=%.4f and dAz=%.4f' %(peak_ax, peak_az, delta)
@@ -729,12 +731,13 @@ class Touchdown(KeyTimeInstanceNode):
             plt.title(name)
             plt.grid()
             filename = name
-            if not os.path.exists('Touchdown_graphs'):
-                os.mkdir('Touchdown_graphs')
-            plt.savefig('Touchdown_graphs/'+filename+'.png')
+            #if not os.path.exists('Touchdown_graphs'):
+                #os.mkdir('Touchdown_graphs')
+            #plt.savefig('Touchdown_graphs/'+filename+'.png')
+            plt.show()
             plt.clf()
             plt.close()
-            """
+            
             
             self.create_kti(index_tdn)
             
