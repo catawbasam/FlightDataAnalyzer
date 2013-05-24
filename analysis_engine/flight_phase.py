@@ -15,6 +15,7 @@ from analysis_engine.library import (
     cycle_match,
     find_edges,
     find_toc_tod,
+    first_order_washout,
     first_valid_sample,
     index_at_value,
     index_at_value_or_level_off,
@@ -1101,7 +1102,9 @@ class TakeoffRoll(FlightPhaseNode):
                 for acc_start in acc_starts:
                     if is_index_within_slice(acc_start.index, toff.slice):
                         begin = acc_start.index
-            two_deg_idx = index_at_value(pitch.array, 2.0, toff.slice)
+            chunk = slice(begin, toff.slice.stop)
+            pwo = first_order_washout(pitch.array[chunk], 3.0, pitch.frequency)
+            two_deg_idx = index_at_value(pwo, 2.0) + begin
             self.create_phase(slice(begin, two_deg_idx))
 
 

@@ -1377,9 +1377,20 @@ class TestTakeoffRoll(unittest.TestCase):
         self.assertEqual(TakeoffRoll.get_operational_combinations(),
                          [('Takeoff', 'Takeoff Acceleration Start', 'Pitch',)])
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        accel_start = KTI('Takeoff Acceleration Start', items=[
+                    KeyTimeInstance(967.92513157006306, 'Takeoff Acceleration Start'),
+                ])
+        takeoffs = S(items=[Section('Takeoff', slice(953, 995), 953, 995)])
+        pitch = load(os.path.join(test_data_path,
+                                    'TakeoffRoll-pitch.nod'))
+        node = TakeoffRoll()
+        node.derive(toffs=takeoffs,
+                   acc_starts=accel_start,
+                   pitch=pitch)
+        self.assertEqual(len(node), 1)
+        self.assertAlmostEqual(node[0].slice.start, 967.92, places=1)
+        self.assertAlmostEqual(node[0].slice.stop, 990.27, places=1)
 
 
 class TestTakeoffRotation(unittest.TestCase):
