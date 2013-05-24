@@ -842,7 +842,7 @@ class AltitudeSTDWhenDescending(KeyTimeInstanceNode):
     Creates KTIs at certain Altitude STD heights when the aircraft is
     descending.
     '''
-    NAME = 'Altitude STD When Descending'
+    name = 'Altitude STD When Descending'
     NAME_FORMAT = '%(altitude)d Ft Descending'
     NAME_VALUES = NAME_VALUES_DESCENT
 
