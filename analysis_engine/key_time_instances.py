@@ -637,14 +637,16 @@ class Touchdown(KeyTimeInstanceNode):
                 # Only use this if the value was significant.
                 if peak_ax>0.0005:
                     ix_ax2 = np.argmax(touch)
+                    ix_ax = ix_ax2
                     # See if this was the second of a pair, with the first a little smaller.
-                    ix_ax1 = np.argmax(touch[:ix_ax2])
-                    if ix_ax1 and touch[ix_ax1] > peak_ax*0.2:
-                        ix_ax = ix_ax1 # This earlier touch was a better guess.
-                        peak_ax = touch[ix_ax1]
-                    else:
-                        ix_ax = ix_ax2 # We will stick with the original touch.
-                        
+                    if np.ma.count(touch[:ix_ax2]) > 0:
+                        # I have some valid data to scan
+                        ix_ax1 = np.argmax(touch[:ix_ax2])
+                        if touch[ix_ax1] > peak_ax*0.2:
+                            # This earlier touch was a better guess.
+                            peak_ax = touch[ix_ax1]
+                            ix_ax = ix_ax1 
+                                
                     index_ax = ix_ax+1+index_ref-dt_pre*hz
 
                 # Trap landings with immediate braking where there is no skip effect.
@@ -732,6 +734,7 @@ class Touchdown(KeyTimeInstanceNode):
             if not os.path.exists('Touchdown_graphs'):
                 os.mkdir('Touchdown_graphs')
             plt.savefig('Touchdown_graphs/'+filename+'.png')
+            #plt.show()
             plt.clf()
             plt.close()
             """

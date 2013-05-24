@@ -411,7 +411,8 @@ class AirspeedReferenceLookup(DerivedParameterNode):
                family=A('Family'),
                engine=A('Engine Series'),
                engine_type=A('Engine Type'),
-               spd_ref=P('Airspeed Reference')):
+               spd_ref=P('Airspeed Reference'),
+               eng_np=P('Eng (*) Np Avg')):
         '''
         Raises KeyError if no entries for Family/Series in vspeed lookup map.
         '''
@@ -428,7 +429,7 @@ class AirspeedReferenceLookup(DerivedParameterNode):
                 return
             raise
 
-        if gw is not None:
+        if gw is not None:  # and you must have eng_np
             try:
                 # Allow up to 2 superframe values to be repaired:
                 # (64 * 2 = 128 + a bit)
@@ -3349,13 +3350,11 @@ class FlapSurface(DerivedParameterNode):
             
             # Takeoff is normally with 50% flap
             _, toffs = slices_from_to(alt_aal.array, 0.0,1000.0)
-            for toff in toffs:
-                flap_herc[toff] = 50.0
+            flap_herc[:toffs[0].stop] = 50.0
                 
             # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
             _, apps = slices_from_to(alt_aal.array, 2000.0,0.0)
-            for app in apps:
-                flap_herc[app] = np.ma.where(alt_aal.array[app]>1000.0,50.0,100.0)
+            flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
 
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
@@ -5198,7 +5197,8 @@ class V2Lookup(DerivedParameterNode):
                engine=A('Engine Series'),
                engine_type=A('Engine Type'),
                v2=P('V2'),
-               liftoffs=KTI('Liftoff')):
+               liftoffs=KTI('Liftoff'),
+               eng_np=P('Eng (*) Np Avg')):
 
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(air_spd.array)

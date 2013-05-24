@@ -5585,7 +5585,7 @@ class FlareDuration20FtToTouchdown(KeyPointValueNode):
                 # Scan backwards from touchdown to the start of the landing
                 # which is defined as 50ft, so will include passing through
                 # 20ft AAL.
-                idx_20 = index_at_value(alt_aal.array, 20.0,
+                idx_20 = index_at_value(alt_aal.array, alt_aal.array[tdown.index]+20.0,
                                         _slice=slice(tdown.index,
                                                      this_landing[0].start_edge,
                                                      -1))
