@@ -704,7 +704,7 @@ class Touchdown(KeyTimeInstanceNode):
                 index_tdn = index_gog
                 
 
-            
+            """
             # Plotting process to view the results in an easy manner.
             import matplotlib.pyplot as plt
             name = 'Touchdown with values Ax=%.4f, Az=%.4f and dAz=%.4f' %(peak_ax, peak_az, delta)
@@ -731,13 +731,13 @@ class Touchdown(KeyTimeInstanceNode):
             plt.title(name)
             plt.grid()
             filename = name
-            #if not os.path.exists('Touchdown_graphs'):
-                #os.mkdir('Touchdown_graphs')
-            #plt.savefig('Touchdown_graphs/'+filename+'.png')
-            plt.show()
+            if not os.path.exists('Touchdown_graphs'):
+                os.mkdir('Touchdown_graphs')
+            plt.savefig('Touchdown_graphs/'+filename+'.png')
+            #plt.show()
             plt.clf()
             plt.close()
-            
+            """
             
             self.create_kti(index_tdn)
             
