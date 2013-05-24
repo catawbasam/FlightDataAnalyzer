@@ -3348,13 +3348,11 @@ class FlapSurface(DerivedParameterNode):
             
             # Takeoff is normally with 50% flap
             _, toffs = slices_from_to(alt_aal.array, 0.0,1000.0)
-            for toff in toffs:
-                flap_herc[toff] = 50.0
+            flap_herc[:toffs[0].stop] = 50.0
                 
             # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
             _, apps = slices_from_to(alt_aal.array, 2000.0,0.0)
-            for app in apps:
-                flap_herc[app] = np.ma.where(alt_aal.array[app]>1000.0,50.0,100.0)
+            flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
 
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
