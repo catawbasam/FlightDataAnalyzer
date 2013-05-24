@@ -3421,6 +3421,8 @@ def blend_two_parameters(param_one, param_two):
     :type offset: Float (sec)
 
     '''
+    if param_one == None and param_two == None:
+        raise ValueError('blend_two_parameters called with both parameters = None')
     if param_one == None:
         return param_two.array, param_two.frequency, param_two.offset
 
