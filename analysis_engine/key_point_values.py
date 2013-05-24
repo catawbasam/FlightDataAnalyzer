@@ -4392,7 +4392,7 @@ class EngGasTempDuringEngStartForXSecMax(KeyPointValueNode):
     '''
 
     NAME_FORMAT = 'Eng Gas Temp During Eng Start For %(seconds)d Sec Max'
-    NAME_VALUES = {'seconds': [10, 40]}
+    NAME_VALUES = {'seconds': [5, 10, 40]}
     units = 'C'
 
     def derive(self,
