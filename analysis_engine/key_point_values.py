@@ -2403,14 +2403,19 @@ class AltitudeAtATDisengagedSelection(KeyPointValueNode):
 
 class AltitudeAtMachMax(KeyPointValueNode):
     '''
+    Altitude at maximum Mach. Not really applicable to turboprop aircraft, so not computed.
     '''
     units = 'ft'
 
     def derive(self,
                alt_std=P('Altitude STD Smoothed'),
-               max_mach=KPV('Mach Max')):
+               max_mach=KPV('Mach Max'),
+               engine_series=A('Engine Series'),
+               ):
         # Aligns altitude to mach to ensure we have the most accurate altitude
         # reading at the point of maximum mach:
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         self.create_kpvs_at_kpvs(alt_std.array, max_mach)
 
 
@@ -3973,26 +3978,36 @@ class LongitudeAtLowestAltitudeDuringApproach(KeyPointValueNode):
 
 class MachMax(KeyPointValueNode):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               airs=S('Airborne')):
+               airs=S('Airborne'),
+               engine_series=A('Engine Series')):
 
+        
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         self.create_kpvs_within_slices(mach.array, airs, max_value)
 
 
 class MachDuringCruiseAvg(KeyPointValueNode):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               cruises=S('Cruise')):
+               cruises=S('Cruise'),
+               engine_series=A('Engine Series')):
+
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         
         for _slice in cruises.get_slices():
             self.create_kpv(_slice.start + (_slice.stop - _slice.start) / 2,
@@ -4005,6 +4020,7 @@ class MachDuringCruiseAvg(KeyPointValueNode):
 
 class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
@@ -4016,8 +4032,11 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     def derive(self,
                flap=P('Flap'),
                mach=P('Mach'),
-               scope=S('Fast')):
+               scope=S('Fast'),
+               engine_series=A('Engine Series')):
 
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         # Fast scope traps flap changes very late on the approach and raising
         # flaps before 80kn on the landing run.
         self.flap_or_conf_max_or_min(flap, mach, max_value, scope=scope)
@@ -4029,6 +4048,7 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
 
 class MachWithGearDownMax(KeyPointValueNode):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
@@ -4036,7 +4056,11 @@ class MachWithGearDownMax(KeyPointValueNode):
     def derive(self,
                mach=P('Mach'),
                gear=M('Gear Down'),
-               airs=S('Airborne')):
+               airs=S('Airborne'),
+               engine_series=A('Engine Series')):
+
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
 
         gear.array[gear.array == 'Up'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
@@ -4047,27 +4071,36 @@ class MachWithGearDownMax(KeyPointValueNode):
 
 class MachWhileGearRetractingMax(KeyPointValueNode):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               gear_ret=S('Gear Retracting')):
+               gear_ret=S('Gear Retracting'),
+               engine_series=A('Engine Series')):
+               
 
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         self.create_kpvs_within_slices(mach.array, gear_ret, max_value)
 
 
 class MachWhileGearExtendingMax(KeyPointValueNode):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               gear_ext=S('Gear Extending')):
-
+               gear_ext=S('Gear Extending'),
+               engine_series=A('Engine Series')):
+               
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         self.create_kpvs_within_slices(mach.array, gear_ext, max_value)
 
 

@@ -860,27 +860,17 @@ class InitialApproach(FlightPhaseNode):
 class LevelFlight(FlightPhaseNode):
     '''
     '''
-
-    @staticmethod
-    def _duration_filter(slices, frequency):
-        filtered = []
-        for _slice in slices:
-            duration = (_slice.stop - _slice.start) / frequency
-            if duration < settings.LEVEL_FLIGHT_MIN_DURATION:
-                filtered.append(_slice)
-        return filtered
-
     def derive(self,
                airs=S('Airborne'),
                vrt_spd=P('Vertical Speed For Flight Phases')):
 
-        # Vertical speed limit set to identify both level flight and end of
-        # takeoff / start of landing.
         for air in airs:
             limit = settings.VERTICAL_SPEED_FOR_LEVEL_FLIGHT
             level_flight = np.ma.masked_outside(vrt_spd.array[air.slice], -limit, limit)
             level_slices = np.ma.clump_unmasked(level_flight)
-            level_slices = self._duration_filter(level_slices, airs.frequency)
+            level_slices = slices_remove_small_slices(level_slices, 
+                                                      time_limit=settings.LEVEL_FLIGHT_MIN_DURATION,
+                                                      hz=vrt_spd.frequency)
             self.create_phases(shift_slices(level_slices, air.slice.start))
 
 
