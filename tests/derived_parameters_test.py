@@ -679,7 +679,7 @@ class TestAirspeedReferenceLookup(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AirspeedReferenceLookup
-        self.operational_combination_length = 24
+        self.operational_combination_length = 88  # This is a silly test as nobody checks all these combinations
         self.check_operational_combination_length_only = True
 
     # TODO: Remove mock patch - our tables should be correct.
@@ -2714,7 +2714,7 @@ class TestV2Lookup(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = V2Lookup
-        self.operational_combination_length = 48
+        self.operational_combination_length = 136  # This is a silly test as nobody checks all these combinations
         self.check_operational_combination_length_only = True
 
     def test_derive__boeing(self):

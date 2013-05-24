@@ -409,7 +409,8 @@ class AirspeedReferenceLookup(DerivedParameterNode):
                family=A('Family'),
                engine=A('Engine Series'),
                engine_type=A('Engine Type'),
-               spd_ref=P('Airspeed Reference')):
+               spd_ref=P('Airspeed Reference'),
+               eng_np=P('Eng (*) Np Avg')):
         '''
         Raises KeyError if no entries for Family/Series in vspeed lookup map.
         '''
@@ -426,7 +427,7 @@ class AirspeedReferenceLookup(DerivedParameterNode):
                 return
             raise
 
-        if gw is not None:
+        if gw is not None:  # and you must have eng_np
             try:
                 # Allow up to 2 superframe values to be repaired:
                 # (64 * 2 = 128 + a bit)
@@ -5194,7 +5195,8 @@ class V2Lookup(DerivedParameterNode):
                engine=A('Engine Series'),
                engine_type=A('Engine Type'),
                v2=P('V2'),
-               liftoffs=KTI('Liftoff')):
+               liftoffs=KTI('Liftoff'),
+               eng_np=P('Eng (*) Np Avg')):
 
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(air_spd.array)
