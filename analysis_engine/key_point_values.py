@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import numpy as np
 
 from math import ceil, floor
@@ -5085,7 +5087,7 @@ class EngTorqueDuringTaxiMax(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = u'ft·lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5098,7 +5100,7 @@ class EngTorqueDuringTakeoff5MinRatingMax(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = u'ft·lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5111,7 +5113,7 @@ class EngTorqueDuringGoAround5MinRatingMax(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = u'ft·lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5124,7 +5126,7 @@ class EngTorqueDuringMaximumContinuousPowerMax(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = u'ft·lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5140,7 +5142,7 @@ class EngTorque500To50FtMax(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = u'ft·lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5157,7 +5159,7 @@ class EngTorque500To50FtMin(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = u'ft·lb'
 
     def derive(self,
                eng_trq_min=P('Eng (*) Torque Min'),

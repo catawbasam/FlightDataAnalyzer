@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import numpy as np
 import geomag
 
@@ -2704,7 +2706,7 @@ class Eng_TorqueAvg(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Torque Avg'
-    units = '%'
+    units = u'ft·lb'
     align = False
 
     @classmethod
@@ -2728,7 +2730,7 @@ class Eng_TorqueMax(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Torque Max'
-    units = '%'
+    units = u'ft·lb'
     align = False
 
     @classmethod
@@ -2752,7 +2754,7 @@ class Eng_TorqueMin(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Torque Min'
-    units = '%'
+    units = u'ft·lb'
     align = False
 
     @classmethod
