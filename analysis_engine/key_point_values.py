@@ -5120,7 +5120,7 @@ class EngTorqueDuringTaxiMax(KeyPointValueNode):
     '''
     '''
 
-    units = u'ft·lb'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5133,7 +5133,7 @@ class EngTorqueDuringTakeoff5MinRatingMax(KeyPointValueNode):
     '''
     '''
 
-    units = u'ft·lb'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5146,7 +5146,7 @@ class EngTorqueDuringGoAround5MinRatingMax(KeyPointValueNode):
     '''
     '''
 
-    units = u'ft·lb'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5159,7 +5159,7 @@ class EngTorqueDuringMaximumContinuousPowerMax(KeyPointValueNode):
     '''
     '''
 
-    units = u'ft·lb'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5175,7 +5175,7 @@ class EngTorque500To50FtMax(KeyPointValueNode):
     '''
     '''
 
-    units = u'ft·lb'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5192,7 +5192,7 @@ class EngTorque500To50FtMin(KeyPointValueNode):
     '''
     '''
 
-    units = u'ft·lb'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_min=P('Eng (*) Torque Min'),
