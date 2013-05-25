@@ -2707,7 +2707,7 @@ class Eng_TorqueAvg(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Torque Avg'
-    units = u'ft·lb'
+    units = 'ft.lb'
     align = False
 
     @classmethod
@@ -2731,7 +2731,7 @@ class Eng_TorqueMax(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Torque Max'
-    units = u'ft·lb'
+    units = 'ft.lb'
     align = False
 
     @classmethod
@@ -2755,7 +2755,7 @@ class Eng_TorqueMin(DerivedParameterNode):
     '''
 
     name = 'Eng (*) Torque Min'
-    units = u'ft·lb'
+    units = 'ft.lb'
     align = False
 
     @classmethod
@@ -3326,12 +3326,14 @@ class FlapSurface(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return ('Altitude AAL' in available)
+        return any_of(('Flap (L)', 'Flap (R)', 
+                       'Flap (L) Inboard', 'Flap (R) Inboard'),
+                      available)
 
     def derive(self, flap_A=P('Flap (L)'), flap_B=P('Flap (R)'),
                flap_A_inboard=P('Flap (L) Inboard'),
                flap_B_inboard=P('Flap (R) Inboard'),
-               frame=A('Frame'), alt_aal=P('Altitude AAL')):
+               frame=A('Frame')):
         frame_name = frame.value if frame else ''
         
         flap_A = flap_A or flap_A_inboard
@@ -3343,21 +3345,6 @@ class FlapSurface(DerivedParameterNode):
                                                            '767-2227000-59B']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
-
-        elif frame_name in ['L382-Hercules']:
-            # Flap is not recorded, so invent one of the correct length.
-            flap_herc = np_ma_zeros_like(alt_aal.array)
-            
-            # Takeoff is normally with 50% flap
-            _, toffs = slices_from_to(alt_aal.array, 0.0,1000.0)
-            flap_herc[:toffs[0].stop] = 50.0
-                
-            # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
-            _, apps = slices_from_to(alt_aal.array, 2000.0,0.0)
-            flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
-
-            self.array = np.ma.array(flap_herc)
-            self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
             
         elif frame_name in ['747-200-GE', '747-200-PW', '747-200-AP-BIB']:
             # Only the right inboard flap is instrumented.
@@ -3379,16 +3366,34 @@ class Flap(DerivedParameterNode):
         return all_of(('Flap Surface', 'Series', 'Family'), available)
 
     def derive(self, flap=P('Flap Surface'),
-               series=A('Series'), family=A('Family')):
-        try:
-            flap_steps = get_flap_map(series.value, family.value)
-        except KeyError:
-            # no flaps mapping, round to nearest 5 degrees
-            self.warning("No flap settings - rounding to nearest 5")
-            # round to nearest 5 degrees
-            self.array = round_to_nearest(flap.array, 5.0)
+               series=A('Series'), family=A('Family'),
+               frame=A('Frame'), alt_aal=P('Altitude AAL')):
+        
+        if frame.value == 'L382-Hercules':
+            # Flap is not recorded, so invent one of the correct length.
+            flap_herc = np_ma_zeros_like(alt_aal.array)
+            
+            # Takeoff is normally with 50% flap
+            _, toffs = slices_from_to(alt_aal.array, 0.0,1000.0)
+            flap_herc[:toffs[0].stop] = 50.0
+                
+            # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
+            _, apps = slices_from_to(alt_aal.array, 2000.0,0.0)
+            flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
+
+            self.array = np.ma.array(flap_herc)
+            self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
+        
         else:
-            self.array = step_values(flap.array, flap.frequency, flap_steps)
+            try:
+                flap_steps = get_flap_map(series.value, family.value)
+            except KeyError:
+                # no flaps mapping, round to nearest 5 degrees
+                self.warning("No flap settings - rounding to nearest 5")
+                # round to nearest 5 degrees
+                self.array = round_to_nearest(flap.array, 5.0)
+            else:
+                self.array = step_values(flap.array, flap.frequency, flap_steps)
 
 
 '''
