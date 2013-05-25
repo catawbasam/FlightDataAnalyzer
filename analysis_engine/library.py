@@ -1047,6 +1047,11 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
     :param remove: form of clipping required.
     :type remove: string default is 'peaks_and_troughs', 'peaks' or 'troughs' alternatives.
     '''
+    # Make a copy of the data to avoid corrupting the input array. This is
+    # especially important for "Eng Oil Temp For X Min Max" where this
+    # function is called repeatedly.
+    array_copy = np.ma.copy(array)
+    
     if remove not in ['peaks_and_troughs', 'peaks', 'troughs']:
         raise ValueError('Clip called with unrecognised remove argument')
         
@@ -1058,15 +1063,15 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
     # a lower sample rate than expected.
     if half_width < 1:
         logger.warning('Clip called with period too short to have an effect')
-        return array
+        return array_copy
     
-    if np.ma.count(array) == 0:
+    if np.ma.count(array_copy) == 0:
         raise ValueError('Clip called with entirely masked data')
-        return array
+        return array_copy
         
     # OK - normal operation here. We repair the mask to avoid propogating
     # invalid samples unreasonably.
-    source = np.ma.array(repair_mask(array, frequency=hz, repair_duration=period-(1/hz)))
+    source = np.ma.array(repair_mask(array_copy, frequency=hz, repair_duration=period-(1/hz)))
 
     if source is None or np.ma.count(source)==0:
         return np_ma_masked_zeros_like(source)
@@ -4385,6 +4390,9 @@ def rms_noise(array, ignore_pc=None):
     # The difference between one sample and the ample to the left is computed
     # using the ediff1d algorithm, then by rolling it right we get the answer
     # for the difference between this sample and the one to the right.
+    if np.ma.ptp(array.data) == 0.0:
+        logging.warning('rms noise test has no variation in signal level')
+        return 0.0
     diff_left = np.ma.ediff1d(array, to_end=0)
     diff_right = np.ma.array(data=np.roll(diff_left.data,1),
                              mask=np.roll(diff_left.mask,1))
