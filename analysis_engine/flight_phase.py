@@ -924,9 +924,9 @@ class Mobile(FlightPhaseNode):
         else:
             # Without a recorded groundspeed, fall back to the start of the
             # takeoff run and end of the landing run as limits.
-            if toffs[0]:
+            if toffs:
                 move[0] = min(move[0], toffs[0].slice.start)
-            if lands[-1]:
+            if lands:
                 move[1] = max(move[1], lands[-1].slice.stop)
 
         moves = [slice(move[0], move[1])]
@@ -1250,11 +1250,11 @@ class TwoDegPitchTo35Ft(FlightPhaseNode):
 
     def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
         for takeoff in takeoffs:
-            reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
+            #reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
+            pwo = first_order_washout(pitch.array[takeoff.slice], 3.0, pitch.frequency)
             # Endpoint closing allows for the case where the aircraft is at
             # more than 2 deg of pitch at takeoff.
-            pitch_2_deg_idx = index_at_value(pitch.array, 2.0, reversed_slice,
-                                             endpoint='closing')
+            pitch_2_deg_idx = index_at_value(pwo, 2.0) + takeoff.slice.start
             self.create_section(slice(pitch_2_deg_idx, takeoff.slice.stop),
                                 begin=pitch_2_deg_idx,
                                 end=takeoff.stop_edge)
