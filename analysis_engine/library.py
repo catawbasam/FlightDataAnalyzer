@@ -1145,8 +1145,12 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
     # that sit close to each other. This may need improving at a later date.
     overlaps = np.ma.clump_masked(np.ma.masked_greater(overlap_finder,1))
     for overlap in overlaps:
-        for p in range(overlap.start, overlap.stop):
-            result[p]=np.ma.average(source[p-half_width:p+half_width+1])
+        for p in range(max(overlap.start, half_width), 
+                       min(overlap.stop, len(source)-half_width)):
+            to_average = source[p-half_width:p+half_width+1]
+            if len(to_average)==0:
+                raise ValueError('Trying to average no data in clip')
+            result[p]=np.ma.average(to_average )
 
     # Mask the ends as we cannot have long periods at the end of the data.
     result[:half_width+1] = np.ma.masked
@@ -4391,7 +4395,7 @@ def rms_noise(array, ignore_pc=None):
     # using the ediff1d algorithm, then by rolling it right we get the answer
     # for the difference between this sample and the one to the right.
     if np.ma.ptp(array.data) == 0.0:
-        logging.warning('rms noise test has no variation in signal level')
+        #logging.warning('rms noise test has no variation in signal level')
         return 0.0
     diff_left = np.ma.ediff1d(array, to_end=0)
     diff_right = np.ma.array(data=np.roll(diff_left.data,1),
