@@ -179,7 +179,7 @@ class AccelerationLateralMax(KeyPointValueNode):
                 max_abs_value,
             )
         else:
-            self.create_kpv(*max_value(acc_lat.array))
+            self.create_kpv(*max_abs_value(acc_lat.array))
 
 
 class AccelerationLateralAtTouchdown(KeyPointValueNode):
