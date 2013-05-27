@@ -327,7 +327,7 @@ class AccelerationLongitudinalDuringTakeoffMax(KeyPointValueNode):
         self.create_kpv_from_slices(acc_lon.array, takeoff, max_value)
 
 
-class AccelerationLongitudinalDuringLandingMax(KeyPointValueNode):
+class AccelerationLongitudinalDuringLandingMin(KeyPointValueNode):
     '''
     This is an indication of severe braking and/or use of reverse thrust or
     reverse pitch.
@@ -339,7 +339,7 @@ class AccelerationLongitudinalDuringLandingMax(KeyPointValueNode):
                acc_lon=P('Acceleration Longitudinal'),
                landing=S('Landing')):
 
-        self.create_kpv_from_slices(acc_lon.array, landing, max_value)
+        self.create_kpv_from_slices(acc_lon.array, landing, min_value)
 
 
 ########################################
@@ -2147,6 +2147,7 @@ class AltitudeWithFlapMax(KeyPointValueNode):
 
 class AltitudeAtFlapExtension(KeyPointValueNode):
     '''
+    Records the altitude at every flap extension in flight.
     '''
 
     units = 'ft'
@@ -2160,9 +2161,9 @@ class AltitudeAtFlapExtension(KeyPointValueNode):
         for air in airborne:
             extends = find_edges(flap.array, air.slice)
             if extends:
-                index = extends[0]
-                value = alt_aal.array[index]
-                self.create_kpv(index, value)
+                for index in extends:
+                    value = alt_aal.array[index]
+                    self.create_kpv(index, value)
 
 
 class AltitudeAtFirstFlapExtensionAfterLiftoff(KeyPointValueNode):
