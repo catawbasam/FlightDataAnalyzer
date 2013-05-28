@@ -226,6 +226,21 @@ class TestSplitSegments(unittest.TestCase):
                           ('START_AND_STOP', slice(24665.0, 27898.0, None)),
                           ('START_AND_STOP', slice(27898.0, 31424.0, None))])
     
+    def test_split_segments_data_2(self):
+        '''Splits on both DFC Jump and Engine parameters.'''
+        hdf_path = os.path.join(test_data_path, "split_segments_2.hdf5")
+        temp_path = copy_file(hdf_path)
+        hdf = hdf_file(temp_path)
+        
+        segment_tuples = split_segments(hdf)
+        self.assertEqual(segment_tuples,
+                         [('START_AND_STOP', slice(0, 3583.0, None)),
+                          ('START_AND_STOP', slice(3583.0, 6446.0, None)),
+                          ('START_AND_STOP', slice(6446.0, 9912.0, None)),
+                          ('START_AND_STOP', slice(9912.0, 13064.0, None)),
+                          ('START_AND_STOP', slice(13064.0, 16467.0, None)),
+                          ('START_AND_STOP', slice(16467.0, 19200.0, None))])
+    
     @unittest.skipIf(not os.path.isfile(os.path.join(test_data_path,
                                                      "4_3377853_146-301.hdf5")),
                      "Test file not present")
