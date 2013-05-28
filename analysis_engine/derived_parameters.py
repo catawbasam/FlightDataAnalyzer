@@ -4048,6 +4048,17 @@ class CoordinatesSmoothed(object):
                     went disasterously wrong for curving visual approaches
                     into airfields like Nice).
                     '''
+                    # Q: Currently we rely on a Touchdown KTI existing to smooth
+                    #    a track without the ILS Localiser being established or
+                    #    precise positioning. This is to ensure that the
+                    #    aircraft is on the runway and therefore we can use
+                    #    database coordinates for the runway to smooth the
+                    #    track. This does not provide a solution for aircraft
+                    #    which do not momentarily land on the runway. Could we
+                    #    assume that the aircraft will match the runway
+                    #    coordinates if it drops below a certain altitude as
+                    #    this will be more accurate than low precision
+                    #    positioning equipment.
                     for tdwn in tdwns:
                         if not is_index_within_slice(tdwn.index, this_app_slice):
                             continue
