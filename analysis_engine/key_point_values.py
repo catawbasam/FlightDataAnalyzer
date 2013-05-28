@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import numpy as np
 
 from math import ceil, floor
@@ -325,7 +327,7 @@ class AccelerationLongitudinalDuringTakeoffMax(KeyPointValueNode):
         self.create_kpv_from_slices(acc_lon.array, takeoff, max_value)
 
 
-class AccelerationLongitudinalDuringLandingMax(KeyPointValueNode):
+class AccelerationLongitudinalDuringLandingMin(KeyPointValueNode):
     '''
     This is an indication of severe braking and/or use of reverse thrust or
     reverse pitch.
@@ -337,7 +339,7 @@ class AccelerationLongitudinalDuringLandingMax(KeyPointValueNode):
                acc_lon=P('Acceleration Longitudinal'),
                landing=S('Landing')):
 
-        self.create_kpv_from_slices(acc_lon.array, landing, max_value)
+        self.create_kpv_from_slices(acc_lon.array, landing, min_value)
 
 
 ########################################
@@ -2145,6 +2147,7 @@ class AltitudeWithFlapMax(KeyPointValueNode):
 
 class AltitudeAtFlapExtension(KeyPointValueNode):
     '''
+    Records the altitude at every flap extension in flight.
     '''
 
     units = 'ft'
@@ -2158,9 +2161,9 @@ class AltitudeAtFlapExtension(KeyPointValueNode):
         for air in airborne:
             extends = find_edges(flap.array, air.slice)
             if extends:
-                index = extends[0]
-                value = alt_aal.array[index]
-                self.create_kpv(index, value)
+                for index in extends:
+                    value = alt_aal.array[index]
+                    self.create_kpv(index, value)
 
 
 class AltitudeAtFirstFlapExtensionAfterLiftoff(KeyPointValueNode):
@@ -2401,14 +2404,19 @@ class AltitudeAtATDisengagedSelection(KeyPointValueNode):
 
 class AltitudeAtMachMax(KeyPointValueNode):
     '''
+    Altitude at maximum Mach. Not really applicable to turboprop aircraft, so not computed.
     '''
     units = 'ft'
 
     def derive(self,
                alt_std=P('Altitude STD Smoothed'),
-               max_mach=KPV('Mach Max')):
+               max_mach=KPV('Mach Max'),
+               engine_series=A('Engine Series'),
+               ):
         # Aligns altitude to mach to ensure we have the most accurate altitude
         # reading at the point of maximum mach:
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         self.create_kpvs_at_kpvs(alt_std.array, max_mach)
 
 
@@ -3971,26 +3979,36 @@ class LongitudeAtLowestAltitudeDuringApproach(KeyPointValueNode):
 
 class MachMax(KeyPointValueNode):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               airs=S('Airborne')):
+               airs=S('Airborne'),
+               engine_series=A('Engine Series')):
 
+        
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         self.create_kpvs_within_slices(mach.array, airs, max_value)
 
 
 class MachDuringCruiseAvg(KeyPointValueNode):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               cruises=S('Cruise')):
+               cruises=S('Cruise'),
+               engine_series=A('Engine Series')):
+
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         
         for _slice in cruises.get_slices():
             self.create_kpv(_slice.start + (_slice.stop - _slice.start) / 2,
@@ -4003,6 +4021,7 @@ class MachDuringCruiseAvg(KeyPointValueNode):
 
 class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
@@ -4014,8 +4033,11 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     def derive(self,
                flap=P('Flap'),
                mach=P('Mach'),
-               scope=S('Fast')):
+               scope=S('Fast'),
+               engine_series=A('Engine Series')):
 
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         # Fast scope traps flap changes very late on the approach and raising
         # flaps before 80kn on the landing run.
         self.flap_or_conf_max_or_min(flap, mach, max_value, scope=scope)
@@ -4027,6 +4049,7 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
 
 class MachWithGearDownMax(KeyPointValueNode):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
@@ -4034,7 +4057,11 @@ class MachWithGearDownMax(KeyPointValueNode):
     def derive(self,
                mach=P('Mach'),
                gear=M('Gear Down'),
-               airs=S('Airborne')):
+               airs=S('Airborne'),
+               engine_series=A('Engine Series')):
+
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
 
         gear.array[gear.array == 'Up'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
@@ -4045,27 +4072,36 @@ class MachWithGearDownMax(KeyPointValueNode):
 
 class MachWhileGearRetractingMax(KeyPointValueNode):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               gear_ret=S('Gear Retracting')):
+               gear_ret=S('Gear Retracting'),
+               engine_series=A('Engine Series')):
+               
 
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         self.create_kpvs_within_slices(mach.array, gear_ret, max_value)
 
 
 class MachWhileGearExtendingMax(KeyPointValueNode):
     '''
+    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               gear_ext=S('Gear Extending')):
-
+               gear_ext=S('Gear Extending'),
+               engine_series=A('Engine Series')):
+               
+        if engine_series.value in ['PW100', 'PT6A', '501-D']:
+            return
         self.create_kpvs_within_slices(mach.array, gear_ext, max_value)
 
 
@@ -4390,7 +4426,7 @@ class EngGasTempDuringEngStartForXSecMax(KeyPointValueNode):
     '''
 
     NAME_FORMAT = 'Eng Gas Temp During Eng Start For %(seconds)d Sec Max'
-    NAME_VALUES = {'seconds': [10, 40]}
+    NAME_VALUES = {'seconds': [5, 10, 40]}
     units = 'C'
 
     def derive(self,
@@ -5085,7 +5121,7 @@ class EngTorqueDuringTaxiMax(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5098,7 +5134,7 @@ class EngTorqueDuringTakeoff5MinRatingMax(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5111,7 +5147,7 @@ class EngTorqueDuringGoAround5MinRatingMax(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5124,7 +5160,7 @@ class EngTorqueDuringMaximumContinuousPowerMax(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5140,7 +5176,7 @@ class EngTorque500To50FtMax(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_max=P('Eng (*) Torque Max'),
@@ -5157,7 +5193,7 @@ class EngTorque500To50FtMin(KeyPointValueNode):
     '''
     '''
 
-    units = '%'
+    units = 'ft.lb'
 
     def derive(self,
                eng_trq_min=P('Eng (*) Torque Min'),
@@ -5574,9 +5610,14 @@ class FlapWithSpeedbrakeDeployedMax(KeyPointValueNode):
 
 class FlareDuration20FtToTouchdown(KeyPointValueNode):
     '''
+    The Altitude Radio reference is included to make sure this KPV is not
+    computed if there is no radio height reference. With small turboprops, we
+    have seen 40ft pressure altitude difference between the point of
+    touchdown and the landing roll, so trying to measure this 20ft to
+    touchdown difference is impractical.
     '''
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               tdowns=KTI('Touchdown'), lands=S('Landing')):
+               tdowns=KTI('Touchdown'), lands=S('Landing'), ralt=P('Altitude Radio')):
         for tdown in tdowns:
             this_landing = lands.get_surrounding(tdown.index)
             if this_landing:

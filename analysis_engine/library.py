@@ -1047,6 +1047,11 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
     :param remove: form of clipping required.
     :type remove: string default is 'peaks_and_troughs', 'peaks' or 'troughs' alternatives.
     '''
+    # Make a copy of the data to avoid corrupting the input array. This is
+    # especially important for "Eng Oil Temp For X Min Max" where this
+    # function is called repeatedly.
+    array_copy = np.ma.copy(array)
+    
     if remove not in ['peaks_and_troughs', 'peaks', 'troughs']:
         raise ValueError('Clip called with unrecognised remove argument')
         
@@ -1058,15 +1063,15 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
     # a lower sample rate than expected.
     if half_width < 1:
         logger.warning('Clip called with period too short to have an effect')
-        return array
+        return array_copy
     
-    if np.ma.count(array) == 0:
+    if np.ma.count(array_copy) == 0:
         raise ValueError('Clip called with entirely masked data')
-        return array
+        return array_copy
         
     # OK - normal operation here. We repair the mask to avoid propogating
     # invalid samples unreasonably.
-    source = np.ma.array(repair_mask(array, frequency=hz, repair_duration=period-(1/hz)))
+    source = np.ma.array(repair_mask(array_copy, frequency=hz, repair_duration=period-(1/hz)))
 
     if source is None or np.ma.count(source)==0:
         return np_ma_masked_zeros_like(source)
@@ -1140,8 +1145,12 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
     # that sit close to each other. This may need improving at a later date.
     overlaps = np.ma.clump_masked(np.ma.masked_greater(overlap_finder,1))
     for overlap in overlaps:
-        for p in range(overlap.start, overlap.stop):
-            result[p]=np.ma.average(source[p-half_width:p+half_width+1])
+        for p in range(max(overlap.start, half_width), 
+                       min(overlap.stop, len(source)-half_width)):
+            to_average = source[p-half_width:p+half_width+1]
+            if len(to_average)==0:
+                raise ValueError('Trying to average no data in clip')
+            result[p]=np.ma.average(to_average )
 
     # Mask the ends as we cannot have long periods at the end of the data.
     result[:half_width+1] = np.ma.masked
@@ -4385,6 +4394,9 @@ def rms_noise(array, ignore_pc=None):
     # The difference between one sample and the ample to the left is computed
     # using the ediff1d algorithm, then by rolling it right we get the answer
     # for the difference between this sample and the one to the right.
+    if np.ma.ptp(array.data) == 0.0:
+        #logging.warning('rms noise test has no variation in signal level')
+        return 0.0
     diff_left = np.ma.ediff1d(array, to_end=0)
     diff_right = np.ma.array(data=np.roll(diff_left.data,1),
                              mask=np.roll(diff_left.mask,1))
