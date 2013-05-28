@@ -46,6 +46,7 @@ from analysis_engine.key_time_instances import (
     TouchAndGo,
     Touchdown,
     Transmit,
+    VNAVModeAndEngThrustModeRequired,
 )
 
 from flight_phase_test import buildsection, buildsections
@@ -1053,3 +1054,24 @@ class TestTransmit(unittest.TestCase):
         tr.derive(hf, *[None] * 10)
         expected = [KeyTimeInstance(index=2.5, name='Transmit')]
         self.assertEqual(tr, expected)
+
+
+class TestVNAVModeAndEngThrustModeRequired(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('VNAV Mode', 'Eng Thrust Mode Required')]
+        self.assertEqual(expected, VNAVModeAndEngThrustModeRequired.get_operational_combinations())
+    
+    def test_derive_basic(self):
+        vnav_mode_array = np.ma.array([1, 0, 1, 0, 1, 1, 0])
+        vnav_mode = M('VNAV Mode', array=vnav_mode_array,
+                      values_mapping={0: '-', 1: 'Engaged'})
+        thrust_array = np.ma.array([0, 0, 1, 1, 1, 1, 0])
+        thrust = M('Eng Thrust Mode Required', array=thrust_array,
+                   values_mapping={0: '-', 1: 'Required'})
+        node = VNAVModeAndEngThrustModeRequired()
+        node.derive(vnav_mode, thrust)
+        self.assertEqual(
+            node,
+            [KeyTimeInstance(index=2, name='Vnav Mode And Eng Thrust Mode Required'),
+             KeyTimeInstance(index=4, name='Vnav Mode And Eng Thrust Mode Required')])
+

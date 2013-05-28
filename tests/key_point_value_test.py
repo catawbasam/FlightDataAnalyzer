@@ -276,6 +276,7 @@ from analysis_engine.key_point_values import (
     PitchAtLiftoff,
     PitchAtTouchdown,
     PitchAt35FtDuringClimb,
+    PitchAtVNAVModeAndEngThrustModeRequired,
     PitchCyclesDuringFinalApproach,
     PitchDuringGoAroundMax,
     PitchLiftoffTo35FtMax,
@@ -902,7 +903,7 @@ class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = ModeControlPanelAirspeedSelectedAt8000Ft
         self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude STD When Descending')]
-    
+
     def test_derive_basic(self):
         air_spd = P('Mode Control Panel Airspeed Selected', array=np.ma.arange(0, 200, 5))
         alt_std_desc = AltitudeSTDWhenDescending(
@@ -5230,6 +5231,17 @@ class TestPitchDuringGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitchAtVNAVModeAndEngThrustModeRequired(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = PitchAtVNAVModeAndEngThrustModeRequired
+        self.operational_combinations = [('Pitch', 'VNAV Mode And Eng Thrust Mode Required')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
 ##############################################################################

@@ -6167,6 +6167,22 @@ class PitchDuringGoAroundMax(KeyPointValueNode):
         self.create_kpvs_within_slices(pitch.array, go_arounds, max_value)
 
 
+class PitchAtVNAVModeAndEngThrustModeRequired(KeyPointValueNode):
+    '''
+    Will create a Pitch KPV for each KTI.
+    '''
+    
+    name = 'Pitch At VNAV Mode And Eng Thrust Mode Required'
+    
+    units = 'deg'
+    
+    def derive(self,
+               pitch=P('Pitch'),
+               vnav_thrust=KTI('VNAV Mode And Eng Thrust Mode Required')):
+        
+        self.create_kpvs_at_ktis(pitch.array, vnav_thrust)
+
+
 ##############################################################################
 # Pitch Rate
 
