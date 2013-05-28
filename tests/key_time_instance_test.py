@@ -27,6 +27,7 @@ from analysis_engine.key_time_instances import (
     GearUpSelection,
     GearUpSelectionDuringGoAround,
     GoAround,
+    FlapRetractionWhileAirborne,
     FlapRetractionDuringGoAround,
     InitialClimbStart,
     LandingDecelerationEnd,
@@ -808,6 +809,27 @@ class TestFlapSet(unittest.TestCase, NodeTest):
             KeyTimeInstance(index=8.5, name='Flap 5 Set'),
             KeyTimeInstance(index=10.5, name='Flap 0 Set'),
             KeyTimeInstance(index=12.5, name='Flap 17.5 Set'),
+        ])
+
+
+class TestFlapRetractionWhileAirborne(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = FlapRetractionWhileAirborne
+        self.operational_combinations = [('Flap', 'Airborne')]
+        self.flap = P(
+            name='Flap',
+            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
+        )
+
+    def test_derive(self):
+        airborne = buildsection('Airborne', 2, 12)
+        node = FlapRetractionWhileAirborne()
+        node.derive(self.flap, airborne)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=6.5, name='Flap Retraction While Airborne'),
+            KeyTimeInstance(index=8.5, name='Flap Retraction While Airborne'),
+            KeyTimeInstance(index=10.5, name='Flap Retraction While Airborne'),
         ])
 
 

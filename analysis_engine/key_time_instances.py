@@ -313,6 +313,21 @@ class FlapSet(KeyTimeInstanceNode):
                                   name='flap')
 
 
+class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
+    '''
+    '''
+
+    def derive(self,
+               flap=P('Flap'),
+               airborne=S('Airborne')):
+
+        self.create_ktis_at_edges(
+            flap.array,
+            direction='falling_edges',
+            phase=airborne,
+        )
+
+
 class FlapRetractionDuringGoAround(KeyTimeInstanceNode):
     '''
     '''
