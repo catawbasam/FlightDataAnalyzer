@@ -2166,6 +2166,21 @@ class AltitudeAtFlapExtension(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
+class AltitudeAtVNAVModeAndEngThrustModeRequired(KeyPointValueNode):
+    '''
+    '''
+    
+    name = 'Altitude At VNAV Mode And Eng Thrust Mode Required'
+    
+    units = 'ft'
+    
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               vnav_thrust=KTI('VNAV Mode And Eng Thrust Mode Required')):
+        
+        self.create_kpvs_at_ktis(alt_aal.array, vnav_thrust)
+
+
 class AltitudeAtFirstFlapExtensionAfterLiftoff(KeyPointValueNode):
     '''
     Separates the first flap extension.

@@ -108,6 +108,7 @@ from analysis_engine.key_point_values import (
     AltitudeAtAPEngagedSelection,
     AltitudeAtATDisengagedSelection,
     AltitudeAtATEngagedSelection,
+    AltitudeAtVNAVModeAndEngThrustModeRequired,
     AltitudeFirstStableDuringApproachBeforeGoAround,
     AltitudeFirstStableDuringLastApproach,
     AltitudeAtFlapExtension,
@@ -2118,7 +2119,17 @@ class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase, NodeTest):
         bust = AltitudeOvershootAtSuspectedLevelBust()
         bust.derive(alt_std, alt_aal_aligned)
         self.assertEqual(len(bust), 0)
-        
+
+
+class TestAltitudeAtVNAVModeAndEngThrustModeRequired(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtVNAVModeAndEngThrustModeRequired
+        self.operational_combinations = [('Altitude AAL', 'VNAV Mode And Eng Thrust Mode Required')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
 ########################################
