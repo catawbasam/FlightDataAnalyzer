@@ -162,6 +162,8 @@ def split_segments(hdf):
     except ValueError:
         # Airspeed array is masked, most likely under min threshold so it did 
         # not go fast.
+        logger.warning("Airspeed is entirely masked. The entire contents of "
+                       "the data will be a GROUND_ONLY slice.")
         return [('GROUND_ONLY', slice(0, hdf.duration))]
     
     airspeed_secs = len(airspeed_array) / airspeed.frequency
@@ -185,7 +187,7 @@ def split_segments(hdf):
         # Fetch Heading if available
         heading = hdf.get_param('Heading', valid_only=True)
     except KeyError:
-        # try Heading True, otherwise fall die with KeyError
+        # try Heading True, otherwise fail loudly with a KeyError
         heading = hdf.get_param('Heading True', valid_only=True)
     
     rate_of_turn = _rate_of_turn(heading)
@@ -262,7 +264,7 @@ def split_segments(hdf):
                 logger.info("'Frame Counter' did not jump within slow_slice "
                              "'%s'.", slow_slice)
         
-        # Split using engine parameters.        
+        # Split using engine parameters.
         if split_params_min is not None:
             split_params_slice = \
                 slice(slice_start_secs * split_params_frequency,
@@ -314,6 +316,9 @@ def split_segments(hdf):
                                                     airspeed.frequency,
                                                     start, split_index))
             start = split_index
+            logger.info("Splitting at index '%s' where rate of turn was below "
+                        "'%s'.", rot_split_index,
+                        settings.RATE_OF_TURN_SPLITTING_THRESHOLD)
             continue
 
         #Q: Raise error here?
