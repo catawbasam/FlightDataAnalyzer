@@ -186,12 +186,12 @@ class ApproachInformation(ApproachNode):
             precise=precise,
             appr_ils_freq=appr_ils_freq,
         )
-
-        for _slice in app.get_slices():
-
-            # a) We have a landing if approach end is outside of a fast section:
-            #TODO: Allow for slow aircraft!
-            if _slice.stop > fast.get_last().slice.stop:
+        
+        app_slices = app.get_slices()
+        
+        for index, _slice in enumerate(app_slices):
+            # a) The last approach is assumed to be landing:
+            if index == len(app_slices) - 1:
                 approach_type = 'LANDING'
                 landing = True
             # b) We have a touch and go if Altitude AAL reached zero:
