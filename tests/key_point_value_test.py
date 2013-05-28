@@ -83,6 +83,7 @@ from analysis_engine.key_point_values import (
     AirspeedRelativeFor3Sec500To20FtMin,
     AirspeedRelativeWithFlapDuringDescentMin,
     AirspeedTopOfDescentTo10000FtMax,
+    AirspeedV2Plus20DifferenceAtVNAVModeAndEngThrustModeRequired,
     AirspeedWithThrustReversersDeployedMin,
     AirspeedAtThrustReversersSelection,
     AirspeedTrueAtTouchdown,
@@ -998,6 +999,30 @@ class TestAirspeedGustsDuringFinalApproach(unittest.TestCase, NodeTest):
         kpv.get_derived([air_spd, gnd_spd, alt_rad, airborne])
         self.assertEqual(kpv[0].value, 25)
         self.assertEqual(kpv[0].index, 4.75)
+
+
+class TestAirspeedV2Plus20DifferenceAtVNAVModeAndEngThrustModeRequired(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = AirspeedV2Plus20DifferenceAtVNAVModeAndEngThrustModeRequired
+        self.operational_combinations = [('Airspeed', 'V2', 'VNAV Mode And Eng Thrust Mode Required')]
+    
+    def test_derive(self):
+        airspeed_array = np.ma.arange(0, 200, 10)
+        airspeed = P('Airspeed', array=airspeed_array)
+        v2_array = np.ma.array([200] * 20)
+        v2_array.mask = [False] * 15 + [True] * 3 + [False] * 2
+        v2 = P('V2', array=v2_array)
+        kti_name = 'VNAV Mode And Eng Thrust Mode Required'
+        vnav_thrusts = KTI(kti_name, items=[
+            KeyTimeInstance(index=5, name=kti_name),
+            KeyTimeInstance(index=15, name=kti_name)])
+        node = self.node_class()
+        node.derive(airspeed, v2, vnav_thrusts)
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=5, value=170.0, name='Airspeed V2 Plus 20 Difference At Vnav Mode And Eng Thrust Mode Required'),
+             KeyPointValue(index=15, value=70.0, name='Airspeed V2 Plus 20 Difference At Vnav Mode And Eng Thrust Mode Required')])
 
 
 ########################################

@@ -6113,6 +6113,24 @@ class Pitch7FtToTouchdownMin(KeyPointValueNode):
         )
 
 
+class AirspeedV2Plus20DifferenceAtVNAVModeAndEngThrustModeRequired(KeyPointValueNode):
+    '''
+    '''
+    
+    units = 'kt'
+    
+    def derive(self,
+               airspeed=P('Airspeed'),
+               v2=P('V2'),
+               vnav_thrusts=KTI('VNAV Mode And Eng Thrust Mode Required')):
+        
+        # XXX: Assuming V2 value is constant.
+        v2_value = v2.array[np.ma.where(v2.array)[0][0]] + 20
+        for vnav_thrust in vnav_thrusts:
+            difference = abs(v2_value - airspeed.array[vnav_thrust.index])
+            self.create_kpv(vnav_thrust.index, difference)
+
+
 class PitchCyclesDuringFinalApproach(KeyPointValueNode):
     '''
     Counts the number of half-cycles of pitch attitude that exceed 3 deg in
