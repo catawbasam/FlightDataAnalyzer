@@ -6952,25 +6952,18 @@ class SpeedbrakeDeployedWithFlapDuration(KeyPointValueNode):
 class SpeedbrakeDeployedWithPowerOnDuration(KeyPointValueNode):
     '''
     Each time the aircraft is flown with high power and the speedbrakes open,
-    something unusual is happening. We record the duration this happened for,
-    and allow the analyst to find out the cause.
+    something unusual is happening. We record the duration this happened for.
 
-    The threshold for high power is 50% N1 for most aircraft, but 60% for
-    Airbus types, to align with the Airbus AFPS.
+    The threshold for high power is 60% N1. This aligns with the Airbus AFPS.
     '''
-
     units = 's'
 
-    def derive(self,
-               spd_brk=M('Speedbrake Selected'),
-               power=P('Eng (*) N1 Avg'),
-               airborne=S('Airborne'),
-               manufacturer=A('Manufacturer')):
-
-        percent = 60.0 if manufacturer == 'Airbus' else 50.0
+    def derive(self, spd_brk=M('Speedbrake Selected'),
+               power=P('Eng (*) N1 Avg'), airborne=S('Airborne')):
+        power_on_percent = 60.0
         for air in airborne:
             spd_brk_dep = spd_brk.array[air.slice] == 'Deployed/Cmd Up'
-            high_power = power.array[air.slice] >= percent
+            high_power = power.array[air.slice] >= power_on_percent 
             array = spd_brk_dep & high_power
             slices = shift_slices(runs_of_ones(array), air.slice.start)
             self.create_kpvs_from_slice_durations(slices, self.frequency,
