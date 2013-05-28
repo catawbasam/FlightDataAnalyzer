@@ -144,6 +144,106 @@ def _rate_of_turn(heading):
     return rate_of_turn_masked
 
 
+def _split_on_eng_params(slice_start_secs, slice_stop_secs,
+                         split_params_min, split_params_frequency):
+    '''
+    Find split using engine parameters.
+    
+    :param slice_start_secs: Start of slow slice in seconds.
+    :type slice_start_secs: int or float
+    :param slice_stop_secs: Stop of slow slice in seconds.
+    :type slice_stop_secs: int or float
+    :param split_params_min: Minimum of engine parameters.
+    :type split_params_min: np.ma.MaskedArray
+    :param split_params_frequency: Frequency of split_params_min.
+    :type split_params_frequency: int or float
+    :returns: Split index in seconds and value of split_params_min at this index.
+    :rtype: (int or float, int or float)
+    '''
+    split_params_slice = \
+        slice(slice_start_secs * split_params_frequency,
+              slice_stop_secs * split_params_frequency)
+    split_index, split_value = min_value(split_params_min,
+                                         _slice=split_params_slice)
+    split_index = round(split_index / split_params_frequency)
+    return split_index, split_value
+
+
+def _split_on_dfc(slice_start_secs, slice_stop_secs, dfc_frequency,
+                  dfc_half_period, dfc_diff, eng_split_index=None):
+    '''
+    Find split using 'Frame Counter' parameter.
+    
+    :param slice_start_secs: Start of slow slice in seconds.
+    :type slice_start_secs: int or float
+    :param slice_stop_secs: Stop of slow slice in seconds.
+    :type slice_stop_secs: int or float
+    :param dfc_frequency: Frequency of 'Frame Counter' parameter.
+    :type dfc_frequency: int or float
+    :param dfc_half_period: Gap between values in the diff.
+    :type dfc_half_period: int or float
+    :param dfc_diff: Diff of 'Frame Counter' parameter.
+    :type dfc_diff: np.ma.MaskedArray
+    :param eng_split_index: Split index based on minimum of engine parameters.
+    :type eng_split_index: int or float
+    :returns: Split index based on 'Frame Counter' jumps or None if no jumps occur.
+    :rtype: int or float or None
+    '''
+    dfc_slice = slice(slice_start_secs * dfc_frequency,
+                      slice_stop_secs * dfc_frequency)
+    unmasked_edges = np.ma.flatnotmasked_edges(dfc_diff[dfc_slice])
+    if unmasked_edges is None:
+        return None
+    if eng_split_index:
+        # Split on the jump closest to the engine parameter minimums.
+        dfc_jump = unmasked_edges[np.ma.argmin(np.ma.abs(
+            (eng_split_index - slice_start_secs) - unmasked_edges))]
+    else:
+        # Split on the first DFC jump.
+        dfc_jump = unmasked_edges[0]
+    dfc_index = round((dfc_jump / dfc_frequency) + slice_start_secs +
+                      dfc_half_period)
+    # account for rounding of dfc index exceeding slow slice
+    if dfc_index > slice_stop_secs:
+        split_index = slice_stop_secs
+    elif dfc_index < slice_start_secs:
+        split_index = slice_start_secs
+    else:
+        split_index = dfc_index
+    return split_index
+
+
+def _split_on_rot(slice_start_secs, slice_stop_secs, heading_frequency,
+                  rate_of_turn):
+    '''
+    :param slice_start_secs: Start of slow slice in seconds.
+    :type slice_start_secs: int or float
+    :param slice_stop_secs: Stop of slow slice in seconds.
+    :type slice_stop_secs: int or float
+    :param heading_frequency: Frequency of Heading.
+    :type heading_frequency: int or float
+    :param rate_of_turn: Rate of turn array created from Heading diff.
+    :type rate_of_turn: np.ma.MaskedArray
+    :returns: Split index based on minimal rate of turn.
+    :rtype: int or float or None
+    '''
+    rot_slice = slice(slice_start_secs * heading_frequency,
+                      slice_stop_secs * heading_frequency)
+    stopped_slices = np.ma.clump_unmasked(rate_of_turn[rot_slice])
+    try:
+        first_stop = stopped_slices[0]
+    except IndexError:
+        # The aircraft did not stop turning.
+        return None
+    # Split half-way within the stop slice.
+    stop_duration = first_stop.stop - first_stop.start
+    rot_split_index = \
+        rot_slice.start + first_stop.start + (stop_duration / 2)
+    # Get the absolute split index at 1Hz.
+    split_index = round(rot_split_index / heading_frequency)
+    return split_index
+
+
 def split_segments(hdf):
     '''
     TODO: DJ suggested not to use decaying engine oil temperature.
@@ -236,90 +336,71 @@ def split_segments(hdf):
                         settings.MINIMUM_SPLIT_DURATION)
             continue
         
+        # Find split based on minimum of engine parameters.
+        if split_params_min is not None:
+            eng_split_index, eng_split_value = _split_on_eng_params(
+                slice_start_secs, slice_stop_secs, split_params_min,
+                split_params_frequency)
+        else:
+            eng_split_index, eng_split_value = None, None
+        
         # Split using 'Frame Counter'.
         if dfc is not None:
-            dfc_slice = slice(slice_start_secs * dfc.frequency,
-                              slice_stop_secs * dfc.frequency)
-            unmasked_edges = np.ma.flatnotmasked_edges(dfc_diff[dfc_slice])
-            if unmasked_edges is not None:
-                # Split on the first DFC jump.
-                dfc_jump = unmasked_edges[0]
-                dfc_index = round((dfc_jump / dfc.frequency) +
-                                  slice_start_secs + dfc_half_period)
-                # account for rounding of dfc index exceeding slow slice
-                if dfc_index > slice_stop_secs:
-                    split_index = slice_stop_secs
-                elif dfc_index < slice_start_secs:
-                    split_index = slice_start_secs
-                else:
-                    split_index = dfc_index
-                    logger.info("'Frame Counter' jumped within slow_slice '%s' "
-                                "at index '%d'.", slow_slice, split_index)
+            dfc_split_index = _split_on_dfc(
+                slice_start_secs, slice_stop_secs, dfc.frequency,
+                dfc_half_period, dfc_diff, eng_split_index=eng_split_index)
+            if dfc_split_index:
                 segments.append(_segment_type_and_slice(airspeed_array,
                                                         airspeed.frequency,
-                                                        start, split_index))
-                start = split_index
+                                                        start, dfc_split_index))
+                start = dfc_split_index
+                logger.info("'Frame Counter' jumped within slow_slice '%s' "
+                            "at index '%d'.", slow_slice, dfc_split_index)
                 continue
             else:
                 logger.info("'Frame Counter' did not jump within slow_slice "
-                             "'%s'.", slow_slice)
+                            "'%s'.", slow_slice)
         
-        # Split using engine parameters.
-        if split_params_min is not None:
-            split_params_slice = \
-                slice(slice_start_secs * split_params_frequency,
-                      slice_stop_secs * split_params_frequency)
-            split_index, split_value = min_value(split_params_min,
-                                                 _slice=split_params_slice)
-            split_index = round(split_index / split_params_frequency)
-            if split_value is not None and \
-               split_value < settings.MINIMUM_SPLIT_PARAM_VALUE:
-                logger.info("Minimum of normalised split parameters ('%s') was "
-                            "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
-                            "slow_slice '%s' at index '%d'.",
-                            split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
-                            slow_slice, split_index)
-                segments.append(_segment_type_and_slice(airspeed_array,
-                                                        airspeed.frequency,
-                                                        start, split_index))
-                start = split_index
-                continue
-            else:
-                logger.info("Minimum of normalised split parameters ('%s') was "
-                            "not below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
-                            "slow_slice '%s' at index '%d'.",
-                            split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
-                            slow_slice, split_index)
+        # Split using minimum of engine parameters.
+        if eng_split_value is not None and \
+           eng_split_value < settings.MINIMUM_SPLIT_PARAM_VALUE:
+            logger.info("Minimum of normalised split parameters ('%s') was "
+                        "below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
+                        "slow_slice '%s' at index '%d'.",
+                        eng_split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
+                        slow_slice, eng_split_index)
+            segments.append(_segment_type_and_slice(airspeed_array,
+                                                    airspeed.frequency,
+                                                    start, eng_split_index))
+            start = eng_split_index
+            continue
+        else:
+            logger.info("Minimum of normalised split parameters ('%s') was "
+                        "not below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
+                        "slow_slice '%s' at index '%d'.",
+                        eng_split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
+                        slow_slice, eng_split_index)
         
         # Split using rate of turn. Q: Should this be considered in other
         # splitting methods.
         if rate_of_turn is None:
             continue
-        rot_slice = slice(slice_start_secs * heading.frequency,
-                          slice_stop_secs * heading.frequency)
-        stopped_slices = np.ma.clump_unmasked(rate_of_turn[rot_slice])
-        try:
-            first_stop = stopped_slices[0]
-        except IndexError:
-            # The aircraft did not stop turning.
-            logger.info("Aircraft did not stop turning during slow_slice "
-                        "'%s'. Therefore a split will not be made.",
-                        slow_slice)
-        else:
-            # Split half-way within the stop slice.
-            stop_duration = first_stop.stop - first_stop.start
-            rot_split_index = \
-                rot_slice.start + first_stop.start + (stop_duration / 2)
-            # Get the absolute split index at 1Hz.
-            split_index = round(rot_split_index / heading.frequency)
+        
+        rot_split_index = _split_on_rot(slice_start_secs, slice_stop_secs,
+                                        heading.frequency, rate_of_turn)
+        if rot_split_index:
             segments.append(_segment_type_and_slice(airspeed_array,
                                                     airspeed.frequency,
-                                                    start, split_index))
-            start = split_index
+                                                    start, rot_split_index))
+            start = rot_split_index
             logger.info("Splitting at index '%s' where rate of turn was below "
                         "'%s'.", rot_split_index,
                         settings.RATE_OF_TURN_SPLITTING_THRESHOLD)
             continue
+        else:
+            logger.info(
+                "Aircraft did not stop turning during slow_slice "
+                "('%s'). Therefore a split will not be made.", slow_slice)
 
         #Q: Raise error here?
         logger.warning("Splitting methods failed to split within slow_slice "
