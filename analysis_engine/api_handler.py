@@ -17,7 +17,7 @@ import socket
 import time
 import urllib
 
-from analysis_engine.settings import CA_CERTIFICATE_FILE
+from analysis_engine.settings import API_PROXY_INFO, CA_CERTIFICATE_FILE
 
 
 ##############################################################################
@@ -130,6 +130,7 @@ class APIHandlerHTTP(object):
             ca_certs=CA_CERTIFICATE_FILE,
             disable_ssl_certificate_validation=disable_validation,
             timeout=timeout,
+            proxy_info=API_PROXY_INFO,
         )
         
         # Attempt to make the API request:
