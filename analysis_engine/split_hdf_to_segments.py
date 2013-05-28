@@ -530,7 +530,7 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
         if fallback_dt:
             # fallback_dt is relative to the end of the data; remove the data
             # duration to make it relative to the start of the data
-            secs = seconds=hdf.duration
+            secs = hdf.duration
             fallback_dt -= timedelta(seconds=secs)
             logger.info("Reduced fallback_dt by %ddays %dhr %dmin to %s",
                secs//86400, secs%86400//3600, secs%86400%3600//60, fallback_dt)
