@@ -151,13 +151,14 @@ def split_segments(hdf):
     Notes:
      * We do not want to split on masked superframe data if mid-flight (e.g. short section of corrupt data) - repair_mask without defining repair_duration should fix that.
      * Use turning alongside engine parameters to ensure there is no movement?
-     Q: Beware of pre-masked minimums to ensure we don't split on padded superframes     
+     XXX: Beware of pre-masked minimums to ensure we don't split on padded superframes
     
     TODO: Use L3UQAR num power ups for difficult cases?
     '''
     airspeed = hdf['Airspeed']
     try:
-        airspeed_array = repair_mask(airspeed.array, repair_duration=None, repair_above=settings.AIRSPEED_THRESHOLD)
+        airspeed_array = repair_mask(airspeed.array, repair_duration=None,
+                                     repair_above=settings.AIRSPEED_THRESHOLD)
     except ValueError:
         # Airspeed array is masked, most likely under min threshold so it did 
         # not go fast.
@@ -241,8 +242,8 @@ def split_segments(hdf):
             if unmasked_edges is not None:
                 # Split on the first DFC jump.
                 dfc_jump = unmasked_edges[0]
-                dfc_index = round((dfc_jump / dfc.frequency) + \
-                                    slice_start_secs + dfc_half_period)
+                dfc_index = round((dfc_jump / dfc.frequency) +
+                                  slice_start_secs + dfc_half_period)
                 # account for rounding of dfc index exceeding slow slice
                 if dfc_index > slice_stop_secs:
                     split_index = slice_stop_secs
@@ -323,8 +324,8 @@ def split_segments(hdf):
     segments.append(_segment_type_and_slice(airspeed_array, airspeed.frequency,
                                             start, airspeed_secs))
     return segments
-        
-        
+
+
 def _calculate_start_datetime(hdf, fallback_dt=None):
     """
     Calculate start datetime.
