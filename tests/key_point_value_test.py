@@ -113,6 +113,7 @@ from analysis_engine.key_point_values import (
     AltitudeFirstStableDuringLastApproach,
     AltitudeAtFlapExtension,
     AltitudeAtFirstFlapExtensionAfterLiftoff,
+    AltitudeAtFirstFlapRetraction,
     AltitudeAtFirstFlapRetractionDuringGoAround,
     AltitudeAtLastAPDisengagedDuringApproach,
     AltitudeLastUnstableDuringApproachBeforeGoAround,
@@ -2220,9 +2221,9 @@ class TestAltitudeAtFirstFlapRetractionDuringGoAround(unittest.TestCase, NodeTes
         '''
         Create a single KPV within the Go Around And Climbout section.
         '''
-        flap_rets = KTI('Go Around Flap Retracted', items=[
-            KeyTimeInstance(100, 'Go Around Flap Retracted'),
-            KeyTimeInstance(104, 'Go Around Flap Retracted'),
+        flap_rets = KTI('Flap Retraction During Go Around', items=[
+            KeyTimeInstance(100, 'Flap Retraction During Go Around'),
+            KeyTimeInstance(104, 'Flap Retraction During Go Around'),
         ])
         node = AltitudeAtFirstFlapRetractionDuringGoAround()
         node.derive(self.alt_aal, flap_rets, self.go_arounds)
@@ -2234,9 +2235,46 @@ class TestAltitudeAtFirstFlapRetractionDuringGoAround(unittest.TestCase, NodeTes
         '''
         Create no KPVs without a Go Around Flap Retracted KTI.
         '''
-        flap_rets = KTI('Go Around Flap Retracted', items=[])
+        flap_rets = KTI('Flap Retraction During Go Around', items=[])
         node = AltitudeAtFirstFlapRetractionDuringGoAround()
         node.derive(self.alt_aal, flap_rets, self.go_arounds)
+        self.assertEqual(node, [])
+
+
+class TestAltitudeAtFirstFlapRetraction(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtFirstFlapRetraction
+        self.operational_combinations = [('Altitude AAL', 'Flap Retraction While Airborne')]
+        self.alt_aal = P(
+            name='Altitude AAL',
+            array=np.ma.concatenate([
+                np.ma.array([0] * 10),
+                np.ma.arange(40) * 1000,
+            ]),
+        )
+
+    def test_derive_basic(self):
+        '''
+        Create a single KPV within the Go Around And Climbout section.
+        '''
+        flap_rets = KTI('Flap Retraction While Airborne', items=[
+            KeyTimeInstance(30, 'Flap Retraction While Airborne'),
+            KeyTimeInstance(40, 'Flap Retraction While Airborne'),
+        ])
+        node = AltitudeAtFirstFlapRetraction()
+        node.derive(self.alt_aal, flap_rets)
+        self.assertEqual(node, [
+            KeyPointValue(30, 20000, 'Altitude At First Flap Retraction'),
+        ])
+
+    def test_derive_no_ktis(self):
+        '''
+        Create no KPVs without a Go Around Flap Retracted KTI.
+        '''
+        flap_rets = KTI('Flap Retraction While Airborne', items=[])
+        node = AltitudeAtFirstFlapRetractionDuringGoAround()
+        node.derive(self.alt_aal, flap_rets)
         self.assertEqual(node, [])
 
 

@@ -2258,6 +2258,24 @@ class AltitudeAtFirstFlapRetractionDuringGoAround(KeyPointValueNode):
                 self.create_kpv(flap_ret.index, alt_aal.array[flap_ret.index])
 
 
+class AltitudeAtFirstFlapRetraction(KeyPointValueNode):
+    '''
+    Go Around Flap Retracted pinpoints the flap retraction instance within the
+    500ft go-around window. Create a single KPV for the first flap retraction
+    within a Go Around And Climbout phase.
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               flap_rets=KTI('Flap Retraction While Airborne')):
+        
+        flap_ret = flap_rets.get_first()
+        if flap_ret:
+            self.create_kpv(flap_ret.index, alt_aal.array[flap_ret.index])
+
+
 ########################################
 # Altitude: Gear
 
