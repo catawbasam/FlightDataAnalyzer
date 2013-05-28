@@ -190,6 +190,7 @@ class ApproachInformation(ApproachNode):
         for _slice in app.get_slices():
 
             # a) We have a landing if approach end is outside of a fast section:
+            #TODO: Allow for slow aircraft!
             if _slice.stop > fast.get_last().slice.stop:
                 approach_type = 'LANDING'
                 landing = True

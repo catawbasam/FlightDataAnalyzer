@@ -1855,7 +1855,6 @@ class TestAPDisengagedDuringCruiseDuration(unittest.TestCase, NodeTest):
 ##############################################################################
 
 class TestThrustReversersDeployedDuration(unittest.TestCase):
-    
     def test_can_operate(self):
         ops = ThrustReversersDeployedDuration.get_operational_combinations()
         self.assertEqual(ops, [('Thrust Reversers', 'Landing')])
@@ -1877,6 +1876,14 @@ class TestThrustReversersDeployedDuration(unittest.TestCase):
         dur.derive(rev, ldg)
         self.assertEqual(dur[0].index, 5.5)
         self.assertEqual(dur[0].value, 3.5)
+        
+        # deployed the whole time
+        rev.array[:] = 'Deployed'
+        dur = ThrustReversersDeployedDuration()
+        dur.derive(rev, ldg)
+        self.assertEqual(len(dur), 1)
+        self.assertEqual(dur[0].index, 5)
+        self.assertEqual(dur[0].value, 10)
 
 
 class TestTouchdownToThrustReversersDeployedDuration(unittest.TestCase, NodeTest):

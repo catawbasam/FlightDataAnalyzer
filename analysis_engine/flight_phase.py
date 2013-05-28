@@ -15,6 +15,7 @@ from analysis_engine.library import (
     cycle_match,
     find_edges,
     find_toc_tod,
+    first_order_washout,
     first_valid_sample,
     index_at_value,
     index_at_value_or_level_off,
@@ -450,6 +451,7 @@ class DescentToFlare(FlightPhaseNode):
     def derive(self,
             descents=S('Descent'),
             alt_aal=P('Altitude AAL For Flight Phases')):
+        #TODO: Ensure we're still in the air
         for descent in descents:
             end = index_at_value(alt_aal.array, 50.0, descent.slice)
             if end is None:
@@ -858,27 +860,17 @@ class InitialApproach(FlightPhaseNode):
 class LevelFlight(FlightPhaseNode):
     '''
     '''
-
-    @staticmethod
-    def _duration_filter(slices, frequency):
-        filtered = []
-        for _slice in slices:
-            duration = (_slice.stop - _slice.start) / frequency
-            if duration < settings.LEVEL_FLIGHT_MIN_DURATION:
-                filtered.append(_slice)
-        return filtered
-
     def derive(self,
                airs=S('Airborne'),
                vrt_spd=P('Vertical Speed For Flight Phases')):
 
-        # Vertical speed limit set to identify both level flight and end of
-        # takeoff / start of landing.
         for air in airs:
             limit = settings.VERTICAL_SPEED_FOR_LEVEL_FLIGHT
             level_flight = np.ma.masked_outside(vrt_spd.array[air.slice], -limit, limit)
             level_slices = np.ma.clump_unmasked(level_flight)
-            level_slices = self._duration_filter(level_slices, airs.frequency)
+            level_slices = slices_remove_small_slices(level_slices, 
+                                                      time_limit=settings.LEVEL_FLIGHT_MIN_DURATION,
+                                                      hz=vrt_spd.frequency)
             self.create_phases(shift_slices(level_slices, air.slice.start))
 
 
@@ -911,7 +903,8 @@ class Mobile(FlightPhaseNode):
     def can_operate(cls, available):
         return 'Rate Of Turn' in available
 
-    def derive(self, rot=P('Rate Of Turn'), gspd=P('Groundspeed')):
+    def derive(self, rot=P('Rate Of Turn'), gspd=P('Groundspeed'),
+               toffs=S('Takeoff'), lands=S('Landing')):
         move = np.ma.flatnotmasked_edges(np.ma.masked_less\
                                          (np.ma.abs(rot.array),
                                           HEADING_RATE_FOR_MOBILE))
@@ -920,6 +913,7 @@ class Mobile(FlightPhaseNode):
             return # for the case where nothing happened
 
         if gspd:
+            # We need to be outside the range where groundspeeds are detected.1
             move_gspd = np.ma.flatnotmasked_edges(np.ma.masked_less\
                                                   (np.ma.abs(gspd.array),
                                                    GROUNDSPEED_FOR_MOBILE))
@@ -927,6 +921,13 @@ class Mobile(FlightPhaseNode):
             # slice
             move[0] = min(move[0], move_gspd[0])
             move[1] = max(move[1], move_gspd[1])
+        else:
+            # Without a recorded groundspeed, fall back to the start of the
+            # takeoff run and end of the landing run as limits.
+            if toffs:
+                move[0] = min(move[0], toffs[0].slice.start)
+            if lands:
+                move[1] = max(move[1], lands[-1].slice.stop)
 
         moves = [slice(move[0], move[1])]
         self.create_phases(moves)
@@ -1100,7 +1101,9 @@ class TakeoffRoll(FlightPhaseNode):
                 for acc_start in acc_starts:
                     if is_index_within_slice(acc_start.index, toff.slice):
                         begin = acc_start.index
-            two_deg_idx = index_at_value(pitch.array, 2.0, toff.slice)
+            chunk = slice(begin, toff.slice.stop)
+            pwo = first_order_washout(pitch.array[chunk], 3.0, pitch.frequency)
+            two_deg_idx = index_at_value(pwo, 2.0) + begin
             self.create_phase(slice(begin, two_deg_idx))
 
 
@@ -1247,11 +1250,11 @@ class TwoDegPitchTo35Ft(FlightPhaseNode):
 
     def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
         for takeoff in takeoffs:
-            reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
+            #reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
+            pwo = first_order_washout(pitch.array[takeoff.slice], 3.0, pitch.frequency)
             # Endpoint closing allows for the case where the aircraft is at
             # more than 2 deg of pitch at takeoff.
-            pitch_2_deg_idx = index_at_value(pitch.array, 2.0, reversed_slice,
-                                             endpoint='closing')
+            pitch_2_deg_idx = index_at_value(pwo, 2.0) + takeoff.slice.start
             self.create_section(slice(pitch_2_deg_idx, takeoff.slice.stop),
                                 begin=pitch_2_deg_idx,
                                 end=takeoff.stop_edge)

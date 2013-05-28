@@ -1722,7 +1722,8 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
         self.assertEqual(p.array[0], 'one')
         self.assertEqual(p.array.raw[0], 1)
 
-    def test_setattr_array(self):
+    @mock.patch('analysis_engine.node.multistate_string_to_integer')
+    def test_setattr_array(self, multistate_string_to_integer):
         values_mapping = {1: 'one', 2: 'two', 3: 'three'}
 
         # init with MaskedArray
@@ -1745,14 +1746,10 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
         # create with float array which are actually integers
         array = np.ma.array([1., 2.5,  # note: 2.5 will be rounded to 2.0
                              3., 0.], dtype=float)
-        import analysis_engine.node as n
-        temp = n.multistate_string_to_integer
-        n.multistate_string_to_integer = mock.Mock()
         m = M(values_mapping=values_mapping)
         m.array = array
         self.assertEqual(m.array.data.dtype, int)
-        self.assertFalse(n.multistate_string_to_integer.called)
-        n.multistate_string_to_integer = temp
+        self.assertFalse(multistate_string_to_integer.called)
 
     def test_settattr_string_array(self):
         mapping = {0:'zero', 1:'one', 2:'two', 3:'three'}
@@ -1775,10 +1772,11 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
         self.assertRaises(ValueError, multi_p.__setattr__,
                           'array', np.ma.array(['zonk', 'two']*2, mask=[1,0,0,0]))
     
-    def test_getattribute(self):
+    @mock.patch('analysis_engine.node.Node.get_derived')
+    def test_getattribute(self, get_derived):
+        get_derived.return_value = 5
+
         values_mapping = {0: '-', 1: 'Warning'}
-        Node.get_derived = mock.Mock()
-        Node.get_derived.return_value = 5
         node = MultistateDerivedParameterNode()
         self.assertRaises(ValueError, node.get_derived)
         node.values_mapping = values_mapping

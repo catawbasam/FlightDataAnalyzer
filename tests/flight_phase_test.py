@@ -1145,39 +1145,54 @@ class TestLevelFlight(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Airborne', 'Vertical Speed For Flight Phases')]
 
     def test_level_flight_phase_basic(self):
-        data = range(0, 400, 50) + range(400, -450, -50) + range(-450, 50, 50)
+        data = range(0, 400, 1) + range(400, -450, -1) + range(-450, 50, 1)
         vrt_spd = Parameter(
             name='Vertical Speed For Flight Phases',
             array=np.ma.array(data),
         )
         airborne = SectionNode('Airborne', items=[
-            Section('Airborne', slice(0, 36, None), 0, 36),
+            Section('Airborne', slice(0, 3600, None), 0, 3600),
         ])
         level = LevelFlight()
         level.derive(airborne, vrt_spd)
         self.assertEqual(level, [
-            Section('Level Flight', slice(0, 7, None), 0, 7),
-            Section('Level Flight', slice(10, 23, None), 10, 23),
-            Section('Level Flight', slice(28, 35, None), 28, 35),
-        ])
+            Section('Level Flight', slice(0, 301, None), 0, 301), 
+            Section('Level Flight', slice(500, 1101, None), 500, 1101), 
+            Section('Level Flight', slice(1400, 1750, None), 1400, 1750)])
 
     def test_level_flight_phase_not_airborne_basic(self):
-        data = range(0, 400, 50) + range(400, -450, -50) + range(-450, 50, 50)
+        data = range(0, 400, 1) + range(400, -450, -1) + range(-450, 50, 1)
         vrt_spd = Parameter(
             name='Vertical Speed For Flight Phases',
             array=np.ma.array(data),
         )
         airborne = SectionNode('Airborne', items=[
-            Section('Airborne', slice(8, 30, None), 8, 30),
+            Section('Airborne', slice(550, 1200, None), 550, 1200),
         ])
         level = LevelFlight()
         level.derive(airborne, vrt_spd)
         self.assertEqual(level, [
-            Section('Level Flight', slice(10, 23, None), 10, 23),
-            Section('Level Flight', slice(28, 30, None), 28, 30),
+            Section('Level Flight', slice(550, 1101, None), 550, 1101)
         ])
 
-
+    def test_rejects_short_segments(self):
+        data = [400]*50+[0]*20+[400]*50+[0]*80+[-400]*40+[4]*40+[500]*40
+        vrt_spd = Parameter(
+            name='Vertical Speed For Flight Phases',
+            array=np.ma.array(data),
+            frequency=1.0
+        )
+        airborne = SectionNode('Airborne', items=[
+            Section('Airborne', slice(0, 320), 0, 320),
+        ])
+        level = LevelFlight()
+        level.derive(airborne, vrt_spd)
+        self.assertEqual(level, [
+            Section('Level Flight', slice(120, 200, None), 120, 200)
+        ])
+        
+        
+        
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Takeoff.get_operational_combinations(),
@@ -1377,9 +1392,20 @@ class TestTakeoffRoll(unittest.TestCase):
         self.assertEqual(TakeoffRoll.get_operational_combinations(),
                          [('Takeoff', 'Takeoff Acceleration Start', 'Pitch',)])
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        accel_start = KTI('Takeoff Acceleration Start', items=[
+                    KeyTimeInstance(967.92513157006306, 'Takeoff Acceleration Start'),
+                ])
+        takeoffs = S(items=[Section('Takeoff', slice(953, 995), 953, 995)])
+        pitch = load(os.path.join(test_data_path,
+                                    'TakeoffRoll-pitch.nod'))
+        node = TakeoffRoll()
+        node.derive(toffs=takeoffs,
+                   acc_starts=accel_start,
+                   pitch=pitch)
+        self.assertEqual(len(node), 1)
+        self.assertAlmostEqual(node[0].slice.start, 967.92, places=1)
+        self.assertAlmostEqual(node[0].slice.stop, 990.27, places=1)
 
 
 class TestTakeoffRotation(unittest.TestCase):

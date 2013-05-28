@@ -18,6 +18,7 @@ from flightdatautilities.filesystem_tools import copy_file
 from analysis_engine.flight_phase import Fast, Mobile
 from analysis_engine.library import (align, 
                                      max_value, 
+                                     np_ma_masked_zeros, 
                                      np_ma_masked_zeros_like, 
                                      np_ma_ones_like,
                                      rate_of_change_array)
@@ -52,6 +53,7 @@ from analysis_engine.derived_parameters import (
     Aileron,
     AimingPointRange,
     AirspeedForFlightPhases,
+    AirspeedMinusV2,
     AirspeedMinusV2For3Sec,
     AirspeedReference,
     AirspeedReferenceLookup,
@@ -598,180 +600,175 @@ class TestAirspeedForFlightPhases(unittest.TestCase):
 
 
 class TestAirspeedMinusV2(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        expected = [('Airspeed', 'V2'),
+                    ('Airspeed', 'V2 Lookup'),
+                    ('Airspeed', 'V2', 'V2 Lookup')]
+        opts = AirspeedMinusV2.get_operational_combinations()
+        self.assertEqual(opts, expected)
         
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_recorded_v2(self):
+        air_spd = P('Airspeed', np.ma.array([102] * 6))
+        v2 = P('V2', np.ma.arange(90,120,5))
+        amv2 = AirspeedMinusV2()
+        result = amv2.get_derived([air_spd, v2, None])
+        expected = np.ma.arange(12,-18,-5)
+        ma_test.assert_array_equal(result.array, expected)
+        
+    def test_lookup_v2(self):
+        air_spd = P('Airspeed', np.ma.array([102] * 6))
+        v2_lu = P('V2 Lookup', np.ma.arange(90,120,5))
+        amv2 = AirspeedMinusV2()
+        result = amv2.get_derived([air_spd, None, v2_lu])
+        expected = np.ma.arange(12,-18,-5)
+        ma_test.assert_array_equal(result.array, expected)
+        
+    def test_recorded_preferred_to_lookup_v2(self):
+        # If both forms are available, the recorded version is used in preference to the lookup tables.
+        air_spd = P('Airspeed', np.ma.array([102] * 6))
+        v2 = P('V2', np.ma.arange(90,120,5))
+        v2_lu = P('V2 Lookup', np.ma.arange(80,110,5))
+        amv2 = AirspeedMinusV2()
+        result = amv2.get_derived([air_spd, v2, v2_lu])
+        expected = np.ma.arange(12,-18,-5)
+        ma_test.assert_array_equal(result.array, expected)
+        
 
+class TestAirspeedReference(unittest.TestCase, NodeTest):
 
-class TestAirspeedReference(unittest.TestCase):
     def setUp(self):
-        self.approach_slice = slice(105, 120)
-        apps = App('Approach', items=[ApproachItem('LANDING',
-                                                   self.approach_slice)])
-        self.default_kwargs = {'spd':False,
-                               'vapp':None,
-                               'vref':None,
-                               'afr_vapp':None,
-                               'afr_vref':None,
-                               'apps':apps,}
+        self.node_class = AirspeedReference
+        self.operational_combination_length = 54
+        self.check_operational_combination_length_only = True
+
+        self.air_spd = P('Airspeed', np.ma.array([200] * 128))
+        self.afr_vapp = A('AFR Vapp', value=120)
+        self.afr_vref = A('AFR Vref', value=120)
+        self.vapp = P('Vapp', np.ma.array([120] * 128))
+        self.vref = P('Vref', np.ma.array([120] * 128))
+        self.approaches = App('Approach', items=[
+            ApproachItem('LANDING', slice(105, 120)),
+        ])
+        self.expected = np_ma_masked_zeros(128)
+        self.expected[self.approaches.get_last().slice] = 120
+
+    def test_derive__afr_vapp(self):
+        args = [self.air_spd, None, None, self.afr_vapp, None, self.approaches]
+        node = self.node_class()
+        node.get_derived(args)
+        np.testing.assert_array_equal(node.array, self.expected)
+
+    def test_derive__afr_vref(self):
+        args = [self.air_spd, None, None, None, self.afr_vref, self.approaches]
+        node = self.node_class()
+        node.get_derived(args)
+        np.testing.assert_array_equal(node.array, self.expected)
+
+    def test_derive__vapp(self):
+        args = [self.air_spd, self.vapp, None, None, None, self.approaches]
+        node = self.node_class()
+        node.get_derived(args)
+        np.testing.assert_array_equal(node.array, self.vapp.array)
+
+    def test_derive__vref(self):
+        args = [self.air_spd, None, self.vref, None, None, self.approaches]
+        node = self.node_class()
+        node.get_derived(args)
+        np.testing.assert_array_equal(node.array, self.vref.array)
 
 
-    def test_can_operate(self):
-        expected = [('Vapp',),
-                    ('Vref',),
-                    ('AFR Vapp',),
-                    ('AFR Vref',),
-                    ('Airspeed', 'Gross Weight Smoothed', 'Series',
-                     'Family', 'Approach', 'Flap',),
-                    ('Airspeed', 'Gross Weight Smoothed', 'Series',
-                     'Family', 'Approach', 'Configuration',)]
-        opts = AirspeedReference.get_operational_combinations()
-        self.assertTrue([e in opts for e in expected])
+class TestAirspeedReferenceLookup(unittest.TestCase, NodeTest):
 
-    def test_airspeed_reference__fdr_vapp(self):
-        kwargs = self.default_kwargs.copy()
-        kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
-        kwargs['afr_vapp'] = A('AFR Vapp', value=120)
-
-        param = AirspeedReference()
-        param.derive(**kwargs)
-        expected = np.ma.zeros(128)
-        expected.mask = True
-        expected[self.approach_slice] = 120
-        np.testing.assert_array_equal(param.array, expected)
-
-    def test_airspeed_reference__fdr_vref(self):
-        kwargs = self.default_kwargs.copy()
-        kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
-        kwargs['afr_vref'] = A('AFR Vref', value=120)
-
-        param = AirspeedReference()
-        param.derive(**kwargs)
-        expected = np.ma.zeros(128)
-        expected.mask = True
-        expected[self.approach_slice] = 120
-        np.testing.assert_array_equal(param.array, expected)
-
-    def test_airspeed_reference__recorded_vapp(self):
-        kwargs = self.default_kwargs.copy()
-        kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
-        kwargs['vapp'] = P('Vapp', np.ma.array([120]*128))
-
-        param = AirspeedReference()
-        param.derive(**kwargs)
-
-        expected=np.array([120]*128)
-        np.testing.assert_array_equal(param.array, expected)
-
-    def test_airspeed_reference__recorded_vref(self):
-        kwargs = self.default_kwargs.copy()
-        kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
-        kwargs['vref'] = P('Vref', np.ma.array([120]*128))
-
-        param = AirspeedReference()
-        param.derive(**kwargs)
-
-        expected=np.array([120]*128)
-        np.testing.assert_array_equal(param.array, expected)
-
-class TestAirspeedReferenceLookup(unittest.TestCase):
     def setUp(self):
-        self.approach_slice = slice(105, 120)
-        apps = App('Approach', items=[ApproachItem('LANDING',
-                                                   self.approach_slice)])
-        self.default_kwargs = {'spd':False,
-                               'gw':None,
-                               'flap':None,
-                               'conf':None,
-                               'apps':apps,
-                               'series':None,
-                               'family':None}
+        self.node_class = AirspeedReferenceLookup
+        self.operational_combination_length = 88  # This is a silly test as nobody checks all these combinations
+        self.check_operational_combination_length_only = True
 
+    # TODO: Remove mock patch - our tables should be correct.
     @patch('analysis_engine.derived_parameters.get_vspeed_map')
     def test_airspeed_reference__boeing_lookup(self, vspeed_map):
         vspeed_table = Mock
-        vspeed_table.vref = Mock(side_effect = [135, 130])
-        vspeed_table.reference_settings = [15, 20, 30]
+        vspeed_table.vref = Mock(side_effect=[135, 130])
+        vspeed_table.vref_settings = [15, 20, 30]
         vspeed_map.return_value = vspeed_table
-        test_hdf = copy_file(os.path.join(test_data_path, 'airspeed_reference.hdf5'))
-        with hdf_file(test_hdf) as hdf:
-            approaches = [ApproachItem('TOUCH_AND_GO', slice(3346, 3540)),
-                          ApproachItem('LANDING', slice(5502, 5795))]
-            args = [
-                P(**hdf['Flap'].__dict__),
-                None,
-                P(**hdf['Airspeed'].__dict__),
-                P(**hdf['Gross Weight Smoothed'].__dict__),
-                App('Approach Information', items=approaches),
-                KTI('Touchdown', items=[KeyTimeInstance(3450, 'Touchdown'),
-                                        KeyTimeInstance(5700, 'Touchdown')]),
-                A('Series', value='B737-300'),
-                A('Family', value='B737 Classic'),
-                None,
-                None,
-                None,
-            ]
-            param = AirspeedReferenceLookup()
-            param.get_derived(args)
+
+        series = A('Series', value='B737-300')
+        family = A('Family', value='B737 Classic')
+        approaches = App('Approach Information', items=[
+            ApproachItem('TOUCH_AND_GO', slice(3346, 3540)),
+            ApproachItem('LANDING', slice(5502, 5795)),
+        ])
+        touchdowns = KTI('Touchdown', items=[
+            KeyTimeInstance(3450, 'Touchdown'),
+            KeyTimeInstance(5700, 'Touchdown'),
+        ])
+
+        hdf_path = os.path.join(test_data_path, 'airspeed_reference.hdf5')
+        hdf_copy = copy_file(hdf_path)
+        with hdf_file(hdf_copy) as hdf:
+
+            flap = P(**hdf['Flap'].__dict__)
+            air_spd = P(**hdf['Airspeed'].__dict__)
+            gw = P(**hdf['Gross Weight Smoothed'].__dict__)
+
             expected = np_ma_masked_zeros_like(hdf['Airspeed'].array)
-            expected[slice(3346, 3540)] = 135
-            expected[slice(5502, 5795)] = 130
-            np.testing.assert_array_equal(param.array, expected)
-        if os.path.isfile(test_hdf):
-            os.remove(test_hdf)
+            expected[approaches[0].slice] = 135
+            expected[approaches[1].slice] = 130
 
-    @unittest.skip('Airbus Reference Lookup not Implemented')
-    def test_airspeed_reference__airbus_lookup(self):
-        #with hdf_file('test_data/airspeed_reference.hdf5') as hdf:
-            #approaches = (Section(name='Approach', slice=slice(3346, 3540, None), start_edge=3345.5, stop_edge=3539.5),
-                          #Section(name='Approach', slice=slice(5502, 5795, None), start_edge=5501.5, stop_edge=5794.5))
-            #args = [
-                #P(**hdf['Airspeed'].__dict__),
-                #P(**hdf['Gross Weight Smoothed'].__dict__),
-                #P(**hdf['Flap'].__dict__),
-                #None,
-                #None,
-                #None,
-                #None,
-                #None,
-                #S('Approach', items=approaches),
-                #A('Series', value='B737-300'),
-                #A('Family', value='B737 Classic'),
-                #None,
-            #]
-            #param = AirspeedReference()
-            #param.get_derived(args)
-            #expected = np.ma.load('test_data/boeing_reference_speed.ma')
-            #np.testing.assert_array_equal(param.array, expected.array)
-        self.assertTrue(False, msg='Test Not implemented')
+            args = [flap, None, air_spd, gw, approaches, touchdowns, series, family, None, None, None]
+            node = self.node_class()
+            node.get_derived(args)
+            np.testing.assert_array_equal(node.array, expected)
+
+        if os.path.isfile(hdf_copy):
+            os.remove(hdf_copy)
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive__airbus(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_derive__beechcraft(self):
+        air_spd = P('Airspeed', np.ma.array([0] * 120))
+        series = A('Series', value='1900D')
+        family = A('Family', value='1900')
+        approaches = App('Approach Information', items=[
+            ApproachItem('LANDING', slice(105, 120)),
+        ])
+        touchdowns = KTI('Touchdown', items=[
+            KeyTimeInstance(3450, 'Touchdown'),
+            KeyTimeInstance(5700, 'Touchdown'),
+        ])
+
+        for detent, vref in ((35, 97), ):
+            flap = P('Flap', np.ma.array([detent] * 120))
+            args = [flap, None, air_spd, None, approaches, touchdowns, series, family, None, None, None]
+            node = self.node_class()
+            node.get_derived(args)
+            expected = np.ma.array([vref] * 120)
+            np.testing.assert_array_equal(node.array, expected)
 
 
-class TestAirspeedRelative(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Airspeed', 'Airspeed Reference'), 
-                    ('Airspeed', 'Airspeed Reference Lookup'),
-                    ('Airspeed', 'Airspeed Reference', 'Airspeed Reference Lookup')]
-        opts = AirspeedRelative.get_operational_combinations()
-        self.assertEqual(opts, expected)
-        
-        # ???????????????????????????????????????????????????????????????
-        # THIS MAY NEED TO BE ALTERED SO THAT Vref IS VARIABLE AND NOT FIXED
-        # NEED A DIFFERENT Vref FOR EACH APPROACH ??? DISCUSS WITH DEREK AND
-        # DAVE BEFORE CHANGING
-    
+# TODO: Check whether this needs altering so that vref is variable, not fixed.
+#       Need a different vref for each approach? Discuss before changing...
+class TestAirspeedRelative(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedRelative
+        self.operational_combinations = [
+            ('Airspeed', 'Airspeed Reference'),
+            ('Airspeed', 'Airspeed Reference Lookup'),
+            ('Airspeed', 'Airspeed Reference', 'Airspeed Reference Lookup'),
+        ]
+
     def test_airspeed_for_phases_basic(self):
-        speed=P('Airspeed', np.ma.array([200] * 128))
-        ref = P('Airspeed Relative', np.ma.array([120] * 128))
-        # Offset is frame-related, not superframe based, so is to some extent
-        # meaningless.
-        param = AirspeedRelative()
-        param.get_derived([speed, ref])
-        expected=np.array([80]*128)
-        np.testing.assert_array_equal(param.array, expected)
+        # Note: Offset is frame-related, not superframe based, so is to some
+        #       extent meaningless.
+        air_spd=P('Airspeed', np.ma.array([200] * 128))
+        air_spd_ref = P('Airspeed Reference', np.ma.array([120] * 128))
+        node = AirspeedRelative()
+        node.get_derived([air_spd, air_spd_ref])
+        np.testing.assert_array_equal(node.array, np.ma.array([80] * 128))
+
 
 class TestAirspeedTrue(unittest.TestCase):
     def test_can_operate(self):
@@ -2729,100 +2726,85 @@ class TestMach(unittest.TestCase):
         expected = np.ma.array(data=[0, 0.182, 0.4402, 0.5407, 0.5407, 1.6825, 45000],
                                         mask=[0,0,0,0,1,1,1], dtype=float)
         ma_test.assert_masked_array_approx_equal(mach.array, expected, decimal=2)
-        
-class TestV2(unittest.TestCase):
+
+
+class TestV2(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.default_kwargs = {'spd':False,
-                               'afr_v2':None,
-                               'spd_ctrl':False,
-                               'spd_sel':False,}
+        self.node_class = V2
+        self.operational_combinations = [
+            ('Airspeed', 'AFR V2'),
+            ('Airspeed', 'AFR V2', 'Auto Speed Control'),
+            ('Airspeed', 'AFR V2', 'Selected Speed'),
+            ('Airspeed', 'Auto Speed Control', 'Selected Speed'),
+            ('Airspeed', 'AFR V2', 'Auto Speed Control', 'Selected Speed'),
+        ]
 
-    def test_can_operate(self):
-        # TODO: test expected combinations are in get_operational_combinations
-        expected = [('AFR V2',),
-                    ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
-                     'Configuration',),
-                    ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
-                     'Flap',),]
-        opts = V2.get_operational_combinations()
-        self.assertTrue([e in opts for e in expected])
+        self.air_spd = P('Airspeed', np.ma.array([200] * 128))
+        self.afr_v2 = A('AFR V2', value=120)
 
-    def test_v2__fdr_v2(self):
+    def test_derive__afr_v2(self):
+        node = self.node_class()
+        node.get_derived([self.air_spd, self.afr_v2, None, None])
+        np.testing.assert_array_equal(node.array, np.array([120] * 128))
 
-        kwargs = self.default_kwargs.copy()
-        kwargs['spd'] = P('Airspeed', np.ma.array([200]*128), frequency=1)
-        kwargs['afr_v2'] = A('AFR V2', value=120)
-
-        param = V2()
-        param.derive(**kwargs)
-        expected = np.array([120]*128)
-        np.testing.assert_array_equal(param.array, expected)
+    def test_derive__spd_sel(self):
+        spd_ctl = P('Auto Speed Control', np.ma.array([1] * 64 + [0] * 64))
+        spd_sel = P('Selected Speed', np.ma.array([120] * 128))
+        node = self.node_class()
+        node.get_derived([self.air_spd, None, spd_ctl, spd_sel])
+        expected = np.ma.array(data=[120] * 128, mask=[False] * 64 + [True] * 64)
+        np.testing.assert_array_equal(node.array, expected)
 
 
-class TestV2Lookup(unittest.TestCase):
+class TestV2Lookup(unittest.TestCase, NodeTest):
+
     def setUp(self):
-        self.default_kwargs = {'spd':False,
-                               'flap':None,
-                               'conf':None,
-                               'afr_v2':None,
-                               'weight_liftoff':None,
-                               'series':None,
-                               'family':None}
+        self.node_class = V2Lookup
+        self.operational_combination_length = 136  # This is a silly test as nobody checks all these combinations
+        self.check_operational_combination_length_only = True
 
-    def test_can_operate(self):
-        # TODO: test expected combinations are in get_operational_combinations
-        expected = [('AFR V2',),
-                    ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
-                     'Configuration',),
-                    ('Airspeed', 'Gross Weight At Liftoff', 'Series', 'Family',
-                     'Flap',),]
-        opts = V2Lookup.get_operational_combinations()
-        self.assertTrue([e in opts for e in expected])
+    def test_derive__boeing(self):
+        series = A('Series', value='B737-300')
+        family = A('Family', value='B737 Classic')
+        gw = KPV(name='Gross Weight At Liftoff', items=[
+            KeyPointValue(index=451, value=54192.06),
+        ])
 
-    def test_v2__boeing_lookup(self):
-        gw = KPV('Gross Weight At Liftoff')
-        gw.create_kpv(451, 54192.06)
-        test_hdf = copy_file(os.path.join(test_data_path, 'airspeed_reference.hdf5'))
-        with hdf_file(test_hdf) as hdf:
-            args = [
-                P(**hdf['Flap'].__dict__),
-                None,
-                P(**hdf['Airspeed'].__dict__),
-                gw,
-                A('Series', value='B737-300'),
-                A('Family', value='B737 Classic'),
-                None,
-                None,
-            ]
-            param = V2Lookup()
-            param.get_derived(args)
-            expected = np.ma.array([151.70729599999999]*5888)
-            np.testing.assert_array_equal(param.array, expected)
-        if os.path.isfile(test_hdf):
-            os.remove(test_hdf)
+        hdf_path = os.path.join(test_data_path, 'airspeed_reference.hdf5')
+        hdf_copy = copy_file(hdf_path)
+        with hdf_file(hdf_copy) as hdf:
 
-    @unittest.skip('Airbus V2 not Implemented')
-    def test_v2__airbus_lookup(self):
-        # TODO: create airbus lookup test and add conf to test hdf file
+            flap = P(**hdf['Flap'].__dict__)
+            air_spd = P(**hdf['Airspeed'].__dict__)
 
-        #with hdf_file('test_data/airspeed_reference.hdf5') as hdf:
-            #approaches = (Section(name='Approach', slice=slice(3346, 3540, None), start_edge=3345.5, stop_edge=3539.5),
-                          #Section(name='Approach', slice=slice(5502, 5795, None), start_edge=5501.5, stop_edge=5794.5))
-            #args = [
-                #P(**hdf['Airspeed'].__dict__),
-                #P(**hdf['Flap'].__dict__),
-                #None,
-                #None,
-                #KPV('Gross Weight At Liftoff'),
-                #A('Series', value='B737-300'),
-                #A('Family', value='B737 Classic'),
-                #None,
-            #]
-            #param = V2()
-            #param.get_derived(args)
-            #expected = np.ma.load('test_data/boeing_reference_speed.ma')
-            #np.testing.assert_array_equal(param.array, expected.array)
-        self.assertTrue(False, msg='Test Not implemented')
+            args = [flap, None, air_spd, gw, series, family, None, None, None, None]
+
+            node = self.node_class()
+            node.get_derived(args)
+            expected = np.ma.array([151.70729599999999] * 5888)
+            np.testing.assert_array_equal(node.array, expected)
+
+        if os.path.isfile(hdf_copy):
+            os.remove(hdf_copy)
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive__airbus(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+    def test_derive__beechcraft(self):
+        air_spd = P('Airspeed', np.ma.array([0] * 20))
+        series = A('Series', value='1900D')
+        family = A('Family', value='1900')
+        liftoffs = KTI(name='Liftoff', items=[KeyTimeInstance(index=5)])
+
+        for detent, v2 in ((0, 125), (17.5, 114)):
+            flap = P('Flap', np.ma.array([detent] * 20))
+            args = [flap, None, air_spd, None, series, family, None, None, None, liftoffs]
+            node = self.node_class()
+            node.get_derived(args)
+            expected = np.ma.array([v2] * 20)
+            np.testing.assert_array_equal(node.array, expected)
 
 
 class TestHeadwind(unittest.TestCase):

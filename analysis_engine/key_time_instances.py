@@ -1,5 +1,6 @@
 import numpy as np
-from math import ceil, floor
+from math import ceil, copysign, floor
+import os
 
 from analysis_engine.library import (all_of,
                                      any_of,
@@ -578,7 +579,16 @@ class Touchdown(KeyTimeInstanceNode):
     Touchdown is notoriously difficult to identify precisely, and a
     suggestion from a Boeing engineer was to add a longitudinal acceleration
     term as there is always an instantaneous drag when the mainwheels touch.
-    Just more development still to do!
+    
+    This was added in the form of two triggers, one detecting the short dip in Ax and another for larger changes which are less common.
+    
+    So, we look for the weight on wheels switch if this is the first indication,
+    or the second indication of:
+    * Zero feet AAL (normally derived from the radio altimeter)
+    * Sudden rise in normal acceleration bumping the ground
+    * Significant product of two samples of normal acceleration (correlating to a sudden drop in descent rate)
+    * A transient reduction in longitudinal acceleration as the wheels first spin up
+    * A large reduction in longitudinal acceleration when braking action starts
     '''
     # List the minimum acceptable parameters here
     @classmethod
@@ -598,89 +608,154 @@ class Touchdown(KeyTimeInstanceNode):
         # signal changes state on raising the gear (OK, if they do a gear-up
         # landing it won't work, but this will be the least of the problems).
 
-        dt = 5.0 # Seconds to scan across.
+        dt_pre = 4.0 # Seconds to scan before estimate.
+        dt_post = 3.0 # Seconds to scan after estimate.
         hz = alt.frequency
-        index_gog = None
+        index_gog = index_ax = index_az = index_daz = index_dax = index_z = None
 
         for land in lands:
-            
+            # We have to have an altitude signal, so this forms an initial
+            # estimate of the touchdown point.
             index_alt = index_at_value(alt.array, 0.0, land.slice)
             
             if gog:
-                # try using Gear On Ground switch
+                # Try using Gear On Ground switch
                 edges = find_edges_on_state_change(
                     'Ground', gog.array[land.slice])
                 if edges:
                     # use the first contact with ground as touchdown point 
-                    # (ignore bounces)
+                    # (i.e. we ignore bounces)
                     index = edges[0] + land.slice.start
+                    # Check we were within 5ft of the ground when the switch triggered.
                     if not alt or alt.array[index] < 5.0:
                         index_gog = index
-                    else:
-                        # Did not find a realistic Gear On Ground trigger.
-                        pass
-                        # trigger at silly height > work it out from height only
-                else:
-                    # no gear on ground switch found > work it out from height only
-                    pass
 
             index_ref = min([x for x in index_alt, index_gog if x is not None])
             
-            # Set up a period to scan across...
-            period = slice(floor(index_ref-dt*hz), ceil(index_ref+2*hz))
+            # With an estimate from the height and perhaps gear switch, set
+            # up a period to scan across for accelerometer based
+            # indications...
+            period = slice(floor(index_ref-dt_pre*hz), ceil(index_ref+dt_post*hz))
             
-            index_ax = None
             if acc_long:
                 drag = acc_long.array[period]
                 touch = np_ma_masked_zeros_like(drag)
+                
+                # Look for inital wheel contact
                 for i in range(2, len(touch)-2):
-                    touch[i-2]=drag[i-2]-drag[i]*2.0+drag[i+2]
-                index_ax = np.argmax(touch)+1
+                    # Looking for a downward pointing "V" shape over half the
+                    # Az sample rate. This is a common feature at the point
+                    # of wheel touch.
+                    touch[i-2] = max(0.0,drag[i-2]-drag[i]) * max(0.0,drag[i+2]-drag[i])
+                peak_ax = np.max(touch)
+
+                # Only use this if the value was significant.
+                if peak_ax>0.0005:
+                    ix_ax2 = np.argmax(touch)
+                    ix_ax = ix_ax2
+                    # See if this was the second of a pair, with the first a little smaller.
+                    if np.ma.count(touch[:ix_ax2]) > 0:
+                        # I have some valid data to scan
+                        ix_ax1 = np.argmax(touch[:ix_ax2])
+                        if touch[ix_ax1] > peak_ax*0.2:
+                            # This earlier touch was a better guess.
+                            peak_ax = touch[ix_ax1]
+                            ix_ax = ix_ax1 
+                                
+                    index_ax = ix_ax+1+index_ref-dt_pre*hz
+
+                # Trap landings with immediate braking where there is no skip effect.
+                for i in range(0, len(drag)-4):
+                    if drag[i] and drag[i+4]:
+                        delta=drag[i]-drag[i+4]
+                        if delta > 0.1:
+                            index_dax = i+2+index_ref-dt_pre*hz
+                            break
             
-            index_az=None
             if acc_norm:
                 lift = acc_norm.array[period]
-                mean_az = np.mean(lift)
+                mean = np.mean(lift)
+                lift = np.ma.masked_less(lift-mean, 0.0)
                 bump = np_ma_masked_zeros_like(lift)
+
+                # A firm touchdown is typified by at least two large Az samples.
                 for i in range(1, len(bump)-1):
-                    bump[i-1]=lift[i]*lift[i+1]-mean_az
-                index_az = np.argmax(bump)
+                    bump[i-1]=lift[i]*lift[i+1]
+                peak_az = np.max(bump)
+                index_az = np.argmax(bump)+index_ref-dt_pre*hz
             
-            # We collect up to four estimates of the touchdown point...
+                # The first real contact is indicated by an increase in g of
+                # more than 0.075, but this must be positive (hence the
+                # masking above the local mean).
+                for i in range(0, len(lift)-1):
+                    if lift[i] and lift[i+1]:
+                        delta=lift[i+1]-lift[i]
+                        if delta > 0.1:
+                            index_daz = i+1+index_ref-dt_pre*hz
+                            break
+                
+            # Pick the first of the two normal accelerometer measures to
+            # avoid triggering a touchdown from a single faulty sensor:
+            index_z_list = [x for x in index_az, index_daz if x is not None]
+            if index_z_list:
+                index_z = min(index_z_list)
+            # ...then collect up to four estimates of the touchdown point...
             index_list = [x for x in index_alt, 
                           index_gog, 
-                          index_ax+index_ref-dt*hz, 
-                          index_az+index_ref-dt*hz if x is not None]
+                          index_ax,
+                          index_dax,
+                          index_z, \
+                          if x is not None]
             
-            # ...and use the second where possible, as this has been found to be more reliable than the first which may be erroneous.
+            # ...and use the second where possible, as this has been found to
+            # be more reliable than the first which may be erroneous.
             if len(index_list)>1:
                 index_tdn = sorted(index_list)[1]
             else:
                 index_tdn = index_list[0]
+            # but in any case, if we have a gear on ground signal which goes
+            # off first, adopt that.
+            if index_gog and index_gog<index_tdn:
+                index_tdn = index_gog
                 
-            self.create_kti(index_tdn)
 
-            '''
+            """
+            # Plotting process to view the results in an easy manner.
             import matplotlib.pyplot as plt
-            timebase=np.linspace(-dt*hz, dt*hz, 2*dt*hz+1)
-            plot_period = slice(floor(index_ref-dt*hz), floor(index_ref-dt*hz+len(timebase)))
+            name = 'Touchdown with values Ax=%.4f, Az=%.4f and dAz=%.4f' %(peak_ax, peak_az, delta)
+            self.info(name)
+            timebase=np.linspace(-dt_pre*hz, dt_pre*hz, 2*dt_pre*hz+1)
+            plot_period = slice(floor(index_ref-dt_pre*hz), floor(index_ref-dt_pre*hz+len(timebase)))
+            plt.figure()
             plt.plot(timebase, alt.array[plot_period], 'o-r')
             plt.plot(timebase, acc_long.array[plot_period]*200, 'o-m')
             plt.plot(timebase, acc_norm.array[plot_period]*100, 'o-g')
             if gog:
                 plt.plot(timebase, gog.array[plot_period]*100, 'o-k')
+            if index_gog:
                 plt.plot(index_gog-index_ref, 20.0,'ok', markersize=8)
-            plt.plot(index_ax-dt*hz, 5.0,'om', markersize=8)
-            plt.plot(index_az-dt*hz, 10.0,'og', markersize=8)
-            plt.plot(index_alt-index_ref, 15.0,'or', markersize=8)
-            plt.plot(index_tdn-index_ref, 0.0,'dr', markersize=8)
-            plt.title('Touchdown Check')
+            if index_ax:
+                plt.plot(index_ax-index_ref, 30.0,'om', markersize=8)
+                plt.plot(index_az-index_ref, 40.0,'og', markersize=8)
+            if index_dax:
+                plt.plot(index_dax-index_ref, 55.0,'dm', markersize=8)
+            if index_daz:
+                plt.plot(index_daz-index_ref, 50.0,'dg', markersize=8)
+            plt.plot(index_alt-index_ref, 10.0,'or', markersize=8)
+            plt.plot(index_tdn-index_ref, -20.0,'db', markersize=10)
+            plt.title(name)
             plt.grid()
-            plt.show()
+            filename = name
+            if not os.path.exists('Touchdown_graphs'):
+                os.mkdir('Touchdown_graphs')
+            plt.savefig('Touchdown_graphs/'+filename+'.png')
+            #plt.show()
+            plt.clf()
             plt.close()
-            print 'Touch max = ', np.max(touch)
-            print 'Bump max = ', np.max(bump)
-            '''
+            """
+            
+            self.create_kti(index_tdn)
+            
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.
@@ -785,7 +860,7 @@ class AltitudeSTDWhenDescending(KeyTimeInstanceNode):
     Creates KTIs at certain Altitude STD heights when the aircraft is
     descending.
     '''
-    NAME = 'Altitude STD When Descending'
+    name = 'Altitude STD When Descending'
     NAME_FORMAT = '%(altitude)d Ft Descending'
     NAME_VALUES = NAME_VALUES_DESCENT
 
