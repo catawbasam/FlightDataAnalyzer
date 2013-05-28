@@ -11,6 +11,7 @@ import unittest
 from mock import Mock, call, patch
 
 from hdfaccess.file import hdf_file
+from hdfaccess.parameter import MappedArray
 from flightdatautilities import masked_array_testutils as ma_test
 from flightdatautilities.filesystem_tools import copy_file
 
@@ -103,6 +104,7 @@ from analysis_engine.derived_parameters import (
     Eng_2_FuelBurn,
     Eng_3_FuelBurn,
     Eng_4_FuelBurn,
+    EngThrustModeRequired,
     Flap,
     FlapSurface,
     FuelQty,
@@ -1919,6 +1921,51 @@ class TestEng_NpMin(unittest.TestCase):
             np.array([999, # both masked, so filled with 999
                       1,2,3,4,5,6,7,8,9])
         )
+
+
+class TestEngThrustModeRequired(unittest.TestCase):
+    def test_can_operate(self):
+        opts = EngThrustModeRequired.get_operational_combinations()
+        self.assertTrue(('Eng (1) Thrust Mode Required',) in opts)
+        self.assertTrue(('Eng (2) Thrust Mode Required',) in opts)
+        self.assertTrue(('Eng (3) Thrust Mode Required',) in opts)
+        self.assertTrue(('Eng (4) Thrust Mode Required',) in opts)
+        self.assertTrue(('Eng (1) Thrust Mode Required',
+                         'Eng (2) Thrust Mode Required',
+                         'Eng (3) Thrust Mode Required',
+                         'Eng (4) Thrust Mode Required',) in opts)
+    
+    def test_derive_one_param(self):
+        thrust_array = np.ma.array([0, 0, 1, 0])
+        thrust = M('Eng (2) Thrust Mode Required', array=thrust_array,
+                   values_mapping=EngThrustModeRequired.values_mapping)
+        node = EngThrustModeRequired()
+        node.derive(None, thrust, None, None)
+        self.assertEqual(thrust.array.raw.tolist(), thrust_array.tolist())
+    
+    def test_derive_four_params(self):
+        thrust_array1 = np.ma.array([0, 0, 1, 0],
+                                    mask=[False, False, True, False])
+        thrust_array2 = np.ma.array([1, 0, 0, 0],
+                                    mask=[True, False, False, False])
+        thrust_array3 = np.ma.array([0, 1, 0, 0])
+        thrust_array4 = np.ma.array([0, 0, 1, 0])
+        thrust1 = M('Eng (1) Thrust Mode Required', array=thrust_array1,
+                    values_mapping=EngThrustModeRequired.values_mapping)
+        thrust2 = M('Eng (2) Thrust Mode Required', array=thrust_array2,
+                    values_mapping=EngThrustModeRequired.values_mapping)
+        thrust3 = M('Eng (3) Thrust Mode Required', array=thrust_array3,
+                    values_mapping=EngThrustModeRequired.values_mapping)
+        thrust4 = M('Eng (4) Thrust Mode Required', array=thrust_array4,
+                    values_mapping=EngThrustModeRequired.values_mapping)
+        node = EngThrustModeRequired()
+        node.derive(thrust1, thrust2, thrust3, thrust4)
+        
+        self.assertEqual(
+            node.array.tolist(),
+            MappedArray([1, 1, 1, 0],
+                        mask=[True, False, True, False],
+                        values_mapping=EngThrustModeRequired.values_mapping).tolist())
 
 
 class TestFlap(unittest.TestCase):

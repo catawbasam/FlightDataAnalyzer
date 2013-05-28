@@ -53,6 +53,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      machtat2sat,
                                      mask_inside_slices,
                                      mask_outside_slices,
+                                     merge_masks,
                                      merge_two_parameters,
                                      moving_average,
                                      np_ma_ones_like,
@@ -2855,6 +2856,50 @@ class Eng_VibN3Max(DerivedParameterNode):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.max(engines, axis=0)
         self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+
+
+################################################################################
+# Eng Thrust
+
+class EngThrustModeRequired(MultistateDerivedParameterNode):
+    '''
+    Combines Eng Thrust Mode Required parameters.
+    '''
+    
+    values_mapping = {
+        0: '-',
+        1: 'Requested',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(cls.get_dependency_names(), available)
+    
+    def derive(self,
+               thrust1=P('Eng (1) Thrust Mode Required'),
+               thrust2=P('Eng (2) Thrust Mode Required'),
+               thrust3=P('Eng (3) Thrust Mode Required'),
+               thrust4=P('Eng (4) Thrust Mode Required')):
+        
+        thrusts = [thrust for thrust in [thrust1,
+                                         thrust2,
+                                         thrust3,
+                                         thrust4] if thrust]
+        
+        if len(thrusts) == 1:
+            self.array = thrusts[0].array
+        
+        array = MappedArray(np_ma_zeros_like(thrusts[0].array),
+                            values_mapping=self.values_mapping)
+        
+        masks = []
+        for thrust in thrusts:
+            masks.append(thrust.array.mask)
+            array[thrust.array == 'Warning'] = 'Warning'
+            
+        array.mask = merge_masks(masks)
+        self.array = array
+        
 
 
 ################################################################################
