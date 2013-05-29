@@ -535,8 +535,8 @@ class AirspeedTrue(DerivedParameterNode):
     def can_operate(cls, available):
         return 'Airspeed' in available and 'Altitude STD' in available
 
-    def derive(self, cas_p = P('Airspeed'), alt_std_p = P('Altitude STD'),
-               tat_p = P('TAT'), toffs=S('Takeoff'), lands=S('Landing'),
+    def derive(self, cas_p=P('Airspeed'), alt_std_p=P('Altitude STD'),
+               tat_p=P('TAT'), toffs=S('Takeoff'), lands=S('Landing'),
                gspd=P('Groundspeed'), acc_fwd=P('Acceleration Forwards')):
 
         ###tas_from_airspeed = np_ma_masked_zeros_like(cas)
@@ -2907,7 +2907,7 @@ class EngThrustModeRequired(MultistateDerivedParameterNode):
         masks = []
         for thrust in thrusts:
             masks.append(thrust.array.mask)
-            array[thrust.array == 'Warning'] = 'Warning'
+            array[thrust.array == 'Requested'] = 'Requested'
             
         array.mask = merge_masks(masks)
         self.array = array
