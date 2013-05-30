@@ -2384,10 +2384,7 @@ class AltitudeAtAPEngagedSelection(KeyPointValueNode):
                alt_aal=P('Altitude AAL'),
                ap_eng=KTI('AP Engaged Selection')):
 
-        engaged = KTI()
-        engaged.create_ktis_on_state_change('Engaged', ap_eng.array,
-                                            'entering')
-        self.create_kpvs_at_ktis(alt_aal.array, engaged)
+        self.create_kpvs_at_ktis(alt_aal.array, ap_eng)
 
 
 class AltitudeAtAPDisengagedSelection(KeyPointValueNode):
@@ -2401,10 +2398,7 @@ class AltitudeAtAPDisengagedSelection(KeyPointValueNode):
                alt_aal=P('Altitude AAL'),
                ap_dis=KTI('AP Disengaged Selection')):
 
-        disengaged = KTI()
-        disengaged.create_ktis_on_state_change('Disengaged', ap_dis.array,
-                                               'entering')
-        self.create_kpvs_at_ktis(alt_aal.array, disengaged)
+        self.create_kpvs_at_ktis(alt_aal.array, ap_dis)
 
 
 class AltitudeAtATEngagedSelection(KeyPointValueNode):
@@ -2420,10 +2414,7 @@ class AltitudeAtATEngagedSelection(KeyPointValueNode):
                alt_aal=P('Altitude AAL'),
                at_eng=KTI('AT Engaged Selection')):
 
-        engaged = KTI()
-        engaged.create_ktis_on_state_change('Engaged', at_eng.array,
-                                            'entering')
-        self.create_kpvs_at_ktis(alt_aal.array, engaged)
+        self.create_kpvs_at_ktis(alt_aal.array, at_eng)
 
 
 class AltitudeAtATDisengagedSelection(KeyPointValueNode):
@@ -2437,10 +2428,7 @@ class AltitudeAtATDisengagedSelection(KeyPointValueNode):
                alt_aal=P('Altitude AAL'),
                at_dis=KTI('AT Disengaged Selection')):
 
-        disengaged = KTI()
-        disengaged.create_ktis_on_state_change('Disengaged', at_dis.array,
-                                               'entering')
-        self.create_kpvs_at_ktis(alt_aal.array, disengaged)
+        self.create_kpvs_at_ktis(alt_aal.array, at_dis)
 
 
 ########################################
