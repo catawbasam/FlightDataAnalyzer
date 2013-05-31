@@ -630,7 +630,9 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
         
         if previous_stop_dt and segment.start_dt < previous_stop_dt:
             # In theory, this should not happen - but be warned of superframe padding?
-            logger.warning("Segment start_dt '%s' comes before the previous segment ended '%s'")
+            logger.warning(
+                "Segment start_dt '%s' comes before the previous segment "
+                "ended '%s'", segment.start_dt, previous_stop_dt)
         previous_stop_dt = segment.stop_dt
         
         if fallback_dt:
