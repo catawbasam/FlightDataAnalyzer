@@ -185,7 +185,8 @@ class Node(object):
         '''
         return "%s%s" % (
             self.__class__.__name__,
-            pprint.pformat((self.get_name(), self.frequency, self.offset)))
+            pprint.pformat((self.name or self.get_name(), self.frequency,
+                            self.offset)))
 
     @property
     def node_type(self):
