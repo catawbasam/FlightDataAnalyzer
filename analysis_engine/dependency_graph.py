@@ -55,8 +55,8 @@ def dependencies3(di_graph, root, node_mgr):
             # add node for it to be removed (pop'd) in a moment
             path.append(node)
             # we've met this node before; start of circular dependency?
-            logger.warning("Circular dependency avoided at node '%s'. "
-                           "Branch path: %s", node, path)
+            logger.info("Circular dependency avoided at node '%s'. "
+                        "Branch path: %s", node, path)
             return False  # establishing if available; cannot yet be available
         # we're recursing down
         path.append(node)

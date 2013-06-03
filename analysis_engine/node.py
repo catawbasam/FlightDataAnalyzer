@@ -185,7 +185,8 @@ class Node(object):
         '''
         return "%s%s" % (
             self.__class__.__name__,
-            pprint.pformat((self.get_name(), self.frequency, self.offset)))
+            pprint.pformat((self.name or self.get_name(), self.frequency,
+                            self.offset)))
 
     @property
     def node_type(self):
@@ -323,7 +324,9 @@ def can_operate(cls, available):
         try:
             res = self.derive(*args)
         except:
-            self.exception('Failed to derive parameter `%s`', self.name)
+            self.exception('Failed to derive node `%s`.\n'
+                           'Nodes used to derive:\n  %s',
+                           self.name, '\n  '.join(repr(n) for n in args))
             raise
 
         if res is NotImplemented:
