@@ -2907,7 +2907,7 @@ class EngThrustModeRequired(MultistateDerivedParameterNode):
         masks = []
         for thrust in thrusts:
             masks.append(thrust.array.mask)
-            array[thrust.array == 'Warning'] = 'Warning'
+            array[thrust.array == 'Required'] = 'Required'
             
         array.mask = merge_masks(masks)
         self.array = array
