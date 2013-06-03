@@ -24,7 +24,7 @@ from analysis_engine.key_point_values import (
     AccelerationLateralWhileTaxiingTurnMax,
     AccelerationLateralOffset,
     AccelerationLongitudinalDuringTakeoffMax,
-    AccelerationLongitudinalDuringLandingMax,
+    AccelerationLongitudinalDuringLandingMin,
     AccelerationNormal20FtToFlareMax,
     AccelerationNormalWithFlapDownWhileAirborneMax,
     AccelerationNormalWithFlapDownWhileAirborneMin,
@@ -695,12 +695,12 @@ class TestAccelerationLongitudinalDuringTakeoffMax(unittest.TestCase, CreateKPVF
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAccelerationLongitudinalDuringLandingMax(unittest.TestCase, CreateKPVFromSlicesTest):
+class TestAccelerationLongitudinalDuringLandingMin(unittest.TestCase, CreateKPVFromSlicesTest):
 
     def setUp(self):
-        self.node_class = AccelerationLongitudinalDuringLandingMax
+        self.node_class = AccelerationLongitudinalDuringLandingMin
         self.operational_combinations = [('Acceleration Longitudinal', 'Landing')]
-        self.function = max_value
+        self.function = min_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -4862,7 +4862,7 @@ class TestFlapWithSpeedbrakeDeployedMax(unittest.TestCase, NodeTest):
 class TestFlareDuration20FtToTouchdown(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = FlareDuration20FtToTouchdown
-        self.operational_combinations = [('Altitude AAL For Flight Phases', 'Touchdown', 'Landing')]
+        self.operational_combinations = [('Altitude AAL For Flight Phases', 'Touchdown', 'Landing', 'Altitude Radio')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
