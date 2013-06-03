@@ -5277,6 +5277,8 @@ class V2Lookup(DerivedParameterNode):
         setting_param = flap or conf
         vspeed_table = vspeed_class()
         if weight_liftoffs is not None:
+            # Explicitly looking for no Gross Weight At Liftoff node, as
+            # opposed to having a node with no KPVs
             weight_liftoff = weight_liftoffs.get_first()
             index, weight = weight_liftoff.index, weight_liftoff.value
         else:
