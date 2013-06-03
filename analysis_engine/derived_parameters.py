@@ -426,8 +426,7 @@ class AirspeedReferenceLookup(DerivedParameterNode):
             vspeed_class = get_vspeed_map(*x)
         except KeyError:
             if spd_ref:
-                # Missing lookup table not critical as recorded/provided:
-                return
+                return  # Ignore lookup table error as recorded/provided.
             raise
 
         if gw is not None:  # and you must have eng_np
@@ -449,18 +448,24 @@ class AirspeedReferenceLookup(DerivedParameterNode):
             index = np.ma.argmax(setting_param.array[_slice])
             setting = setting_param.array[_slice][index]
             weight = repaired_gw[_slice][index] if gw is not None else None
-            if is_index_within_slice(touchdowns.get_last().index, _slice) \
-                or setting in vspeed_table.vref_settings:
-                # Landing or approach with setting in vspeed table:
-                vspeed = vspeed_table.vref(setting, weight)
-            else:
+
+            if not is_index_within_slice(touchdowns.get_last().index, _slice) \
+                and setting not in vspeed_table.vref_settings:
                 # No landing and max setting not in vspeed table:
                 if setting_param.name == 'Flap':
                     setting = max(get_flap_map(series.value, family.value))
                 else:
                     setting = max(get_conf_map(series.value, family.value).keys())
+
+            try:
                 vspeed = vspeed_table.vref(setting, weight)
-            self.array[_slice] = vspeed
+            except KeyError:
+                if spd_ref:
+                    return  # Ignore lookup table error as recorded/provided.
+                raise
+            else:
+                if vspeed is not None:
+                    self.array[_slice] = vspeed
 
 
 class AirspeedRelative(DerivedParameterNode):
@@ -5270,8 +5275,7 @@ class V2Lookup(DerivedParameterNode):
             vspeed_class = get_vspeed_map(*x)
         except KeyError:
             if v2:
-                # Missing lookup table not critical as recorded/provided:
-                return
+                return  # Ignore lookup table error as recorded/provided.
             raise
 
         setting_param = flap or conf
@@ -5284,9 +5288,15 @@ class V2Lookup(DerivedParameterNode):
         else:
             index, weight = liftoffs.get_first().index, None
         setting = setting_param.array[index]
-        vspeed = vspeed_table.v2(setting, weight)
-        if vspeed is not None:
-            self.array[0:] = vspeed
+        try:
+            vspeed = vspeed_table.v2(setting, weight)
+        except:
+            if v2:
+                return  # Ignore lookup table error as recorded/provided.
+            raise
+        else:
+            if vspeed is not None:
+                self.array[0:] = vspeed
 
 
 class WindAcrossLandingRunway(DerivedParameterNode):
