@@ -2422,7 +2422,7 @@ def ils_localizer_align(runway):
 
 
 def integrate(array, frequency, initial_value=0.0, scale=1.0,
-              direction="forwards", contiguous=False):
+              direction="forwards", contiguous=False, extend=False):
     """
     Trapezoidal integration
 
@@ -2441,11 +2441,17 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
     :type direction: String - ['forwards', 'backwards', 'reverse']
     :param contiguous: Option to restrict the output to the single longest contiguous section of data
     :type contiguous: Logical
+    :param extend: Option to extend by half intervals at either end of the array.
+    :type extend: Logical
 
-    Note: Reverse integration does not include a change of sign, so positive
+    Notes: Reverse integration does not include a change of sign, so positive
     values have a negative slope following integration using this function.
     Backwards integration DOES include a change of sign, so positive
     values have a positive slope following integration using this function.
+    
+    Normal integration over n points will result in n-1 trapezoidal intervals
+    being summed. This can be extended to provide n intervals by extending
+    the first and last values by half an integration step if required.
 
     :returns integral: Result of integration by time
     :type integral: Numpy masked array.
@@ -2502,7 +2508,39 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
 
     result[::d] = np.ma.cumsum(to_int[::d] * s)
 
+    if extend:
+        result += integrand[0]*s*k
+        result[-1] += integrand[-1]*s*k
+        
     return result
+
+def integ_value(array, 
+                _slice=slice(None), 
+                start_edge=None, 
+                stop_edge=None,
+                frequency=1.0,
+                scale=1.0):
+    """
+    Get the integral value in the array and its index.
+
+    :param array: masked array
+    :type array: np.ma.array
+    :param _slice: Slice to apply to the array and return min value relative to
+    :type _slice: slice
+    :param start_edge: Index for precise start timing
+    :type start_edge: Float, between _slice.start-1 and slice_start
+    :param stop_edge: Index for precise end timing
+    :type stop_edge: Float, between _slice.stop and slice_stop+1
+
+    :returns: Value named tuple of index and value.
+    """
+    index = stop_edge or _slice.stop or len(array)
+    value = integrate(array[_slice], 
+                      frequency=frequency,
+                      scale=scale,
+                      extend=True)[-1]
+    
+    return Value(index, value)
 
 
 def interpolate(array, extrapolate=True):
@@ -4394,7 +4432,7 @@ def rms_noise(array, ignore_pc=None):
     # The difference between one sample and the ample to the left is computed
     # using the ediff1d algorithm, then by rolling it right we get the answer
     # for the difference between this sample and the one to the right.
-    if np.ma.ptp(array.data) == 0.0:
+    if len(array.data)==0 or np.ma.ptp(array.data)==0.0:
         #logging.warning('rms noise test has no variation in signal level')
         return 0.0
     diff_left = np.ma.ediff1d(array, to_end=0)
@@ -4673,6 +4711,52 @@ def slices_from_to(array, from_, to):
     filtered_slices = filter(condition, slices)
     return rep_array, filtered_slices
 
+
+def slices_from_ktis(kti_1, kti_2):
+    '''
+    From two KTIs or KTI lists, this function identifies the pairs of times
+    which relate to a section of the flight and return a list of slices ready
+    for creation of a KPV using the existing "create_kpv..." family of
+    methods. This routine forms the basis of the fuel usage measurement
+    functions.
+    
+    :param kti_1: Key Time Instance or list of KTIs at start of period of interest
+    :type kti_1: KeyTimeInstance node(s)
+    :param kti_2: Key Time Instance or list of KTIs at end of period of interest
+    :type kti_2: KeyTimeInstance node(s)
+    
+    :returns: list of slices    
+    '''
+    # If either list is void, we won't find any valid periods.
+    if kti_1==None or kti_2==None:
+        return []
+    
+    # Inelegant way of ensuring we are dealing with lists of KTIs
+    if isinstance(kti_1, list) == False:
+        kti_1=[kti_1]
+    if isinstance(kti_2, list) == False:
+        kti_2=[kti_2]
+        
+    # Unpack the KTIs to get the indexes, and mark which were 
+    # start (0) and end (1) values.
+    unpk = [[t.index,0] for t in kti_1]+\
+        [[t.index,1] for t in kti_2]
+    # Sort...
+    unpk.sort()
+    # Prepare the ground...
+    previous = None
+    slices = []
+    # Now scan the list looking for an end immediately following a start.
+    for item in unpk:
+        if item[1]:
+            if previous==None or previous[1]:
+                continue
+            else:
+                # previous[1] was 0 and item[1] = 1
+                slices.append(slice(previous[0], item[0]))
+        previous = item
+    return slices
+    
 """
 Spline function placeholder
 
@@ -5643,7 +5727,7 @@ def machtat2sat(mach, tat, recovery_factor=0.995):
     """
     # Default fill of zero produces runtime divide by zero errors in Numpy.
     # Hence force fill to >0.
-    denominator = np.ma.array(1.0 + (0.2*recovery_factor) * mach * mach, fill_value=1.0)
+    denominator = np.ma.array(1.0 + (0.2*recovery_factor) * mach * mach)
     ambient_temp = (tat + 273.15) / denominator
     sat = ambient_temp - 273.15
     return sat
