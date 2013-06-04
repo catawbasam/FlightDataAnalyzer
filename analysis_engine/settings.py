@@ -26,7 +26,7 @@ NODE_MODULES = ['analysis_engine.approaches',
                 'analysis_engine.key_point_values',
                 'analysis_engine.key_time_instances',
                 'analysis_engine.flight_attribute',
-                'analysis_engine.flight_phase',]
+                'analysis_engine.flight_phase']
 
 # API Handler Configuration:
 LOCAL_API_HANDLER = 'analysis_engine.api_handler_analysis_engine.AnalysisEngineAPIHandlerLocal'
@@ -93,12 +93,9 @@ SPLIT_PARAMETERS = ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',
 # will carry that offset.
 ACCEL_NORM_OFFSET_LIMIT = 0.3 #g
 
-# The limit of compensation for normal accelerometer errors. For example, to
-# allow for an accelerometer to lie in the range 0.8g to 1.2g, enter a value
-# of 0.2. An accelerometer with an average reading of 1.205g during the taxi
-# phases (in and out) will not be corrected, and all the acceleration KPVs
-# will carry that offset.
-ACCEL_LAT_OFFSET_LIMIT = 0.1  # g
+# The limits for lateral and longitudinal accelerometer errors.
+ACCEL_LAT_OFFSET_LIMIT = 0.1 # g
+ACCEL_LON_OFFSET_LIMIT = 0.1 # g
 
 # The minimum sensible duration for being airborne, used to reject skips and bounced landings.
 AIRBORNE_THRESHOLD_TIME = 60  # secs

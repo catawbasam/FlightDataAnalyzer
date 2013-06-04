@@ -6,6 +6,7 @@ from math import ceil, floor
 from flightdatautilities.geometry import midpoint
 
 from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
+                                      ACCEL_LON_OFFSET_LIMIT,
                                       ACCEL_NORM_OFFSET_LIMIT,
                                       CLIMB_OR_DESCENT_MIN_DURATION,
                                       CONTROL_FORCE_THRESHOLD,
@@ -310,6 +311,35 @@ class AccelerationLateralOffset(KeyPointValueNode):
 
 ########################################
 # Acceleration: Longitudinal
+
+
+class AccelerationLongitudinalOffset(KeyPointValueNode):
+    '''
+    This KPV computes the longitudinal accelerometer datum offset, as for
+    AccelerationNormalOffset. We use all the taxiing phase and assume that
+    the accelerations and decelerations will roughly balance out over the
+    duration of the taxi phase.
+    '''
+
+    units = 'g'
+
+    def derive(self,
+               acc_lat=P('Acceleration Lateral'),
+               taxiing=S('Taxiing')):
+
+        total_sum = 0.0
+        total_count = 0
+        taxis = [s.slice for s in list(taxiing)]
+        for taxi in taxis:
+            unmasked_data = np.ma.compressed(acc_lat.array[taxi])
+            count = len(unmasked_data)
+            if count:
+                total_count += count
+                total_sum += np.sum(unmasked_data)
+        if total_count > 20:
+            delta = total_sum / float(total_count)
+            if abs(delta) < ACCEL_LON_OFFSET_LIMIT:
+                self.create_kpv(0, delta)
 
 
 class AccelerationLongitudinalDuringTakeoffMax(KeyPointValueNode):
@@ -2153,17 +2183,13 @@ class AltitudeAtFlapExtension(KeyPointValueNode):
     units = 'ft'
 
     def derive(self,
-               flap=P('Flap'),
-               alt_aal=P('Altitude AAL'),
-               airborne=S('Airborne')):
+               flaps=KTI('FlapExtensionWhileAirborne'),
+               alt_aal=P('Altitude AAL')):
 
-        # Restricted to avoid triggering on flap extension for takeoff:
-        for air in airborne:
-            extends = find_edges(flap.array, air.slice)
-            if extends:
-                for index in extends:
-                    value = alt_aal.array[index]
-                    self.create_kpv(index, value)
+        if flaps:
+            for flap in flaps:
+                value = value_at_index(alt_aal.array, flap.index)
+                self.create_kpv(flap.index, value)
 
 
 class AltitudeAtVNAVModeAndEngThrustModeRequired(KeyPointValueNode):
@@ -2260,9 +2286,6 @@ class AltitudeAtFirstFlapRetractionDuringGoAround(KeyPointValueNode):
 
 class AltitudeAtFirstFlapRetraction(KeyPointValueNode):
     '''
-    Go Around Flap Retracted pinpoints the flap retraction instance within the
-    500ft go-around window. Create a single KPV for the first flap retraction
-    within a Go Around And Climbout phase.
     '''
 
     units = 'ft'
