@@ -309,6 +309,7 @@ class ClimbCruiseDescent(FlightPhaseNode):
         for air in airs:
             pk_idxs, pk_vals = cycle_finder(alt_aal.array[air.slice],
                                             min_step=HYSTERESIS_FPALT_CCD)
+            
             if pk_vals is not None:
                 n = 0
                 pk_idxs += air.slice.start or 0
