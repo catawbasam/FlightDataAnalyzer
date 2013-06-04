@@ -565,7 +565,8 @@ class Touchdown(KeyTimeInstanceNode):
     suggestion from a Boeing engineer was to add a longitudinal acceleration
     term as there is always an instantaneous drag when the mainwheels touch.
     
-    This was added in the form of two triggers, one detecting the short dip in Ax and another for larger changes which are less common.
+    This was added in the form of two triggers, one detecting the short dip
+    in Ax and another for larger changes which are less common.
     
     So, we look for the weight on wheels switch if this is the first indication,
     or the second indication of:

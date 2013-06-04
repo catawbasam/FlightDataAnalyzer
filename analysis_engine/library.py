@@ -1083,7 +1083,7 @@ def clip(array, period, hz=1.0, remove='peaks_and_troughs'):
     end = len(source)-half_width
     
     #...and work out these graphs.
-    for point in range(half_width,end):
+    for point in range(half_width,end):  # SLOW!
         local_max[point]=np.ma.max(source[point-half_width:point+half_width+1])
         local_min[point]=np.ma.min(source[point-half_width:point+half_width+1])
     
