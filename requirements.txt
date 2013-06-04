@@ -11,4 +11,3 @@ argparse
 geomag>=0.9
 FlightDataUtilities
 HDFAccess
-
