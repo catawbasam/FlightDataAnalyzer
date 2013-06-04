@@ -24,7 +24,7 @@ from analysis_engine.key_point_values import (
     AccelerationLateralWhileTaxiingTurnMax,
     AccelerationLateralOffset,
     AccelerationLongitudinalDuringTakeoffMax,
-    AccelerationLongitudinalDuringLandingMax,
+    AccelerationLongitudinalDuringLandingMin,
     AccelerationNormal20FtToFlareMax,
     AccelerationNormalWithFlapDownWhileAirborneMax,
     AccelerationNormalWithFlapDownWhileAirborneMin,
@@ -83,6 +83,7 @@ from analysis_engine.key_point_values import (
     AirspeedRelativeFor3Sec500To20FtMin,
     AirspeedRelativeWithFlapDuringDescentMin,
     AirspeedTopOfDescentTo10000FtMax,
+    AirspeedV2Plus20DifferenceAtVNAVModeAndEngThrustModeRequired,
     AirspeedWithThrustReversersDeployedMin,
     AirspeedAtThrustReversersSelection,
     AirspeedTrueAtTouchdown,
@@ -108,10 +109,12 @@ from analysis_engine.key_point_values import (
     AltitudeAtAPEngagedSelection,
     AltitudeAtATDisengagedSelection,
     AltitudeAtATEngagedSelection,
+    AltitudeAtVNAVModeAndEngThrustModeRequired,
     AltitudeFirstStableDuringApproachBeforeGoAround,
     AltitudeFirstStableDuringLastApproach,
     AltitudeAtFlapExtension,
     AltitudeAtFirstFlapExtensionAfterLiftoff,
+    AltitudeAtFirstFlapRetraction,
     AltitudeAtFirstFlapRetractionDuringGoAround,
     AltitudeAtLastAPDisengagedDuringApproach,
     AltitudeLastUnstableDuringApproachBeforeGoAround,
@@ -273,6 +276,7 @@ from analysis_engine.key_point_values import (
     PitchAtLiftoff,
     PitchAtTouchdown,
     PitchAt35FtDuringClimb,
+    PitchAtVNAVModeAndEngThrustModeRequired,
     PitchCyclesDuringFinalApproach,
     PitchDuringGoAroundMax,
     PitchLiftoffTo35FtMax,
@@ -691,12 +695,12 @@ class TestAccelerationLongitudinalDuringTakeoffMax(unittest.TestCase, CreateKPVF
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAccelerationLongitudinalDuringLandingMax(unittest.TestCase, CreateKPVFromSlicesTest):
+class TestAccelerationLongitudinalDuringLandingMin(unittest.TestCase, CreateKPVFromSlicesTest):
 
     def setUp(self):
-        self.node_class = AccelerationLongitudinalDuringLandingMax
+        self.node_class = AccelerationLongitudinalDuringLandingMin
         self.operational_combinations = [('Acceleration Longitudinal', 'Landing')]
-        self.function = max_value
+        self.function = min_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -899,7 +903,7 @@ class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = ModeControlPanelAirspeedSelectedAt8000Ft
         self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude STD When Descending')]
-    
+
     def test_derive_basic(self):
         air_spd = P('Mode Control Panel Airspeed Selected', array=np.ma.arange(0, 200, 5))
         alt_std_desc = AltitudeSTDWhenDescending(
@@ -996,6 +1000,30 @@ class TestAirspeedGustsDuringFinalApproach(unittest.TestCase, NodeTest):
         kpv.get_derived([air_spd, gnd_spd, alt_rad, airborne])
         self.assertEqual(kpv[0].value, 25)
         self.assertEqual(kpv[0].index, 4.75)
+
+
+class TestAirspeedV2Plus20DifferenceAtVNAVModeAndEngThrustModeRequired(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = AirspeedV2Plus20DifferenceAtVNAVModeAndEngThrustModeRequired
+        self.operational_combinations = [('Airspeed', 'V2', 'VNAV Mode And Eng Thrust Mode Required')]
+    
+    def test_derive(self):
+        airspeed_array = np.ma.arange(0, 200, 10)
+        airspeed = P('Airspeed', array=airspeed_array)
+        v2_array = np.ma.array([200] * 20)
+        v2_array.mask = [False] * 15 + [True] * 3 + [False] * 2
+        v2 = P('V2', array=v2_array)
+        kti_name = 'VNAV Mode And Eng Thrust Mode Required'
+        vnav_thrusts = KTI(kti_name, items=[
+            KeyTimeInstance(index=5, name=kti_name),
+            KeyTimeInstance(index=15, name=kti_name)])
+        node = self.node_class()
+        node.derive(airspeed, v2, vnav_thrusts)
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=5, value=170.0, name='Airspeed V2 Plus 20 Difference At Vnav Mode And Eng Thrust Mode Required'),
+             KeyPointValue(index=15, value=70.0, name='Airspeed V2 Plus 20 Difference At Vnav Mode And Eng Thrust Mode Required')])
 
 
 ########################################
@@ -2125,7 +2153,17 @@ class TestAltitudeOvershootAtSuspectedLevelBust(unittest.TestCase, NodeTest):
         bust = AltitudeOvershootAtSuspectedLevelBust()
         bust.derive(alt_std, alt_aal_aligned)
         self.assertEqual(len(bust), 0)
-        
+
+
+class TestAltitudeAtVNAVModeAndEngThrustModeRequired(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtVNAVModeAndEngThrustModeRequired
+        self.operational_combinations = [('Altitude AAL', 'VNAV Mode And Eng Thrust Mode Required')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
 ########################################
@@ -2216,9 +2254,9 @@ class TestAltitudeAtFirstFlapRetractionDuringGoAround(unittest.TestCase, NodeTes
         '''
         Create a single KPV within the Go Around And Climbout section.
         '''
-        flap_rets = KTI('Go Around Flap Retracted', items=[
-            KeyTimeInstance(100, 'Go Around Flap Retracted'),
-            KeyTimeInstance(104, 'Go Around Flap Retracted'),
+        flap_rets = KTI('Flap Retraction During Go Around', items=[
+            KeyTimeInstance(100, 'Flap Retraction During Go Around'),
+            KeyTimeInstance(104, 'Flap Retraction During Go Around'),
         ])
         node = AltitudeAtFirstFlapRetractionDuringGoAround()
         node.derive(self.alt_aal, flap_rets, self.go_arounds)
@@ -2230,9 +2268,46 @@ class TestAltitudeAtFirstFlapRetractionDuringGoAround(unittest.TestCase, NodeTes
         '''
         Create no KPVs without a Go Around Flap Retracted KTI.
         '''
-        flap_rets = KTI('Go Around Flap Retracted', items=[])
+        flap_rets = KTI('Flap Retraction During Go Around', items=[])
         node = AltitudeAtFirstFlapRetractionDuringGoAround()
         node.derive(self.alt_aal, flap_rets, self.go_arounds)
+        self.assertEqual(node, [])
+
+
+class TestAltitudeAtFirstFlapRetraction(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtFirstFlapRetraction
+        self.operational_combinations = [('Altitude AAL', 'Flap Retraction While Airborne')]
+        self.alt_aal = P(
+            name='Altitude AAL',
+            array=np.ma.concatenate([
+                np.ma.array([0] * 10),
+                np.ma.arange(40) * 1000,
+            ]),
+        )
+
+    def test_derive_basic(self):
+        '''
+        Create a single KPV within the Go Around And Climbout section.
+        '''
+        flap_rets = KTI('Flap Retraction While Airborne', items=[
+            KeyTimeInstance(30, 'Flap Retraction While Airborne'),
+            KeyTimeInstance(40, 'Flap Retraction While Airborne'),
+        ])
+        node = AltitudeAtFirstFlapRetraction()
+        node.derive(self.alt_aal, flap_rets)
+        self.assertEqual(node, [
+            KeyPointValue(30, 20000, 'Altitude At First Flap Retraction'),
+        ])
+
+    def test_derive_no_ktis(self):
+        '''
+        Create no KPVs without a Go Around Flap Retracted KTI.
+        '''
+        flap_rets = KTI('Flap Retraction While Airborne', items=[])
+        node = AltitudeAtFirstFlapRetractionDuringGoAround()
+        node.derive(self.alt_aal, flap_rets)
         self.assertEqual(node, [])
 
 
@@ -4787,7 +4862,7 @@ class TestFlapWithSpeedbrakeDeployedMax(unittest.TestCase, NodeTest):
 class TestFlareDuration20FtToTouchdown(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = FlareDuration20FtToTouchdown
-        self.operational_combinations = [('Altitude AAL For Flight Phases', 'Touchdown', 'Landing')]
+        self.operational_combinations = [('Altitude AAL For Flight Phases', 'Touchdown', 'Landing', 'Altitude Radio')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -5163,6 +5238,17 @@ class TestPitchDuringGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitchAtVNAVModeAndEngThrustModeRequired(unittest.TestCase, CreateKPVsAtKTIsTest):
+
+    def setUp(self):
+        self.node_class = PitchAtVNAVModeAndEngThrustModeRequired
+        self.operational_combinations = [('Pitch', 'VNAV Mode And Eng Thrust Mode Required')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
 
 
 ##############################################################################

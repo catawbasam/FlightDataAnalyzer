@@ -314,6 +314,21 @@ class FlapSet(KeyTimeInstanceNode):
                                   name='flap')
 
 
+class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
+    '''
+    '''
+
+    def derive(self,
+               flap=P('Flap'),
+               airborne=S('Airborne')):
+
+        self.create_ktis_at_edges(
+            flap.array,
+            direction='falling_edges',
+            phase=airborne,
+        )
+
+
 class FlapRetractionDuringGoAround(KeyTimeInstanceNode):
     '''
     '''
@@ -919,3 +934,22 @@ class GlideslopeEstablishedEnd(KeyTimeInstanceNode):
     def derive(self, ilss=S('ILS Glideslope Established')):
         for ils in ilss:
             self.create_kti(ils.slice.stop)
+
+
+class VNAVModeAndEngThrustModeRequired(KeyTimeInstanceNode):
+    '''
+    Will create a KTI at the point where both discretes are enabled.
+    '''
+    
+    name = 'VNAV Mode And Eng Thrust Mode Required'
+    
+    def derive(self,
+               vnav_mode=P('VNAV Mode'),
+               thrust=P('Eng Thrust Mode Required')):
+        
+        combined = ((thrust.array == 'Required') &
+                    (vnav_mode.array == 'Engaged'))
+        slices = np.ma.clump_unmasked(np.ma.masked_where(combined == False,
+                                                         combined))
+        for slice_ in slices:
+            self.create_kti(slice_.start)

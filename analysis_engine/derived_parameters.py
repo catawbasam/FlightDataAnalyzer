@@ -56,6 +56,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      mask_inside_slices,
                                      mask_outside_slices,
                                      max_value,
+                                     merge_masks,
                                      merge_two_parameters,
                                      moving_average,
                                      np_ma_ones_like,
@@ -425,8 +426,7 @@ class AirspeedReferenceLookup(DerivedParameterNode):
             vspeed_class = get_vspeed_map(*x)
         except KeyError:
             if spd_ref:
-                # Missing lookup table not critical as recorded/provided:
-                return
+                return  # Ignore lookup table error as recorded/provided.
             raise
 
         if gw is not None:  # and you must have eng_np
@@ -448,18 +448,24 @@ class AirspeedReferenceLookup(DerivedParameterNode):
             index = np.ma.argmax(setting_param.array[_slice])
             setting = setting_param.array[_slice][index]
             weight = repaired_gw[_slice][index] if gw is not None else None
-            if is_index_within_slice(touchdowns.get_last().index, _slice) \
-                or setting in vspeed_table.vref_settings:
-                # Landing or approach with setting in vspeed table:
-                vspeed = vspeed_table.vref(setting, weight)
-            else:
+
+            if not is_index_within_slice(touchdowns.get_last().index, _slice) \
+                and setting not in vspeed_table.vref_settings:
                 # No landing and max setting not in vspeed table:
                 if setting_param.name == 'Flap':
                     setting = max(get_flap_map(series.value, family.value))
                 else:
                     setting = max(get_conf_map(series.value, family.value).keys())
+
+            try:
                 vspeed = vspeed_table.vref(setting, weight)
-            self.array[_slice] = vspeed
+            except KeyError:
+                if spd_ref:
+                    return  # Ignore lookup table error as recorded/provided.
+                raise
+            else:
+                if vspeed is not None:
+                    self.array[_slice] = vspeed
 
 
 class AirspeedRelative(DerivedParameterNode):
@@ -2870,6 +2876,50 @@ class Eng_VibN3Max(DerivedParameterNode):
 
 
 ################################################################################
+# Eng Thrust
+
+class EngThrustModeRequired(MultistateDerivedParameterNode):
+    '''
+    Combines Eng Thrust Mode Required parameters.
+    '''
+    
+    values_mapping = {
+        0: '-',
+        1: 'Requested',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(cls.get_dependency_names(), available)
+    
+    def derive(self,
+               thrust1=P('Eng (1) Thrust Mode Required'),
+               thrust2=P('Eng (2) Thrust Mode Required'),
+               thrust3=P('Eng (3) Thrust Mode Required'),
+               thrust4=P('Eng (4) Thrust Mode Required')):
+        
+        thrusts = [thrust for thrust in [thrust1,
+                                         thrust2,
+                                         thrust3,
+                                         thrust4] if thrust]
+        
+        if len(thrusts) == 1:
+            self.array = thrusts[0].array
+        
+        array = MappedArray(np_ma_zeros_like(thrusts[0].array),
+                            values_mapping=self.values_mapping)
+        
+        masks = []
+        for thrust in thrusts:
+            masks.append(thrust.array.mask)
+            array[thrust.array == 'Required'] = 'Required'
+            
+        array.mask = merge_masks(masks)
+        self.array = array
+        
+
+
+################################################################################
 
 
 class FuelQty(DerivedParameterNode):
@@ -4065,6 +4115,17 @@ class CoordinatesSmoothed(object):
                     went disasterously wrong for curving visual approaches
                     into airfields like Nice).
                     '''
+                    # Q: Currently we rely on a Touchdown KTI existing to smooth
+                    #    a track without the ILS Localiser being established or
+                    #    precise positioning. This is to ensure that the
+                    #    aircraft is on the runway and therefore we can use
+                    #    database coordinates for the runway to smooth the
+                    #    track. This does not provide a solution for aircraft
+                    #    which do not momentarily land on the runway. Could we
+                    #    assume that the aircraft will match the runway
+                    #    coordinates if it drops below a certain altitude as
+                    #    this will be more accurate than low precision
+                    #    positioning equipment.
                     for tdwn in tdwns:
                         if not is_index_within_slice(tdwn.index, this_app_slice):
                             continue
@@ -5214,21 +5275,28 @@ class V2Lookup(DerivedParameterNode):
             vspeed_class = get_vspeed_map(*x)
         except KeyError:
             if v2:
-                # Missing lookup table not critical as recorded/provided:
-                return
+                return  # Ignore lookup table error as recorded/provided.
             raise
 
         setting_param = flap or conf
         vspeed_table = vspeed_class()
         if weight_liftoffs is not None:
+            # Explicitly looking for no Gross Weight At Liftoff node, as
+            # opposed to having a node with no KPVs
             weight_liftoff = weight_liftoffs.get_first()
             index, weight = weight_liftoff.index, weight_liftoff.value
         else:
             index, weight = liftoffs.get_first().index, None
         setting = setting_param.array[index]
-        vspeed = vspeed_table.v2(setting, weight)
-        if vspeed is not None:
-            self.array[0:] = vspeed
+        try:
+            vspeed = vspeed_table.v2(setting, weight)
+        except:
+            if v2:
+                return  # Ignore lookup table error as recorded/provided.
+            raise
+        else:
+            if vspeed is not None:
+                self.array[0:] = vspeed
 
 
 class WindAcrossLandingRunway(DerivedParameterNode):

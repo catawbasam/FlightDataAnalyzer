@@ -179,7 +179,7 @@ class AccelerationLateralMax(KeyPointValueNode):
                 max_abs_value,
             )
         else:
-            self.create_kpv(*max_value(acc_lat.array))
+            self.create_kpv(*max_abs_value(acc_lat.array))
 
 
 class AccelerationLateralAtTouchdown(KeyPointValueNode):
@@ -2166,6 +2166,21 @@ class AltitudeAtFlapExtension(KeyPointValueNode):
                     self.create_kpv(index, value)
 
 
+class AltitudeAtVNAVModeAndEngThrustModeRequired(KeyPointValueNode):
+    '''
+    '''
+    
+    name = 'Altitude At VNAV Mode And Eng Thrust Mode Required'
+    
+    units = 'ft'
+    
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               vnav_thrust=KTI('VNAV Mode And Eng Thrust Mode Required')):
+        
+        self.create_kpvs_at_ktis(alt_aal.array, vnav_thrust)
+
+
 class AltitudeAtFirstFlapExtensionAfterLiftoff(KeyPointValueNode):
     '''
     Separates the first flap extension.
@@ -2241,6 +2256,24 @@ class AltitudeAtFirstFlapRetractionDuringGoAround(KeyPointValueNode):
             flap_ret = flap_rets.get_first(within_slice=go_around.slice)
             if flap_ret:
                 self.create_kpv(flap_ret.index, alt_aal.array[flap_ret.index])
+
+
+class AltitudeAtFirstFlapRetraction(KeyPointValueNode):
+    '''
+    Go Around Flap Retracted pinpoints the flap retraction instance within the
+    500ft go-around window. Create a single KPV for the first flap retraction
+    within a Go Around And Climbout phase.
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               flap_rets=KTI('Flap Retraction While Airborne')):
+        
+        flap_ret = flap_rets.get_first()
+        if flap_ret:
+            self.create_kpv(flap_ret.index, alt_aal.array[flap_ret.index])
 
 
 ########################################
@@ -2785,7 +2818,9 @@ class DecelerationToAbortTakeoffBeforeV1(KeyPointValueNode):
 # Runway Distances at Landing
 
 class DistancePastGlideslopeAntennaToTouchdown(KeyPointValueNode):
+    
     units = 'm'
+    
     def derive(self, lat_tdn=KPV('Latitude Smoothed At Touchdown'),
                lon_tdn=KPV('Longitude Smoothed At Touchdown'),
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway'),
@@ -2814,7 +2849,9 @@ class DistanceFromRunwayStartToTouchdown(KeyPointValueNode):
     This only operates for the last landing, and previous touch and goes will
     not be recorded.
     '''
+    
     units = 'm'
+    
     def derive(self, lat_tdn=KPV('Latitude Smoothed At Touchdown'),
                lon_tdn=KPV('Longitude Smoothed At Touchdown'),
                tdwns=KTI('Touchdown'),
@@ -2838,7 +2875,9 @@ class DistanceFromTouchdownToRunwayEnd(KeyPointValueNode):
     hardstanding. This only operates for the last landing, and previous touch
     and goes will not be recorded.
     '''
+    
     units = 'm'
+    
     def derive(self, lat_tdn=KPV('Latitude Smoothed At Touchdown'),
                lon_tdn=KPV('Longitude Smoothed At Touchdown'),
                tdwns=KTI('Touchdown'),
@@ -3001,7 +3040,9 @@ class RunwayOverrunWithoutSlowingDuration(KeyPointValueNode):
 
 
 class DistanceOnLandingFrom60KtToRunwayEnd(KeyPointValueNode):
+    
     units = 'm'
+    
     def derive(self, gspd=P('Groundspeed'),
                lat=P('Latitude Smoothed'),lon=P('Longitude Smoothed'),
                tdwns=KTI('Touchdown'),rwy=A('FDR Landing Runway')):
@@ -5624,7 +5665,8 @@ class FlareDuration20FtToTouchdown(KeyPointValueNode):
                 # Scan backwards from touchdown to the start of the landing
                 # which is defined as 50ft, so will include passing through
                 # 20ft AAL.
-                idx_20 = index_at_value(alt_aal.array, alt_aal.array[tdown.index]+20.0,
+                aal_at_tdown = value_at_index(alt_aal.array, tdown.index)
+                idx_20 = index_at_value(alt_aal.array, aal_at_tdown + 20.0,
                                         _slice=slice(tdown.index,
                                                      this_landing[0].start_edge,
                                                      -1))
@@ -6115,6 +6157,24 @@ class Pitch7FtToTouchdownMin(KeyPointValueNode):
         )
 
 
+class AirspeedV2Plus20DifferenceAtVNAVModeAndEngThrustModeRequired(KeyPointValueNode):
+    '''
+    '''
+    
+    units = 'kt'
+    
+    def derive(self,
+               airspeed=P('Airspeed'),
+               v2=P('V2'),
+               vnav_thrusts=KTI('VNAV Mode And Eng Thrust Mode Required')):
+        
+        # XXX: Assuming V2 value is constant.
+        v2_value = v2.array[np.ma.where(v2.array)[0][0]] + 20
+        for vnav_thrust in vnav_thrusts:
+            difference = abs(v2_value - airspeed.array[vnav_thrust.index])
+            self.create_kpv(vnav_thrust.index, difference)
+
+
 class PitchCyclesDuringFinalApproach(KeyPointValueNode):
     '''
     Counts the number of half-cycles of pitch attitude that exceed 3 deg in
@@ -6149,6 +6209,22 @@ class PitchDuringGoAroundMax(KeyPointValueNode):
                go_arounds=S('Go Around And Climbout')):
 
         self.create_kpvs_within_slices(pitch.array, go_arounds, max_value)
+
+
+class PitchAtVNAVModeAndEngThrustModeRequired(KeyPointValueNode):
+    '''
+    Will create a Pitch KPV for each KTI.
+    '''
+    
+    name = 'Pitch At VNAV Mode And Eng Thrust Mode Required'
+    
+    units = 'deg'
+    
+    def derive(self,
+               pitch=P('Pitch'),
+               vnav_thrust=KTI('VNAV Mode And Eng Thrust Mode Required')):
+        
+        self.create_kpvs_at_ktis(pitch.array, vnav_thrust)
 
 
 ##############################################################################
