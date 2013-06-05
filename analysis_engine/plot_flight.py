@@ -390,7 +390,7 @@ def _index_or_slice(x):
 
 
 def csv_flight_details(hdf_path, kti_list, kpv_list, phase_list,
-                       dest_path=None, append_to_file=False):
+                       dest_path=None, append_to_file=True):
     """
     Currently writes to csv and prints to a table.
     

@@ -2895,6 +2895,7 @@ class TestAccelerationNormalOffsetRemoved(unittest.TestCase):
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
+# Also Accelerations Lateral and Longitudinal are not tested yet.
 
 class TestAileron(unittest.TestCase):
     
@@ -3911,6 +3912,17 @@ class TestSpeedbrakeSelected(unittest.TestCase):
         
 
 class TestStickShaker(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestSAT(unittest.TestCase):
+    # Note: the core function machtat2sat is tested by the library test.
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')

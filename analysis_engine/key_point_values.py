@@ -6,6 +6,7 @@ from math import ceil, floor
 from flightdatautilities.geometry import midpoint
 
 from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
+                                      ACCEL_LON_OFFSET_LIMIT,
                                       ACCEL_NORM_OFFSET_LIMIT,
                                       CLIMB_OR_DESCENT_MIN_DURATION,
                                       CONTROL_FORCE_THRESHOLD,
@@ -310,6 +311,35 @@ class AccelerationLateralOffset(KeyPointValueNode):
 
 ########################################
 # Acceleration: Longitudinal
+
+
+class AccelerationLongitudinalOffset(KeyPointValueNode):
+    '''
+    This KPV computes the longitudinal accelerometer datum offset, as for
+    AccelerationNormalOffset. We use all the taxiing phase and assume that
+    the accelerations and decelerations will roughly balance out over the
+    duration of the taxi phase.
+    '''
+
+    units = 'g'
+
+    def derive(self,
+               acc_lat=P('Acceleration Lateral'),
+               taxiing=S('Taxiing')):
+
+        total_sum = 0.0
+        total_count = 0
+        taxis = [s.slice for s in list(taxiing)]
+        for taxi in taxis:
+            unmasked_data = np.ma.compressed(acc_lat.array[taxi])
+            count = len(unmasked_data)
+            if count:
+                total_count += count
+                total_sum += np.sum(unmasked_data)
+        if total_count > 20:
+            delta = total_sum / float(total_count)
+            if abs(delta) < ACCEL_LON_OFFSET_LIMIT:
+                self.create_kpv(0, delta)
 
 
 class AccelerationLongitudinalDuringTakeoffMax(KeyPointValueNode):
@@ -2153,17 +2183,13 @@ class AltitudeAtFlapExtension(KeyPointValueNode):
     units = 'ft'
 
     def derive(self,
-               flap=P('Flap'),
-               alt_aal=P('Altitude AAL'),
-               airborne=S('Airborne')):
+               flaps=KTI('FlapExtensionWhileAirborne'),
+               alt_aal=P('Altitude AAL')):
 
-        # Restricted to avoid triggering on flap extension for takeoff:
-        for air in airborne:
-            extends = find_edges(flap.array, air.slice)
-            if extends:
-                for index in extends:
-                    value = alt_aal.array[index]
-                    self.create_kpv(index, value)
+        if flaps:
+            for flap in flaps:
+                value = value_at_index(alt_aal.array, flap.index)
+                self.create_kpv(flap.index, value)
 
 
 class AltitudeAtVNAVModeAndEngThrustModeRequired(KeyPointValueNode):
@@ -2260,9 +2286,6 @@ class AltitudeAtFirstFlapRetractionDuringGoAround(KeyPointValueNode):
 
 class AltitudeAtFirstFlapRetraction(KeyPointValueNode):
     '''
-    Go Around Flap Retracted pinpoints the flap retraction instance within the
-    500ft go-around window. Create a single KPV for the first flap retraction
-    within a Go Around And Climbout phase.
     '''
 
     units = 'ft'
@@ -2437,19 +2460,14 @@ class AltitudeAtATDisengagedSelection(KeyPointValueNode):
 
 class AltitudeAtMachMax(KeyPointValueNode):
     '''
-    Altitude at maximum Mach. Not really applicable to turboprop aircraft, so not computed.
     '''
     units = 'ft'
 
     def derive(self,
                alt_std=P('Altitude STD Smoothed'),
-               max_mach=KPV('Mach Max'),
-               engine_series=A('Engine Series'),
-               ):
+               max_mach=KPV('Mach Max')):
         # Aligns altitude to mach to ensure we have the most accurate altitude
         # reading at the point of maximum mach:
-        if engine_series.value in ['PW100', 'PT6A', '501-D']:
-            return
         self.create_kpvs_at_kpvs(alt_std.array, max_mach)
 
 
@@ -4020,36 +4038,26 @@ class LongitudeAtLowestAltitudeDuringApproach(KeyPointValueNode):
 
 class MachMax(KeyPointValueNode):
     '''
-    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               airs=S('Airborne'),
-               engine_series=A('Engine Series')):
+               airs=S('Airborne')):
 
-        
-        if engine_series.value in ['PW100', 'PT6A', '501-D']:
-            return
         self.create_kpvs_within_slices(mach.array, airs, max_value)
 
 
 class MachDuringCruiseAvg(KeyPointValueNode):
     '''
-    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               cruises=S('Cruise'),
-               engine_series=A('Engine Series')):
-
-        if engine_series.value in ['PW100', 'PT6A', '501-D']:
-            return
+               cruises=S('Cruise')):
         
         for _slice in cruises.get_slices():
             self.create_kpv(_slice.start + (_slice.stop - _slice.start) / 2,
@@ -4062,7 +4070,6 @@ class MachDuringCruiseAvg(KeyPointValueNode):
 
 class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
-    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
@@ -4074,11 +4081,8 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     def derive(self,
                flap=P('Flap'),
                mach=P('Mach'),
-               scope=S('Fast'),
-               engine_series=A('Engine Series')):
+               scope=S('Fast')):
 
-        if engine_series.value in ['PW100', 'PT6A', '501-D']:
-            return
         # Fast scope traps flap changes very late on the approach and raising
         # flaps before 80kn on the landing run.
         self.flap_or_conf_max_or_min(flap, mach, max_value, scope=scope)
@@ -4090,7 +4094,6 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
 
 class MachWithGearDownMax(KeyPointValueNode):
     '''
-    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
@@ -4098,11 +4101,7 @@ class MachWithGearDownMax(KeyPointValueNode):
     def derive(self,
                mach=P('Mach'),
                gear=M('Gear Down'),
-               airs=S('Airborne'),
-               engine_series=A('Engine Series')):
-
-        if engine_series.value in ['PW100', 'PT6A', '501-D']:
-            return
+               airs=S('Airborne')):
 
         gear.array[gear.array == 'Up'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
@@ -4113,36 +4112,27 @@ class MachWithGearDownMax(KeyPointValueNode):
 
 class MachWhileGearRetractingMax(KeyPointValueNode):
     '''
-    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               gear_ret=S('Gear Retracting'),
-               engine_series=A('Engine Series')):
-               
+               gear_ret=S('Gear Retracting')):
 
-        if engine_series.value in ['PW100', 'PT6A', '501-D']:
-            return
         self.create_kpvs_within_slices(mach.array, gear_ret, max_value)
 
 
 class MachWhileGearExtendingMax(KeyPointValueNode):
     '''
-    Not really applicable to turboprop aircraft, so not computed.
     '''
 
     units = 'Mach'
 
     def derive(self,
                mach=P('Mach'),
-               gear_ext=S('Gear Extending'),
-               engine_series=A('Engine Series')):
-               
-        if engine_series.value in ['PW100', 'PT6A', '501-D']:
-            return
+               gear_ext=S('Gear Extending')):
+
         self.create_kpvs_within_slices(mach.array, gear_ext, max_value)
 
 

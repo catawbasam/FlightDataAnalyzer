@@ -2155,6 +2155,19 @@ class TestIndexAtValueOrLevelOff(unittest.TestCase):
         pass
 
 
+class TestIntegValue(unittest.TestCase):
+    def test_integ_value(self):
+        array = np.ma.array(range(10), dtype=float)
+        i, v = integ_value(array)
+        self.assertEqual(i, 10)
+        self.assertEqual(v, 45.0)
+
+        subslice = slice(3,8)
+        res = integ_value(array, subslice)
+        self.assertEqual(res.index, 8)
+        self.assertEqual(res.value, 20.0)
+
+
 class TestInterpolate(unittest.TestCase):
     def test_interpolate_basic(self):
         array = np.ma.array(data=[0,0,2,0,0,3.5,0],
@@ -2379,6 +2392,13 @@ class TestIntegrate (unittest.TestCase):
         result = integrate(data,1.0)
         np.testing.assert_array_equal(result.data, [0,1,2,2])
         np.testing.assert_array_equal(result.mask, [0,0,0,1])
+
+    def test_integration_extended(self):
+        data = np.ma.array([1,2,5,4.0])
+        result = integrate(data, 2.0)
+        np.testing.assert_array_equal(result.data, [0.0, 0.75, 2.5, 4.75])
+        result = integrate(data, 2.0, extend=True)
+        np.testing.assert_array_equal(result.data, [0.25, 1, 2.75, 6])
 
 
 class TestIsSliceWithinSlice(unittest.TestCase):
@@ -3909,6 +3929,49 @@ class TestSlicesFromTo(unittest.TestCase):
         _, slices = slices_from_to(array, 6, 4)
         self.assertEqual(slices, [])
 
+class TestSlicesFromKtis(unittest.TestCase):
+    def test_basic_structure(self):
+        kti_1 = KTI(items=[KeyTimeInstance(1, 'KTI_1')])
+        kti_2 = KTI(items=[KeyTimeInstance(3, 'KTI_2')])
+        slices = slices_from_ktis(kti_1, kti_2)
+        self.assertEqual(slices, [slice(1,3)])
+
+    def test_reverse_order(self):
+        kti_1 = KTI(items=[KeyTimeInstance(3, 'KTI_1')])
+        kti_2 = KTI(items=[KeyTimeInstance(2, 'KTI_2')])
+        slices = slices_from_ktis(kti_1, kti_2)
+        self.assertEqual(slices, [])
+
+    def test_multiple(self):
+        kti_1 = KTI(items=[KeyTimeInstance(10, 'KTI_1'),
+                           KeyTimeInstance(5, 'KTI_1'),
+                           KeyTimeInstance(2, 'KTI_1'),
+                           KeyTimeInstance(13, 'KTI_1')])
+        kti_2 = KTI(items=[KeyTimeInstance(27, 'KTI_2'),
+                           KeyTimeInstance(18, 'KTI_2'),
+                           KeyTimeInstance(8, 'KTI_2'),
+                           KeyTimeInstance(-3, 'KTI_2'),
+                           KeyTimeInstance(20, 'KTI_2')])
+        slices = slices_from_ktis(kti_1, kti_2)
+        self.assertEqual(slices, [slice(5,8), slice(13,18)])
+
+    def test_nones(self):
+        kti_1 = KTI(items=[])
+        kti_2 = KTI(items=[])
+        slices = slices_from_ktis(kti_1, kti_2)
+        self.assertEqual(slices, [])
+        slices = slices_from_ktis(kti_1, None)
+        self.assertEqual(slices, [])
+        slices = slices_from_ktis(None, kti_2)
+        self.assertEqual(slices, [])
+        slices = slices_from_ktis(None, None)
+        self.assertEqual(slices, [])
+    
+    def test_not_lists(self):
+        kti_1 = KTI(items=[KeyTimeInstance(5, 'KTI_1')])[0]
+        kti_2 = KeyTimeInstance(8, 'KTI_2')
+        slices = slices_from_ktis(kti_1, kti_2)
+        self.assertEqual(slices, [slice(5,8)])
 
 class TestSliceMultiply(unittest.TestCase):
     def test_slice_multiply(self):

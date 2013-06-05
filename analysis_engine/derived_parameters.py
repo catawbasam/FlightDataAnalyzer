@@ -121,6 +121,24 @@ class AccelerationLateralOffsetRemoved(DerivedParameterNode):
             self.array = acc.array
 
 
+class AccelerationLongitudinalOffsetRemoved(DerivedParameterNode):
+    """
+    This process attempts to remove datum errors in the longitudinal accelerometer.
+    """
+    @classmethod
+    def can_operate(cls, available):
+        return 'Acceleration Longitudinal' in available
+
+    units = 'g'
+
+    def derive(self, acc=P('Acceleration Longitudinal'),
+               offset=KPV('Acceleration Longitudinal Offset')):
+        if offset:
+            self.array = acc.array - offset[0].value
+        else:
+            self.array = acc.array
+
+
 class AccelerationNormalOffsetRemoved(DerivedParameterNode):
     """
     This process attempts to remove datum errors in the normal accelerometer.
@@ -540,8 +558,8 @@ class AirspeedTrue(DerivedParameterNode):
     def can_operate(cls, available):
         return 'Airspeed' in available and 'Altitude STD' in available
 
-    def derive(self, cas_p = P('Airspeed'), alt_std_p = P('Altitude STD'),
-               tat_p = P('TAT'), toffs=S('Takeoff'), lands=S('Landing'),
+    def derive(self, cas_p=P('Airspeed'), alt_std_p=P('Altitude STD'),
+               tat_p=P('TAT'), toffs=S('Takeoff'), lands=S('Landing'),
                gspd=P('Groundspeed'), acc_fwd=P('Acceleration Forwards')):
 
         ###tas_from_airspeed = np_ma_masked_zeros_like(cas)
@@ -2885,7 +2903,7 @@ class EngThrustModeRequired(MultistateDerivedParameterNode):
     
     values_mapping = {
         0: '-',
-        1: 'Requested',
+        1: 'Required',
     }
     
     @classmethod
@@ -2913,7 +2931,7 @@ class EngThrustModeRequired(MultistateDerivedParameterNode):
         for thrust in thrusts:
             masks.append(thrust.array.mask)
             array[thrust.array == 'Required'] = 'Required'
-            
+        
         array.mask = merge_masks(masks)
         self.array = array
         
@@ -5103,6 +5121,18 @@ class Tailwind(DerivedParameterNode):
         self.array = -hwd.array
 
 
+class SAT(DerivedParameterNode):
+    """
+    Computes Static Air Temperature from the Total Air Temperature, allowing
+    for compressibility effects.
+    """
+    name = 'SAT'
+    units = 'C'
+
+    def derive(self, tat=P('TAT'), mach=P('Mach')):
+        self.array = machtat2sat(mach.array, tat.array)
+    
+    
 class TAT(DerivedParameterNode):
     """
     Blends data from two air temperature sources.
