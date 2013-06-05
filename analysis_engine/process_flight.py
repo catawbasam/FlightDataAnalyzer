@@ -15,7 +15,7 @@ from hdfaccess.file import hdf_file
 from analysis_engine import hooks, settings, __version__
 from analysis_engine.api_handler import APIError, get_api_handler
 from analysis_engine.dependency_graph import dependency_order, graph_adjacencies
-from analysis_engine.library import np_ma_masked_zeros_like
+from analysis_engine.library import np_ma_masked_zeros_like, repair_mask
 from analysis_engine.node import (ApproachNode, Attribute,
                                   derived_param_from_hdf,
                                   DerivedParameterNode,
@@ -32,18 +32,19 @@ def geo_locate(hdf, items):
     '''
     Translate KeyTimeInstance into GeoKeyTimeInstance namedtuples
     '''
-    if 'Latitude Smoothed' not in hdf \
-       or 'Longitude Smoothed' not in hdf:
+    if 'Latitude Smoothed' not in hdf.valid_param_names() \
+       or 'Longitude Smoothed' not in hdf.valid_param_names():
         logger.warning("Could not geo-locate as either 'Latitude Smoothed' or "
                        "'Longitude Smoothed' were not found within the hdf.")
         return items
-    
+
     lat_pos = derived_param_from_hdf(hdf['Latitude Smoothed'])
-    long_pos = derived_param_from_hdf(hdf['Longitude Smoothed'])
-    
+    lon_pos = derived_param_from_hdf(hdf['Longitude Smoothed'])
+    lat_rep = repair_mask(lat_pos, extrapolate=True)
+    lon_rep = repair_mask(lon_pos, extrapolate=True)
     for item in items:
-        item.latitude = lat_pos.at(item.index)
-        item.longitude = long_pos.at(item.index)
+        item.latitude = lat_rep.at(item.index) or None
+        item.longitude = lon_rep.at(item.index) or None
     return items
 
 
