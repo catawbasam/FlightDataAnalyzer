@@ -2185,12 +2185,30 @@ class TestAltitudeAtFlapExtension(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AltitudeAtFlapExtension
-        self.operational_combinations = [('Flap', 'Altitude AAL', 'Airborne')]
+        self.operational_combinations = [('FlapExtensionWhileAirborne', 'Altitude AAL')]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_derive_multiple_ktis(self):
+        alt_aal = P('Altitude AAL', np.ma.array([1234.0]*15+[2345.0]*15))
+        flap_exts = KTI('Flap Extension While Airborne', items=[
+            KeyTimeInstance(10, 'Flap Extension While Airborne'),
+            KeyTimeInstance(20, 'Flap Extension While Airborne'),
+            ])
+        node = AltitudeAtFlapExtension()
+        node.derive(flap_exts, alt_aal)
+        self.assertEqual(node, [
+            KeyPointValue(10, 1234, 'Altitude At Flap Extension'),
+            KeyPointValue(20, 2345, 'Altitude At Flap Extension'),
+        ])
 
+    def test_derive_no_ktis(self):
+        '''
+        Create no KPVs without a Go Around Flap Retracted KTI.
+        '''
+        alt_aal = P('Altitude AAL', np.ma.array([1234.0]*15+[2345.0]*15))
+        flap_exts = KTI('Flap Extension While Airborne', items=[])
+        node = AltitudeAtFlapExtension()
+        node.derive(flap_exts, alt_aal)
+        self.assertEqual(node, [])
 
 class TestAltitudeAtFirstFlapExtensionAfterLiftoff(unittest.TestCase, NodeTest):
 
@@ -3862,9 +3880,24 @@ class TestEngOilTempForXMinMax(unittest.TestCase, NodeTest):
         self.node_class = EngOilTempForXMinMax
         self.operational_combinations = [('Eng (*) Oil Temp Max', )]
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
+    '''
+    This data set produces overlaps which extend beyond the bounds of the
+    array with 45 minute clip periods (daft, but that's what the KPV calls
+    for). The consequence was that the np.ma.average was being called with no
+    data, returning "nan" and this led to a large number of KTP problems. Not
+    certain how to replicate this in a test.
+    
+    def test_derive_real_case(self):
+        oil_temp = P(
+            name='Eng (*) Oil Temp Max',
+            array=np.ma.array(data=[[67.0,79,81,82,84,85,87,88,90,90,92,93,93,94,
+                                    94,95,97,103,109,112,115,118,119,121,121,
+                                    123,123,124,124,125,125,124,122,121,121,120,
+                                    120]+[119]*34+[117]*17+[115]*98+[112]*5+[106]*65+[103]*80][0]))
+        oil_temp.array[-3:]=np.ma.masked
+        node = EngOilTempForXMinMax()
+        node.derive(oil_temp)
+        '''
 
     def test_derive_all_oil_data_masked(self):
         # This has been a specific problem, hence this test.

@@ -26,6 +26,7 @@ from analysis_engine.library import (
     slices_above,
     slices_below,
     slices_between,
+    slices_from_ktis,
     slices_from_to,
     value_at_index,
     value_at_time,
@@ -1687,6 +1688,16 @@ class KeyPointValueNode(FormattedNameNode):
             index -= slice_duration
         self.create_kpv(index, value, **kwargs)
 
+
+    def create_kpv_from_ktis(self, array, frequency, kti_1, kti_2, function):
+        '''
+        Convenient function to link a parameter and function to periods
+        between two KTIs. Especially useful for fuel usage.
+        '''
+        self.create_kpv_from_slices(array, slices_from_ktis(kti_1, kti_2), function)
+        return
+        
+        
     def create_kpv_outside_slices(self, array, slices, function, **kwargs):
         '''
         Shortcut for creating a KPV excluding values within provided slices or

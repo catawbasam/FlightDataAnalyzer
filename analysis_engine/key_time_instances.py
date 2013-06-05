@@ -171,6 +171,35 @@ class ClimbStart(KeyTimeInstanceNode):
                 self.create_kti(initial_climb_index)
 
 
+class EngStart(KeyTimeInstanceNode):
+    '''
+    Records the moment of engine start for each engine in turn.
+    '''
+
+    NAME_FORMAT = 'Eng (%(number)d) Start'
+    NAME_VALUES = NAME_VALUES_ENGINE
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Eng (%d) N2' % n for n in range(1, 5)), available)
+
+    def derive(self,
+               eng_1_n2=P('Eng (1) N2'),
+               eng_2_n2=P('Eng (2) N2'),
+               eng_3_n2=P('Eng (3) N2'),
+               eng_4_n2=P('Eng (4) N2')):
+
+        eng_n2_list = (eng_1_n2, eng_2_n2, eng_3_n2, eng_4_n2)
+        for number, eng_n2 in enumerate(eng_n2_list, start=1):
+            if not eng_n2:
+                continue
+            self.create_ktis_at_edges(
+                np.ma.where(eng_n2.array > 50.0, 1, 0),
+                direction='rising_edges',
+                replace_values={'number': number},
+            )
+
+
 class EngStop(KeyTimeInstanceNode):
     '''
     '''
@@ -314,6 +343,34 @@ class FlapSet(KeyTimeInstanceNode):
                                   name='flap')
 
 
+class FirstFlapExtensionWhileAirborne(KeyTimeInstanceNode):
+    '''
+    Records each flap extension from clean configuration.
+    '''
+    def derive(self,
+               flap=P('Flap'),
+               airborne=S('Airborne')):
+
+        for air in airborne:
+            cleans = np.ma.flatnotmasked_contiguous(
+                np.ma.masked_not_equal(flap.array[air.slice],0.0))
+            for clean in cleans:
+                self.create_kti(clean.stop + air.slice.start)
+
+
+
+class FlapExtensionWhileAirborne(KeyTimeInstanceNode):
+    '''
+    Records every flap extension in flight.
+    '''
+    def derive(self,
+               flap=P('Flap'),
+               airborne=S('Airborne')):
+
+        self.create_ktis_at_edges(flap.array, 
+                                  phase = airborne)
+
+
 class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
     '''
     '''
@@ -401,8 +458,16 @@ class GearUpSelectionDuringGoAround(KeyTimeInstanceNode):
 
 
 ##############################################################################
+# Flight Sequence
 
-
+class Pushback(KeyTimeInstanceNode):
+    '''
+    '''
+    def derive(self, mobiles=S('Mobile')):
+        for mobile in mobiles:
+            self.create_kti(mobile.slice.start)
+               
+    
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
     '''
     The Takeoff flight phase is computed to start when the aircraft turns
@@ -753,9 +818,28 @@ class Touchdown(KeyTimeInstanceNode):
             plt.clf()
             plt.close()
             """
-            
             self.create_kti(index_tdn)
+
             
+class LandingDecelerationEnd(KeyTimeInstanceNode):
+    '''
+    Whereas peak acceleration at takeoff is a good measure of the start of
+    the takeoff roll, the peak deceleration on landing often occurs very late
+    in the landing when the brakes are applied harshly for a moment, for
+    example when stopping to make a particular turnoff. For this reason we
+    prefer to use the end of the steep reduction in airspeed as a measure of
+    the end of the landing roll.
+    '''
+    def derive(self, speed=P('Airspeed'), landings=S('Landing')):
+        for landing in landings:
+            end_decel = peak_curvature(speed.array, landing.slice, curve_sense='Concave')
+            # Create the KTI if we have found one, otherwise point to the end
+            # of the data, as sometimes recordings stop in mid-landing phase
+            if end_decel:
+                self.create_kti(end_decel)
+            else:
+                self.create_kti(landing.stop_edge)
+
 
 class LandingTurnOffRunway(KeyTimeInstanceNode):
     # See Takeoff Turn Onto Runway for description.
@@ -791,24 +875,17 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
                 self.create_kti(landing_turn)
 
 
-class LandingDecelerationEnd(KeyTimeInstanceNode):
+class OnStand(KeyTimeInstanceNode):
     '''
-    Whereas peak acceleration at takeoff is a good measure of the start of
-    the takeoff roll, the peak deceleration on landing often occurs very late
-    in the landing when the brakes are applied harshly for a moment, for
-    example when stopping to make a particular turnoff. For this reason we
-    prefer to use the end of the steep reduction in airspeed as a measure of
-    the end of the landing roll.
     '''
-    def derive(self, speed=P('Airspeed'), landings=S('Landing')):
-        for landing in landings:
-            end_decel = peak_curvature(speed.array, landing.slice, curve_sense='Concave')
-            # Create the KTI if we have found one, otherwise point to the end
-            # of the data, as sometimes recordings stop in mid-landing phase
-            if end_decel:
-                self.create_kti(end_decel)
-            else:
-                self.create_kti(landing.stop_edge)
+    def derive(self, mobiles=S('Mobile')):
+        for mobile in mobiles:
+            self.create_kti(mobile.slice.stop)
+
+
+
+################################################################################        
+
 
 
 class AltitudeWhenClimbing(KeyTimeInstanceNode):
