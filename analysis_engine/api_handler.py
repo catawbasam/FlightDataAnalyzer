@@ -17,7 +17,7 @@ import socket
 import time
 import urllib
 
-from analysis_engine.settings import API_PROXY_INFO, CA_CERTIFICATE_FILE
+from analysis_engine import settings
 
 
 ##############################################################################
@@ -125,12 +125,12 @@ class APIHandlerHTTP(object):
         '''
         # Prepare the request object:
         body = urllib.urlencode(body)
-        disable_validation = not os.path.exists(CA_CERTIFICATE_FILE)
+        disable_validation = not os.path.exists(settings.CA_CERTIFICATE_FILE)
         http = httplib2.Http(
-            ca_certs=CA_CERTIFICATE_FILE,
+            ca_certs=settings.CA_CERTIFICATE_FILE,
             disable_ssl_certificate_validation=disable_validation,
             timeout=timeout,
-            proxy_info=API_PROXY_INFO,
+            proxy_info=settings.API_PROXY_INFO,
         )
         
         # Attempt to make the API request:
@@ -140,6 +140,7 @@ class APIHandlerHTTP(object):
             response, content = http.request(uri, method, body)
         except (httplib2.ServerNotFoundError, socket.error, AttributeError):
             # Usually a result of errors with DNS...
+            logger.exception("Connection Error")
             raise APIConnectionError(uri, method, body)
         finally:
             socket.setdefaulttimeout(socket_timeout)

@@ -34,8 +34,8 @@ API_HANDLER = LOCAL_API_HANDLER
 BASE_URL = ''  # Must be configured to use HTTP API handler.
 
 # HTTP API Handlers support a proxy. Override in analyser_custom_settings.
-#import httplib2, socks
-#API_PROXY_INFO = httplib2.ProxyInfo(socks.PROXY_TYPE_HTTP, 'host', 80)
+#import httplib2
+#API_PROXY_INFO = httplib2.ProxyInfo(httplib2.socks.PROXY_TYPE_HTTP, 'host', 80)
 API_PROXY_INFO = None
 
 ANALYZER_PATH = os.path.dirname(os.path.realpath(
