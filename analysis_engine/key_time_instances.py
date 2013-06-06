@@ -695,7 +695,7 @@ class Touchdown(KeyTimeInstanceNode):
             # With an estimate from the height and perhaps gear switch, set
             # up a period to scan across for accelerometer based
             # indications...
-            period = slice(floor(index_ref-dt_pre*hz), ceil(index_ref+dt_post*hz))
+            period = slice(max(floor(index_ref-dt_pre*hz), 0), ceil(index_ref+dt_post*hz))
             
             if acc_long:
                 drag = acc_long.array[period]
