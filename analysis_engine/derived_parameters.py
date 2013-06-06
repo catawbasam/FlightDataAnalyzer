@@ -4881,7 +4881,9 @@ class Roll(DerivedParameterNode):
             # Many Hercules aircraft do not have roll recorded. This is a
             # simple substitute, derived from examination of the roll vs
             # heading rate of aircraft with a roll sensor.
-            roll = 6.0 * rate_of_change(hdg, 12.0, method='regression')
+            self.array = 6.0 * rate_of_change(hdg, 12.0, method='regression')
+            self.frequency = hdg.frequency
+            self.offset = hdg.offset
 
         else:
             raise DataFrameError(self.name, frame_name)
