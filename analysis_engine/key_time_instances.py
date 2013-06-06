@@ -201,19 +201,16 @@ class EngStart(KeyTimeInstanceNode):
         for number, eng_n2 in enumerate(eng_n2_list, start=1):
             if not eng_n2:
                 continue
-            #self.create_ktis_at_edges(
-                #np.ma.where(eng_n2.array > 50.0, 1, 0),
-                #direction='rising_edges',
-                #replace_values={'number': number},
-            #)
-            
+
             running = np.ma.where(eng_n2.array > MIN_CORE_SUSTAINABLE, 1, 0)
             first_speed = first_valid_sample(running)
+
             if first_speed.value:
                 # The first valid sample shows the engine running when the
                 # recording started.
                 self.create_kti(first_speed.index,
                                 replace_values={'number': number})
+
             else:
                 # The engine stopped before the end of the data.
                 self.create_ktis_at_edges(
@@ -249,13 +246,16 @@ class EngStop(KeyTimeInstanceNode):
         for number, eng_n2 in enumerate(eng_n2_list, start=1):
             if not eng_n2:
                 continue
+
             running = np.ma.where(eng_n2.array > MIN_CORE_SUSTAINABLE/2, 1, 0)
             last_speed = first_valid_sample(running[::-1])
+
             if last_speed.value:
                 # The last valid sample shows the engine running when the
                 # recording stopped.
                 self.create_kti(len(eng_n2.array)-last_speed.index-1,
                                 replace_values={'number': number})
+
             else:
                 # The engine stopped before the end of the data.
                 self.create_ktis_at_edges(
