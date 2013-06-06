@@ -1081,6 +1081,35 @@ class TestKeyPointValueNode(unittest.TestCase):
         self.assertRaises(ValueError, knode.create_kpv_from_slices,
                           array, [slice(5, 10, 3)], min_value)
 
+
+    def test_create_kpvs_from_slice_durations_basic(self):
+        # Basic
+        knode = self.knode
+        slices = [slice(2,5), slice(9,13)]
+        knode.create_kpvs_from_slice_durations(slices, 1.0, min_duration=3.0)
+        self.assertEqual(knode[0].index, 11)
+        self.assertEqual(knode[0].value, 4)
+        
+    def test_create_kpvs_from_slice_durations_faster_samples(self):
+        # Higher frequency results in shorter durations...
+        knode = self.knode
+        slices = [slice(2,5), slice(9,13)]
+        knode.create_kpvs_from_slice_durations(slices, 4.0, mark='start')
+        self.assertEqual(knode[0].index, 2)
+        self.assertEqual(knode[0].value, 0.75)
+        self.assertEqual(knode[1].index, 9)
+        self.assertEqual(knode[1].value, 1.0)
+        
+    def test_create_kpvs_from_slice_durations_slower_samples(self):
+        # ...and vice versa.
+        knode = self.knode
+        slices = [slice(2,5), slice(9,13)]
+        knode.create_kpvs_from_slice_durations(slices, 0.5, mark='end')
+        self.assertEqual(knode[0].index, 5)
+        self.assertEqual(knode[0].value, 6)
+        self.assertEqual(knode[1].index, 13)
+        self.assertEqual(knode[1].value, 8)
+                        
     def test_create_kpv_outside_slices(self):
         knode = self.knode
         function = mock.Mock()
