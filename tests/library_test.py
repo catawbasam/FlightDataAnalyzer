@@ -3294,6 +3294,13 @@ class TestRateOfChangeArray(unittest.TestCase):
         answer = np.ma.array([0])
         ma_test.assert_array_almost_equal(sloped, answer)
 
+    def test_masked(self):
+        test_array = np.ma.array(data=[1,2,3,4,5,6,6,6,5,4,3,2,1],
+                                 mask=[0,0,0,0,0,0,1,0,0,0,0,0,0])
+        sloped = rate_of_change_array(test_array, 1.0, 4.0)
+        answer = np.ma.array(data=[1,1,99,99,99,99,99,99,99,99,99,-1,-1],
+                             mask=[0,0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0])
+        ma_test.assert_array_equal(sloped, answer)
 
 class TestRateOfChange(unittest.TestCase):
     # 13/4/12 Changed timebase to be full width as this is more logical.
