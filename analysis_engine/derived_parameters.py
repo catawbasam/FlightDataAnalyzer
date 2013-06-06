@@ -685,14 +685,19 @@ class AltitudeAAL(DerivedParameterNode):
             alt_result = alt_std - pit
             return np.ma.maximum(alt_result, 0.0)
 
-        if alt_rad is None:
+        if alt_rad is None or np.ma.count(alt_rad)==0:
             # This backstop trap for negative values is necessary as aircraft
             # without rad alts will indicate negative altitudes as they land.
-            return shift_alt_std()
+            if mode != 'land':
+                return alt_std - high_gnd
+            else:
+                return shift_alt_std()
 
-        if mode != 'land':
+
+        if mode=='over_gnd' and (low_hb-high_gnd)>100.0:
             return alt_std - high_gnd
 
+        
         alt_rad_aal = np.ma.maximum(alt_rad, 0.0)
         ralt_sections = np.ma.clump_unmasked(
             np.ma.masked_outside(alt_rad_aal, 0.0, 100.0))
@@ -3344,7 +3349,7 @@ class FlapLeverDetent(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap.frequency, flap_steps)
+            self.array = step_values(flap.array, flap.frequency, flap_steps, step_at='move_start')
 
 class FlapLeverSynthetic(DerivedParameterNode):
     """
@@ -3461,7 +3466,7 @@ class Flap(DerivedParameterNode):
                 # round to nearest 5 degrees
                 self.array = round_to_nearest(flap.array, 5.0)
             else:
-                self.array = step_values(flap.array, flap.frequency, flap_steps)
+                self.array = step_values(flap.array, flap.frequency, flap_steps, step_at='move_end')
 
 
 '''
@@ -4856,22 +4861,30 @@ class Roll(DerivedParameterNode):
     """
     Combination of roll signals from two sources where required.
     """
+    @classmethod
+    def can_operate(cls, available):
+        return 'Heading Continuous' in available
+    
     units = 'deg'
     align = False
+    
     def derive(self, r1=P('Roll (1)'), r2=P('Roll (2)'), 
                hdg=P('Heading Continuous'), frame=A('Frame')):
         frame_name = frame.value if frame else ''
         
-        if frame_name in ['L382-Hercules']:
+        if r1 and r2:
+            # Merge data from two sources.
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(r1, r2)
+        
+        elif frame_name in ['L382-Hercules']:
             # Many Hercules aircraft do not have roll recorded. This is a
             # simple substitute, derived from examination of the roll vs
             # heading rate of aircraft with a roll sensor.
             roll = 6.0 * rate_of_change(hdg, 12.0, method='regression')
+
         else:
-            # Far more typically, we combine two roll signals.
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(r1, r2)
-        
+            raise DataFrameError(self.name, frame_name)
 
 
 class RollRate(DerivedParameterNode):
