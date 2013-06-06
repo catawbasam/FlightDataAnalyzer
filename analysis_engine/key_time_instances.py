@@ -7,6 +7,7 @@ from analysis_engine.library import (all_of,
                                      coreg,
                                      find_edges_on_state_change,
                                      find_toc_tod,
+                                     first_valid_sample,
                                      hysteresis,
                                      index_at_value,
                                      max_value,
@@ -20,6 +21,7 @@ from analysis_engine.library import (all_of,
 from analysis_engine.node import M, P, S, KTI, KeyTimeInstanceNode
 
 from settings import (CLIMB_THRESHOLD,
+                      MIN_CORE_SUSTAINABLE,
                       NAME_VALUES_CLIMB,
                       NAME_VALUES_DESCENT,
                       NAME_VALUES_ENGINE,
@@ -174,6 +176,12 @@ class ClimbStart(KeyTimeInstanceNode):
 class EngStart(KeyTimeInstanceNode):
     '''
     Records the moment of engine start for each engine in turn.
+    
+    Engines running at the start of the valid data are assumed to start when
+    the data starts.
+    
+    For the purist, we should look at N3 for three-shaft engines, but
+    checking N2 appears to work fine.
     '''
 
     NAME_FORMAT = 'Eng (%(number)d) Start'
@@ -193,15 +201,35 @@ class EngStart(KeyTimeInstanceNode):
         for number, eng_n2 in enumerate(eng_n2_list, start=1):
             if not eng_n2:
                 continue
-            self.create_ktis_at_edges(
-                np.ma.where(eng_n2.array > 50.0, 1, 0),
-                direction='rising_edges',
-                replace_values={'number': number},
-            )
+            #self.create_ktis_at_edges(
+                #np.ma.where(eng_n2.array > 50.0, 1, 0),
+                #direction='rising_edges',
+                #replace_values={'number': number},
+            #)
+            
+            running = np.ma.where(eng_n2.array > MIN_CORE_SUSTAINABLE, 1, 0)
+            first_speed = first_valid_sample(running)
+            if first_speed.value:
+                # The first valid sample shows the engine running when the
+                # recording started.
+                self.create_kti(first_speed.index,
+                                replace_values={'number': number})
+            else:
+                # The engine stopped before the end of the data.
+                self.create_ktis_at_edges(
+                    running,
+                    direction='rising_edges',
+                    replace_values={'number': number},
+                )
 
 
 class EngStop(KeyTimeInstanceNode):
     '''
+    Monitors the engine stop time. Engines still running at the end of the
+    data are assumed to stop at the end of the data recording.
+    
+    We use MIN_CORE_SUSTAINABLE/2 to make sure the engine truly is stopping,
+    and not just running freakishly slow.
     '''
 
     NAME_FORMAT = 'Eng (%(number)d) Stop'
@@ -221,11 +249,20 @@ class EngStop(KeyTimeInstanceNode):
         for number, eng_n2 in enumerate(eng_n2_list, start=1):
             if not eng_n2:
                 continue
-            self.create_ktis_at_edges(
-                np.ma.where(eng_n2.array > 30.0, 1, 0),
-                direction='falling_edges',
-                replace_values={'number': number},
-            )
+            running = np.ma.where(eng_n2.array > MIN_CORE_SUSTAINABLE/2, 1, 0)
+            last_speed = first_valid_sample(running[::-1])
+            if last_speed.value:
+                # The last valid sample shows the engine running when the
+                # recording stopped.
+                self.create_kti(len(eng_n2.array)-last_speed.index-1,
+                                replace_values={'number': number})
+            else:
+                # The engine stopped before the end of the data.
+                self.create_ktis_at_edges(
+                    running,
+                    direction='falling_edges',
+                    replace_values={'number': number},
+                )
 
 
 class EnterHold(KeyTimeInstanceNode):
