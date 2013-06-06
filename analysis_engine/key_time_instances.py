@@ -354,6 +354,8 @@ class FirstFlapExtensionWhileAirborne(KeyTimeInstanceNode):
         for air in airborne:
             cleans = np.ma.flatnotmasked_contiguous(
                 np.ma.masked_not_equal(flap.array[air.slice],0.0))
+            if not isinstance(cleans, list):
+                continue
             for clean in cleans:
                 self.create_kti(clean.stop + air.slice.start)
 
@@ -459,14 +461,6 @@ class GearUpSelectionDuringGoAround(KeyTimeInstanceNode):
 
 ##############################################################################
 # Flight Sequence
-
-class Pushback(KeyTimeInstanceNode):
-    '''
-    '''
-    def derive(self, mobiles=S('Mobile')):
-        for mobile in mobiles:
-            self.create_kti(mobile.slice.start)
-               
     
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
     '''
@@ -876,17 +870,7 @@ class LandingTurnOffRunway(KeyTimeInstanceNode):
                 self.create_kti(landing_turn)
 
 
-class OnStand(KeyTimeInstanceNode):
-    '''
-    '''
-    def derive(self, mobiles=S('Mobile')):
-        for mobile in mobiles:
-            self.create_kti(mobile.slice.stop)
-
-
-
 ################################################################################        
-
 
 
 class AltitudeWhenClimbing(KeyTimeInstanceNode):
