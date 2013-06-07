@@ -4258,12 +4258,18 @@ def rate_of_change_array(to_diff, hz, width=2.0, method='two_points'):
         return np_ma_zeros_like(to_diff)
     
     if method=='two_points':
+        input_mask = np.ma.getmaskarray(to_diff)
         # Set up an array of masked zeros for extending arrays.
         slope = np.ma.copy(to_diff)
         slope[hw:-hw] = (to_diff[2*hw:] - to_diff[:-2*hw])/width
         slope[:hw] = (to_diff[1:hw+1] - to_diff[0:hw]) * hz
         slope[-hw:] = (to_diff[-hw:] - to_diff[-hw-1:-1])* hz
-        return slope
+        slope.mask = np.logical_or(input_mask, np.ma.getmaskarray(slope))
+        for i in range(-hw,0):
+            slope.mask[:i] = np.logical_or(input_mask[-i:], slope.mask[:i])
+        for i in range(1,hw+1):
+            slope.mask[i:] = np.logical_or(input_mask[:-i], slope.mask[i:])
+        return slope    
 
     elif method=='regression':
         # Neat solution; works well, but for height data smoothing the raw
@@ -4291,6 +4297,12 @@ def rate_of_change(diff_param, width, method='two_points'):
     Differentiation using the xdot(n) = (x(n+hw) - x(n-hw))/w formula.
     Half width hw=w/2 and this provides smoothing over a w second period,
     without introducing a phase shift.
+    
+    The mask array is manipulated to make all samples enclosed by the
+    differentiation range masked; that is, although only two points in the
+    original array are used in the computation, if the width covers 4
+    samples, then 9 final result values are masked, corresponding to four
+    steps before and four steps after the midpoint.
 
     :param diff_param: input Parameter
     :type diff_param: Parameter object

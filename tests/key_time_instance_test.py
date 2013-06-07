@@ -19,6 +19,7 @@ from analysis_engine.key_time_instances import (
     ATEngagedSelection,
     BottomOfDescent,
     ClimbStart,
+    EngStart,
     EngStop,
     EnterHold,
     ExitHold,
@@ -739,6 +740,31 @@ class TestATDisengagedSelection(unittest.TestCase, NodeTest):
 
 ##############################################################################
 
+# Engine Start and Stop - may run into the ends of the valid recording.
+
+class TestEngStart(unittest.TestCase):
+    
+    def test_can_operate(self):
+        combinations = EngStart.get_operational_combinations()
+        self.assertTrue(('Eng (1) N2',) in combinations)
+        self.assertTrue(('Eng (2) N2',) in combinations)
+        self.assertTrue(('Eng (3) N2',) in combinations)
+        self.assertTrue(('Eng (4) N2',) in combinations)
+        self.assertTrue(('Eng (1) N2', 'Eng (2) N2',
+                         'Eng (3) N2', 'Eng (4) N2') in combinations)
+    
+    def test_basic(self):
+        eng2 = Parameter('Eng (2) N2', np.ma.array([0,20,40,60]))
+        eng1 = Parameter('Eng (1) N2', np.ma.array(data=[0,0,99,99,60,60,60], 
+                                                   mask=[1,1, 1, 1, 0, 0, 0]))
+        es = EngStart()
+        es.derive(eng1, eng2, None, None)
+        self.assertEqual(es[0].name, 'Eng (1) Start')
+        self.assertEqual(es[0].index, 4)
+        self.assertEqual(es[1].name, 'Eng (2) Start')
+        self.assertEqual(es[1].index, 2.5)
+
+
 
 class TestEngStop(unittest.TestCase):
     
@@ -751,10 +777,16 @@ class TestEngStop(unittest.TestCase):
         self.assertTrue(('Eng (1) N2', 'Eng (2) N2',
                          'Eng (3) N2', 'Eng (4) N2') in combinations)
     
-    @unittest.skip('Test Not implemented.')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
+    def test_basic(self):
+        eng2 = Parameter('Eng (2) N2', np.ma.array([60,40,20,0]))
+        eng1 = Parameter('Eng (1) N2', np.ma.array(data=[60,40,40,99,99, 0, 0], 
+                                                   mask=[ 0, 0, 0, 1, 1, 1, 1]))
+        es = EngStop()
+        es.derive(eng1, eng2, None, None)
+        self.assertEqual(es[0].name, 'Eng (1) Stop')
+        self.assertEqual(es[0].index, 2)
+        self.assertEqual(es[1].name, 'Eng (2) Stop')
+        self.assertEqual(es[1].index, 1.5)
 
 class TestEnterHold(unittest.TestCase):
     def test_can_operate(self):

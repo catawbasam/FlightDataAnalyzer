@@ -268,6 +268,9 @@ METRES_TO_FEET = 1000/25.4/12
 # Conversion from metres to nautical miles.
 METRES_TO_NM = 1852.0
 
+# Minimum core speed for engine to sustain operation.
+MIN_CORE_SUSTAINABLE = 50.0 # %
+
 '''
 See experimental KTP LandingStopLimitPointPoorBraking et seq.
 # Mu values for good, medium and poor braking action (Boeing definition).

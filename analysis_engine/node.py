@@ -1753,7 +1753,7 @@ class KeyPointValueNode(FormattedNameNode):
         slices = self._get_slices(slices)
         for slice_ in slices:
             if isinstance(slice_, Section): # Use slice within Section.
-                duration = (slice_.stop_edge - slice_.start_edge) * frequency
+                duration = (slice_.stop_edge - slice_.start_edge) / frequency
                 if duration > min_duration:
                     if mark == 'start':
                         index = slice_.start_edge
@@ -1767,7 +1767,7 @@ class KeyPointValueNode(FormattedNameNode):
                                          mark)
                     self.create_kpv(index, duration, **kwargs)
             else:
-                duration = (slice_.stop - slice_.start) * frequency
+                duration = (slice_.stop - slice_.start) / frequency
                 if duration > min_duration:
                     if mark == 'start':
                         index = slice_.start
