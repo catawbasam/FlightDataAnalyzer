@@ -229,16 +229,17 @@ def _split_on_rot(slice_start_secs, slice_stop_secs, heading_frequency,
     '''
     rot_slice = slice(slice_start_secs * heading_frequency,
                       slice_stop_secs * heading_frequency)
+    midpoint = (rot_slice.stop - rot_slice.start) / 2
     stopped_slices = np.ma.clump_unmasked(rate_of_turn[rot_slice])
-    try:
-        first_stop = stopped_slices[0]
-    except IndexError:
-        # The aircraft did not stop turning.
-        return None
+    if not stopped_slices:
+        return
+    
+    middle_stop = min(stopped_slices, key=lambda s: abs(s.start - midpoint))
+    
     # Split half-way within the stop slice.
-    stop_duration = first_stop.stop - first_stop.start
+    stop_duration = middle_stop.stop - middle_stop.start
     rot_split_index = \
-        rot_slice.start + first_stop.start + (stop_duration / 2)
+        rot_slice.start + middle_stop.start + (stop_duration / 2)
     # Get the absolute split index at 1Hz.
     split_index = round(rot_split_index / heading_frequency)
     return split_index
