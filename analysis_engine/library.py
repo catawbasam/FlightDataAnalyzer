@@ -3480,7 +3480,10 @@ def blend_two_parameters(param_one, param_two):
         return param_one.array, param_one.frequency, param_one.offset
 
     assert param_one.frequency == param_two.frequency
-
+    
+    # Parameters for blending should not be aligned.
+    assert param_one.offset != param_two.offset 
+        
     # A common problem is that one sensor may be unserviceable, and has been
     # identified already by parameter validity testing. Trap this case and
     # deal with it first, raising a warning and dropping back to the single

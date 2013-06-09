@@ -1524,6 +1524,7 @@ class DescendForFlightPhases(DerivedParameterNode):
 
 class AOA(DerivedParameterNode):
 
+    align = False
     name = 'AOA'
     units = 'deg'
 
@@ -1614,6 +1615,7 @@ class DistanceTravelled(DerivedParameterNode):
 
 class Drift(DerivedParameterNode):
 
+    align = False
     units = 'deg'
 
     def derive(self, drift_1=P('Drift (1)'), drift_2=P('Drift (2)')):
@@ -1632,12 +1634,13 @@ class BrakePressure(DerivedParameterNode):
     This node allows for expansion for different types, and possibly
     operation in primary and standby modes.
     """
-    #align_to_first_dependency = False
 
-    #@classmethod
-    #def can_operate(cls, available):
-        #return ('Brake (L) Press' in available and \
-                #'Brake (R) Press' in available)
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+        return ('Brake (L) Press' in available and \
+                'Brake (R) Press' in available)
 
     def derive(self, brake_L=P('Brake (L) Press'), brake_R=P('Brake (R) Press')):
         self.array, self.frequency, self.offset = blend_two_parameters(brake_L, brake_R)
@@ -1651,9 +1654,8 @@ class PackValvesOpen(MultistateDerivedParameterNode):
     Integer representation of the combined pack configuration.
     '''
 
-    name = 'Pack Valves Open'
-
     align = False
+    name = 'Pack Valves Open'
 
     values_mapping = {
         0: 'All closed',
@@ -4909,6 +4911,7 @@ class ThrottleLevers(DerivedParameterNode):
     for simple identification of changes in power etc.
     """
 
+    align = False
     units = 'deg'
 
     def derive(self,
@@ -5389,6 +5392,7 @@ class Aileron(DerivedParameterNode):
     up have positive sign.
     '''
     # TODO: TEST
+    align = False
     name = 'Aileron'
     units = 'deg'
 
@@ -5418,6 +5422,7 @@ class AileronTrim(DerivedParameterNode): # RollTrim
     '''
     '''
     # TODO: TEST
+    align = False
     name = 'Aileron Trim' # Roll Trim
     units = 'deg'
 
@@ -5433,6 +5438,7 @@ class Elevator(DerivedParameterNode):
     this reverts to just the working sensor.
     '''
 
+    align = False
     units = 'deg'
 
     def derive(self,
@@ -5890,6 +5896,7 @@ class WindSpeed(DerivedParameterNode):
     Required for Embraer 135-145 Data Frame
     '''
 
+    align = False
     units = 'kts'
 
     def derive(self, wind_1=P('Wind Speed (1)'), wind_2=P('Wind Speed (2)')):
@@ -5901,6 +5908,7 @@ class WindDirection(DerivedParameterNode):
     The Embraer 135-145 data frame includes two sources
     '''
 
+    align = False
     units = 'deg'
 
     def derive(self, wind_1=P('Wind Direction (1)'),
@@ -5954,6 +5962,7 @@ class WheelSpeed(DerivedParameterNode):
     
     Q: Should wheel speed Centre (C) be merged too?
     '''
+    align = False
     
     def derive(self, ws_l=P('Wheel Speed (L)'), ws_r=P('Wheel Speed (R)')):
         self.array, self.frequency, self.offset = \
