@@ -38,7 +38,8 @@ class DataFrameError(Exception):
     def __str__(self):
         '''
         '''
-        return "Parameter '%s' not in LFL and no procedure for frame '%s'." \
+        return "No valid data for parameter '%s' and no procedure for frame '%s'." \
+               "\n This may be an LFL omission or caused by failing data validation checks."\
             % (self.param_name, self.frame_name)
 
 
