@@ -2165,8 +2165,13 @@ class TestIntegValue(unittest.TestCase):
         subslice = slice(3,8)
         res = integ_value(array, subslice)
         self.assertEqual(res.index, 8)
-        self.assertEqual(res.value, 20.0)
+        self.assertEqual(res.value, 25.0) # was 20.
 
+    def test_integ_value_none(self):
+        array = np.ma.array([])
+        i, v = integ_value(array)
+        self.assertEqual(i, None)
+        self.assertEqual(v, None)
 
 class TestInterpolate(unittest.TestCase):
     def test_interpolate_basic(self):

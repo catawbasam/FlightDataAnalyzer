@@ -2535,13 +2535,16 @@ def integ_value(array,
     :returns: Value named tuple of index and value.
     """
     index = stop_edge or _slice.stop or len(array)
-    value = integrate(array[_slice], 
+    try:
+        value = integrate(array[_slice], 
                       frequency=frequency,
                       scale=scale,
                       extend=True)[-1]
-    
+    except IndexError:
+        # Arises from _slice outside array boundary.
+        index = None
+        value = None
     return Value(index, value)
-
 
 def interpolate(array, extrapolate=True):
     """
