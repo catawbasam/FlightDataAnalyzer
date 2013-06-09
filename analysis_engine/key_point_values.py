@@ -7835,15 +7835,37 @@ class ThrustAsymmetryWithThrustReversersDeployedDuration(KeyPointValueNode):
 
 
 class TouchdownToElevatorDownDuration(KeyPointValueNode):
-    def derive(self, airspeed=P('Airspeed'), elevator=P('Elevator'),
-               tdwns=KTI('Touchdown')):
-        for tdwn in tdwns:
-            index_elev = index_at_value(elevator.array, -14.0,
-                                        slice(tdwn.index,None))
-            if index_elev:
-                e_14 = (index_elev - tdwn.index) / elevator.frequency
-                self.create_kpv(index_elev, e_14)
-
+    '''
+    Originally introduced to monitor pilot actions on landing, the first
+    version of this algorithm triggered only on -14deg elevator setting, to
+    suit the Boeing 757 aircraft type.
+    
+    This was amended to monitor the time to maximum elevator down should the
+    14 deg threshold not be met, in any case requiring at least 10 deg change
+    in elevator to indicate a significant removal of lift.
+    '''
+    def derive(self, airspeed=P('Airspeed'), 
+               elevator=P('Elevator'),
+               tdwns=KTI('Touchdown'),
+               lands=S('Landing')):
+        
+        for land in lands:
+            for tdwn in tdwns:
+                if not is_index_within_slice(tdwn.index, land.slice):
+                    continue
+                to_scan = slice(tdwn.index,land.slice.stop)
+                
+                index_elev = index_at_value(elevator.array, -14.0, to_scan )
+                if index_elev:
+                    t_14 = (index_elev - tdwn.index) / elevator.frequency
+                    self.create_kpv(index_elev, t_14)
+                    
+                else:
+                    index_min = tdwn.index+np.ma.argmin(elevator.array[to_scan])
+                    if np.ma.ptp(elevator.array[tdwn.index:index_min]) > 10.0:
+                        t_min= (index_min - tdwn.index) / elevator.frequency
+                        self.create_kpv(index_min, t_min)
+                    
 
 class TouchdownTo60KtsDuration(KeyPointValueNode):
     """

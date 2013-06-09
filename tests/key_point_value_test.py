@@ -6442,7 +6442,7 @@ class TestThrustAsymmetryWithThrustReversersDeployedDuration(unittest.TestCase, 
 class TestTouchdownToElevatorDownDuration(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = TouchdownToElevatorDownDuration
-        self.operational_combinations = [('Airspeed', 'Elevator', 'Touchdown')]
+        self.operational_combinations = [('Airspeed', 'Elevator', 'Touchdown', 'Landing')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
