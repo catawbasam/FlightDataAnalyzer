@@ -597,26 +597,71 @@ class Liftoff(KeyTimeInstanceNode):
     def can_operate(cls, available):
         return 'Airborne' in available
 
-    def derive(self, vert_spd=P('Vertical Speed Inertial'), airs=S('Airborne')):
+    def derive(self, vert_spd=P('Vertical Speed Inertial'), 
+               alt_rad = P('Altitude Radio'),
+               gog = P('Gear On Ground'),
+               airs=S('Airborne')):
+        
         for air in airs:
-            t0 = air.slice.start
-            if t0 == None:
+            index_vs = index_gog = None
+            index_air = air.slice.start
+            if index_air == None:
                 continue
+            back_3 = (index_air - 3.0*self.frequency)
+            on_3 = (index_air + 3.0*self.frequency) + 1 # For indexing
+            to_scan = slice(back_3, on_3)
 
             if vert_spd:
-                back_2 = (t0 - 2.0*vert_spd.frequency)
-                on_2 = (t0 + 2.0*vert_spd.frequency) + 1 # For indexing
                 index = index_at_value(vert_spd.array,
                                        VERTICAL_SPEED_FOR_LIFTOFF,
-                                       slice(back_2,on_2))
-                if index:
-                    self.create_kti(index)
-                else:
-                    # An improved index was not identified.
-                    self.create_kti(t0)
-            else:
-                # No vertical speed parameter available
-                self.create_kti(t0)
+                                       to_scan)
+                index_vs = index
+                
+            if gog:
+                # Try using Gear On Ground switch
+                edges = find_edges_on_state_change(
+                    'Air', gog.array[to_scan])
+                if edges:
+                    # use the last liftoff point
+                    index = edges[-1] + back_3
+                    # Check we were within 5ft of the ground when the switch triggered.
+                    if not alt_rad or alt_rad.array[index] < 5.0:
+                        index_gog = index
+
+            # Plotting process to view the results in an easy manner.
+            import matplotlib.pyplot as plt
+            name = 'Liftoff Plot %d' %index_air 
+            dt_pre = 5
+            hz = self.frequency
+            timebase=np.linspace(-dt_pre*hz, dt_pre*hz, 2*dt_pre*hz+1)
+            plot_period = slice(floor(index_air-dt_pre*hz), floor(index_air-dt_pre*hz+len(timebase)))
+            plt.figure()
+            
+            if vert_spd:
+                plt.plot(timebase, np.ma.masked_greater(vert_spd.array[plot_period],400.0)/10.0, 'o-b')
+            if alt_rad:
+                plt.plot(timebase, alt_rad.array[plot_period], 'o-r')
+            if gog:
+                plt.plot(timebase, gog.array[plot_period]*10, 'o-g')
+            plt.plot(0.0, -10.0,'or', markersize=8)
+            if index_gog:
+                plt.plot(index_gog-index_air, 20.0,'dg', markersize=8)
+            if index_vs:
+                plt.plot(index_vs-index_air, 15.0,'db', markersize=8)
+            plt.grid()
+            filename = name
+            if not os.path.exists('Liftoff_graphs'):
+                os.mkdir('Liftoff_graphs')
+            plt.savefig('Liftoff_graphs/'+filename+'.png')
+            #plt.show()
+            #plt.clf()
+            plt.close()
+
+            # We pick the earliest recorded indication of liftoff.
+            lifts = [index_air, index_vs, index_gog]
+            lift = min([l for l in lifts if l is not None])
+            if lift:
+                self.create_kti(lift)
 
 
 class LowestAltitudeDuringApproach(KeyTimeInstanceNode):
