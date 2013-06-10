@@ -4553,6 +4553,19 @@ class TestTrackLinking(unittest.TestCase):
         # plot_parameter(expected)
 
 
+class TestTrimSlices(unittest.TestCase):
+    def test_trim_slices(self):
+        self.assertEqual(trim_slices([], 1, 1, 10), [])
+        self.assertEqual(trim_slices([slice(0, 5)], 1, 1, 10), [slice(1, 4)])
+        self.assertEqual(trim_slices([slice(0, 8), slice(12, 20)], 2, 1, 20),
+                         [slice(2, 6), slice(14, 18)])
+        self.assertEqual(trim_slices([slice(None, 5)], 1, 1, 10), [slice(1, 4)])
+        self.assertEqual(trim_slices([slice(None, None)], 1, 1, 10),
+                         [slice(1, 9)])
+        self.assertEqual(trim_slices([slice(4, 26)], 2, 4, 30),
+                         [slice(12, 18)])
+
+
 """
 For the Truck and Trailer algorithm, see TestPeakCurvature above.
 """

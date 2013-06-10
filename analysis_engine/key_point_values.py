@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from math import ceil, floor
+from math import ceil
 from flightdatautilities.geometry import midpoint
 
 from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
@@ -63,7 +63,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      slices_overlap,
                                      slices_and,
                                      slices_remove_small_slices,
-                                     touchdown_inertial,
+                                     trim_slices,
                                      value_at_index,
                                      vstack_params)
 
@@ -1053,11 +1053,13 @@ class AirspeedMinusV2For3Sec35To1000FtMax(KeyPointValueNode):
 
     def derive(self,
                spd_v2=P('Airspeed Minus V2 For 3 Sec'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               duration=A('HDF Duration')):
+        
         self.create_kpvs_within_slices(
             spd_v2.array,
-            alt_aal.slices_from_to(35, 1000),
+            trim_slices(alt_aal.slices_from_to(35, 1000), 3, self.frequency,
+                        duration.value),
             max_value,
         )
 
@@ -1071,11 +1073,13 @@ class AirspeedMinusV2For3Sec35To1000FtMin(KeyPointValueNode):
 
     def derive(self,
                spd_v2=P('Airspeed Minus V2 For 3 Sec'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               duration=A('HDF Duration')):
 
         self.create_kpvs_within_slices(
             spd_v2.array,
-            alt_aal.slices_from_to(35, 1000),
+            trim_slices(alt_aal.slices_from_to(35, 1000), 3, self.frequency,
+                        duration.value),
             min_value,
         )
 
@@ -1209,11 +1213,13 @@ class AirspeedRelativeFor3Sec1000To500FtMax(KeyPointValueNode):
 
     def derive(self,
                spd_rel=P('Airspeed Relative For 3 Sec'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               duration=A('HDF Duration')):
+        
         self.create_kpvs_within_slices(
             spd_rel.array,
-            alt_aal.slices_from_to(1000, 500),
+            trim_slices(alt_aal.slices_from_to(1000, 500), 3, self.frequency,
+                        duration.value),
             max_value,
         )
 
@@ -1226,11 +1232,13 @@ class AirspeedRelativeFor3Sec1000To500FtMin(KeyPointValueNode):
 
     def derive(self,
                spd_rel=P('Airspeed Relative For 3 Sec'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               duration=A('HDF Duration')):
+        
         self.create_kpvs_within_slices(
             spd_rel.array,
-            alt_aal.slices_from_to(1000, 500),
+            trim_slices(alt_aal.slices_from_to(1000, 500), 3, self.frequency,
+                        duration.value),
             min_value,
         )
 
@@ -1243,11 +1251,13 @@ class AirspeedRelativeFor3Sec500To20FtMax(KeyPointValueNode):
 
     def derive(self,
                spd_rel=P('Airspeed Relative For 3 Sec'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               duration=A('HDF Duration')):
 
         self.create_kpvs_within_slices(
             spd_rel.array,
-            alt_aal.slices_from_to(500, 20),
+            trim_slices(alt_aal.slices_from_to(500, 20), 3, self.frequency,
+                        duration.value),
             max_value,
         )
 
@@ -1260,11 +1270,13 @@ class AirspeedRelativeFor3Sec500To20FtMin(KeyPointValueNode):
 
     def derive(self,
                spd_rel=P('Airspeed Relative For 3 Sec'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               duration=A('HDF Duration')):
 
         self.create_kpvs_within_slices(
             spd_rel.array,
-            alt_aal.slices_from_to(500, 20),
+            trim_slices(alt_aal.slices_from_to(500, 20), 3, self.frequency,
+                        duration.value),
             min_value,
         )
 
@@ -1278,11 +1290,13 @@ class AirspeedRelativeFor3Sec20FtToTouchdownMax(KeyPointValueNode):
     def derive(self,
                spd_rel=P('Airspeed Relative For 3 Sec'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               touchdowns=KTI('Touchdown')):
+               touchdowns=KTI('Touchdown'),
+               duration=A('HDF Duration')):
 
         self.create_kpvs_within_slices(
             spd_rel.array,
-            alt_aal.slices_to_kti(20, touchdowns),
+            trim_slices(alt_aal.slices_to_kti(20, touchdowns), 3,
+                        self.frequency, duration.value),
             max_value,
         )
 
@@ -1296,11 +1310,13 @@ class AirspeedRelativeFor3Sec20FtToTouchdownMin(KeyPointValueNode):
     def derive(self,
                spd_rel=P('Airspeed Relative For 3 Sec'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               touchdowns=KTI('Touchdown')):
+               touchdowns=KTI('Touchdown'),
+               duration=A('HDF Duration')):
 
         self.create_kpvs_within_slices(
             spd_rel.array,
-            alt_aal.slices_to_kti(20, touchdowns),
+            trim_slices(alt_aal.slices_to_kti(20, touchdowns), 3,
+                        self.frequency, duration.value),
             min_value,
         )
 
@@ -4658,11 +4674,13 @@ class EngN1For5Sec500To50FtMin(KeyPointValueNode):
 
     def derive(self,
                eng_n1_min=P('Eng (*) N1 Min For 5 Sec'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               duration=A('HDF Duration')):
 
         self.create_kpvs_within_slices(
             eng_n1_min.array,
-            alt_aal.slices_from_to(500, 50),
+            trim_slices(alt_aal.slices_from_to(500, 50), 5, self.frequency,
+                        duration.value),
             min_value,
         )
 
@@ -4676,11 +4694,13 @@ class EngN1For5Sec1000To500FtMin(KeyPointValueNode):
 
     def derive(self,
                eng_n1_min=P('Eng (*) N1 Min For 5 Sec'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               duration=A('HDF Duration')):
 
         self.create_kpvs_within_slices(
             eng_n1_min.array,
-            alt_aal.slices_from_to(1000, 500),
+            trim_slices(alt_aal.slices_from_to(1000, 500), 5, self.frequency,
+                        duration.value),
             min_value,
         )
 

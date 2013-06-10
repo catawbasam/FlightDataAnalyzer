@@ -3048,7 +3048,36 @@ def slices_remove_small_slices(slice_list, time_limit=10, hz=1, count=None):
         if each_slice.stop - each_slice.start > sample_limit:
             new_list.append(each_slice)
     return new_list
-            
+
+
+def trim_slices(slices, seconds, frequency, hdf_duration):
+    '''
+    Trims slices by a number of seconds and excludes slices which are too small
+    after trimming. Does not work with reverse slices.
+    
+    :param slices: Slices to trim.
+    :type slices: [slice]
+    :param seconds: Seconds to trim.
+    :type seconds: int or float
+    :param frequency: Frequency of slice indices.
+    :type frequency: int or float
+    :param hdf_duration: Duration of data within the HDF file in seconds
+    :type hdf_duration: int
+    :returns: Trimmed slices.
+    :rtype: list
+    '''
+    trim_duration = seconds * frequency
+    trimmed_slices = []
+    for _slice in slices:
+        trimmed_slice = slice((_slice.start or 0) + trim_duration,
+                              (_slice.stop or hdf_duration) - trim_duration)
+        if slice_duration(trimmed_slice, frequency) <= 0:
+            continue
+        trimmed_slices.append(trimmed_slice)
+    return trimmed_slices
+
+
+
 
 """
 def section_contains_kti(section, kti):
