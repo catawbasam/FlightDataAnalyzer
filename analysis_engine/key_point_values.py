@@ -7882,10 +7882,14 @@ class TouchdownToElevatorDownDuration(KeyPointValueNode):
                     
                 else:
                     index_min = tdwn.index+np.ma.argmin(elevator.array[to_scan])
-                    if np.ma.ptp(elevator.array[tdwn.index:index_min]) > 10.0:
-                        t_min= (index_min - tdwn.index) / elevator.frequency
-                        self.create_kpv(index_min, t_min)
-                    
+                    if index_min > tdwn.index+2:
+                        # Worth having a look
+                        if np.ma.ptp(elevator.array[tdwn.index:index_min]) > 10.0:
+                            t_min= (index_min - tdwn.index) / elevator.frequency
+                            self.create_kpv(index_min, t_min)
+                    else:
+                        # Nothing useful to do.
+                        pass
 
 class TouchdownTo60KtsDuration(KeyPointValueNode):
     """
