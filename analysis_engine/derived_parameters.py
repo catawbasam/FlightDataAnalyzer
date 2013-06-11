@@ -4505,15 +4505,13 @@ class VerticalSpeedInertial(DerivedParameterNode):
             az_washout = first_order_washout (az_repair,
                                               AZ_WASHOUT_TC, frequency,
                                               gain=GRAVITY_IMPERIAL,
-                                              initial_value=az_repair[0])
+                                              initial_value=np.ma.mean(az_repair[0:40]))
             inertial_roc = first_order_lag (az_washout,
                                             VERTICAL_SPEED_LAG_TC,
                                             frequency,
                                             gain=VERTICAL_SPEED_LAG_TC)
 
-            # Both sources of altitude data are differentiated before
-            # merging, as we mix height rate values to minimise the effect of
-            # changeover of sources.
+            # We only differentiate the pressure altitude data.
             roc_alt_std = first_order_washout(alt_std_repair,
                                               VERTICAL_SPEED_LAG_TC, frequency,
                                               gain=1/VERTICAL_SPEED_LAG_TC)
@@ -4526,34 +4524,37 @@ class VerticalSpeedInertial(DerivedParameterNode):
             climbs = slices_from_to(alt_rad_repair, 0, 100)[1]
             for climb in climbs:
                 # From 5 seconds before lift to 100ft
-                lift_m5s = climb.start - 5 * hz
+                lift_m5s = climb.start - 5*hz
                 up = slice(lift_m5s if lift_m5s >= 0 else 0, climb.stop)
                 up_slope = integrate(az_washout[up], hz)
-                blend = roc[climb.stop-1] - up_slope[-1]
-                blend_slope = np.linspace(0.0, blend, len(up_slope))
-                roc[up] = up_slope + blend_slope
+                blend_end_error = roc[climb.stop-1] - up_slope[-1]
+                blend_slope = np.linspace(0.0, blend_end_error, climb.stop-climb.start)
                 roc[:lift_m5s] = 0.0
-                
+                roc[lift_m5s:climb.start] = up_slope[:climb.start-lift_m5s]
+                roc[climb] = up_slope[climb.start-lift_m5s:] + blend_slope
                 '''
+                # Debug plot only.
                 import matplotlib.pyplot as plt
-                plt.plot(az_washout[:climb.stop],'k')
-                #plt.plot(up_slope,'g')
-                #plt.plot(blend_slope,'b')
-                plt.plot(roc[:climb.stop],'r')
+                plt.plot(az_washout[up],'k')
+                plt.plot(up_slope, 'g')
+                plt.plot(roc[up],'r')
+                plt.plot(alt_rad_repair[up], 'c')
                 plt.show()
                 plt.clf()
+                plt.close()
                 '''
-
+                
             descents = slices_from_to(alt_rad_repair, 100, 0)[1]
             for descent in descents:
                 down = slice(descent.start, descent.stop+5*hz)
                 down_slope = integrate(az_washout[down], 
                                        hz,)
-                                       #direction='backwards')
                 blend = roc[down.start] - down_slope[0]
                 blend_slope = np.linspace(blend, -down_slope[-1], len(down_slope))
-
+                roc[down] = down_slope + blend_slope
+                roc[descent.stop+5*hz:] = 0.0
                 '''
+                # Debug plot only.
                 import matplotlib.pyplot as plt
                 plt.plot(az_washout[down],'k')
                 plt.plot(down_slope,'g')
@@ -4562,10 +4563,8 @@ class VerticalSpeedInertial(DerivedParameterNode):
                 plt.plot(down_slope + blend_slope,'m')
                 plt.plot(alt_rad_repair[down], 'c')
                 plt.show()
+                plt.close()
                 '''
-                
-                roc[down] = down_slope + blend_slope
-                roc[descent.stop+5*hz:] = 0.0
 
             return roc * 60.0
 
@@ -4845,6 +4844,8 @@ class PitchRate(DerivedParameterNode):
     the peak values. As this also makes the resulting computation suffer more
     from masked values, and increases the computing load, it was decided not
     to implement this for pitch and roll rates.
+    
+    http://www.flightdatacommunity.com/calculating-pitch-rate/
     """
 
     units = 'deg/sec'
