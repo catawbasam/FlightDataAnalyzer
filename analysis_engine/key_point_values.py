@@ -5593,7 +5593,7 @@ class FlapAtLiftoff(KeyPointValueNode):
                flap=P('Flap'),
                liftoffs=KTI('Liftoff')):
 
-        self.create_kpvs_at_ktis(flap.array, liftoffs)
+        self.create_kpvs_at_ktis(flap.array, liftoffs, interpolate=False)
 
 
 class FlapAtTouchdown(KeyPointValueNode):
@@ -5606,7 +5606,7 @@ class FlapAtTouchdown(KeyPointValueNode):
                flap=P('Flap'),
                touchdowns=KTI('Touchdown')):
 
-        self.create_kpvs_at_ktis(flap.array, touchdowns)
+        self.create_kpvs_at_ktis(flap.array, touchdowns, interpolate=False)
 
 
 class FlapAtGearDownSelection(KeyPointValueNode):
@@ -5619,7 +5619,7 @@ class FlapAtGearDownSelection(KeyPointValueNode):
                flap=P('Flap'),
                gear_dn_sel=KTI('Gear Down Selection')):
 
-        self.create_kpvs_at_ktis(flap.array, gear_dn_sel)
+        self.create_kpvs_at_ktis(flap.array, gear_dn_sel, interpolate=False)
 
 
 class FlapWithGearUpMax(KeyPointValueNode):

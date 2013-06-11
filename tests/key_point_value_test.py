@@ -440,7 +440,10 @@ class CreateKPVsAtKTIsTest(NodeTest):
         node = self.node_class()
         node.create_kpvs_at_ktis = Mock()
         node.derive(mock1, mock2)
-        node.create_kpvs_at_ktis.assert_called_once_with(mock1.array, mock2)
+        kwargs = {}
+        if hasattr(self, 'interpolate'):
+            kwargs = {'interpolate': self.interpolate}
+        node.create_kpvs_at_ktis.assert_called_once_with(mock1.array, mock2, **kwargs)
 
 
 class CreateKPVsWithinSlicesTest(NodeTest):
@@ -4802,10 +4805,22 @@ class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = FlapAtLiftoff
         self.operational_combinations = [('Flap', 'Liftoff')]
+        self.interpolate = False
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
+        flap = P(
+            name='Flap',
+            array=np.ma.repeat([0, 1, 5, 15, 5, 1, 0], 5),
+        )
+        for index, value in (14.25, 5), (14.75, 15), (15.00, 15), (15.25, 15):
+            liftoffs = KTI(name='Liftoff', items=[
+                KeyTimeInstance(index=index, name='Liftoff'),
+            ])
+            node = self.node_class()
+            node.derive(flap, liftoffs)
+            self.assertEqual(node, KPV(name='Flap At Liftoff', items=[
+                KeyPointValue(index=index, value=value, name='Flap At Liftoff'),
+            ]))
 
 
 class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -4813,10 +4828,22 @@ class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = FlapAtTouchdown
         self.operational_combinations = [('Flap', 'Touchdown')]
+        self.interpolate = False
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
+        flap = P(
+            name='Flap',
+            array=np.ma.repeat([0, 1, 5, 15, 20, 25, 30], 5),
+        )
+        for index, value in (29.25, 25), (29.75, 30), (30.00, 30), (30.25, 30):
+            touchdowns = KTI(name='Touchdown', items=[
+                KeyTimeInstance(index=index, name='Touchdown'),
+            ])
+            node = self.node_class()
+            node.derive(flap, touchdowns)
+            self.assertEqual(node, KPV(name='Flap At Touchdown', items=[
+                KeyPointValue(index=index, value=value, name='Flap At Touchdown'),
+            ]))
 
 
 class TestFlapAtGearDownSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
@@ -4824,10 +4851,37 @@ class TestFlapAtGearDownSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
     def setUp(self):
         self.node_class = FlapAtGearDownSelection
         self.operational_combinations = [('Flap', 'Gear Down Selection')]
+        self.interpolate = False
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        flap = P(
+            name='Flap',
+            array=np.ma.repeat([0, 1, 5, 15, 20, 25, 30], 5),
+        )
+        flap.array[29] = np.ma.masked
+        gear = KTI(name='Gear Down Selection', items=[
+            KeyTimeInstance(index=19.25, name='Gear Down Selection'),
+            KeyTimeInstance(index=19.75, name='Gear Down Selection'),
+            KeyTimeInstance(index=20.00, name='Gear Down Selection'),
+            KeyTimeInstance(index=20.25, name='Gear Down Selection'),
+            KeyTimeInstance(index=29.25, name='Gear Down Selection'),
+            KeyTimeInstance(index=29.75, name='Gear Down Selection'),
+            KeyTimeInstance(index=30.00, name='Gear Down Selection'),
+            KeyTimeInstance(index=30.25, name='Gear Down Selection'),
+        ])
+        node = self.node_class()
+        node.derive(flap, gear)
+        self.assertEqual(node, KPV(name='Flap At Gear Down Selection', items=[
+            KeyPointValue(index=19.25, value=15, name='Flap At Gear Down Selection'),
+            KeyPointValue(index=19.75, value=20, name='Flap At Gear Down Selection'),
+            KeyPointValue(index=20.00, value=20, name='Flap At Gear Down Selection'),
+            KeyPointValue(index=20.25, value=20, name='Flap At Gear Down Selection'),
+            # Note: Index 29 is masked so we get a value of 30, not 25!
+            KeyPointValue(index=29.25, value=30, name='Flap At Gear Down Selection'),
+            KeyPointValue(index=29.75, value=30, name='Flap At Gear Down Selection'),
+            KeyPointValue(index=30.00, value=30, name='Flap At Gear Down Selection'),
+            KeyPointValue(index=30.25, value=30, name='Flap At Gear Down Selection'),
+        ]))
 
 
 class TestFlapWithGearUpMax(unittest.TestCase, NodeTest):

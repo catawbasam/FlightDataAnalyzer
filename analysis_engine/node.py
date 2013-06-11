@@ -1603,7 +1603,7 @@ class KeyPointValueNode(FormattedNameNode):
         return KeyPointValueNode(name=self.name, frequency=self.frequency,
                                  offset=self.offset, items=ordered_by_value)
 
-    def create_kpvs_at_ktis(self, array, ktis, suppress_zeros=False):
+    def create_kpvs_at_ktis(self, array, ktis, interpolate=True, suppress_zeros=False):
         '''
         Creates KPVs by sourcing the array at each KTI index. Requires the array
         to be aligned to the KTIs.
@@ -1612,6 +1612,8 @@ class KeyPointValueNode(FormattedNameNode):
         :type array: np.ma.masked_array
         :param ktis: KTIs with indices to source values within the array from.
         :type ktis: KeyTimeInstanceNode
+        :param interpolate: Optional flag to prevent interpolation when creating a KPV.
+        :type interpolate: Boolean, default=True.
         :param suppress_zeros: Optional flag to prevent zero values creating a KPV.
         :type suppress_zeros: Boolean, default=False.
 
@@ -1619,8 +1621,8 @@ class KeyPointValueNode(FormattedNameNode):
         :rtype: None
         '''
         for kti in ktis:
-            value = value_at_index(array, kti.index)
-            if (not suppress_zeros) or value:
+            value = value_at_index(array, kti.index, interpolate=interpolate)
+            if not suppress_zeros or value:
                 self.create_kpv(kti.index, value)
 
     create_kpvs_at_kpvs = create_kpvs_at_ktis # both will work the same!

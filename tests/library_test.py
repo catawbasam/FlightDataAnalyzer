@@ -4637,22 +4637,39 @@ class TestValueAtIndex(unittest.TestCase):
 
     def test_value_at_index_basic(self):
         array = np.ma.arange(4)
-        self.assertEquals (value_at_index(array, 1.5), 1.5)
+        self.assertEquals(value_at_index(array, 1.5), 1.5)
 
     def test_value_at_index_just_above_range(self):
         array = np.ma.arange(4)
-        self.assertEquals (value_at_index(array, 3.7), 3.0)
+        self.assertEquals(value_at_index(array, 3.7), 3.0)
 
     def test_value_at_index_just_below_range(self):
         array = np.ma.arange(4)
-        self.assertEquals (value_at_index(array, -0.5), 0.0)
+        self.assertEquals(value_at_index(array, -0.5), 0.0)
 
     def test_value_at_index_masked(self):
         array = np.ma.arange(4)
-        array[2]=np.ma.masked
-        expected=np.ma.array(1)
-        expected
-        self.assertEquals (value_at_index(array, 2), None)
+        array[2] = np.ma.masked
+        self.assertEquals(value_at_index(array, 2), None)
+
+    def test_value_at_index_non_interpolated(self):
+        array = np.ma.arange(4)
+        for x in (2.00, 2.25):
+            self.assertEquals(value_at_index(array, x, interpolate=False), 2)
+        for x in (2.50, 2.75, 3.00):
+            self.assertEquals(value_at_index(array, x, interpolate=False), 3)
+
+    def test_value_at_index_masked_non_interpolated(self):
+        array = np.ma.arange(4)
+        array[2] = np.ma.masked
+        for x in (2.00, 2.25, 2.50, 2.75, 3.00):
+            expected = None if x == 2.00 else 3
+            self.assertEquals(value_at_index(array, x, interpolate=False), expected)
+        array = np.ma.arange(4)
+        array[3] = np.ma.masked
+        for x in (2.00, 2.25, 2.50, 2.75, 3.00):
+            expected = None if x == 3.00 else 2
+            self.assertEquals(value_at_index(array, x, interpolate=False), expected)
 
 
 class TestVstackParams(unittest.TestCase):
