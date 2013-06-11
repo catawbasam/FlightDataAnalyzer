@@ -292,7 +292,7 @@ VERTICAL_SPEED_FOR_LEVEL_FLIGHT = 300  # fpm
 
 # Vertical speed for liftoff. This builds upon the intertially smoothed
 # vertical speed computation to identify accurately the point of liftoff.
-VERTICAL_SPEED_FOR_LIFTOFF = 200  # fpm
+VERTICAL_SPEED_FOR_LIFTOFF = 100  # fpm
 
 # Vertical speed for touchdown.
 VERTICAL_SPEED_FOR_TOUCHDOWN = -100  # fpm
