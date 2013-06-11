@@ -4259,10 +4259,13 @@ class TestLongitudeAtTouchdown(unittest.TestCase, NodeTest):
         self.node_class = LongitudeAtTouchdown
         self.operational_combinations = [
             ('Longitude', 'Touchdown'),
+            ('Touchdown', 'AFR Landing Airport'),
+            ('Touchdown', 'AFR Landing Runway'),
             ('Touchdown', 'Longitude (Coarse)'),
             ('Longitude', 'Touchdown', 'AFR Landing Airport'),
             ('Longitude', 'Touchdown', 'AFR Landing Runway'),
             ('Longitude', 'Touchdown', 'Longitude (Coarse)'),
+            ('Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
             ('Touchdown', 'AFR Landing Airport', 'Longitude (Coarse)'),
             ('Touchdown', 'AFR Landing Runway', 'Longitude (Coarse)'),
             ('Longitude', 'Touchdown', 'AFR Landing Airport', 'AFR Landing Runway'),
