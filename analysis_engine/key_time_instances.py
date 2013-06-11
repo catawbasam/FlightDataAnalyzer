@@ -28,6 +28,7 @@ from settings import (CLIMB_THRESHOLD,
                       NAME_VALUES_FLAP,
                       TAKEOFF_ACCELERATION_THRESHOLD,
                       VERTICAL_SPEED_FOR_LIFTOFF,
+                      WORKING_DIR
                       )
 
 
@@ -650,9 +651,10 @@ class Liftoff(KeyTimeInstanceNode):
                 plt.plot(index_vs-index_air, 15.0,'db', markersize=8)
             plt.grid()
             filename = name
-            if not os.path.exists('Liftoff_graphs'):
-                os.mkdir('Liftoff_graphs')
-            plt.savefig('Liftoff_graphs/'+filename+'.png')
+            output_dir = os.path.join(WORKING_DIR, 'Liftoff_graphs')
+            if not os.path.exists(output_dir):
+                os.mkdir(output_dir)
+            plt.savefig(os.path.join(output_dir, filename + '.png'))
             #plt.show()
             #plt.clf()
             plt.close()
@@ -888,9 +890,10 @@ class Touchdown(KeyTimeInstanceNode):
             plt.title(name)
             plt.grid()
             filename = name
-            if not os.path.exists('Touchdown_graphs'):
-                os.mkdir('Touchdown_graphs')
-            plt.savefig('Touchdown_graphs/'+filename+'.png')
+            output_dir = os.path.join(WORKING_DIR, 'Touchdown_graphs')
+            if not os.path.exists(output_dir):
+                os.mkdir(output_dir)
+            plt.savefig(os.path.join(output_dir, filename + '.png'))
             #plt.show()
             plt.clf()
             plt.close()
