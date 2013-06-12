@@ -5507,7 +5507,7 @@ def value_at_datetime(start_datetime, array, hz, offset, value_datetime):
     return value_at_time(array, hz, offset, seconds)
 
 
-def value_at_index(array, index):
+def value_at_index(array, index, interpolate=True):
     '''
     Finds the value of the data in array at a given index.
 
@@ -5518,6 +5518,8 @@ def value_at_index(array, index):
     :type array: masked array
     :param index: index into the array where we want to find the array value.
     :type index: float
+    :param interpolate: whether to interpolate the value if index is float.
+    :type interpolate: boolean
     :returns: interpolated value from the array
     '''
 
@@ -5545,6 +5547,9 @@ def value_at_index(array, index):
             else:
                 if array.mask[high] == True:
                     return low_value
+        # If not interpolating and no mask or masked samples:
+        if not interpolate:
+            return array[index + 0.5]
         # In the cases of no mask, or neither sample masked, interpolate.
         return r*high_value + (1-r) * low_value
 
