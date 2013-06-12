@@ -1106,11 +1106,20 @@ class TestLanding(unittest.TestCase):
         self.assertEqual(landing, expected)
 
 
-class TestMobile(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Rate Of Turn',),('Rate Of Turn','Groundspeed')]
-        opts = Mobile.get_operational_combinations()
-        self.assertEqual(opts, expected)
+class TestMobile(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Mobile
+        self.operational_combinations = [
+            ('Rate Of Turn',),
+            ('Rate Of Turn', 'Groundspeed'),
+            ('Rate Of Turn', 'Takeoff'),
+            ('Rate Of Turn', 'Landing'),
+            ('Rate Of Turn', 'Groundspeed', 'Takeoff'),
+            ('Rate Of Turn', 'Groundspeed', 'Landing'),
+            ('Rate Of Turn', 'Takeoff', 'Landing'),
+            ('Rate Of Turn', 'Groundspeed', 'Takeoff', 'Landing'),
+        ]
 
     def test_rot_only(self):
         rot = np.ma.array([0,0,5,5,5,0,0])
