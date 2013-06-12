@@ -621,7 +621,7 @@ class Liftoff(KeyTimeInstanceNode):
             if gog:
                 # Try using Gear On Ground switch
                 edges = find_edges_on_state_change(
-                    'Air', gog.array[to_scan])
+                    'Ground', gog.array[to_scan], change='leaving')
                 if edges:
                     # use the last liftoff point
                     index = edges[-1] + back_3
