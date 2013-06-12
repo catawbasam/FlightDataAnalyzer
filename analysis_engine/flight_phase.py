@@ -1104,8 +1104,13 @@ class TakeoffRoll(FlightPhaseNode):
                         begin = acc_start.index
             chunk = slice(begin, toff.slice.stop)
             pwo = first_order_washout(pitch.array[chunk], 3.0, pitch.frequency)
-            two_deg_idx = index_at_value(pwo, 2.0) + begin
-            self.create_phase(slice(begin, two_deg_idx))
+            two_deg_idx = index_at_value(pwo, 2.0)
+            if two_deg_idx is None:
+                roll_end = toff.slice.stop
+                self.warning('Aircraft did not reach a pitch of 2 deg or Acceleration Start is incorrect')
+            else:
+                roll_end = two_deg_idx + begin
+            self.create_phase(slice(begin, roll_end))
 
 
 class TakeoffRotation(FlightPhaseNode):
