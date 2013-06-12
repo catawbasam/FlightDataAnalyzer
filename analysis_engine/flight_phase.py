@@ -1254,13 +1254,15 @@ class TwoDegPitchTo35Ft(FlightPhaseNode):
 
     name = '2 Deg Pitch To 35 Ft'
 
-    def derive(self, pitch=P('Pitch'), takeoffs=S('Takeoff')):
+    def derive(self, takeoff_rolls=S('Takeoff Roll'), takeoffs=S('Takeoff')):
         for takeoff in takeoffs:
-            #reversed_slice = slice(takeoff.slice.stop, takeoff.slice.start, -1)
-            pwo = first_order_washout(pitch.array[takeoff.slice], 3.0, pitch.frequency)
-            # Endpoint closing allows for the case where the aircraft is at
-            # more than 2 deg of pitch at takeoff.
-            pitch_2_deg_idx = index_at_value(pwo, 2.0) + takeoff.slice.start
-            self.create_section(slice(pitch_2_deg_idx, takeoff.slice.stop),
-                                begin=pitch_2_deg_idx,
-                                end=takeoff.stop_edge)
+            for takeoff_roll in takeoff_rolls:
+                if not is_slice_within_slice(takeoff_roll.slice, takeoff.slice):
+                    continue
+
+                if takeoff.slice.stop - takeoff_roll.slice.stop > 1:
+                    self.create_section(slice(takeoff_roll.slice.stop, takeoff.slice.stop),
+                                    begin=takeoff_roll.stop_edge,
+                                    end=takeoff.stop_edge)
+                else:
+                    self.warning('%s not created as slice less than 1 sample' % self.name)
