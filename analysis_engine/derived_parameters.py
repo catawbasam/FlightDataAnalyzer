@@ -675,7 +675,7 @@ class AltitudeAAL(DerivedParameterNode):
                 # The liftoff occurs where the gap is biggest because this is
                 # where the wing lift has caused the local pressure to
                 # increase, hence the altitude appears to decrease.
-                pit = alt_std[np.ma.argmin(delta)]
+                pit = alt_std[np.ma.argmin(delta)+rotate.start]
             except:
                 # If something odd about the data causes a problem with this
                 # technique, use a simpler solution. This can give
