@@ -1430,7 +1430,7 @@ class TestTakeoffRotation(unittest.TestCase):
 class TestTwoDegPitchTo35Ft(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(TwoDegPitchTo35Ft.get_operational_combinations(),
-                         [('Pitch', 'Takeoff',)])
+                         [('Takeoff Roll', 'Takeoff',)])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
