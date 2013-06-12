@@ -599,20 +599,19 @@ class Liftoff(KeyTimeInstanceNode):
         return 'Airborne' in available
 
     def derive(self, vert_spd=P('Vertical Speed Inertial'),
-               ax=P('Acceleration Longitudinal'),
+               vert_spd_baro=P('Vertical Speed'),
                alt_rad = P('Altitude Radio'),
                gog = P('Gear On Ground'),
                airs=S('Airborne'),
-               pitch=P('Pitch'),
                frame = A('Frame')):
         
         for air in airs:
             index_vs = index_rad = index_gog = None
-            index_air = air.slice.start
+            index_air = air.start_edge
             if index_air == None:
                 continue
-            back_3 = (index_air - 3.0*self.frequency)
-            on_3 = (index_air + 3.0*self.frequency) + 1 # For indexing
+            back_3 = (air.slice.start - 3.0*self.frequency)
+            on_3 = (air.slice.start + 3.0*self.frequency) + 1 # For indexing
             to_scan = slice(back_3, on_3)
 
             if vert_spd:
@@ -631,11 +630,13 @@ class Liftoff(KeyTimeInstanceNode):
                     # use the last liftoff point
                     index = edges[-1] + back_3
                     # Check we were within 5ft of the ground when the switch triggered.
-                    if not alt_rad or alt_rad.array[index] < 5.0:
+                    if alt_rad.array[index] < 5.0 \
+                       or not alt_rad \
+                       or alt_rad.array[index] is np.ma.masked:
                         index_gog = index
 
 
-            # We pick the median recorded indication for the point of liftoff.
+            # We pick the second  recorded indication for the point of liftoff.
             lifts = [index_air, index_vs, index_gog, index_rad]
             index_list = [l for l in lifts if l is not None]
             if len(index_list)>1:
@@ -656,32 +657,28 @@ class Liftoff(KeyTimeInstanceNode):
             dt_pre = 5
             hz = self.frequency
             timebase=np.linspace(-dt_pre*hz, dt_pre*hz, 2*dt_pre*hz+1)
-            plot_period = slice(floor(index_air-dt_pre*hz), floor(index_air-dt_pre*hz+len(timebase)))
+            plot_period = slice(floor(air.slice.start-dt_pre*hz), floor(air.slice.start-dt_pre*hz+len(timebase)))
             plt.figure()
             if vert_spd:
                 plt.plot(timebase, np.ma.masked_greater(vert_spd.array[plot_period],400.0)/10.0, 'o-g')
             if index_vs:
-                plt.plot(index_vs-index_air, 15.0,'dg', markersize=8)
+                plt.plot(index_vs-air.slice.start, 22.5,'dg', markersize=8)
                 
             if alt_rad:
                 plt.plot(timebase, np.ma.masked_greater(alt_rad.array[plot_period],40.0), 'o-r')
             if index_rad:
-                plt.plot(index_rad-index_air, 25.0,'dr', markersize=8)
+                plt.plot(index_rad-air.slice.start, 25.0,'dr', markersize=8)
                 
             if gog:
                 plt.plot(timebase, gog.array[plot_period]*10, 'o-k')
             if index_gog:
-                plt.plot(index_gog-index_air, 20.0,'dk', markersize=8)
+                plt.plot(index_gog-air.slice.start, 20.0,'dk', markersize=8)
                 
-            # Pitch plotted for guidance only - not used as a paramter for liftoff.
-            if pitch:
-                plt.plot(timebase, pitch.array[plot_period], 'o-m')
-
-            if ax:
-                plt.plot(timebase, ax.array[plot_period]*100.0, 'o-c')
+            if vert_spd_baro:
+                plt.plot(timebase, vert_spd_baro.array[plot_period]/50.0, 'o-b')
 
             if index_lift:
-                plt.plot(index_lift-index_air, -5.0,'db', markersize=14)
+                plt.plot(index_lift-air.slice.start, -5.0,'db', markersize=14)
 
             plt.title(name)
             plt.grid()
@@ -691,7 +688,7 @@ class Liftoff(KeyTimeInstanceNode):
             if not os.path.exists(output_dir):
                 os.mkdir(output_dir)
             plt.savefig(os.path.join(output_dir, filename + '.png'))
-            #plt.show()
+            plt.show()
             plt.clf()
             plt.close()
             
@@ -933,7 +930,7 @@ class Touchdown(KeyTimeInstanceNode):
             if not os.path.exists(output_dir):
                 os.mkdir(output_dir)
             plt.savefig(os.path.join(output_dir, filename + '.png'))
-            #plt.show()
+            plt.show()
             plt.clf()
             plt.close()
             
