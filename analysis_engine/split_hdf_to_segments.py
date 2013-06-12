@@ -380,7 +380,7 @@ def split_segments(hdf):
         else:
             logger.info("Minimum of normalised split parameters ('%s') was "
                         "not below MINIMUM_SPLIT_PARAM_VALUE ('%s') within "
-                        "slow_slice '%s' at index '%d'.",
+                        "slow_slice '%s' at index '%s'.",
                         eng_split_value, settings.MINIMUM_SPLIT_PARAM_VALUE,
                         slow_slice, eng_split_index)
         
