@@ -165,6 +165,8 @@ def _split_on_eng_params(slice_start_secs, slice_stop_secs,
               slice_stop_secs * split_params_frequency)
     split_index, split_value = min_value(split_params_min,
                                          _slice=split_params_slice)
+    if split_index is None:
+        return split_index, split_value
     split_index = round(split_index / split_params_frequency)
     return split_index, split_value
 

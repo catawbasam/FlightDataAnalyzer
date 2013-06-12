@@ -4880,7 +4880,8 @@ class Roll(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(r1, r2)
         
-        elif frame_name in ['L382-Hercules']:
+        elif frame_name in ['L382-Hercules', '1900D-SS542A']:
+            # Added Beechcraft as had inoperable Roll
             # Many Hercules aircraft do not have roll recorded. This is a
             # simple substitute, derived from examination of the roll vs
             # heading rate of aircraft with a roll sensor.
