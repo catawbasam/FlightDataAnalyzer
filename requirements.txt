@@ -9,5 +9,6 @@ simplekml
 simplejson
 argparse
 geomag>=0.9
+PyYAML
 FlightDataUtilities
 HDFAccess

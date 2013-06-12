@@ -18,7 +18,7 @@ from analysis_engine.library import (all_of,
                                      slices_not,
                                      touchdown_inertial)
 
-from analysis_engine.node import M, P, S, KTI, KeyTimeInstanceNode
+from analysis_engine.node import A, M, P, S, KTI, KeyTimeInstanceNode
 
 from settings import (CLIMB_THRESHOLD,
                       MIN_CORE_SUSTAINABLE,
@@ -598,73 +598,102 @@ class Liftoff(KeyTimeInstanceNode):
     def can_operate(cls, available):
         return 'Airborne' in available
 
-    def derive(self, vert_spd=P('Vertical Speed Inertial'), 
+    def derive(self, vert_spd=P('Vertical Speed Inertial'),
+               vert_spd_baro=P('Vertical Speed'),
                alt_rad = P('Altitude Radio'),
                gog = P('Gear On Ground'),
-               airs=S('Airborne')):
+               airs=S('Airborne'),
+               frame = A('Frame')):
         
         for air in airs:
-            index_vs = index_gog = None
-            index_air = air.slice.start
+            index_vs = index_rad = index_gog = None
+            index_air = air.start_edge
             if index_air == None:
                 continue
-            back_3 = (index_air - 3.0*self.frequency)
-            on_3 = (index_air + 3.0*self.frequency) + 1 # For indexing
+            back_3 = (air.slice.start - 3.0*self.frequency)
+            on_3 = (air.slice.start + 3.0*self.frequency) + 1 # For indexing
             to_scan = slice(back_3, on_3)
 
             if vert_spd:
-                index = index_at_value(vert_spd.array,
+                index_vs = index_at_value(vert_spd.array,
                                        VERTICAL_SPEED_FOR_LIFTOFF,
                                        to_scan)
-                index_vs = index
+            
+            if alt_rad:
+                index_rad = index_at_value(alt_rad.array, 0.0, to_scan)
                 
             if gog:
                 # Try using Gear On Ground switch
                 edges = find_edges_on_state_change(
-                    'Air', gog.array[to_scan])
+                    'Ground', gog.array[to_scan], change='leaving')
                 if edges:
                     # use the last liftoff point
                     index = edges[-1] + back_3
                     # Check we were within 5ft of the ground when the switch triggered.
-                    if not alt_rad or alt_rad.array[index] < 5.0:
+                    if alt_rad.array[index] < 5.0 \
+                       or not alt_rad \
+                       or alt_rad.array[index] is np.ma.masked:
                         index_gog = index
 
+
+            # We pick the second  recorded indication for the point of liftoff.
+            lifts = [index_air, index_vs, index_gog, index_rad]
+            index_list = [l for l in lifts if l is not None]
+            if len(index_list)>1:
+                index_lift = sorted(index_list)[1]
+            else:
+                index_lift = index_list[0]
+            # but in any case, if we have a gear on ground signal which goes
+            # off first, adopt that.
+            if index_gog and index_gog<index_lift:
+                index_lift = index_gog
+            
+            self.create_kti(index_lift)
+
+            '''
             # Plotting process to view the results in an easy manner.
             import matplotlib.pyplot as plt
-            name = 'Liftoff Plot %d' %index_air 
+            name = 'Liftoff Plot %s, %d' %(frame.value, index_air)
+            print name
             dt_pre = 5
             hz = self.frequency
             timebase=np.linspace(-dt_pre*hz, dt_pre*hz, 2*dt_pre*hz+1)
-            plot_period = slice(floor(index_air-dt_pre*hz), floor(index_air-dt_pre*hz+len(timebase)))
+            plot_period = slice(floor(air.slice.start-dt_pre*hz), floor(air.slice.start-dt_pre*hz+len(timebase)))
             plt.figure()
-            
             if vert_spd:
-                plt.plot(timebase, np.ma.masked_greater(vert_spd.array[plot_period],400.0)/10.0, 'o-b')
-            if alt_rad:
-                plt.plot(timebase, alt_rad.array[plot_period], 'o-r')
-            if gog:
-                plt.plot(timebase, gog.array[plot_period]*10, 'o-g')
-            plt.plot(0.0, -10.0,'or', markersize=8)
-            if index_gog:
-                plt.plot(index_gog-index_air, 20.0,'dg', markersize=8)
+                plt.plot(timebase, np.ma.masked_greater(vert_spd.array[plot_period],400.0)/10.0, 'o-g')
             if index_vs:
-                plt.plot(index_vs-index_air, 15.0,'db', markersize=8)
+                plt.plot(index_vs-air.slice.start, 22.5,'dg', markersize=8)
+                
+            if alt_rad:
+                plt.plot(timebase, np.ma.masked_greater(alt_rad.array[plot_period],40.0), 'o-r')
+            if index_rad:
+                plt.plot(index_rad-air.slice.start, 25.0,'dr', markersize=8)
+                
+            if gog:
+                plt.plot(timebase, gog.array[plot_period]*10, 'o-k')
+            if index_gog:
+                plt.plot(index_gog-air.slice.start, 20.0,'dk', markersize=8)
+                
+            if vert_spd_baro:
+                plt.plot(timebase, vert_spd_baro.array[plot_period]/50.0, 'o-b')
+
+            if index_lift:
+                plt.plot(index_lift-air.slice.start, -5.0,'db', markersize=14)
+
+            plt.title(name)
             plt.grid()
             filename = name
+            print name
             output_dir = os.path.join(WORKING_DIR, 'Liftoff_graphs')
             if not os.path.exists(output_dir):
                 os.mkdir(output_dir)
             plt.savefig(os.path.join(output_dir, filename + '.png'))
-            #plt.show()
-            #plt.clf()
+            plt.show()
+            plt.clf()
             plt.close()
-
-            # We pick the earliest recorded indication of liftoff.
-            lifts = [index_air, index_vs, index_gog]
-            lift = min([l for l in lifts if l is not None])
-            if lift:
-                self.create_kti(lift)
-
+            '''
+            
 
 class LowestAltitudeDuringApproach(KeyTimeInstanceNode):
     '''
@@ -733,6 +762,8 @@ class Touchdown(KeyTimeInstanceNode):
     * Significant product of two samples of normal acceleration (correlating to a sudden drop in descent rate)
     * A transient reduction in longitudinal acceleration as the wheels first spin up
     * A large reduction in longitudinal acceleration when braking action starts
+    
+    http://www.flightdatacommunity.com/when-does-the-aircraft-land/
     '''
     # List the minimum acceptable parameters here
     @classmethod
@@ -756,7 +787,8 @@ class Touchdown(KeyTimeInstanceNode):
         dt_post = 3.0 # Seconds to scan after estimate.
         hz = alt.frequency
         index_gog = index_ax = index_az = index_daz = index_dax = index_z = None
-
+        peak_ax = peak_az = delta = 0.0
+        
         for land in lands:
             # We have to have an altitude signal, so this forms an initial
             # estimate of the touchdown point.
@@ -863,7 +895,7 @@ class Touchdown(KeyTimeInstanceNode):
                 index_tdn = index_gog
                 
 
-            """
+            '''
             # Plotting process to view the results in an easy manner.
             import matplotlib.pyplot as plt
             name = 'Touchdown with values Ax=%.4f, Az=%.4f and dAz=%.4f' %(peak_ax, peak_az, delta)
@@ -871,33 +903,41 @@ class Touchdown(KeyTimeInstanceNode):
             timebase=np.linspace(-dt_pre*hz, dt_pre*hz, 2*dt_pre*hz+1)
             plot_period = slice(floor(index_ref-dt_pre*hz), floor(index_ref-dt_pre*hz+len(timebase)))
             plt.figure()
-            plt.plot(timebase, alt.array[plot_period], 'o-r')
-            plt.plot(timebase, acc_long.array[plot_period]*200, 'o-m')
-            plt.plot(timebase, acc_norm.array[plot_period]*100, 'o-g')
+            if alt:
+                plt.plot(timebase, alt.array[plot_period], 'o-r')
+            if acc_long:
+                plt.plot(timebase, acc_long.array[plot_period]*200, 'o-m')
+            if acc_norm:
+                plt.plot(timebase, acc_norm.array[plot_period]*100, 'o-g')
             if gog:
                 plt.plot(timebase, gog.array[plot_period]*100, 'o-k')
             if index_gog:
                 plt.plot(index_gog-index_ref, 20.0,'ok', markersize=8)
             if index_ax:
                 plt.plot(index_ax-index_ref, 30.0,'om', markersize=8)
+            if index_az:
                 plt.plot(index_az-index_ref, 40.0,'og', markersize=8)
             if index_dax:
                 plt.plot(index_dax-index_ref, 55.0,'dm', markersize=8)
             if index_daz:
                 plt.plot(index_daz-index_ref, 50.0,'dg', markersize=8)
-            plt.plot(index_alt-index_ref, 10.0,'or', markersize=8)
-            plt.plot(index_tdn-index_ref, -20.0,'db', markersize=10)
+            if index_alt:
+                plt.plot(index_alt-index_ref, 10.0,'or', markersize=8)
+            if index_tdn:
+                plt.plot(index_tdn-index_ref, -20.0,'db', markersize=10)
             plt.title(name)
             plt.grid()
             filename = name
+            print name
             output_dir = os.path.join(WORKING_DIR, 'Touchdown_graphs')
             if not os.path.exists(output_dir):
                 os.mkdir(output_dir)
             plt.savefig(os.path.join(output_dir, filename + '.png'))
-            #plt.show()
+            plt.show()
             plt.clf()
             plt.close()
-            """
+            '''
+            
             self.create_kti(index_tdn)
 
             

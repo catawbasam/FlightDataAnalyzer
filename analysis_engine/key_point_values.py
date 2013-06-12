@@ -2116,6 +2116,9 @@ class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
     "Airborne Conflict (Mid-Air Collision) Level Busts (>300ft from an
     assigned level) It would be useful if this included overshoots of cleared
     level, i.e. a reversal of more than 300ft".
+    
+    Q: Could we compare against Altitude Selected to know if the aircraft should
+       be climbing or descending?
     '''
 
     units = 'ft'
@@ -2126,7 +2129,7 @@ class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
 
         bust = 300  # ft
         bust_time = 3 * 60  # 3 mins
-        bust_length = bust_time * alt_std.frequency
+        bust_length = bust_time * self.frequency
 
         idxs, peaks = cycle_finder(alt_std.array, min_step=bust)
 
@@ -2148,23 +2151,25 @@ class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
                     idx_from = max(0, idxs[num + 1] - bust_length)
                     idx_to = min(len(alt_std.array), idxs[num + 1] + bust_length)
                     if b > (a + c) / 2:
+                        overshoot = min(b - a, b - c)
+                        #if overshoot > 5000:
+                        if overshoot > alt_aal.array[idxs[num + 1]] / 4:
+                            # This happens normally on short sectors or training flights.
+                            continue
                         # Include a scan over the preceding and following
                         # bust_time in case the preceding or following peaks
                         # were outside this timespan.
                         alt_a = np.ma.min(alt_std.array[idx_from:idxs[num + 1]])
                         alt_c = np.ma.min(alt_std.array[idxs[num + 1]:idx_to])
                         overshoot = min(b - a, b - alt_a, b - alt_c, b - c)
-                        #if overshoot > 5000:
-                        if overshoot > alt_aal.array[idxs[num + 1]]/4:
-                            # This happens normally on short sectors or training flights.
-                            continue
                         self.create_kpv(idx, overshoot)
                     else:
+                        undershoot = max(b - a, b - c)
+                        if undershoot < -alt_aal.array[idxs[num + 1]]/4:
+                            continue
                         alt_a = np.ma.max(alt_std.array[idx_from:idxs[num + 1]])
                         alt_c = np.ma.max(alt_std.array[idxs[num + 1]:idx_to])
                         undershoot = max(b - a, b - alt_a, b - alt_c, b - c)
-                        if undershoot < -alt_aal.array[idxs[num + 1]]/4:
-                            continue                        
                         self.create_kpv(idx, undershoot)
 
 

@@ -2405,6 +2405,7 @@ class TestIntegrate (unittest.TestCase):
         result = integrate(data, 2.0, extend=True)
         np.testing.assert_array_equal(result.data, [0.25, 1, 2.75, 6])
 
+    #TODO: test for mask repair
 
 class TestIsSliceWithinSlice(unittest.TestCase):
     def test_is_slice_within_slice(self):

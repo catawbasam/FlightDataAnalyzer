@@ -1994,6 +1994,8 @@ def runway_snap(runway, lat, lon):
 
     :returns new_lat, new_lon: Amended position now on runway centreline.
     :type float, float.
+    
+    http://www.flightdatacommunity.com/breaking-runways/
     """
     try:
         start_lat = runway['start']['latitude']
@@ -2422,7 +2424,8 @@ def ils_localizer_align(runway):
 
 
 def integrate(array, frequency, initial_value=0.0, scale=1.0,
-              direction="forwards", contiguous=False, extend=False):
+              direction="forwards", contiguous=False, extend=False,
+              repair=False):
     """
     Trapezoidal integration
 
@@ -2443,6 +2446,8 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
     :type contiguous: Logical
     :param extend: Option to extend by half intervals at either end of the array.
     :type extend: Logical
+    :param repair: Option to repair mask before integration.
+    :type repair: Logical
 
     Notes: Reverse integration does not include a change of sign, so positive
     values have a negative slope following integration using this function.
@@ -2455,15 +2460,17 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
 
     :returns integral: Result of integration by time
     :type integral: Numpy masked array.
-
-    Note: Masked values will be "repaired" before integration. If errors longer
-    than the repair limit exist, subsequent values in the array will all be
-    masked.
     """
     if np.ma.count(array)==0:
         return np_ma_masked_zeros_like(array)
 
-    result = np.ma.copy(array)
+    if repair:
+        result = repair_mask(array, 
+                             repair_duration=None,
+                             zero_if_masked=True,
+                             extrapolate=True)
+    else:
+        result = np.ma.copy(array)
 
     if contiguous:
         blocks = np.ma.clump_unmasked(array)
@@ -2536,10 +2543,11 @@ def integ_value(array,
     """
     index = stop_edge or _slice.stop or len(array)
     try:
-        value = integrate(array[_slice], 
-                      frequency=frequency,
-                      scale=scale,
-                      extend=True)[-1]
+        value = integrate(array,
+                          frequency=frequency,
+                          scale=scale,
+                          repair=True,
+                          extend=True)[-1]
     except IndexError:
         # Arises from _slice outside array boundary.
         index = None
@@ -3511,7 +3519,7 @@ def blend_two_parameters(param_one, param_two):
     assert param_one.frequency == param_two.frequency
     
     # Parameters for blending should not be aligned.
-    assert param_one.offset != param_two.offset 
+    #assert param_one.offset != param_two.offset 
         
     # A common problem is that one sensor may be unserviceable, and has been
     # identified already by parameter validity testing. Trap this case and
@@ -4033,6 +4041,8 @@ def np_ma_masked_zeros_like(array):
 def truck_and_trailer(data, ttp, overall, trailer, curve_sense, _slice):
     '''
     See peak_curvature procedure for details of parameters.
+    
+    http://www.flightdatacommunity.com/truck-and-trailer/
     '''
     # Trap for invariant data
     if np.ma.ptp(data) == 0.0:
