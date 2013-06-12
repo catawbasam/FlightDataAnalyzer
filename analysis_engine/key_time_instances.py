@@ -900,7 +900,7 @@ class Touchdown(KeyTimeInstanceNode):
             """
             self.create_kti(index_tdn)
 
-            
+
 class LandingDecelerationEnd(KeyTimeInstanceNode):
     '''
     Whereas peak acceleration at takeoff is a good measure of the start of
