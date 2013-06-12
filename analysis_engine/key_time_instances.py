@@ -650,6 +650,7 @@ class Liftoff(KeyTimeInstanceNode):
             
             self.create_kti(index_lift)
 
+            '''
             # Plotting process to view the results in an easy manner.
             import matplotlib.pyplot as plt
             name = 'Liftoff Plot %s, %d' %(frame.value, index_air)
@@ -691,6 +692,7 @@ class Liftoff(KeyTimeInstanceNode):
             plt.show()
             plt.clf()
             plt.close()
+            '''
             
 
 class LowestAltitudeDuringApproach(KeyTimeInstanceNode):
@@ -893,6 +895,7 @@ class Touchdown(KeyTimeInstanceNode):
                 index_tdn = index_gog
                 
 
+            '''
             # Plotting process to view the results in an easy manner.
             import matplotlib.pyplot as plt
             name = 'Touchdown with values Ax=%.4f, Az=%.4f and dAz=%.4f' %(peak_ax, peak_az, delta)
@@ -933,6 +936,7 @@ class Touchdown(KeyTimeInstanceNode):
             plt.show()
             plt.clf()
             plt.close()
+            '''
             
             self.create_kti(index_tdn)
 
