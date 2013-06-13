@@ -971,8 +971,8 @@ class Touchdown(KeyTimeInstanceNode):
             plt.clf()
             plt.close()
             '''
-            
-            
+
+
 class LandingDecelerationEnd(KeyTimeInstanceNode):
     '''
     Whereas peak acceleration at takeoff is a good measure of the start of
