@@ -32,7 +32,7 @@ class TestTrimmer(unittest.TestCase):
         hdf_contents = {'IVV': Mock(), 'DME': Mock(), 'WOW': Mock()}
         class hdf_file(dict):
             duration = 10
-            def keys(self):
+            def valid_param_names(self):
                 return hdf_contents.keys()
             def __enter__(self, *args, **kwargs):
                 return hdf_file(hdf_contents)
