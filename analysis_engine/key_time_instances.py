@@ -31,6 +31,17 @@ from settings import (CLIMB_THRESHOLD,
                       WORKING_DIR
                       )
 
+def sorted_valid_list(x):
+    '''
+    For list x, remove None and nan fields and return sorted list.
+    Used in Liftoff and Touchdown algorithms.
+    '''
+    index_list = []
+    for i in range(len(x)):
+        if x[i] and not np.isnan(x[i]):
+            index_list.append(x[i])
+    return sorted(index_list)
+
 
 class BottomOfDescent(KeyTimeInstanceNode):
     def derive(self, alt_std=P('Altitude AAL For Flight Phases'),
@@ -599,6 +610,7 @@ class Liftoff(KeyTimeInstanceNode):
         return 'Airborne' in available
 
     def derive(self, vert_spd=P('Vertical Speed Inertial'),
+               acc_norm=P('Acceleration Normal Offset Removed'),
                vert_spd_baro=P('Vertical Speed'),
                alt_rad = P('Altitude Radio'),
                gog = P('Gear On Ground'),
@@ -606,7 +618,7 @@ class Liftoff(KeyTimeInstanceNode):
                frame = A('Frame')):
         
         for air in airs:
-            index_vs = index_rad = index_gog = None
+            index_acc = index_rad = index_gog = None
             index_air = air.start_edge
             if index_air == None:
                 continue
@@ -618,7 +630,18 @@ class Liftoff(KeyTimeInstanceNode):
                 index_vs = index_at_value(vert_spd.array,
                                        VERTICAL_SPEED_FOR_LIFTOFF,
                                        to_scan)
-            
+            else:
+                # Fallback to pressure rate of climb
+                index_vs = index_at_value(vert_spd_baro.array,
+                                          VERTICAL_SPEED_FOR_LIFTOFF,
+                                          to_scan)
+                # and try to augment this with another measure
+                if acc_norm:
+                    idx = np.ma.argmax(acc_norm.array[to_scan])
+                    if acc_norm.array[to_scan][idx]>1.2:
+                        index_acc=idx+back_3
+                    
+                            
             if alt_rad:
                 index_rad = index_at_value(alt_rad.array, 0.0, to_scan)
                 
@@ -635,10 +658,13 @@ class Liftoff(KeyTimeInstanceNode):
                        or alt_rad.array[index] is np.ma.masked:
                         index_gog = index
 
-
             # We pick the second  recorded indication for the point of liftoff.
-            lifts = [index_air, index_vs, index_gog, index_rad]
-            index_list = [l for l in lifts if l is not None]
+            index_list = sorted_valid_list([index_air, 
+                                            index_vs, 
+                                            index_acc, 
+                                            index_gog, 
+                                            index_rad])
+            
             if len(index_list)>1:
                 index_lift = sorted(index_list)[1]
             else:
@@ -661,7 +687,14 @@ class Liftoff(KeyTimeInstanceNode):
             plot_period = slice(floor(air.slice.start-dt_pre*hz), floor(air.slice.start-dt_pre*hz+len(timebase)))
             plt.figure()
             if vert_spd:
-                plt.plot(timebase, np.ma.masked_greater(vert_spd.array[plot_period],400.0)/10.0, 'o-g')
+                plt.plot(timebase, np.ma.masked_greater(vert_spd.array[plot_period],400.0)/20.0, 'o-g')
+            else:
+                plt.plot(timebase, np.ma.masked_greater(vert_spd_baro.array[plot_period],400.0)/20.0, 'o-c')
+                if acc_norm:
+                    plt.plot(timebase, acc_norm.array[plot_period]*10.0, 'o-g')
+                if index_acc:
+                    plt.plot(index_acc-air.slice.start, 15.0,'dg', markersize=8)
+                    
             if index_vs:
                 plt.plot(index_vs-air.slice.start, 22.5,'dg', markersize=8)
                 
@@ -676,7 +709,7 @@ class Liftoff(KeyTimeInstanceNode):
                 plt.plot(index_gog-air.slice.start, 20.0,'dk', markersize=8)
                 
             if vert_spd_baro:
-                plt.plot(timebase, vert_spd_baro.array[plot_period]/50.0, 'o-b')
+                plt.plot(timebase, vert_spd_baro.array[plot_period]/20.0, 'o-b')
 
             if index_lift:
                 plt.plot(index_lift-air.slice.start, -5.0,'db', markersize=14)
@@ -875,25 +908,26 @@ class Touchdown(KeyTimeInstanceNode):
             index_z_list = [x for x in index_az, index_daz if x is not None]
             if index_z_list:
                 index_z = min(index_z_list)
-            # ...then collect up to four estimates of the touchdown point...
-            index_list = [x for x in index_alt, 
-                          index_gog, 
-                          index_ax,
-                          index_dax,
-                          index_z, \
-                          if x is not None]
-            
+                
+            # ...then collect the estimates of the touchdown point...
+            index_list = sorted_valid_list([index_alt,
+                                            index_gog,
+                                            index_ax,
+                                            index_dax,
+                                            index_z])
+                                           
             # ...and use the second where possible, as this has been found to
             # be more reliable than the first which may be erroneous.
             if len(index_list)>1:
-                index_tdn = sorted(index_list)[1]
+                index_tdn = index_list[1]
             else:
                 index_tdn = index_list[0]
             # but in any case, if we have a gear on ground signal which goes
             # off first, adopt that.
             if index_gog and index_gog<index_tdn:
                 index_tdn = index_gog
-                
+            
+            self.create_kti(index_tdn)
 
             '''
             # Plotting process to view the results in an easy manner.
@@ -938,8 +972,6 @@ class Touchdown(KeyTimeInstanceNode):
             plt.close()
             '''
             
-            self.create_kti(index_tdn)
-
             
 class LandingDecelerationEnd(KeyTimeInstanceNode):
     '''
