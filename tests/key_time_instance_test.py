@@ -165,9 +165,9 @@ class TestGoAround(unittest.TestCase):
         alt = Parameter('Altitude AAL',
                         np.ma.array(np.cos(
                             np.arange(0,21,0.02))*(1000)+2500))
-        if debug:
-            from analysis_engine.plot_flight import plot_parameter
-            plot_parameter(alt.array)
+        ####if debug:
+        ####    from analysis_engine.plot_flight import plot_parameter
+        ####    plot_parameter(alt.array)
             
         dlc = buildsections('Descent Low Climb',[50,260],[360,570],[670,890])
         
@@ -212,9 +212,9 @@ class TestGoAround(unittest.TestCase):
                             np.arange(0,21,0.02))*(1000)+2500))
         alt_rad = Parameter('Altitude Radio',\
                         alt.array-range(len(alt.array)))
-        if debug:
-            from analysis_engine.plot_flight import plot_parameter
-            plot_parameter(alt_rad.array)
+        ####if debug:
+        ####    from analysis_engine.plot_flight import plot_parameter
+        ####    plot_parameter(alt_rad.array)
         # The sloping graph has shifted minima. We only need to check one to
         # show it's using the rad alt signal.
         dlc = [Section('Descent Low Climb',slice( 50,260),50,260)]

@@ -2302,58 +2302,71 @@ class TestHeadingContinuous(unittest.TestCase):
         np.testing.assert_array_equal(head.array.data, answer.data)
 
 
-class TestTrack(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(Track.get_operational_combinations(),
-                         [('Track Continuous',)])
-    
+class TestTrack(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Track
+        self.operational_combinations = [('Track Continuous',)]
+
     def test_derive_basic(self):
-        track_cont = Parameter('Track Continuous', array=np.ma.arange(0, 1000, 100))
-        node = Track()
-        node.derive(track_cont)
-        ma_test.assert_equal(node.array,
-                             [0, 100, 200, 300, 40, 140, 240, 340, 80, 180])
+        track = Parameter('Track Continuous', array=np.ma.arange(0, 1000, 100))
+        node = self.node_class()
+        node.derive(track)
+        expected = [0, 100, 200, 300, 40, 140, 240, 340, 80, 180]
+        ma_test.assert_equal(node.array, expected)
 
 
-class TestTrackContinuous(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(TrackContinuous.get_operational_combinations(),
-                         [('Heading Continuous', 'Drift')])
-    
+class TestTrackContinuous(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TrackContinuous
+        self.operational_combinations = [('Heading Continuous', 'Drift')]
+
     def test_derive_basic(self):
-        head = Parameter('Heading Continuous', array=np.ma.arange(0, 100, 10))
+        heading = Parameter('Heading Continuous', array=np.ma.arange(0, 100, 10))
         drift = Parameter('Drift', array=np.ma.arange(0, 1, 0.1))
-        node = TrackContinuous()
-        node.derive(head, drift)
-        ma_test.assert_equal(node.array,
-                             [0, 10.1, 20.2, 30.3, 40.4, 50.5, 60.6, 70.7, 80.8, 90.9])
+        node = self.node_class()
+        node.derive(heading, drift)
+        expected = [0, 10.1, 20.2, 30.3, 40.4, 50.5, 60.6, 70.7, 80.8, 90.9]
+        ma_test.assert_equal(node.array, expected)
 
 
-class TestTrackTrue(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(TrackTrue.get_operational_combinations(),
-                         [('Track True Continuous',)])
-    
+class TestTrackTrue(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TrackTrue
+        self.operational_combinations = [('Track True Continuous',)]
+
     def test_derive_basic(self):
-        track_cont = Parameter('Track Continuous', array=np.ma.arange(0, 1000, 100))
-        node = Track()
-        node.derive(track_cont)
-        ma_test.assert_equal(node.array,
-                             [0, 100, 200, 300, 40, 140, 240, 340, 80, 180])
+        track = Parameter('Track True Continuous', array=np.ma.arange(0, 1000, 100))
+        node = self.node_class()
+        node.derive(track)
+        expected = [0, 100, 200, 300, 40, 140, 240, 340, 80, 180]
+        ma_test.assert_equal(node.array, expected)
 
 
-class TestTrackTrueContinuous(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(TrackTrueContinuous.get_operational_combinations(),
-                         [('Heading True Continuous', 'Drift')])
-    
+class TestTrackTrueContinuous(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = TrackTrueContinuous
+        self.operational_combinations = [('Heading True Continuous', 'Drift')]
+
     def test_derive_basic(self):
-        head_true = Parameter('Heading True Continuous', array=np.ma.arange(0, 100, 10))
+        heading = Parameter('Heading True Continuous', array=np.ma.arange(0, 100, 10))
         drift = Parameter('Drift', array=np.ma.arange(0, 1, 0.1))
-        node = TrackContinuous()
-        node.derive(head_true, drift)
-        ma_test.assert_equal(node.array,
-                             [0, 10.1, 20.2, 30.3, 40.4, 50.5, 60.6, 70.7, 80.8, 90.9])
+        node = self.node_class()
+        node.derive(heading, drift)
+        expected = [0, 10.1, 20.2, 30.3, 40.4, 50.5, 60.6, 70.7, 80.8, 90.9]
+        ma_test.assert_equal(node.array, expected)
+
+    def test_derive_extra(self):
+        # Compare IRU Track Angle True (recorded) against the derived:
+        heading = load(os.path.join(test_data_path, 'HeadingTrack_Heading_True.nod'))
+        drift = load(os.path.join(test_data_path, 'HeadingTrack_Drift.nod'))
+        node = self.node_class()
+        node.derive(heading, drift)
+        expected = load(os.path.join(test_data_path, 'HeadingTrack_IRU_Track_Angle_Recorded.nod'))
+        assert_array_within_tolerance(node.array % 360, expected.array, 10, 98)
 
 
 class TestTrackDeviationFromRunway(unittest.TestCase):
@@ -2495,24 +2508,6 @@ class TestLatitudeAndLongitudePrepared(unittest.TestCase):
         # normal and arises because the data sample is short.
         expected = [0.0, 0.0, -0.00176, -0.00176, -0.00176, 0.0, 0.0]
         np.testing.assert_almost_equal(smoother.array, expected, decimal=5)
-
-
-
-class TestHeadingTrueTrack(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(
-            TrackTrue.get_operational_combinations(),
-            [('Heading True Continuous', 'Drift')])
-
-    def test_heading_track(self):
-        hdg = load(os.path.join(test_data_path, 'HeadingTrack_Heading_True.nod'))
-        dft = load(os.path.join(test_data_path, 'HeadingTrack_Drift.nod'))
-        head_track = TrackTrue()
-        head_track.derive(heading=hdg, drift=dft)
-        
-        # compare IRU Track Angle True (recorded) against the derived
-        track_rec = load(os.path.join(test_data_path, 'HeadingTrack_IRU_Track_Angle_Recorded.nod'))
-        assert_array_within_tolerance(head_track.array, track_rec.array, 10, 98)
 
 
 class TestHeading(unittest.TestCase):
