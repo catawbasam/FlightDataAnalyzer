@@ -81,7 +81,7 @@ class TestProcessSpecimenFlight(unittest.TestCase):
         afr = {}
 
         results = process_flight(
-            self.data_path, aircraft_info,
+            self.data_path, aircraft_info['Tail Number'], aircraft_info,
             start_datetime=datetime(2012, 12, 30, 19, 9, 6),
             achieved_flight_record=afr)
 
