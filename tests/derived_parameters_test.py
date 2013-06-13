@@ -213,10 +213,9 @@ class NodeTest(object):
                 self.operational_combination_length,
             )
         else:
-            self.assertEqual(
-                self.node_class.get_operational_combinations(),
-                self.operational_combinations,
-            )
+            combinations = map(set, self.node_class.get_operational_combinations())
+            for combination in map(set, self.operational_combinations):
+                self.assertIn(combination, combinations)
 
 
 ##############################################################################
@@ -638,8 +637,12 @@ class TestAirspeedReference(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AirspeedReference
-        self.operational_combination_length = 54
-        self.check_operational_combination_length_only = True
+        self.operational_combinations = [
+            ('Vapp',),
+            ('Vref',),
+            ('Airspeed', 'AFR Vapp'),
+            ('Airspeed', 'AFR Vref'),
+        ]
 
         self.air_spd = P('Airspeed', np.ma.array([200] * 128))
         self.afr_vapp = A('AFR Vapp', value=120)
@@ -681,8 +684,14 @@ class TestAirspeedReferenceLookup(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AirspeedReferenceLookup
-        self.operational_combination_length = 88  # This is a silly test as nobody checks all these combinations
-        self.check_operational_combination_length_only = True
+        self.operational_combinations = [
+            # Airbus:
+            ('Airspeed', 'Series', 'Family', 'Approach And Landing', 'Touchdown', 'Gross Weight Smoothed', 'Configuration'),
+            # Boeing:
+            ('Airspeed', 'Series', 'Family', 'Approach And Landing', 'Touchdown', 'Gross Weight Smoothed', 'Flap'),
+            ##### Propeller:
+            ####('Airspeed', 'Series', 'Family', 'Approach And Landing', 'Touchdown', 'Eng (*) Np Avg'),
+        ]
 
     # TODO: Remove mock patch - our tables should be correct.
     @patch('analysis_engine.derived_parameters.get_vspeed_map')
@@ -2760,8 +2769,14 @@ class TestV2Lookup(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = V2Lookup
-        self.operational_combination_length = 136  # This is a silly test as nobody checks all these combinations
-        self.check_operational_combination_length_only = True
+        self.operational_combinations = [
+            # Airbus:
+            ('Airspeed', 'Series', 'Family', 'Gross Weight At Liftoff', 'Configuration'),
+            # Boeing:
+            ('Airspeed', 'Series', 'Family', 'Gross Weight At Liftoff', 'Flap'),
+            ##### Propeller:
+            ####('Airspeed', 'Series', 'Family', 'Liftoff', 'Eng (*) Np Avg'),
+        ]
 
     def test_derive__boeing(self):
         series = A('Series', value='B737-300')
@@ -2781,7 +2796,7 @@ class TestV2Lookup(unittest.TestCase, NodeTest):
 
             node = self.node_class()
             node.get_derived(args)
-            expected = np.ma.array([151.70729599999999] * 5888)
+            expected = np.ma.array([150.868884] * 5888)
             np.testing.assert_array_equal(node.array, expected)
 
         if os.path.isfile(hdf_copy):
