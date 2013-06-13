@@ -108,6 +108,8 @@ from analysis_engine.derived_parameters import (
     Eng_4_FuelBurn,
     EngThrustModeRequired,
     Flap,
+    FlapLeverDetent,
+    FlapLeverSynthetic,
     FlapSurface,
     FuelQty,
     FuelQty_Low,
@@ -1978,61 +1980,67 @@ class TestEngThrustModeRequired(unittest.TestCase):
                         values_mapping=EngThrustModeRequired.values_mapping).tolist())
 
 
-class TestFlap(unittest.TestCase):
-    def test_can_operate(self):
-        opts = Flap.get_operational_combinations()
-        self.assertEqual(opts, [('Flap Surface', 'Series', 'Family'),
-                                ])
-        
-    def test_flap_stepped_nearest_5(self):
-        flap = P('Flap Surface', np.ma.array(range(50)))
-        fstep = Flap()
-        fstep.derive(flap, A('Series', None), A('Family', None))
-        self.assertEqual(list(fstep.array[:15]), 
-                         [0,0,0,5,5,5,5,5,10,10,10,10,10,15,15])
-        self.assertEqual(list(fstep.array[-7:]), [45]*5 + [50]*2)
+class TestFlap(unittest.TestCase, NodeTest):
 
-        # test with mask
-        flap = P('Flap Surface', np.ma.array(range(20), mask=[True]*10 + [False]*10))
-        fstep.derive(flap, A('Series', None), A('Family', None))
-        self.assertEqual(list(np.ma.filled(fstep.array, fill_value=-1)),
-                         [-1]*10 + [10,10,10,15,15,15,15,15,20,20])
-        
+    def setUp(self):
+        self.node_class = Flap
+        self.operational_combinations = [('Flap Surface', 'Series', 'Family')]
+
+    def test_flap_stepped_nearest_5(self):
+        flap = P('Flap Surface', np.ma.arange(50))
+        node = self.node_class()
+        node.derive(flap, A('Series', None), A('Family', None))
+        expected = [0] * 3 + [5] * 5 + [10] * 5 + [15] * 2
+        self.assertEqual(node.array[:15].tolist(), expected)
+        expected = [45] * 5 + [50] * 2
+        self.assertEqual(node.array[-7:].tolist(), expected)
+
+        flap = P('Flap Surface', np.ma.array(range(20), mask=[True] * 10 + [False] * 10))
+        node.derive(flap, A('Series', None), A('Family', None))
+        expected = [-1] * 10 + [10] * 3 + [15] * 5 + [20] * 2
+        self.assertEqual(np.ma.filled(node.array, fill_value=-1).tolist(), expected)
+
     def test_flap_using_md82_settings(self):
         # MD82 has flaps (0, 11, 15, 28, 40)
         #or now it's:         #(0, 13, 20, 25, 30, 40)?
-        flap = P('Flap Surface', np.ma.array(range(50) + range(-5,0) + [13.1,1.3,10,10]))
-        flap.array[1] = np.ma.masked
-        flap.array[57] = np.ma.masked
-        flap.array[58] = np.ma.masked
-        fstep = Flap()
-        fstep.derive(flap, A('Series', None), A('Family', 'DC-9'))
-        self.assertEqual(len(fstep.array), 59)
-        
-        self.assertEqual(
-            list(np.ma.filled(fstep.array, fill_value=-999)), 
-            [0,-999,0,0,0,0, # 0 -> 5.5
-             11,11,11,11,11,11,11,11, # 6 -> 13.5
-             15,15,15,15,15,15,15,15, # 14 -> 21
-             28,28,28,28,28,28,28,28,28,28,28,28,28, # 22.5 -> 34
-             40,40,40,40,40,40,40,40,40,40,40,40,40,40,40, # 35 -> 49
-             0,0,0,0,0, # -5 -> -1
-             15,0, # odd float values
-             -999,-999 # masked values
-             ])
-        self.assertTrue(np.ma.is_masked(fstep.array[1]))
-        self.assertTrue(np.ma.is_masked(fstep.array[57]))
-        self.assertTrue(np.ma.is_masked(fstep.array[58]))
-    
+        indexes = (1, 57, 58)
+        flap = P(
+            name='Flap Surface',
+            array=np.ma.array(range(50) + range(-5, 0) + [13.1, 1.3, 10, 10]),
+        )
+        for index in indexes:
+            flap.array[index] = np.ma.masked
+
+        node = self.node_class()
+        node.derive(flap, A('Series', None), A('Family', 'DC-9'))
+
+        expected = reduce(operator.add, [
+            [0, -999] + [0] * 11,  #  0.0 ->  6.5 (one masked)
+            [13] * 7,              #  7.0 -> 16.5
+            [20] * 5,              # 17.0 -> 22.5
+            [25] * 5,              # 23.0 -> 27.5
+            [30] * 10,             # 28.0 -> 35.0
+            [40] * 10,             # 35.0 -> 49.0
+            [0] * 5,               # -5.0 -> -1.0
+            [13, 0],               # odd float values
+            [-999] * 2,            # masked values
+        ])
+
+        print map(int, np.ma.filled(node.array, fill_value=-999).tolist())
+        print expected
+
+        self.assertEqual(node.array.size, 59)
+        self.assertEqual(np.ma.filled(node.array, fill_value=-999).tolist(), expected)
+        for index in indexes:
+            self.assertTrue(np.ma.is_masked(node.array[index]))
+
     def test_time_taken(self):
         from timeit import Timer
         timer = Timer(self.test_flap_using_md82_settings)
         time = min(timer.repeat(2, 100))
-        print "Time taken %s secs" % time
-        self.assertLess(time, 1.0, msg="Took too long")
-        
-        
-        
+        self.assertLess(time, 1.25, msg='Took too long: %.3fs' % time)
+
+
 class TestFuelQty(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(FuelQty.get_operational_combinations(),
@@ -3435,31 +3443,47 @@ class TestEng_VibN3Max(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapLeverDetent(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
+class TestFlapLeverDetent(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = FlapLeverDetent
+        self.operational_combinations = [
+            ('Flap Lever', 'Series', 'Family'),
+            ('Flap Surface', 'Series', 'Family'),
+        ]
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapSurface(unittest.TestCase):
-    def test_can_operate(self):
-        combinations = FlapSurface.get_operational_combinations()
-        #self.assertTrue(all('Longitude Prepared' in c for c in combinations))
-        self.assertTrue(('Flap (L)', 'Altitude AAL') in combinations)
-        self.assertTrue(('Flap (R)', 'Altitude AAL') in combinations)
-        self.assertTrue(('Flap (L) Inboard', 'Altitude AAL') in combinations)
-        self.assertTrue(('Flap (R) Inboard', 'Altitude AAL') in combinations)
-        self.assertTrue(('Flap (L)', 'Flap (R)', 'Altitude AAL') in combinations)
-        self.assertTrue(('Flap (L) Inboard', 'Flap (R) Inboard', 'Altitude AAL') in combinations)
-        self.assertTrue(('Flap (L) Inboard', 'Flap (R) Inboard', 'Altitude AAL') in combinations)
-        self.assertTrue(('Flap (L)', 'Flap (R)', 'Flap (L) Inboard', 
-                         'Flap (R) Inboard', 'Frame', 'Approach', 
-                         'Altitude AAL') in combinations)
-        
+class TestFlapLeverSynthetic(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = FlapLeverSynthetic
+        self.operational_combinations = [
+            ('Flap Surface', 'Series', 'Family'),
+        ]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestFlapSurface(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = FlapSurface
+        self.operational_combinations = [
+            ('Flap (L)',),
+            ('Flap (R)',),
+            ('Flap (L) Inboard',),
+            ('Flap (R) Inboard',),
+            ('Flap (L)', 'Flap (R)'),
+            ('Flap (L) Inboard', 'Flap (R) Inboard'),
+            ('Flap (L)', 'Flap (R)', 'Flap (L) Inboard', 'Flap (R) Inboard', 'Frame'),
+        ]
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')

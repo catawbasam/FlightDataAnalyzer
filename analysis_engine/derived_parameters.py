@@ -3323,26 +3323,26 @@ class Groundspeed(DerivedParameterNode):
 
 
 class FlapLeverDetent(DerivedParameterNode):
-    """
+    '''
     Steps raw Flap angle from lever into detents.
-    """
+    '''
+
     units = 'deg'
-    
+
     @classmethod
     def can_operate(cls, available):
-        return ('Flap Surface' in available or 'Flap Lever' in available) and \
-               all_of(('Series', 'Family'), available)
-    
+        return any_of(('Flap Surface', 'Flap Lever'), available) \
+            and all_of(('Series', 'Family'), available)
 
-    def derive(self, flap_lvr=P('Flap Lever'), flap_surf=P('Flap Surface'), 
-               series=A('Series'), family=A('Family')):
-        
+    def derive(self,
+               flap_lvr=P('Flap Lever'),
+               flap_surf=P('Flap Surface'),
+               series=A('Series'),
+               family=A('Family')):
+
         # Use flap lever position where recorded, otherwise revert to flap surface.
-        if flap_lvr:
-            flap=flap_lvr
-        else:
-            flap=flap_surf
-            
+        flap = flap_lvr if flap_lvr else flap_surf
+
         try:
             flap_steps = get_flap_map(series.value, family.value)
         except KeyError:
@@ -3353,32 +3353,32 @@ class FlapLeverDetent(DerivedParameterNode):
         else:
             self.array = step_values(flap.array, flap.frequency, flap_steps, step_at='move_start')
 
+
 class FlapLeverSynthetic(DerivedParameterNode):
-    """
+    '''
     Steps raw Flap angle from lever into detents. This is being developed,
     along with extensions to the step_values algorithm, to cater for aircraft
     that do not record flap lever position separately.
-    
+
     At the same time, extensions to step_values to reflect the different
     needs of safety and maintenance organisations are being included, so for
     the present version the step_at keyword should not be used.
-    """
+    '''
+
     units = 'deg'
-    
+
     @classmethod
     def can_operate(cls, available):
-        return ('Flap Surface' in available) and \
-               all_of(('Series', 'Family'), available)
-    
+        return all_of(('Flap Surface', 'Series', 'Family'), available)
 
-    def derive(self, flap_lvr=P('Flap Lever'), flap_surf=P('Flap Surface'), 
-               series=A('Series'), family=A('Family')):
-        
+    def derive(self,
+               flap_lvr=P('Flap Lever'),  # XXX: Just for alignment? Or copied over from FlapLeverDetent?
+               flap_surf=P('Flap Surface'),
+               series=A('Series'),
+               family=A('Family')):
 
-        
-        flap=flap_surf
+        flap = flap_surf
 
-            
         try:
             flap_steps = get_flap_map(series.value, family.value)
         except KeyError:
@@ -3387,40 +3387,45 @@ class FlapLeverSynthetic(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap.frequency, 
-                                     flap_steps, 
+            self.array = step_values(flap.array, flap.frequency,
+                                     flap_steps,
                                      skip=True)
 
 
 class FlapSurface(DerivedParameterNode):
-    """
+    '''
     Gather the recorded flap parameters and convert into a single analogue.
-    """
+    '''
+
     align = False
     units = 'deg'
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Flap (L)', 'Flap (R)', 
-                       'Flap (L) Inboard', 'Flap (R) Inboard'),
-                      available)
+        return any_of((
+            'Flap (L)', 'Flap (R)',
+            'Flap (L) Inboard', 'Flap (R) Inboard',
+        ), available)
 
-    def derive(self, flap_A=P('Flap (L)'), flap_B=P('Flap (R)'),
+    def derive(self,
+               flap_A=P('Flap (L)'),
+               flap_B=P('Flap (R)'),
                flap_A_inboard=P('Flap (L) Inboard'),
                flap_B_inboard=P('Flap (R) Inboard'),
                frame=A('Frame')):
+
         frame_name = frame.value if frame else ''
-        
+
         flap_A = flap_A or flap_A_inboard
         flap_B = flap_B or flap_B_inboard
-        
+
         if frame_name.startswith('737-') or frame_name in ['757-2227000-59A',
                                                            '757-DHL',
                                                            '767-232F_DELTA-85',
                                                            '767-2227000-59B']:
             self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
                                                                            flap_B)
-            
+
         elif frame_name in ['747-200-GE', '747-200-PW', '747-200-AP-BIB']:
             # Only the right inboard flap is instrumented.
             self.array = flap_B.array
@@ -3430,9 +3435,9 @@ class FlapSurface(DerivedParameterNode):
 
 
 class Flap(DerivedParameterNode):
-    """
+    '''
     Steps raw Flap angle from surface into detents.
-    """
+    '''
 
     units = 'deg'
 
@@ -3440,25 +3445,28 @@ class Flap(DerivedParameterNode):
     def can_operate(cls, available):
         return all_of(('Flap Surface', 'Series', 'Family'), available)
 
-    def derive(self, flap=P('Flap Surface'),
-               series=A('Series'), family=A('Family'),
-               frame=A('Frame'), alt_aal=P('Altitude AAL')):
-        
+    def derive(self,
+               flap=P('Flap Surface'),
+               series=A('Series'),
+               family=A('Family'),
+               frame=A('Frame'),
+               alt_aal=P('Altitude AAL')):
+
         if frame.value == 'L382-Hercules':
             # Flap is not recorded, so invent one of the correct length.
             flap_herc = np_ma_zeros_like(alt_aal.array)
-            
+
             # Takeoff is normally with 50% flap
             _, toffs = slices_from_to(alt_aal.array, 0.0,1000.0)
             flap_herc[:toffs[0].stop] = 50.0
-                
+
             # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
             _, apps = slices_from_to(alt_aal.array, 2000.0,0.0)
             flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
 
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
-        
+
         else:
             try:
                 flap_steps = get_flap_map(series.value, family.value)
