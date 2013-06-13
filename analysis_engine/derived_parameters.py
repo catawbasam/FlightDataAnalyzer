@@ -4495,7 +4495,8 @@ class VerticalSpeedInertial(DerivedParameterNode):
                alt_rad = P('Altitude Radio'),
                fast = S('Fast')):
 
-        def inertial_vertical_speed(alt_std_repair, frequency, alt_rad_repair, az_repair):
+        def inertial_vertical_speed(alt_std_repair, frequency, alt_rad_repair,
+                                    az_repair):
             # Uses the complementary smoothing approach
 
             # This is the accelerometer washout term, with considerable gain.
@@ -4524,7 +4525,7 @@ class VerticalSpeedInertial(DerivedParameterNode):
             climbs = slices_from_to(alt_rad_repair, 0, 100)[1]
             for climb in climbs:
                 # From 5 seconds before lift to 100ft
-                lift_m5s = climb.start - 5*hz
+                lift_m5s = max(0, climb.start - 5*hz)
                 up = slice(lift_m5s if lift_m5s >= 0 else 0, climb.stop)
                 up_slope = integrate(az_washout[up], hz)
                 blend_end_error = roc[climb.stop-1] - up_slope[-1]
