@@ -4955,9 +4955,6 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                 to_chg = step_local_cusp(array[span])
             
                 if to_chg==0:
-                    if span==spans[0] or span==spans[-1]:
-                        # Don't alter end sections as this just gets messy.
-                        continue
                     # Continuous movement, so change at the step value if this passes through a step.
                     big = np.ma.max(array[span])
                     little = np.ma.min(array[span])
