@@ -2001,8 +2001,8 @@ class TestFlap(unittest.TestCase, NodeTest):
         self.assertEqual(np.ma.filled(node.array, fill_value=-1).tolist(), expected)
 
     def test_flap_using_md82_settings(self):
-        # MD82 has flaps (0, 11, 15, 28, 40)
-        #or now it's:         #(0, 13, 20, 25, 30, 40)?
+        # Note: Using flap detents for MD-82 of (0, 13, 20, 25, 30, 40)
+        # Note: Flap uses library.step_values(..., step_at='move_end')!
         indexes = (1, 57, 58)
         flap = P(
             name='Flap Surface',
@@ -2015,19 +2015,16 @@ class TestFlap(unittest.TestCase, NodeTest):
         node.derive(flap, A('Series', None), A('Family', 'DC-9'))
 
         expected = reduce(operator.add, [
-            [0, -999] + [0] * 11,  #  0.0 ->  6.5 (one masked)
-            [13] * 7,              #  7.0 -> 16.5
-            [20] * 5,              # 17.0 -> 22.5
-            [25] * 5,              # 23.0 -> 27.5
-            [30] * 10,             # 28.0 -> 35.0
-            [40] * 10,             # 35.0 -> 49.0
+            [0, -999] + [0] * 11,  #  0.0 -> 12.5 (one masked)
+            [13] * 7,              # 13.0 -> 19.5
+            [20] * 5,              # 20.0 -> 24.5
+            [25] * 5,              # 25.0 -> 29.5
+            [30] * 10,             # 30.0 -> 39.5
+            [40] * 10,             # 40.0 -> 49.5
             [0] * 5,               # -5.0 -> -1.0
             [13, 0],               # odd float values
             [-999] * 2,            # masked values
         ])
-
-        print map(int, np.ma.filled(node.array, fill_value=-999).tolist())
-        print expected
 
         self.assertEqual(node.array.size, 59)
         self.assertEqual(np.ma.filled(node.array, fill_value=-999).tolist(), expected)
