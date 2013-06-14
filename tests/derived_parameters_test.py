@@ -2035,7 +2035,7 @@ class TestFlap(unittest.TestCase, NodeTest):
         from timeit import Timer
         timer = Timer(self.test_flap_using_md82_settings)
         time = min(timer.repeat(2, 100))
-        self.assertLess(time, 1.25, msg='Took too long: %.3fs' % time)
+        self.assertLess(time, 1.5, msg='Took too long: %.3fs' % time)
 
 
 class TestFuelQty(unittest.TestCase):
