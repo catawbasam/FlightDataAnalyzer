@@ -711,11 +711,11 @@ class ILSLocalizerEstablished(FlightPhaseNode):
     def can_operate(cls, available):
         return all_of(('ILS Localizer',
                        'Altitude AAL For Flight Phases',
-                       'Approach'), available)
+                       'Approach And Landing'), available)
 
     def derive(self, ils_loc=P('ILS Localizer'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               apps=S('Approach'),
+               apps=S('Approach And Landing'),
                ils_freq=P('ILS Frequency'),):
         
         slices = apps.get_slices()
