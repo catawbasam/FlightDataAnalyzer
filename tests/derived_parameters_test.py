@@ -884,7 +884,7 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_array_equal(expected, alt_aal.array.data)
 
     def test_alt_aal_bounce_rejection(self):
-        data = np.ma.array([-3, 0, 30, 80, 250, 560, 220, 70, 20, -5, 2, 5, 2,
+        data = np.ma.array([-3, 0, 30, 80, 250, 560, 220, 70, 20, -5, 2, 2, 2,
                             -3, -3])
         alt_std = P(array=data + 300)
         alt_rad = P(array=data)
@@ -898,14 +898,14 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_array_equal(expected, alt_aal.array.data)
     
     def test_alt_aal_no_ralt(self):
-        data = np.ma.array([-3, 0, 30, 80, 250, 580, 220, 70, 20, -5])
+        data = np.ma.array([-3, 0, 30, 80, 250, 580, 220, 70, 20, 25])
         alt_std = P(array=data + 300)
-        slow_and_fast_data = np.ma.array([70] + [85] * 8 + [70])
+        slow_and_fast_data = np.ma.array([70] + [85] * 7 + [70]*2)
         phase_fast = Fast()
         phase_fast.derive(Parameter('Airspeed', slow_and_fast_data))
         alt_aal = AltitudeAAL()
         alt_aal.derive(None, alt_std, phase_fast)
-        expected = np.ma.array([0, 0, 30, 80, 250, 510, 150, 0, 0, 0])
+        expected = np.ma.array([0, 0, 30, 80, 250, 560, 200, 50, 0, 0])
         np.testing.assert_array_equal(expected, alt_aal.array.data)
 
     def test_alt_aal_complex(self):
@@ -919,7 +919,6 @@ class TestAltitudeAAL(unittest.TestCase):
         alt_aal.derive(P('Altitude Radio', rad_data),
                        P('Altitude STD', testwave),
                        phase_fast)
-        
         '''
         import matplotlib.pyplot as plt
         plt.plot(testwave)
@@ -927,14 +926,13 @@ class TestAltitudeAAL(unittest.TestCase):
         plt.plot(alt_aal.array)
         plt.show()
         '''
-        
         np.testing.assert_equal(alt_aal.array[0], 0.0)
         np.testing.assert_almost_equal(alt_aal.array[34], 7013, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[60], 3308, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[124], 217, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[191], 8965, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
-        np.testing.assert_almost_equal(alt_aal.array[313], 0, decimal=0)
+        np.testing.assert_almost_equal(alt_aal.array[313], 17, decimal=0)
     
 
     def test_alt_aal_complex_no_rad_alt(self):
@@ -947,14 +945,12 @@ class TestAltitudeAAL(unittest.TestCase):
         alt_aal.derive(None, 
                        P('Altitude STD', testwave),
                        phase_fast)
-        
         '''
         import matplotlib.pyplot as plt
         plt.plot(testwave)
         plt.plot(alt_aal.array)
         plt.show()
         '''
-        
         np.testing.assert_equal(alt_aal.array[0], 0.0)
         np.testing.assert_almost_equal(alt_aal.array[34], 6620, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[60], 2915, decimal=0)

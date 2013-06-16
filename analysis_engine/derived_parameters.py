@@ -90,6 +90,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      vstack_params_where_state)
 
 from settings import (AZ_WASHOUT_TC,
+                      BOUNCED_LANDING_THRESHOLD,
                       FEET_PER_NM,
                       HYSTERESIS_FPIAS,
                       HYSTERESIS_FPROC,
@@ -643,8 +644,10 @@ class AltitudeAAL(DerivedParameterNode):
     """
     name = "Altitude AAL"
     units = 'ft'
-    align_frequency = 2
-    align_offset = 0
+    #With the frequency and offset fixed as suggested by the following
+    #statement, Altitude Radio is not included in the computation for
+    #process_flight. Commented out until this has been resolved.
+    #align_frequency = 2 align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
@@ -665,8 +668,10 @@ class AltitudeAAL(DerivedParameterNode):
                 to = index_at_value(alt_std, min(alt_std[0]+500, np.ma.max(alt_std)))
                 # Seek the point where the altitude first curves upwards.
                 idx = int(peak_curvature(alt_std, slice(None,to)))
-                # The liftoff most probably arose in the preceding 20 seconds.
-                rotate = slice(max(idx-20,0),idx)
+                # The liftoff most probably arose in the preceding 10
+                # seconds. Allow 3 seconds afterwards for luck.
+                rotate = slice(max(idx-10*self.frequency,0),
+                               idx+3*self.frequency)
                 # Draw a straight line across this period with a ruler.
                 p,m,c = coreg(alt_std[rotate])
                 ruler = np.ma.arange(rotate.stop-rotate.start)*m+c
@@ -676,6 +681,19 @@ class AltitudeAAL(DerivedParameterNode):
                 # where the wing lift has caused the local pressure to
                 # increase, hence the altitude appears to decrease.
                 pit = alt_std[np.ma.argmin(delta)+rotate.start]
+                
+                '''
+                # Quick visual check of the operation of the takeoff point detection.
+                import matplotlib.pyplot as plt
+                plt.plot(alt_std[:to])
+                xnew = np.linspace(rotate.start,rotate.stop,num=2)
+                ynew = xnew*m + c
+                plt.plot(xnew,ynew,'-')                
+                plt.plot(np.ma.argmin(delta)+rotate.start, pit, 'dg')
+                plt.show()
+                plt.clf()
+                '''
+
             except:
                 # If something odd about the data causes a problem with this
                 # technique, use a simpler solution. This can give
@@ -699,8 +717,8 @@ class AltitudeAAL(DerivedParameterNode):
 
         
         alt_rad_aal = np.ma.maximum(alt_rad, 0.0)
-        ralt_sections = np.ma.clump_unmasked(
-            np.ma.masked_outside(alt_rad_aal, 0.0, 100.0))
+        x = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
+        ralt_sections = [y for y in x if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
 
         if len(ralt_sections)==0:
             # Either Altitude Radio did not drop below 100, or did not get
@@ -801,7 +819,8 @@ class AltitudeAAL(DerivedParameterNode):
                     # Rising section.
                     dips.append({
                         'type': 'land',
-                        'slice': slice(alt_idx, next_alt_idx),
+                        'slice': slice(quick.start, next_alt_idx),
+                        # was 'slice': slice(alt_idx, next_alt_idx),
                         'alt_std': alt,
                         'highest_ground': alt,
                     })
@@ -813,7 +832,8 @@ class AltitudeAAL(DerivedParameterNode):
                     # as for takeoffs.
                     dips.append({
                         'type': 'land',
-                        'slice': slice(next_alt_idx - 1, alt_idx - 1, -1),
+                        'slice': slice(quick.stop, alt_idx - 1, -1),
+                        # was 'slice': slice(next_alt_idx - 1, alt_idx - 1, -1),
                         'alt_std': next_alt,
                         'highest_ground': next_alt,
                     })
@@ -909,6 +929,9 @@ class AltitudeAAL(DerivedParameterNode):
                         self.compute_aal(dip['type'],
                                          alt_std.array[dip['slice']],
                                          dip['alt_std'], dip['highest_ground'])
+        # Reset end sections
+        alt_aal[quick.start:alt_idxs[0]] = 0.0
+        alt_aal[alt_idxs[-1]+1:quick.stop] = 0.0
         self.array = alt_aal
 
 
