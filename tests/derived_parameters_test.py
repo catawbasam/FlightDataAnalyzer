@@ -81,6 +81,10 @@ from analysis_engine.derived_parameters import (
     DistanceTravelled,
     DistanceToLanding,
     Elevator,
+    Eng_EPRAvg,
+    Eng_EPRMax,
+    Eng_EPRMin,
+    Eng_EPRMinFor5Sec,
     Eng_Fire,
     Eng_N1Avg,
     Eng_N1Max,
@@ -1606,11 +1610,60 @@ class TestDistanceTravelled(unittest.TestCase):
                                           scale=1.0 / 3600)
 
 
-class TestEng_EPRMax(unittest.TestCase):
+class TestEng_EPRAvg(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_EPRAvg
+        self.operational_combinations = [
+            ('Eng (1) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR', 'Eng (4) EPR',),
+        ]
+
     @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
+    def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
+
+
+class TestEng_EPRMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_EPRMax
+        self.operational_combinations = [
+            ('Eng (1) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR', 'Eng (4) EPR',),
+        ]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_EPRMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_EPRMin
+        self.operational_combinations = [
+            ('Eng (1) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR', 'Eng (4) EPR',),
+        ]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_EPRMinFor5Sec(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_EPRMinFor5Sec
+        self.operational_combinations = [('Eng (*) EPR Min',)]
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3048,26 +3101,6 @@ class TestElevator(unittest.TestCase):
         np.testing.assert_array_equal(elevator.array, expected_data)
         self.assertEqual(elevator.frequency, 2.0)
         self.assertEqual(elevator.offset, 0.3)
-
-
-class TestEng_EPRAvg(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestEng_EPRMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_Fire(unittest.TestCase):

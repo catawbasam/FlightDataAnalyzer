@@ -4324,6 +4324,46 @@ class EngEPR500To50FtMin(KeyPointValueNode):
         )
 
 
+class EngEPRFor5Sec500To50FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng EPR For 5 Sec 500 To 50 Ft Min'
+    units = '%'
+
+    def derive(self,
+               eng_epr_min=P('Eng (*) EPR Min For 5 Sec'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               duration=A('HDF Duration')):
+
+        self.create_kpvs_within_slices(
+            eng_epr_min.array,
+            trim_slices(alt_aal.slices_from_to(500, 50), 5, self.frequency,
+                        duration.value),
+            min_value,
+        )
+
+
+class EngEPRFor5Sec1000To500FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng EPR For 5 Sec 1000 To 500 Ft Min'
+    units = '%'
+
+    def derive(self,
+               eng_epr_min=P('Eng (*) EPR Min For 5 Sec'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               duration=A('HDF Duration')):
+
+        self.create_kpvs_within_slices(
+            eng_epr_min.array,
+            trim_slices(alt_aal.slices_from_to(1000, 500), 5, self.frequency,
+                        duration.value),
+            min_value,
+        )
+
+
 ##############################################################################
 # Engine Fire
 

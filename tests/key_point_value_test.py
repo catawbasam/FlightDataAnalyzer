@@ -140,6 +140,8 @@ from analysis_engine.key_point_values import (
     EngEPRDuringMaximumContinuousPowerMax,
     EngEPR500To50FtMax,
     EngEPR500To50FtMin,
+    EngEPRFor5Sec1000To500FtMin,
+    EngEPRFor5Sec500To50FtMin,
     EngFireWarningDuration,
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
@@ -3295,6 +3297,28 @@ class TestEngEPR500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.operational_combinations = [('Eng (*) EPR Min', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngEPRFor5Sec1000To500FtMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngEPRFor5Sec1000To500FtMin
+        self.operational_combinations = [('Eng (*) EPR Min For 5 Sec', 'Altitude AAL For Flight Phases', 'HDF Duration')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngEPRFor5Sec500To50FtMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngEPRFor5Sec500To50FtMin
+        self.operational_combinations = [('Eng (*) EPR Min For 5 Sec', 'Altitude AAL For Flight Phases', 'HDF Duration')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

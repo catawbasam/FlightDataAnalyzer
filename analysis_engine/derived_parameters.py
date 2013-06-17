@@ -1822,6 +1822,23 @@ class Eng_EPRMin(DerivedParameterNode):
         self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
+class Eng_EPRMinFor5Sec(DerivedParameterNode):
+    '''
+    Returns the lowest EPR for up to four engines over five seconds.
+    '''
+
+    name = 'Eng (*) EPR Min For 5 Sec'
+    units = '%'
+    align_frequency = 2
+    align_offset = 0
+
+    def derive(self,
+               eng_epr_min=P('Eng (*) EPR Min')):
+
+        #self.array = clip(eng_epr_min.array, 5.0, eng_epr_min.frequency, remove='troughs')
+        self.array = second_window(eng_epr_min.array, self.frequency, 5)
+
+
 ################################################################################
 # Engine Fire
 
