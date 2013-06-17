@@ -644,10 +644,8 @@ class AltitudeAAL(DerivedParameterNode):
     """
     name = "Altitude AAL"
     units = 'ft'
-    #With the frequency and offset fixed as suggested by the following
-    #statement, Altitude Radio is not included in the computation for
-    #process_flight. Commented out until this has been resolved.
-    #align_frequency = 2 align_offset = 0
+    align_frequency = 2 
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
