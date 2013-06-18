@@ -4315,7 +4315,7 @@ class TestStepValues(unittest.TestCase):
                           5,5,5,5,5,5,5,5,5,15,15,15,15,15,15,15,15,15,15,15,15,
                           15,15,15,15,15,15,15,15,15,15,15,15,5,5,5,5,5,5,5,5,5,
                           5,5,5,5,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
-    
+
     def test_step_trailing_edge_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
                              0.67, 0.98, 1.15, 1.28, 1.5, 1.71, 1.92, 2.12, 
@@ -4331,6 +4331,20 @@ class TestStepValues(unittest.TestCase):
                           15,15,15,15,15,15,15,15,15,15,15,15,15,15,5,5,5,5,5,5,
                           5,5,5,5,5,5,5,5,5,5,5,5,5,5,1,1,1,0,0,0,0,0,0,0,0,0,0,
                           0])
+
+    def test_step_trailing_edge_masked_data(self):
+        '''
+        tests first values being masked and remaining values have no cusp
+        '''
+        array = np.ma.array(
+            [0, 0, 0, 0, 4.92184, 4.92184, 4.92184, 4.92184,
+             4.92184, 4.92184, 4.92184, 4.92184, 4.92184, 4.92184])
+        array = np.ma.concatenate((array,array[::-1]))
+        array[:4]=np.ma.masked
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_end')
+        expected = np.ma.array([0,0,0,0,5,5,5,5,5,5,5,5,5,5])
+        expected = np.ma.concatenate((expected,expected[::-1]))
+        self.assertEqual(list(stepped), list(expected))
 
 
 class TestStraightenAltitudes(unittest.TestCase):
