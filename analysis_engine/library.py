@@ -2468,7 +2468,8 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
         result = repair_mask(array, 
                              repair_duration=None,
                              zero_if_masked=True,
-                             extrapolate=True)
+                             extrapolate=True,
+                             copy=True)
     else:
         result = np.ma.copy(array)
 
@@ -2543,7 +2544,7 @@ def integ_value(array,
     """
     index = stop_edge or _slice.stop or len(array)
     try:
-        value = integrate(array,
+        value = integrate(array[_slice],
                           frequency=frequency,
                           scale=scale,
                           repair=True,
@@ -4905,7 +4906,7 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     :rtype: np.ma.array
     """
     stepping_points = np.ediff1d(steps, to_end=[0])/2.0 + steps
-    stepped_array = np.zeros_like(array.data)
+    stepped_array = np_ma_zeros_like(array)
     low = None
     rt = rate_threshold/array_hz
     for level, high in zip(steps, stepping_points):
@@ -4917,6 +4918,7 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     else:
         # all values above the last
         stepped_array[low < array] = level
+    stepped_array.mask = np.ma.getmaskarray(array)
         
     if step_at!='midpoint':
         
@@ -4975,9 +4977,9 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                     else:
                         # OK - just ran from one step to another without dwelling, so fill with the start or end values.
                         if step_at == 'move_start':
-                            stepped_array[span] = stepped_array[span.start]
+                            stepped_array[span] = first_valid_sample(stepped_array[span]).value
                         else:
-                            stepped_array[span] = stepped_array[span.start]
+                            stepped_array[span] = first_valid_sample(stepped_array[span]).value
                 
                 elif step_at == 'move_start':
                     stepped_array[span][:to_chg] = stepped_array[span.start]
