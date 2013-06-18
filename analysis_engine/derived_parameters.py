@@ -644,10 +644,8 @@ class AltitudeAAL(DerivedParameterNode):
     """
     name = "Altitude AAL"
     units = 'ft'
-    #With the frequency and offset fixed as suggested by the following
-    #statement, Altitude Radio is not included in the computation for
-    #process_flight. Commented out until this has been resolved.
-    #align_frequency = 2 align_offset = 0
+    align_frequency = 2 
+    align_offset = 0
 
     @classmethod
     def can_operate(cls, available):
@@ -1820,6 +1818,23 @@ class Eng_EPRMin(DerivedParameterNode):
         engines = vstack_params(eng1, eng2, eng3, eng4)
         self.array = np.ma.min(engines, axis=0)
         self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+
+
+class Eng_EPRMinFor5Sec(DerivedParameterNode):
+    '''
+    Returns the lowest EPR for up to four engines over five seconds.
+    '''
+
+    name = 'Eng (*) EPR Min For 5 Sec'
+    units = '%'
+    align_frequency = 2
+    align_offset = 0
+
+    def derive(self,
+               eng_epr_min=P('Eng (*) EPR Min')):
+
+        #self.array = clip(eng_epr_min.array, 5.0, eng_epr_min.frequency, remove='troughs')
+        self.array = second_window(eng_epr_min.array, self.frequency, 5)
 
 
 ################################################################################

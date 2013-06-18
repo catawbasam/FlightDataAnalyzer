@@ -81,6 +81,10 @@ from analysis_engine.derived_parameters import (
     DistanceTravelled,
     DistanceToLanding,
     Elevator,
+    Eng_EPRAvg,
+    Eng_EPRMax,
+    Eng_EPRMin,
+    Eng_EPRMinFor5Sec,
     Eng_Fire,
     Eng_N1Avg,
     Eng_N1Max,
@@ -1606,24 +1610,76 @@ class TestDistanceTravelled(unittest.TestCase):
                                           scale=1.0 / 3600)
 
 
-class TestEng_EPRMax(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
+class TestEng_EPRAvg(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_EPRAvg
+        self.operational_combinations = [
+            ('Eng (1) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR', 'Eng (4) EPR',),
+        ]
+
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEng_N1Avg(unittest.TestCase):
-    def test_can_operate(self):
-        opts = Eng_N1Avg.get_operational_combinations()
-        self.assertEqual(opts[0], ('Eng (1) N1',))
-        self.assertEqual(opts[-1], ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1'))
-        self.assertEqual(len(opts), 15) # 15 combinations accepted!
-        
-    
+class TestEng_EPRMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_EPRMax
+        self.operational_combinations = [
+            ('Eng (1) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR', 'Eng (4) EPR',),
+        ]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_EPRMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_EPRMin
+        self.operational_combinations = [
+            ('Eng (1) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR',),
+            ('Eng (1) EPR', 'Eng (2) EPR', 'Eng (3) EPR', 'Eng (4) EPR',),
+        ]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_EPRMinFor5Sec(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_EPRMinFor5Sec
+        self.operational_combinations = [('Eng (*) EPR Min',)]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_N1Avg(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_N1Avg
+        self.operational_combinations = [
+            ('Eng (1) N1',),
+            ('Eng (1) N1', 'Eng (2) N1',),
+            ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1',),
+            ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',),
+        ]
+
     def test_derive_two_engines(self):
         # this tests that average is performed on incomplete dependencies and 
         # more than one dependency provided.
@@ -1642,13 +1698,17 @@ class TestEng_N1Avg(unittest.TestCase):
         )
 
 
-class TestEng_N1Max(unittest.TestCase):
-    def test_can_operate(self):
-        opts = Eng_N1Max.get_operational_combinations()
-        self.assertEqual(opts[0], ('Eng (1) N1',))
-        self.assertEqual(opts[-1], ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1'))
-        self.assertEqual(len(opts), 15) # 15 combinations accepted!
-  
+class TestEng_N1Max(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_N1Max
+        self.operational_combinations = [
+            ('Eng (1) N1',),
+            ('Eng (1) N1', 'Eng (2) N1',),
+            ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1',),
+            ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',),
+        ]
+
     def test_derive_two_engines(self):
         # this tests that average is performed on incomplete dependencies and 
         # more than one dependency provided.
@@ -1675,13 +1735,17 @@ class TestEng_N1Max(unittest.TestCase):
         self.assertEqual(eng.offset, 0)
         
         
-class TestEng_N1Min(unittest.TestCase):
-    def test_can_operate(self):
-        opts = Eng_N1Min.get_operational_combinations()
-        self.assertEqual(opts[0], ('Eng (1) N1',))
-        self.assertEqual(opts[-1], ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1'))
-        self.assertEqual(len(opts), 15) # 15 combinations accepted!
-  
+class TestEng_N1Min(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_N1Min
+        self.operational_combinations = [
+            ('Eng (1) N1',),
+            ('Eng (1) N1', 'Eng (2) N1',),
+            ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1',),
+            ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1',),
+        ]
+
     def test_derive_two_engines(self):
         # this tests that average is performed on incomplete dependencies and 
         # more than one dependency provided.
@@ -1710,14 +1774,17 @@ class TestEng_N1MinFor5Sec(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEng_N2Avg(unittest.TestCase):
-    def test_can_operate(self):
-        opts = Eng_N2Avg.get_operational_combinations()
-        self.assertEqual(opts[0], ('Eng (1) N2',))
-        self.assertEqual(opts[-1], ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2'))
-        self.assertEqual(len(opts), 15) # 15 combinations accepted!
-        
-    
+class TestEng_N2Avg(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_N2Avg
+        self.operational_combinations = [
+            ('Eng (1) N2',),
+            ('Eng (1) N2', 'Eng (2) N2',),
+            ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2',),
+            ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2',),
+        ]
+
     def test_derive_two_engines(self):
         # this tests that average is performed on incomplete dependencies and 
         # more than one dependency provided.
@@ -1735,13 +1802,18 @@ class TestEng_N2Avg(unittest.TestCase):
                       9]) # only second engine value masked
         )
 
-class TestEng_N2Max(unittest.TestCase):
-    def test_can_operate(self):
-        opts = Eng_N2Max.get_operational_combinations()
-        self.assertEqual(opts[0], ('Eng (1) N2',))
-        self.assertEqual(opts[-1], ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2'))
-        self.assertEqual(len(opts), 15) # 15 combinations accepted!
-  
+
+class TestEng_N2Max(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_N2Max
+        self.operational_combinations = [
+            ('Eng (1) N2',),
+            ('Eng (1) N2', 'Eng (2) N2',),
+            ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2',),
+            ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2',),
+        ]
+
     def test_derive_two_engines(self):
         # this tests that average is performed on incomplete dependencies and 
         # more than one dependency provided.
@@ -1757,15 +1829,19 @@ class TestEng_N2Max(unittest.TestCase):
             np.array([999, # both masked, so filled with 999
                       11,12,13,14,15,16,17,18,9])
         )
-        
-        
-class TestEng_N2Min(unittest.TestCase):
-    def test_can_operate(self):
-        opts = Eng_N2Min.get_operational_combinations()
-        self.assertEqual(opts[0], ('Eng (1) N2',))
-        self.assertEqual(opts[-1], ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2'))
-        self.assertEqual(len(opts), 15) # 15 combinations accepted!
-  
+
+
+class TestEng_N2Min(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_N2Min
+        self.operational_combinations = [
+            ('Eng (1) N2',),
+            ('Eng (1) N2', 'Eng (2) N2',),
+            ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2',),
+            ('Eng (1) N2', 'Eng (2) N2', 'Eng (3) N2', 'Eng (4) N2',),
+        ]
+
     def test_derive_two_engines(self):
         # this tests that average is performed on incomplete dependencies and 
         # more than one dependency provided.
@@ -1783,13 +1859,16 @@ class TestEng_N2Min(unittest.TestCase):
         )
 
 
-class TestEng_N3Avg(unittest.TestCase):
-    def test_can_operate(self):
-        opts = Eng_N3Avg.get_operational_combinations()
-        self.assertEqual(opts[0], ('Eng (1) N3',))
-        self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
-        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+class TestEng_N3Avg(unittest.TestCase, NodeTest):
 
+    def setUp(self):
+        self.node_class = Eng_N3Avg
+        self.operational_combinations = [
+            ('Eng (1) N3',),
+            ('Eng (1) N3', 'Eng (2) N3',),
+            ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3',),
+            ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3',),
+        ]
 
     def test_derive_two_engines(self):
         # this tests that average is performed on incomplete dependencies and
@@ -1809,12 +1888,16 @@ class TestEng_N3Avg(unittest.TestCase):
         )
 
 
-class TestEng_N3Max(unittest.TestCase):
-    def test_can_operate(self):
-        opts = Eng_N3Max.get_operational_combinations()
-        self.assertEqual(opts[0], ('Eng (1) N3',))
-        self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
-        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+class TestEng_N3Max(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_N3Max
+        self.operational_combinations = [
+            ('Eng (1) N3',),
+            ('Eng (1) N3', 'Eng (2) N3',),
+            ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3',),
+            ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3',),
+        ]
 
     def test_derive_two_engines(self):
         # this tests that average is performed on incomplete dependencies and
@@ -1833,12 +1916,16 @@ class TestEng_N3Max(unittest.TestCase):
         )
 
 
-class TestEng_N3Min(unittest.TestCase):
-    def test_can_operate(self):
-        opts = Eng_N3Min.get_operational_combinations()
-        self.assertEqual(opts[0], ('Eng (1) N3',))
-        self.assertEqual(opts[-1], ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3'))
-        self.assertEqual(len(opts), 15) # 15 combinations accepted!
+class TestEng_N3Min(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_N3Min
+        self.operational_combinations = [
+            ('Eng (1) N3',),
+            ('Eng (1) N3', 'Eng (2) N3',),
+            ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3',),
+            ('Eng (1) N3', 'Eng (2) N3', 'Eng (3) N3', 'Eng (4) N3',),
+        ]
 
     def test_derive_two_engines(self):
         # this tests that average is performed on incomplete dependencies and
@@ -3048,26 +3135,6 @@ class TestElevator(unittest.TestCase):
         np.testing.assert_array_equal(elevator.array, expected_data)
         self.assertEqual(elevator.frequency, 2.0)
         self.assertEqual(elevator.offset, 0.3)
-
-
-class TestEng_EPRAvg(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestEng_EPRMin(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_Fire(unittest.TestCase):
