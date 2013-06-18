@@ -5191,13 +5191,21 @@ class Tailwind(DerivedParameterNode):
 class SAT(DerivedParameterNode):
     """
     Computes Static Air Temperature from the Total Air Temperature, allowing
-    for compressibility effects.
+    for compressibility effects, or if this is not available, the standard
+    atmosphere and lapse rate.
     """
+    @classmethod
+    def can_operate(cls, available):
+        return True # As Altitude STD must always be available
+
     name = 'SAT'
     units = 'C'
 
-    def derive(self, tat=P('TAT'), mach=P('Mach')):
-        self.array = machtat2sat(mach.array, tat.array)
+    def derive(self, tat=P('TAT'), mach=P('Mach'), alt=P('Altitude STD')):
+        if tat and mach:
+            self.array = machtat2sat(mach.array, tat.array)
+        else:
+            self.array = alt2sat(alt.array)
     
     
 class TAT(DerivedParameterNode):
