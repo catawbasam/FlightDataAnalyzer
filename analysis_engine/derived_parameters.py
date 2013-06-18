@@ -542,15 +542,18 @@ class AirspeedTrue(DerivedParameterNode):
     temperature, so only these two parameters are required for the algorithm
     to run.
 
-    Where air temperature is available, we accept Toal Air Temperature (TAT)
-    and include this accordingly.
-
-    Thanks are due to Kevin Horton of Ottawa for permission to derive the
-    code here from his AeroCalc library.
+    Where air temperature is available, we accept Static Air Temperature
+    (SAT) and include this accordingly. If TAT is recorded, it will have
+    already been converted by the SAT derive function.
 
     True airspeed is also extended to the ends of the takeoff and landing
     run, in particular so that we can estimate the minimum airspeed at which
     thrust reversers are used.
+
+    -------------------------------------------------------------------------
+    Thanks are due to Kevin Horton of Ottawa for permission to derive the
+    code here from his AeroCalc library.
+    -------------------------------------------------------------------------
     """
 
     units = 'kts'
@@ -560,23 +563,20 @@ class AirspeedTrue(DerivedParameterNode):
         return 'Airspeed' in available and 'Altitude STD' in available
 
     def derive(self, cas_p=P('Airspeed'), alt_std_p=P('Altitude STD'),
-               tat_p=P('TAT'), toffs=S('Takeoff'), lands=S('Landing'),
+               sat_p=P('SAT'), toffs=S('Takeoff'), lands=S('Landing'),
                gspd=P('Groundspeed'), acc_fwd=P('Acceleration Forwards')):
 
-        ###tas_from_airspeed = np_ma_masked_zeros_like(cas)
         cas = cas_p.array
         alt_std = alt_std_p.array
-        if tat_p:
-            tat = tat_p.array
-            dp = cas2dp(cas)
-            mach = cas_alt2mach(cas, alt_std)
-            sat = machtat2sat(mach, tat)
+        dp = cas2dp(cas)
+        if sat_p:
+            sat = sat_p.array
             tas = dp2tas(dp, alt_std, sat)
             combined_mask= np.logical_or(
-                np.logical_or(cas_p.array.mask, alt_std_p.array.mask),
-                tas.mask)
+                np.logical_or(np.ma.getmaskarray(cas_p.array),
+                              np.ma.getmaskarray(alt_std_p.array)),
+                np.ma.getmaskarray(sat_p.array))
         else:
-            dp = cas2dp(cas)
             sat = alt2sat(alt_std)
             tas = dp2tas(dp, alt_std, sat)
             combined_mask= np.logical_or(cas_p.array.mask,alt_std_p.array.mask)
