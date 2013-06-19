@@ -1380,13 +1380,23 @@ class TestCycleSelect(unittest.TestCase):
 
     def test_cycle_select(self):
         index, value = cycle_select(self.array, 3.0, 10, 1.0, 0)
-        self.assertEqual(index, 29)
-        self.assertAlmostEqual(value, 3.93586778133)
+        self.assertEqual(index, 25)
+        self.assertAlmostEqual(value, 3.90451619)
 
+    def test_incomplete_cycle_rejected(self):
+        index, value = cycle_select(np.ma.array([0,0,5,5.0,2,2]),4.0, 3.0, 1.0)
+        self.assertEqual(index, None)
+        self.assertEqual(value, None)
+        
+    def test_full_cycle_identified(self):
+        index, value = cycle_select(np.ma.array([1,0,5,5.0,0,1]),4.0, 4.0, 1.0)
+        self.assertEqual(index, 2)
+        self.assertEqual(value, 5)
+        
     def test_cycle_select_with_offset(self):
         index, value = cycle_select(self.array, 3.0, 10, 1.0, 1234)
-        self.assertEqual(index, 1234 + 29)
-        self.assertAlmostEqual(value, 3.93586778133)
+        self.assertEqual(index, 1234 + 25)
+        self.assertAlmostEqual(value, 3.90451619)
 
     def test_cycle_select_too_slow(self):
         index, value = cycle_select(self.array, 3.0, 1, 1.0, 0)
@@ -1403,7 +1413,7 @@ class TestCycleSelect(unittest.TestCase):
         array = np.ma.array([0.0,3.0,-4.0,-2.0,0.0])
         index, value = cycle_select(array, 3.0, 10, 1.0, 0)
         self.assertEqual(index, 2)
-        self.assertEqual(value, 7.0)
+        self.assertEqual(value, 4.0)
 
 
 class TestCycleFinder(unittest.TestCase):
