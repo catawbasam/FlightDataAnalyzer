@@ -4344,6 +4344,7 @@ class TestStepValues(unittest.TestCase):
         stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_end')
         expected = np.ma.array([0,0,0,0,5,5,5,5,5,5,5,5,5,5])
         expected = np.ma.concatenate((expected,expected[::-1]))
+        expected[:4]=np.ma.masked
         self.assertEqual(list(stepped), list(expected))
 
 
