@@ -3481,7 +3481,12 @@ class Flap(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return all_of(('Flap Surface', 'Series', 'Family'), available)
+        '''
+        can operate with Frame and Alt aal if herc or Flap surface
+        '''
+        # TODO: Implement check for the value of Frame
+        return 'Flap Surface' in available or \
+               all_of(('Frame', 'Altitude AAL'), available)
 
     def derive(self,
                flap=P('Flap Surface'),
@@ -3490,7 +3495,9 @@ class Flap(DerivedParameterNode):
                frame=A('Frame'),
                alt_aal=P('Altitude AAL')):
 
-        if frame.value == 'L382-Hercules':
+        frame_name = frame.value if frame else None
+
+        if frame_name == 'L382-Hercules':
             # Flap is not recorded, so invent one of the correct length.
             flap_herc = np_ma_zeros_like(alt_aal.array)
 
@@ -3505,7 +3512,7 @@ class Flap(DerivedParameterNode):
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
 
-        else:
+        elif flap:
             try:
                 flap_steps = get_flap_map(series.value, family.value)
             except KeyError:
@@ -3515,6 +3522,8 @@ class Flap(DerivedParameterNode):
                 self.array = round_to_nearest(flap.array, 5.0)
             else:
                 self.array = step_values(flap.array, flap.frequency, flap_steps, step_at='move_end')
+        else:
+            raise DataFrameError(self.name, frame_name)
 
 
 '''
