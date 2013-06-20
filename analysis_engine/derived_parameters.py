@@ -985,8 +985,7 @@ class AltitudeRadio(DerivedParameterNode):
                source_R = P('Altitude Radio EFIS (R)')):
         sources = [source_A, source_B, source_C, source_E, source_L, source_R]
         self.offset = 0.0
-        # blend_parameters does not currently manage downsampling correctly, so return the highest frequency for now.
-        self.frequency = max([p.frequency for p in sources if p])
+        self.frequency = 4.0
         self.array = blend_parameters(sources,
                                       offset=self.offset, 
                                       frequency=self.frequency)
@@ -3963,8 +3962,7 @@ class ILSGlideslope(DerivedParameterNode):
                    source_M, source_N
                    ]
         self.offset = 0.0
-        # blend_parameters does not currently manage downsampling correctly, so return the highest frequency for now.
-        self.frequency = max([p.frequency for p in sources if p])
+        self.frequency = 2.0
         self.array = blend_parameters(sources, 
                                       offset=self.offset, 
                                       frequency=self.frequency,
@@ -5602,6 +5600,7 @@ class AileronRight(DerivedParameterNode):
     
     def derive(self, pot=P('Aileron (R) Potentiometer'),
                synchro=P('Aileron (R) Synchro')):
+
         synchro_samples = 0
         if synchro:
             synchro_samples = np.ma.count(synchro.array)
@@ -6176,7 +6175,7 @@ class WheelSpeedLeft(DerivedParameterNode):
                ws_3=P('Wheel Speed (L) (3)'), ws_4=P('Wheel Speed (L) (4)')):
         sources = [ws_1, ws_2, ws_3, ws_4]
         self.offset = 0.0
-        self.frequency = max([p.frequency for p in sources if p])
+        self.frequency = 4.0
         self.array = blend_parameters(sources, self.offset, self.frequency)
 
 
@@ -6196,7 +6195,7 @@ class WheelSpeedRight(DerivedParameterNode):
                ws_3=P('Wheel Speed (R) (3)'), ws_4=P('Wheel Speed (R) (4)')):
         sources = [ws_1, ws_2, ws_3, ws_4]
         self.offset = 0.0
-        self.frequency = max([p.frequency for p in sources if p])
+        self.frequency = 4.0
         self.array = blend_parameters(sources, self.offset, self.frequency)
 
 
