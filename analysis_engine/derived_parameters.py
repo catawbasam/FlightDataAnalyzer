@@ -665,7 +665,10 @@ class AltitudeAAL(DerivedParameterNode):
                 # Look over the first 500ft of climb (or less if the data doesn't get that high).
                 to = index_at_value(alt_std, min(alt_std[0]+500, np.ma.max(alt_std)))
                 # Seek the point where the altitude first curves upwards.
-                idx = int(peak_curvature(alt_std, slice(None,to)))
+                idx = int(peak_curvature(repair_mask(alt_std[:to]),
+                                         curve_sense='Concave',
+                                         gap = 7,
+                                         ttp = 10))
                 # The liftoff most probably arose in the preceding 10
                 # seconds. Allow 3 seconds afterwards for luck.
                 rotate = slice(max(idx-10*self.frequency,0),
@@ -680,14 +683,16 @@ class AltitudeAAL(DerivedParameterNode):
                 # increase, hence the altitude appears to decrease.
                 pit = alt_std[np.ma.argmin(delta)+rotate.start]
                 
+                
                 '''
                 # Quick visual check of the operation of the takeoff point detection.
                 import matplotlib.pyplot as plt
                 plt.plot(alt_std[:to])
                 xnew = np.linspace(rotate.start,rotate.stop,num=2)
-                ynew = xnew*m + c
+                ynew = (xnew-rotate.start)*m + c
                 plt.plot(xnew,ynew,'-')                
                 plt.plot(np.ma.argmin(delta)+rotate.start, pit, 'dg')
+                plt.plot(idx, alt_std[idx], 'dr')
                 plt.show()
                 plt.clf()
                 '''
@@ -1569,6 +1574,45 @@ class ControlColumn(DerivedParameterNode):
             blend_two_parameters(posn_capt, posn_fo)
 
 
+class ControlColumnCapt(DerivedParameterNode):
+    # See ElevatorLeft for explanation
+    name = 'Control Column (Capt)'
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Control Column (Capt) Potentiometer', 
+                       'Control Column (Capt) Synchro'), available)
+    
+    def derive(self, pot=P('Control Column (Capt) Potentiometer'),
+               synchro=P('Control Column (Capt) Synchro')):
+        synchro_samples = 0
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+
+class ControlColumnFO(DerivedParameterNode):
+    # See ElevatorLeft for explanation
+    name = 'Control Column (FO)'
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Control Column (FO) Potentiometer', 
+                       'Control Column (FO) Synchro'), available)
+    
+    def derive(self, pot=P('Control Column (FO) Potentiometer'),
+               synchro=P('Control Column (FO) Synchro')):
+        synchro_samples = 0
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+
+
 class ControlColumnForce(DerivedParameterNode):
     '''
     The combined force from the captain and the first officer.
@@ -1588,18 +1632,40 @@ class ControlWheel(DerivedParameterNode):
     '''
     The position of the control wheel blended from the position of the captain
     and first officer's control wheels.
+    
+    On the ATR42 there is the option of potentiometer or synchro input.
     '''
+    @classmethod
+    def can_operate(cls, available):
+        return all_of(('Control Wheel (Capt)','Control Wheel (FO)'), available)\
+               or\
+               any_of(('Control Wheel Synchro','Control Wheel Potentiometer'), available)
 
     align = False
     units = 'deg'
 
     def derive(self,
                posn_capt=P('Control Wheel (Capt)'),
-               posn_fo=P('Control Wheel (FO)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(posn_capt, posn_fo)
+               posn_fo=P('Control Wheel (FO)'),
+               pot=P('Control Wheel Potentiometer'),
+               synchro=P('Control Wheel Synchro')):
 
-
+        # Usually we are blending two sensors
+        if posn_capt and posn_fo:
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(posn_capt, posn_fo)
+            
+        # Less commonly we are selecting from a single source
+        else:
+            synchro_samples = 0
+            if synchro:
+                synchro_samples = np.ma.count(synchro.array)
+                self.array = synchro.array
+            if pot:
+                pot_samples = np.ma.count(pot.array)
+                if pot_samples>synchro_samples:
+                    self.array = pot.array
+        
 class DistanceToLanding(DerivedParameterNode):
     """
     Ground distance to cover before touchdown.
@@ -4963,6 +5029,30 @@ class RollRate(DerivedParameterNode):
         self.array = rate_of_change(roll, 2.0)
 
 
+class RudderPedal(DerivedParameterNode):
+    '''
+    See Elevator Left for description
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Rudder Pedal Potentiometer', 
+                       'Rudder Pedal Synchro'), available)
+    
+    def derive(self, pot=P('Rudder Pedal Potentiometer'),
+               synchro=P('Rudder Pedal Synchro')):
+
+        synchro_samples = 0
+        
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+            
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+        
+
 class ThrottleLevers(DerivedParameterNode):
     """
     A synthetic throttle lever angle, based on the average of the two. Allows
@@ -5483,6 +5573,44 @@ class Aileron(DerivedParameterNode):
         else:
             return NotImplemented
 
+class AileronLeft(DerivedParameterNode):
+    # See ElevatorLeft for explanation
+    name = 'Aileron (L)'
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Aileron (L) Potentiometer', 
+                       'Aileron (L) Synchro'), available)
+    
+    def derive(self, pot=P('Aileron (L) Potentiometer'),
+               synchro=P('Aileron (L) Synchro')):
+        synchro_samples = 0
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+        
+class AileronRight(DerivedParameterNode):
+    # See ElevatorLeft for explanation
+    name = 'Aileron (R)'
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Aileron (R) Potentiometer', 
+                       'Aileron (R) Synchro'), available)
+    
+    def derive(self, pot=P('Aileron (R) Potentiometer'),
+               synchro=P('Aileron (R) Synchro')):
+        synchro_samples = 0
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+        
 
 class AileronTrim(DerivedParameterNode): # RollTrim
     '''
@@ -5519,6 +5647,56 @@ class Elevator(DerivedParameterNode):
             self.offset = el.offset if el else er.offset
 
 
+class ElevatorLeft(DerivedParameterNode):
+    '''
+    Specific to a group of ATR aircraft which were progressively modified to
+    replace potentiometers with synchros. The data validity tests will mark
+    whole parameters invalid, or if both are valid, we want to pick the best
+    option.
+    '''
+    name = 'Elevator (L)'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Elevator (L) Potentiometer', 
+                       'Elevator (L) Synchro'), available)
+    
+    def derive(self, pot=P('Elevator (L) Potentiometer'),
+               synchro=P('Elevator (L) Synchro')):
+
+        synchro_samples = 0
+        
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+            
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+        
+class ElevatorRight(DerivedParameterNode):
+    # See ElevatorLeft for explanation
+    name = 'Elevator (R)'
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Elevator (R) Potentiometer', 
+                       'Elevator (R) Synchro'), available)
+    
+    def derive(self, pot=P('Elevator (R) Potentiometer'),
+               synchro=P('Elevator (R) Synchro')):
+        synchro_samples = 0
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+        
+    
+
+    
 ################################################################################
 # Speedbrake
 
