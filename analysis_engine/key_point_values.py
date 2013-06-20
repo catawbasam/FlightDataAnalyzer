@@ -6422,13 +6422,13 @@ class RateOfClimb35To1000FtMin(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               climbs=S('Climb')):
 
-        self.create_kpvs_within_slices(
-            vrt_spd.array,
-            alt_aal.slices_from_to(35, 1000),
-            min_value,
-        )
+        for climb in climbs:
+            alt_band = np.ma.masked_outside(alt_aal.array, 35, 1000)
+            alt_climb_sections = np.ma.clump_unmasked(alt_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_climb_sections, min_value)
 
 
 # XXX: Should use 'Altitude STD Smoothed'?
@@ -6443,13 +6443,13 @@ class RateOfClimbBelow10000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               climbs=S('Climb')):
 
-        self.create_kpvs_within_slices(
-            vrt_spd.array,
-            alt_aal.slices_from_to(0, 10000),
-            max_value,
-        )
+        for climb in climbs:
+            alt_band = np.ma.masked_outside(alt_aal.array, 0, 10000)
+            alt_climb_sections = np.ma.clump_unmasked(alt_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_climb_sections, max_value)
 
 
 class RateOfClimbDuringGoAroundMax(KeyPointValueNode):
