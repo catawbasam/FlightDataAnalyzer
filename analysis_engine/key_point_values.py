@@ -2251,8 +2251,15 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
 
     def derive(self,
                flap=P('Flap'),
+               flap_liftoff=KPV('Flap At Liftoff'),
                alt_aal=P('Altitude AAL'),
                airborne=S('Airborne')):
+
+        if flap_liftoff.get_first().value == 0.0:
+            # if taken off with flap 0 likely first flap change after liftoff
+            # will be on approach to land which we are not interested in
+            # here.
+            return
 
         for air in airborne:
             change_indexes = np.ma.where(np.ma.diff(flap.array[air.slice]))[0]

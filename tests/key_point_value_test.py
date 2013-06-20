@@ -2217,11 +2217,45 @@ class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AltitudeAtFirstFlapChangeAfterLiftoff
-        self.operational_combinations = [('Flap', 'Altitude AAL', 'Airborne')]
+        self.operational_combinations = [('Flap', 'Flap At Liftoff', 'Altitude AAL', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
+
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        flap_takeoff = KPV('Flap At Liftoff', items=[
+            KeyPointValue(name='Flap At Liftoff', index=2, value=5.0),
+        ])
+        flap = P('Flap', np.ma.array([0, 5, 5, 5, 5, 0, 0, 0, 0, 15, 30, 30, 30, 30, 15, 0]))
+        alt_aal_array = np.ma.array([0, 0, 0, 50, 100, 200, 300, 400])
+        alt_aal_array = np.ma.concatenate((alt_aal_array,alt_aal_array[::-1]))
+        alt_aal = P('Altitude AAL', alt_aal_array)
+        airs = buildsection('Airborne', 2, 14)
+
+        node = AltitudeAtFirstFlapChangeAfterLiftoff()
+        node.derive(flap=flap, flap_liftoff=flap_takeoff,
+                   alt_aal=alt_aal, airborne=airs)
+
+        expected = flap_takeoff = KPV('Altitude At First Flap Change After Liftoff', items=[
+            KeyPointValue(name='Altitude At First Flap Change After Liftoff', index=4, value=100),
+        ])
+        self.assertEqual(node, expected)
+
+
+    def test_derive_no_flap_takeoff(self):
+        flap_takeoff = KPV('Flap At Liftoff', items=[
+            KeyPointValue(name='Flap At Liftoff', index=2, value=0.0),
+        ])
+        flap = P('Flap', np.ma.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 30, 30, 30, 30, 15, 0]))
+        alt_aal_array = np.ma.array([0, 0, 0, 50, 100, 200, 300, 400])
+        alt_aal_array = np.ma.concatenate((alt_aal_array,alt_aal_array[::-1]))
+        alt_aal = P('Altitude AAL', alt_aal_array)
+        airs = buildsection('Airborne', 2, 14)
+
+        node = AltitudeAtFirstFlapChangeAfterLiftoff()
+        node.derive(flap=flap, flap_liftoff=flap_takeoff,
+                   alt_aal=alt_aal, airborne=airs)
+
+        expected = flap_takeoff = KPV('Altitude At First Flap Change After Liftoff', items=[])
+        self.assertEqual(node, expected)
 
 
 class TestAltitudeAtLastFlapChangeBeforeTouchdown(unittest.TestCase, NodeTest):
