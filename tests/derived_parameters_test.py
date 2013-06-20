@@ -81,6 +81,8 @@ from analysis_engine.derived_parameters import (
     DistanceTravelled,
     DistanceToLanding,
     Elevator,
+    ElevatorLeft,
+    ElevatorRight,
     Eng_EPRAvg,
     Eng_EPRMax,
     Eng_EPRMin,
@@ -1513,9 +1515,13 @@ class TestControlWheel(unittest.TestCase):
         self.cwf = P('Control Wheel (FO)', cwf)
 
     def test_can_operate(self):
-        expected = [('Control Wheel (Capt)', 'Control Wheel (FO)')]
+        expected = ('Control Wheel (Capt)', 
+                    'Control Wheel (FO)', 
+                    'Control Wheel Potentiometer', 
+                    'Control Wheel Synchro')
         opts = ControlWheel.get_operational_combinations()
-        self.assertEqual(opts, expected)
+        self.assertEqual(opts[-1], expected)
+        self.assertEqual(len(opts),6)
 
     @patch('analysis_engine.derived_parameters.blend_two_parameters')
     def test_control_wheel(self, blend_two_parameters):
@@ -3135,7 +3141,108 @@ class TestElevator(unittest.TestCase):
         self.assertEqual(elevator.frequency, 2.0)
         self.assertEqual(elevator.offset, 0.3)
 
-
+class TestElevatorLeft(unittest.TestCase):
+    def test_can_operate(self):
+        opts = ElevatorLeft.get_operational_combinations()
+        self.assertEqual(opts, [('Elevator (L) Potentiometer',),
+                                ('Elevator (L) Synchro',),
+                                ('Elevator (L) Potentiometer','Elevator (L) Synchro'),
+                                ])
+        
+    def test_synchro(self):
+        syn=P('Elevator (L) Synchro', np.ma.array(data=[1,2,3,4],
+                                                  mask=[0,0,1,0]))
+        elevator=ElevatorLeft()
+        elevator.derive(None, syn)
+        ma_test.assert_array_equal(elevator.array, syn.array)
+              
+    def test_pot(self):
+        pot=P('Elevator (L) Potentiometer', np.ma.array(data=[5,6,7,8],
+                                                  mask=[0,1,0,0]))
+        elevator=ElevatorLeft()
+        elevator.derive(pot, None)
+        ma_test.assert_array_equal(elevator.array, pot.array)
+              
+    def test_both_prefer_syn(self):
+        syn=P('Elevator (L) Synchro', np.ma.array(data=[1,2,3,4],
+                                                  mask=[0,0,1,0]))
+        pot=P('Elevator (L) Potentiometer', np.ma.array(data=[5,6,7,8],
+                                                  mask=[0,1,1,0]))
+        elevator=ElevatorLeft()
+        elevator.derive(pot, syn)
+        ma_test.assert_array_equal(elevator.array, syn.array)
+              
+    def test_both_prefer_pot(self):
+        syn=P('Elevator (L) Synchro', np.ma.array(data=[1,2,3,4],
+                                                  mask=[1,0,1,0]))
+        pot=P('Elevator (L) Potentiometer', np.ma.array(data=[5,6,7,8],
+                                                  mask=[0,0,1,0]))
+        elevator=ElevatorLeft()
+        elevator.derive(pot, syn)
+        ma_test.assert_array_equal(elevator.array, pot.array)
+              
+    def test_both_equally_good(self):
+        # Where there is no advantage, adopt the synchro which should be a better transducer.
+        syn=P('Elevator (L) Synchro', np.ma.array(data=[1,2,3,4],
+                                                  mask=[0,0,0,0]))
+        pot=P('Elevator (L) Potentiometer', np.ma.array(data=[5,6,7,8],
+                                                  mask=[0,0,0,0]))
+        elevator=ElevatorLeft()
+        elevator.derive(pot, syn)
+        ma_test.assert_array_equal(elevator.array, syn.array)
+              
+class TestElevatorRight(unittest.TestCase):
+    def test_can_operate(self):
+        opts = ElevatorRight.get_operational_combinations()
+        self.assertEqual(opts, [('Elevator (R) Potentiometer',),
+                                ('Elevator (R) Synchro',),
+                                ('Elevator (R) Potentiometer','Elevator (R) Synchro'),
+                                ])
+        
+    def test_synchro(self):
+        syn=P('Elevator (L) Synchro', np.ma.array(data=[1,2,3,4],
+                                                  mask=[0,0,1,0]))
+        elevator=ElevatorRight()
+        elevator.derive(None, syn)
+        ma_test.assert_array_equal(elevator.array, syn.array)
+              
+    def test_pot(self):
+        pot=P('Elevator (L) Potentiometer', np.ma.array(data=[5,6,7,8],
+                                                  mask=[0,1,0,0]))
+        elevator=ElevatorRight()
+        elevator.derive(pot, None)
+        ma_test.assert_array_equal(elevator.array, pot.array)
+              
+    def test_both_prefer_syn(self):
+        syn=P('Elevator (L) Synchro', np.ma.array(data=[1,2,3,4],
+                                                  mask=[0,0,1,0]))
+        pot=P('Elevator (L) Potentiometer', np.ma.array(data=[5,6,7,8],
+                                                  mask=[0,1,1,0]))
+        elevator=ElevatorRight()
+        elevator.derive(pot, syn)
+        ma_test.assert_array_equal(elevator.array, syn.array)
+              
+    def test_both_prefer_pot(self):
+        syn=P('Elevator (L) Synchro', np.ma.array(data=[1,2,3,4],
+                                                  mask=[1,0,1,0]))
+        pot=P('Elevator (L) Potentiometer', np.ma.array(data=[5,6,7,8],
+                                                  mask=[0,0,1,0]))
+        elevator=ElevatorRight()
+        elevator.derive(pot, syn)
+        ma_test.assert_array_equal(elevator.array, pot.array)
+              
+    def test_both_equally_good(self):
+        # Where there is no advantage, adopt the synchro which should be a better transducer.
+        syn=P('Elevator (L) Synchro', np.ma.array(data=[1,2,3,4],
+                                                  mask=[0,0,0,0]))
+        pot=P('Elevator (L) Potentiometer', np.ma.array(data=[5,6,7,8],
+                                                  mask=[0,0,0,0]))
+        elevator=ElevatorRight()
+        elevator.derive(pot, syn)
+        ma_test.assert_array_equal(elevator.array, syn.array)
+              
+                 
+              
 class TestEng_Fire(unittest.TestCase):
 
     @unittest.skip('Test Not Implemented')
