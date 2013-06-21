@@ -60,6 +60,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      slices_and_not,
                                      slices_from_to,
                                      slices_not,
+                                     slices_or,
                                      slices_overlap,
                                      slices_and,
                                      slices_remove_small_slices,
@@ -2251,8 +2252,15 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
 
     def derive(self,
                flap=P('Flap'),
+               flap_liftoff=KPV('Flap At Liftoff'),
                alt_aal=P('Altitude AAL'),
                airborne=S('Airborne')):
+
+        if flap_liftoff.get_first().value == 0.0:
+            # if taken off with flap 0 likely first flap change after liftoff
+            # will be on approach to land which we are not interested in
+            # here.
+            return
 
         for air in airborne:
             change_indexes = np.ma.where(np.ma.diff(flap.array[air.slice]))[0]
@@ -6415,13 +6423,16 @@ class RateOfClimb35To1000FtMin(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               climbs=S('Climb'),
+               initial_climbs=S('Initial Climb')):
 
-        self.create_kpvs_within_slices(
-            vrt_spd.array,
-            alt_aal.slices_from_to(35, 1000),
-            min_value,
-        )
+        combined_climbs = slices_or(climbs.get_slices()+initial_climbs.get_slices())
+        for climb_slice in combined_climbs:
+            alt_band = np.ma.masked_outside(alt_aal.array, 35, 1000)
+            alt_climb_band = mask_outside_slices(alt_band, [climb_slice])
+            alt_climb_sections = np.ma.clump_unmasked(alt_climb_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_climb_sections, min_value)
 
 
 # XXX: Should use 'Altitude STD Smoothed'?

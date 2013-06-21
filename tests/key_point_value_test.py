@@ -2217,11 +2217,45 @@ class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AltitudeAtFirstFlapChangeAfterLiftoff
-        self.operational_combinations = [('Flap', 'Altitude AAL', 'Airborne')]
+        self.operational_combinations = [('Flap', 'Flap At Liftoff', 'Altitude AAL', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
+
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        flap_takeoff = KPV('Flap At Liftoff', items=[
+            KeyPointValue(name='Flap At Liftoff', index=2, value=5.0),
+        ])
+        flap = P('Flap', np.ma.array([0, 5, 5, 5, 5, 0, 0, 0, 0, 15, 30, 30, 30, 30, 15, 0]))
+        alt_aal_array = np.ma.array([0, 0, 0, 50, 100, 200, 300, 400])
+        alt_aal_array = np.ma.concatenate((alt_aal_array,alt_aal_array[::-1]))
+        alt_aal = P('Altitude AAL', alt_aal_array)
+        airs = buildsection('Airborne', 2, 14)
+
+        node = AltitudeAtFirstFlapChangeAfterLiftoff()
+        node.derive(flap=flap, flap_liftoff=flap_takeoff,
+                   alt_aal=alt_aal, airborne=airs)
+
+        expected = KPV('Altitude At First Flap Change After Liftoff', items=[
+            KeyPointValue(name='Altitude At First Flap Change After Liftoff', index=4, value=100),
+        ])
+        self.assertEqual(node, expected)
+
+
+    def test_derive_no_flap_takeoff(self):
+        flap_takeoff = KPV('Flap At Liftoff', items=[
+            KeyPointValue(name='Flap At Liftoff', index=2, value=0.0),
+        ])
+        flap = P('Flap', np.ma.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 30, 30, 30, 30, 15, 0]))
+        alt_aal_array = np.ma.array([0, 0, 0, 50, 100, 200, 300, 400])
+        alt_aal_array = np.ma.concatenate((alt_aal_array,alt_aal_array[::-1]))
+        alt_aal = P('Altitude AAL', alt_aal_array)
+        airs = buildsection('Airborne', 2, 14)
+
+        node = AltitudeAtFirstFlapChangeAfterLiftoff()
+        node.derive(flap=flap, flap_liftoff=flap_takeoff,
+                   alt_aal=alt_aal, airborne=airs)
+
+        expected = flap_takeoff = KPV('Altitude At First Flap Change After Liftoff', items=[])
+        self.assertEqual(node, expected)
 
 
 class TestAltitudeAtLastFlapChangeBeforeTouchdown(unittest.TestCase, NodeTest):
@@ -5427,30 +5461,54 @@ class TestRateOfClimbMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRateOfClimb35To1000FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestRateOfClimb35To1000FtMin(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = RateOfClimb35To1000FtMin
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
+    def test_can_operate(self):
+        opts = RateOfClimb35To1000FtMin.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Climb', 'Initial Climb')])
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        array = np.ma.concatenate((np.ma.arange(0, 500, 25), np.ma.arange(500, 1000, 100), [1050, 950, 990], [1100]*5))
+        array = np.ma.concatenate((array, array[::-1]))
+        alt = P('Altitude AAL For Flight Phases', array)
+        roc_array = np.ma.concatenate(([25]*19, [43, 62, 81, 100, 112, 62, 47, 50, 12, 37, 27, 0, 0, 0]))
+        roc_array = np.ma.concatenate((roc_array, -roc_array[::-1]))
+        vert_spd = P('Vertical Speed', roc_array)
+
+        climb = buildsection('Climb', 25, 28)
+        init_climb = buildsection('Initial Climb', 1.4, 25)
+
+        node = RateOfClimb35To1000FtMin()
+        node.derive(vert_spd, alt, climb, init_climb)
+
+        expected = KPV('Rate Of Climb 35 To 1000 Ft Min', items=[
+            KeyPointValue(name='Rate Of Climb 35 To 1000 Ft Min', index=27, value=12),
+        ])
+        self.assertEqual(node, expected)
 
 
-class TestRateOfClimbBelow10000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestRateOfClimbBelow10000FtMax(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = RateOfClimbBelow10000FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (0, 10000), {})]
+    def test_can_operate(self):
+        opts = RateOfClimbBelow10000FtMax.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases')])
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        array = np.ma.concatenate((np.ma.arange(0, 5000, 250), np.ma.arange(5000, 10000, 1000), [10500, 9500, 9900], [11000]*5))
+        array = np.ma.concatenate((array, array[::-1]))
+        alt = P('Altitude AAL For Flight Phases', array)
+        roc_array = np.ma.concatenate(([250]*19, [437, 625, 812, 1000, 1125, 625, 475, 500, 125, 375, 275, 0, 0, 0]))
+        roc_array = np.ma.concatenate((roc_array, 1-roc_array[::-1]))
+        vert_spd = P('Vertical Speed', roc_array)
+
+        node = RateOfClimbBelow10000FtMax()
+        node.derive(vert_spd, alt)
+
+        expected = KPV('Rate Of Climb Below 10000 Ft Max', items=[
+            KeyPointValue(name='Rate Of Climb Below 10000 Ft Max', index=23, value=1125),
+            KeyPointValue(name='Rate Of Climb Below 10000 Ft Max', index=26, value=500),
+        ])
+        self.assertEqual(node, expected)
 
 
 class TestRateOfClimbDuringGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):

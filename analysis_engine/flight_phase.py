@@ -339,7 +339,7 @@ class ClimbCruiseDescent(FlightPhaseNode):
 class Climb(FlightPhaseNode):
     def derive(self,
                toc=KTI('Top Of Climb'),
-               eot=KTI('Climb Start'), # AKA End Of Takeoff
+               eot=KTI('Climb Start'), # AKA End Of Initial Climb
                bod=KTI('Bottom Of Descent')):
         # First we extract the kti index values into simple lists.
         toc_list = []
@@ -856,6 +856,22 @@ class InitialApproach(FlightPhaseNode):
                     self.create_phases(shift_slices([slice(begin, pit)],
                                                    app_land.slice.start))
                                                    """
+
+
+class InitialClimb(FlightPhaseNode):
+    '''
+    Phase from end of Takeoff (35ft) to start of climb (1000ft)
+    '''
+    def derive(self,
+               takeoffs=S('Takeoff'),
+               climb_starts=KTI('Climb Start')):
+        for takeoff in takeoffs:
+            begin = takeoff.stop_edge
+            for climb_start in climb_starts.get_ordered_by_index():
+                end = climb_start.index
+                if end > begin:
+                    self.create_phase(slice(begin, end), begin=begin, end=end)
+                    break
 
 
 class LevelFlight(FlightPhaseNode):

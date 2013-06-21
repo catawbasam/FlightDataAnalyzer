@@ -985,8 +985,7 @@ class AltitudeRadio(DerivedParameterNode):
                source_R = P('Altitude Radio EFIS (R)')):
         sources = [source_A, source_B, source_C, source_E, source_L, source_R]
         self.offset = 0.0
-        # blend_parameters does not currently manage downsampling correctly, so return the highest frequency for now.
-        self.frequency = max([p.frequency for p in sources if p])
+        self.frequency = 4.0
         self.array = blend_parameters(sources,
                                       offset=self.offset, 
                                       frequency=self.frequency)
@@ -1574,6 +1573,45 @@ class ControlColumn(DerivedParameterNode):
             blend_two_parameters(posn_capt, posn_fo)
 
 
+class ControlColumnCapt(DerivedParameterNode):
+    # See ElevatorLeft for explanation
+    name = 'Control Column (Capt)'
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Control Column (Capt) Potentiometer', 
+                       'Control Column (Capt) Synchro'), available)
+    
+    def derive(self, pot=P('Control Column (Capt) Potentiometer'),
+               synchro=P('Control Column (Capt) Synchro')):
+        synchro_samples = 0
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+
+class ControlColumnFO(DerivedParameterNode):
+    # See ElevatorLeft for explanation
+    name = 'Control Column (FO)'
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Control Column (FO) Potentiometer', 
+                       'Control Column (FO) Synchro'), available)
+    
+    def derive(self, pot=P('Control Column (FO) Potentiometer'),
+               synchro=P('Control Column (FO) Synchro')):
+        synchro_samples = 0
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+
+
 class ControlColumnForce(DerivedParameterNode):
     '''
     The combined force from the captain and the first officer.
@@ -1593,6 +1631,8 @@ class ControlWheel(DerivedParameterNode):
     '''
     The position of the control wheel blended from the position of the captain
     and first officer's control wheels.
+    
+    On the ATR42 there is the option of potentiometer or synchro input.
     '''
     @classmethod
     def can_operate(cls, available):
@@ -3926,8 +3966,7 @@ class ILSGlideslope(DerivedParameterNode):
                    source_M, source_N
                    ]
         self.offset = 0.0
-        # blend_parameters does not currently manage downsampling correctly, so return the highest frequency for now.
-        self.frequency = max([p.frequency for p in sources if p])
+        self.frequency = 2.0
         self.array = blend_parameters(sources, 
                                       offset=self.offset, 
                                       frequency=self.frequency,
@@ -4992,6 +5031,30 @@ class RollRate(DerivedParameterNode):
         self.array = rate_of_change(roll, 2.0)
 
 
+class RudderPedal(DerivedParameterNode):
+    '''
+    See Elevator Left for description
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Rudder Pedal Potentiometer', 
+                       'Rudder Pedal Synchro'), available)
+    
+    def derive(self, pot=P('Rudder Pedal Potentiometer'),
+               synchro=P('Rudder Pedal Synchro')):
+
+        synchro_samples = 0
+        
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+            
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+        
+
 class ThrottleLevers(DerivedParameterNode):
     """
     A synthetic throttle lever angle, based on the average of the two. Allows
@@ -5512,6 +5575,45 @@ class Aileron(DerivedParameterNode):
         else:
             return NotImplemented
 
+class AileronLeft(DerivedParameterNode):
+    # See ElevatorLeft for explanation
+    name = 'Aileron (L)'
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Aileron (L) Potentiometer', 
+                       'Aileron (L) Synchro'), available)
+    
+    def derive(self, pot=P('Aileron (L) Potentiometer'),
+               synchro=P('Aileron (L) Synchro')):
+        synchro_samples = 0
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+        
+class AileronRight(DerivedParameterNode):
+    # See ElevatorLeft for explanation
+    name = 'Aileron (R)'
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Aileron (R) Potentiometer', 
+                       'Aileron (R) Synchro'), available)
+    
+    def derive(self, pot=P('Aileron (R) Potentiometer'),
+               synchro=P('Aileron (R) Synchro')):
+
+        synchro_samples = 0
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
+        
 
 class AileronTrim(DerivedParameterNode): # RollTrim
     '''
@@ -6077,7 +6179,7 @@ class WheelSpeedLeft(DerivedParameterNode):
                ws_3=P('Wheel Speed (L) (3)'), ws_4=P('Wheel Speed (L) (4)')):
         sources = [ws_1, ws_2, ws_3, ws_4]
         self.offset = 0.0
-        self.frequency = max([p.frequency for p in sources if p])
+        self.frequency = 4.0
         self.array = blend_parameters(sources, self.offset, self.frequency)
 
 
@@ -6097,7 +6199,7 @@ class WheelSpeedRight(DerivedParameterNode):
                ws_3=P('Wheel Speed (R) (3)'), ws_4=P('Wheel Speed (R) (4)')):
         sources = [ws_1, ws_2, ws_3, ws_4]
         self.offset = 0.0
-        self.frequency = max([p.frequency for p in sources if p])
+        self.frequency = 4.0
         self.array = blend_parameters(sources, self.offset, self.frequency)
 
 
