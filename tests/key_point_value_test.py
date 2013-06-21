@@ -5465,20 +5465,21 @@ class TestRateOfClimb35To1000FtMin(unittest.TestCase):
 
     def test_can_operate(self):
         opts = RateOfClimb35To1000FtMin.get_operational_combinations()
-        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Climb')])
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Climb', 'Initial Climb')])
 
     def test_derive(self):
         array = np.ma.concatenate((np.ma.arange(0, 500, 25), np.ma.arange(500, 1000, 100), [1050, 950, 990], [1100]*5))
         array = np.ma.concatenate((array, array[::-1]))
         alt = P('Altitude AAL For Flight Phases', array)
         roc_array = np.ma.concatenate(([25]*19, [43, 62, 81, 100, 112, 62, 47, 50, 12, 37, 27, 0, 0, 0]))
-        roc_array = np.ma.concatenate((roc_array, roc_array[::-1]))
+        roc_array = np.ma.concatenate((roc_array, -roc_array[::-1]))
         vert_spd = P('Vertical Speed', roc_array)
 
-        climb = buildsection('Climb', 1.4, 28)
+        climb = buildsection('Climb', 25, 28)
+        init_climb = buildsection('Initial Climb', 1.4, 25)
 
         node = RateOfClimb35To1000FtMin()
-        node.derive(vert_spd, alt, climb)
+        node.derive(vert_spd, alt, climb, init_climb)
 
         expected = KPV('Rate Of Climb 35 To 1000 Ft Min', items=[
             KeyPointValue(name='Rate Of Climb 35 To 1000 Ft Min', index=27, value=12),
@@ -5488,26 +5489,24 @@ class TestRateOfClimb35To1000FtMin(unittest.TestCase):
 
 class TestRateOfClimbBelow10000FtMax(unittest.TestCase):
 
-    
     def test_can_operate(self):
         opts = RateOfClimbBelow10000FtMax.get_operational_combinations()
-        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Climb')])
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases')])
 
     def test_derive(self):
         array = np.ma.concatenate((np.ma.arange(0, 5000, 250), np.ma.arange(5000, 10000, 1000), [10500, 9500, 9900], [11000]*5))
         array = np.ma.concatenate((array, array[::-1]))
         alt = P('Altitude AAL For Flight Phases', array)
         roc_array = np.ma.concatenate(([250]*19, [437, 625, 812, 1000, 1125, 625, 475, 500, 125, 375, 275, 0, 0, 0]))
-        roc_array = np.ma.concatenate((roc_array, roc_array[::-1]))
+        roc_array = np.ma.concatenate((roc_array, 1-roc_array[::-1]))
         vert_spd = P('Vertical Speed', roc_array)
 
-        climb = buildsection('Climb', 0, 28)
-
         node = RateOfClimbBelow10000FtMax()
-        node.derive(vert_spd, alt, climb)
+        node.derive(vert_spd, alt)
 
         expected = KPV('Rate Of Climb Below 10000 Ft Max', items=[
             KeyPointValue(name='Rate Of Climb Below 10000 Ft Max', index=23, value=1125),
+            KeyPointValue(name='Rate Of Climb Below 10000 Ft Max', index=26, value=500),
         ])
         self.assertEqual(node, expected)
 
