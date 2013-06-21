@@ -3509,9 +3509,13 @@ class Flap(DerivedParameterNode):
         '''
         can operate with Frame and Alt aal if herc or Flap surface
         '''
-        # TODO: Implement check for the value of Frame
-        return 'Flap Surface' in available or \
-               all_of(('Frame', 'Altitude AAL'), available)
+        if 'Flap Surface' in available:
+            # normal use, we require series / family to lookup the detents
+            return all_of(('Series', 'Family'), available)
+        else:
+            # Hercules has no Flap Surface recorded so determines it from AAL
+            # TODO: Implement check for the value of Frame for herc
+            return all_of(('Frame', 'Altitude AAL'), available)
 
     def derive(self,
                flap=P('Flap Surface'),
