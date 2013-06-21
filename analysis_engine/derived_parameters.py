@@ -3305,24 +3305,25 @@ class GearUpSelected(MultistateDerivedParameterNode):
 
 ################################################################################
 
-class GrossWeight(DerivedParameterNode):
-    '''
-    Merges alternate gross weight measurements. 757-DHK frame applies.
-    '''
-    units = 'kg'
-    align = False
+## There is no difference between the two sources, and the sample rate is so low as to make merging pointless.
+##class GrossWeight(DerivedParameterNode):
+    ##'''
+    ##Merges alternate gross weight measurements. 757-DHK frame applies.
+    ##'''
+    ##units = 'kg'
+    ##align = False
 
-    def derive(self,
-               source_L = P('Gross Weight (L)'),
-               source_R = P('Gross Weight (R)'),
-               frame = A('Frame')):
+    ##def derive(self,
+               ##source_L = P('Gross Weight (L)'),
+               ##source_R = P('Gross Weight (R)'),
+               ##frame = A('Frame')):
 
-        if frame.value in ['757-DHL']:
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_L, source_R)
+        ##if frame.value in ['757-DHL']:
+            ##self.array, self.frequency, self.offset = \
+                ##blend_two_parameters(source_L, source_R)
 
-        else:
-            raise DataFrameError(self.name, frame.value)
+        ##else:
+            ##raise DataFrameError(self.name, frame.value)
 
     
 
