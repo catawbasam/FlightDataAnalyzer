@@ -4800,6 +4800,8 @@ class TestStableApproach(unittest.TestCase):
             ('Approach And Landing', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'ILS Localizer', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
             # exc. ILS Glideslope and ILS Localizer and Vapp
             ('Approach And Landing', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
+            # using EPR and exc. Airspeed Relative
+            ('Approach And Landing', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) EPR Min For 5 Sec', 'Altitude AAL', 'Vapp'),
         ]
         for combo in combinations:
             self.assertIn(combo, opts)
@@ -4848,7 +4850,7 @@ class TestStableApproach(unittest.TestCase):
         # == [2000, 1800, 1600, 1400, 1200, 1000, 800, 600, 400, 219, 199, 179, 159, 139, 119, 99, 79, 59, 39, 19]
         alt = P(array=np.ma.array(al))
         # DERIVE without using Vapp (using Vref limits)
-        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide, loc, eng, alt, None)
+        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide, loc, eng, None, alt, None)
         self.assertEqual(len(stable.array), len(alt.array))
         self.assertEqual(len(stable.array), len(head.array))
         
@@ -4862,7 +4864,7 @@ class TestStableApproach(unittest.TestCase):
         # Test without the use of Glideslope (not on it at 1000ft) therefore
         # instability for index 7-10 is now due to low Engine Power
         glide2 = P(array=np.ma.array([3.5]*20))
-        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide2, loc, eng, alt)
+        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide2, loc, eng, None, alt, None)
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
                [0, 1, 1, 4, 9, 2, 8, 8, 8, 8, 8, 3, 3, 8, 9, 9, 9, 9, 9, 9, 0])
@@ -4871,7 +4873,7 @@ class TestStableApproach(unittest.TestCase):
         # Test with a lot of vertical speed (rather than just gusts above)
         v2 = [-1800] * 20
         vert_spd2 = P(array=np.ma.array(v2))
-        stable.derive(apps, gear, flap, head, aspd, vert_spd2, glide2, loc, eng, alt)
+        stable.derive(apps, gear, flap, head, aspd, vert_spd2, glide2, loc, eng, None, alt, None)
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
                [0, 1, 1, 4, 9, 2, 7, 7, 7, 7, 7, 3, 3, 7, 7, 7, 9, 9, 9, 9, 0])
@@ -4884,7 +4886,7 @@ class TestStableApproach(unittest.TestCase):
         g3 = [ 6,  6,  6,  6,  0, .5, .5,-.5,1.2,1.5,1.4,1.3,  0,  0,  0,  0,  0, -2, -2, -2, -2]
         gm = [ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
         glide3 = P(array=np.ma.array(g3, mask=gm))
-        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide3, loc, eng, alt)
+        stable.derive(apps, gear, flap, head, aspd, vert_spd, glide3, loc, eng, None, alt, None)
         self.assertEqual(list(stable.array.data),
         #index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20
                [0, 1, 1, 4, 9, 2, 8, 6, 5, 5, 5, 3, 3, 5, 5, 5, 5, 5, 5, 5, 0])
@@ -4921,7 +4923,8 @@ class TestStableApproach(unittest.TestCase):
             vspd=vspd,
             gdev=gdev,
             ldev=ldev,
-            eng=eng,
+            eng_n1=eng,
+            eng_epr=None,
             alt=alt,
             vapp=None)
         
