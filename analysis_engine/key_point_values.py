@@ -2324,7 +2324,7 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
             change_indexes = np.ma.where(np.ma.diff(flap.array[air.slice]))[0]
             if len(change_indexes):
                 # Create at first change:
-                index = (air.slice.start or 0) + change_indexes[0]
+                index = (air.slice.start or 0) + change_indexes[0] +0.5
                 self.create_kpv(index, value_at_index(alt_aal.array, index))
 
 

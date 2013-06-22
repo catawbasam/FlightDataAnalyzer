@@ -2238,7 +2238,7 @@ class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase, NodeTest):
                    alt_aal=alt_aal, airborne=airs)
 
         expected = KPV('Altitude At First Flap Change After Liftoff', items=[
-            KeyPointValue(name='Altitude At First Flap Change After Liftoff', index=4, value=100),
+            KeyPointValue(name='Altitude At First Flap Change After Liftoff', index=4.5, value=150),
         ])
         self.assertEqual(node, expected)
 
