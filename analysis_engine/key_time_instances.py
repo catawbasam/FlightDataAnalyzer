@@ -406,7 +406,11 @@ class FirstFlapExtensionWhileAirborne(KeyTimeInstanceNode):
             if not isinstance(cleans, list):
                 continue
             for clean in cleans:
-                self.create_kti(clean.stop + air.slice.start)
+                # Skip the case where the airborne slice ends
+                if clean.stop == air.slice.stop-air.slice.start:
+                    continue
+                # Subtract half a sample index as the transition took place between indices.
+                self.create_kti(clean.stop + air.slice.start - 0.5)
 
 
 
