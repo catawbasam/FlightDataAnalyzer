@@ -2244,6 +2244,34 @@ class AltitudeAtFirstFlapExtensionAfterLiftoff(KeyPointValueNode):
             self.create_kpv(flap_ext.index, flap_ext.value)
 
 
+class AltitudeAtFlapExtensionWithGearDown(KeyPointValueNode):
+    '''
+    Prepared to cover one customer's SOP relating to selection of Flap 20 on
+    the approach.
+    '''
+
+    NAME_FORMAT = 'Altitude At Flap %(flap)s Extension With Gear Down'
+    NAME_VALUES = NAME_VALUES_FLAP
+
+    units = 'ft'
+
+    def derive(self, flap_p=P('Flap'),
+               alt_aal=P('Altitude AAL'),
+               gear_ext=S('Gear Extended'),
+               airborne=S('Airborne')):
+        
+        for air_down in slices_and([a.slice for a in airborne], 
+                                   [g.slice for g in gear_ext]):
+            extend_indexes = np.ma.where(np.ma.diff(flap_p.array[air_down])>0)[0]
+            if len(extend_indexes)==0:
+                continue
+            for extend_index in extend_indexes:
+                # The flap we are moving to is +1 from the diff index
+                index = (air_down.start or 0) + extend_index + 1
+                selected_flap = flap_p.array[index]
+                self.create_kpv(index, selected_flap, flap=selected_flap)
+
+
 class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
     '''
     '''

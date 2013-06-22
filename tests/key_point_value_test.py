@@ -114,6 +114,7 @@ from analysis_engine.key_point_values import (
     AltitudeFirstStableDuringApproachBeforeGoAround,
     AltitudeFirstStableDuringLastApproach,
     AltitudeAtFlapExtension,
+    AltitudeAtFlapExtensionWithGearDown,
     AltitudeAtFirstFlapExtensionAfterLiftoff,
     AltitudeAtFirstFlapRetraction,
     AltitudeAtFirstFlapRetractionDuringGoAround,
@@ -2257,6 +2258,40 @@ class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase, NodeTest):
 
         expected = flap_takeoff = KPV('Altitude At First Flap Change After Liftoff', items=[])
         self.assertEqual(node, expected)
+
+
+class TestAltitudeAtFlapExtensionWithGearDown(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtFlapExtensionWithGearDown
+        self.operational_combinations = [('Flap', 'Altitude AAL', 
+                                          'Gear Extended', 'Airborne')]
+
+
+    def test_derive(self):
+        flap = P('Flap', np.ma.array([0, 5, 5, 0, 0, 0, 1, 1, 10, 20, 20, 20, 35, 35, 15, 0]))
+        gear = buildsection('Gear Extended', 7, None)
+        
+        alt_aal_array = np.ma.array([0, 0, 0, 50, 100, 200, 300, 400])
+        alt_aal_array = np.ma.concatenate((alt_aal_array,alt_aal_array[::-1]))
+        alt_aal = P('Altitude AAL', alt_aal_array)
+        airs = buildsection('Airborne', 2, 14)
+
+        node = AltitudeAtFlapExtensionWithGearDown()
+        node.derive(flap_p=flap, alt_aal=alt_aal, gear_ext=gear, airborne=airs)
+        first = node.get_first()
+        self.assertEqual(first.index, 8)
+        self.assertEqual(first.value, 10)
+        self.assertEqual(first.name, 'Altitude At Flap 10 Extension With Gear Down')
+        second = node.get_next(8)
+        self.assertEqual(second.index, 9)
+        self.assertEqual(second.value, 20)
+        self.assertEqual(second.name, 'Altitude At Flap 20 Extension With Gear Down')
+        third = node.get_last()
+        self.assertEqual(third.index, 12)
+        self.assertEqual(third.value, 35)
+        self.assertEqual(third.name, 'Altitude At Flap 35 Extension With Gear Down')
+
 
 
 class TestAltitudeAtLastFlapChangeBeforeTouchdown(unittest.TestCase, NodeTest):
