@@ -104,6 +104,7 @@ from analysis_engine.key_point_values import (
     AltitudeOvershootAtSuspectedLevelBust,
     AltitudeAtGearDownSelection,
     AltitudeAtGearDownSelectionWithFlapUp,
+    AltitudeAtGearDownSelectionWithFlapDown,
     AltitudeAtGearUpSelection,
     AltitudeAtAPDisengagedSelection,
     AltitudeAtAPEngagedSelection,
@@ -2363,6 +2364,24 @@ class TestAltitudeAtGearDownSelection(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeAtGearDownSelectionWithFlapDown(unittest.TestCase):
+    def setUp(self):
+        self.node_class = AltitudeAtGearDownSelectionWithFlapDown
+        self.operational_combinations = [('Altitude AAL', 'Gear Down Selection', 'Flap')]
+    
+    def test_derive_basic(self):
+        alt_aal = P('Altitude AAL', array=np.ma.arange(0, 1000, 100))
+        gear_downs = KTI('Gear Down Selection', items=[KeyTimeInstance(2),
+                                                       KeyTimeInstance(4),
+                                                       KeyTimeInstance(6),
+                                                       KeyTimeInstance(8)])
+        flap = P('Flap', array=[5] * 3 + [0] * 5 + [20] * 2)
+        node = self.node_class()
+        node.derive(alt_aal, gear_downs, flap)
+        self.assertEqual(node, [KeyPointValue(2, 200, 'Altitude At Gear Down Selection With Flap Down'),
+                                KeyPointValue(8, 800, 'Altitude At Gear Down Selection With Flap Down')])
 
 
 class TestAltitudeAtGearUpSelection(unittest.TestCase, NodeTest):

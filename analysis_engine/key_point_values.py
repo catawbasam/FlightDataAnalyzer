@@ -2345,6 +2345,27 @@ class AltitudeAtGearDownSelection(KeyPointValueNode):
         self.create_kpvs_at_ktis(alt_aal.array, gear_dn_sel)
 
 
+class AltitudeAtGearDownSelectionWithFlapDown(KeyPointValueNode):
+    '''
+    Inclusion of the "...WithFlap" term is intended to exclude data points
+    where only the gear is down (these are exceptional occasions where gear
+    has been extended with flaps up to burn extra fuel).
+    '''
+
+    units = 'ft'
+
+    def derive(self,
+               alt_aal=P('Altitude AAL'),
+               gear_downs=KTI('Gear Down Selection'),
+               flap=P('Flap')):
+
+        flap_dns = np.ma.clump_unmasked(np.ma.masked_equal(flap.array, 0.0))
+        flap_dn_gear_downs = []
+        for _slice in flap_dns:
+            flap_dn_gear_downs.extend(gear_downs.get(within_slice=_slice))
+        self.create_kpvs_at_ktis(alt_aal.array, flap_dn_gear_downs)
+
+
 class AltitudeAtGearUpSelection(KeyPointValueNode):
     '''
     Gear up selections after takeoff, not following a go-around (when it is
