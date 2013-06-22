@@ -2879,9 +2879,14 @@ def slices_and(first_list, second_list):
                (second_slice.step is not None and second_slice.step < 0):
                 raise ValueError('slices_and will not work with reverse slices')
             if slices_overlap(first_slice, second_slice):
-                result_list.append(
-                    slice(max(first_slice.start, second_slice.start),
-                          min(first_slice.stop, second_slice.stop)))
+                slice_start = max(first_slice.start, second_slice.start)
+                if first_slice.stop == None:
+                    slice_stop = second_slice.stop
+                elif second_slice.stop == None:
+                    slice_stop = first_slice.stop
+                else:
+                    slice_stop = min(first_slice.stop, second_slice.stop)
+                result_list.append(slice(slice_start,slice_stop))
     return result_list
 
 def slices_and_not(first, second):

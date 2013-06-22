@@ -3841,7 +3841,10 @@ class TestSliceDuration(unittest.TestCase):
 
 class TestSlicesAnd(unittest.TestCase):
     def test_slices_and(self):
-        slices_and
+        self.assertEqual(slices_and([slice(2,5)],[slice(3,7)]),
+                         [slice(3,5)])
+        self.assertEqual(slices_and([slice(2,5),slice(7,None)],[slice(3,9)]),
+                         [slice(3,5), slice(7,9)])
 
 
 class TestSlicesAbove(unittest.TestCase):
