@@ -3218,6 +3218,8 @@ class GearDownSelected(MultistateDerivedParameterNode):
     Where 'Gear Down Selected' is recorded, this derived parameter will be
     skipped automatically.
 
+    In ideal cases, 'Gear Up Selected' is available and we just invert this.
+    
     Red warnings are included as the selection may first be indicated by one
     of the red warning lights coming on, rather than the gear status
     changing.
@@ -3238,10 +3240,18 @@ class GearDownSelected(MultistateDerivedParameterNode):
 
     def derive(self,
                gear_down=M('Gear Down'),
+               gear_up_sel=P('Gear Up Selected'),
                gear_warn_l=P('Gear (L) Red Warning'),
                gear_warn_n=P('Gear (N) Red Warning'),
                gear_warn_r=P('Gear (R) Red Warning')):
 
+        if gear_up_sel:
+            # Invert the recorded gear up selected parameter.
+            self.array = 1-gear_up_sel.array
+            self.frequency = gear_up_sel.frequency
+            self.offset = gear_up_sel.offset
+            return
+        
         dn = gear_down.array.raw
         if gear_warn_l and gear_warn_n and gear_warn_r:
             # Join available gear parameters and use whichever are available.

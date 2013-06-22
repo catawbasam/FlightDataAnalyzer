@@ -3688,8 +3688,25 @@ class TestGearDownSelected(unittest.TestCase):
                    frequency=1, 
                    offset=0.1)
         dn_sel=GearDownSelected()
-        dn_sel.derive(gdn, None, None, None)
+        dn_sel.derive(gdn, None, None, None, None)
         np.testing.assert_array_equal(dn_sel.array, [0,0,0,1,1,1])
+        self.assertEqual(dn_sel.frequency, 1.0)
+        self.assertAlmostEqual(dn_sel.offset, 0.1)
+
+    def test_gear_down_selected_from_recorded_up(self):
+        gdn = M(array=np.ma.array(data=[0,0,0,0,0,0]),
+                   values_mapping={1:'Down',0:'Up'},
+                   name='Gear Down', 
+                   frequency=1, 
+                   offset=0.1)
+        gup_sel = M(array=np.ma.array(data=[1,1,0,0,1,1]),
+                    values_mapping={0:'Down',1:'Up'},
+                    name='Gear Up Selected', 
+                    frequency=1, 
+                    offset=0.1)
+        dn_sel=GearDownSelected()
+        dn_sel.derive(gdn, gup_sel, None, None, None)
+        np.testing.assert_array_equal(dn_sel.array, [0,0,1,1,0,0])
         self.assertEqual(dn_sel.frequency, 1.0)
         self.assertAlmostEqual(dn_sel.offset, 0.1)
 
@@ -3705,7 +3722,7 @@ class TestGearDownSelected(unittest.TestCase):
                 frequency=1, 
                 offset=0.6)
         dn_sel=GearDownSelected()
-        dn_sel.derive(gdn, red, red, red)
+        dn_sel.derive(gdn, None, red, red, red)
         np.testing.assert_array_equal(dn_sel.array.raw, [0,1,1,1,1,1])
         self.assertEqual(dn_sel.frequency, 1.0)
         self.assertAlmostEqual(dn_sel.offset, 0.1)
