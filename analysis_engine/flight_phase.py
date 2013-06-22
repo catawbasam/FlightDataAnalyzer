@@ -578,6 +578,15 @@ class GearExtending(FlightPhaseNode):
                 self.create_phase(slice(begin, end))
 
 
+class GearExtended(FlightPhaseNode):
+    '''
+    Simple phase to avoid repetition elsewhere.
+    '''
+    def derive(self, gear_down=M('Gear Down')):
+        self.create_phases(np.ma.clump_unmasked(
+            np.ma.masked_equal(gear_down.array,0)))
+
+
 class GearRetracting(FlightPhaseNode):
     '''
     See Gear Extending for comments.
@@ -625,6 +634,15 @@ class GearRetracting(FlightPhaseNode):
                 begin = edge
                 end = edge + (5.0 * gear_down.frequency)
                 self.create_phase(slice(begin, end))
+
+
+class GearRetracted(FlightPhaseNode):
+    '''
+    Simple phase to avoid repetition elsewhere.
+    '''
+    def derive(self, gear_down=M('Gear Down')):
+        self.create_phases(np.ma.clump_unmasked(
+            np.ma.masked_equal(gear_down.array,1)))
 
 
 def scan_ils(beam, ils_dots, height, scan_slice):

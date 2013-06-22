@@ -16,7 +16,9 @@ from analysis_engine.flight_phase import (Airborne,
                                           DescentToFlare,
                                           Fast,
                                           FinalApproach,
+                                          GearExtended,
                                           GearExtending,
+                                          GearRetracted,
                                           GearRetracting,
                                           GoAroundAndClimbout,
                                           GoAround5MinRating,
@@ -1375,6 +1377,34 @@ class TestGearExtending(unittest.TestCase):
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
+class TestGearExtended(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(GearExtended.get_operational_combinations(),
+                         [('Gear Down',)])
+        
+    def test_basic(self):
+        gear = M(
+            name='Gear Down',
+            array=np.ma.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]),
+            values_mapping={0: 'Up', 1: 'Down'})
+        gear_ext=GearExtended()
+        gear_ext.derive(gear)
+        self.assertEqual(gear_ext[0].slice, slice(0, 5))
+        self.assertEqual(gear_ext[1].slice, slice(14,16))
+
+class TestGearRetracted(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(GearExtended.get_operational_combinations(),
+                         [('Gear Down',)])
+        
+    def test_basic(self):
+        gear = M(
+            name='Gear Down',
+            array=np.ma.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]),
+            values_mapping={0: 'Up', 1: 'Down'})
+        gear_ext=GearRetracted()
+        gear_ext.derive(gear)
+        self.assertEqual(gear_ext[0].slice, slice(5, 14))
 
 class TestGoAround5MinRating(unittest.TestCase):
     def test_can_operate(self):
