@@ -2461,19 +2461,17 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
     :returns integral: Result of integration by time
     :type integral: Numpy masked array.
     """
+    
     if np.ma.count(array)==0:
         return np_ma_masked_zeros_like(array)
 
     if repair:
-        result = repair_mask(array, 
-                             repair_duration=None,
-                             zero_if_masked=True,
-                             extrapolate=True,
-                             copy=True)
-    else:
-        result = np.ma.copy(array)
-
-    if contiguous:
+        integrand = repair_mask(array, 
+                                     repair_duration=None,
+                                     zero_if_masked=True,
+                                     extrapolate=True,
+                                     copy=True)
+    elif contiguous:
         blocks = np.ma.clump_unmasked(array)
         longest_index = None
         longest_slice = 0
@@ -2486,7 +2484,7 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
         integrand[blocks[longest_index]] = array[blocks[longest_index]]
     else:
         integrand = array
-
+        
     if direction.lower() == 'forwards':
         d = +1
         s = +1
@@ -2513,7 +2511,9 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
         else:
             to_int[edges[1]] = initial_value * s
             # Note: Sign of initial value will be reversed twice for backwards case.
-
+    
+    result=np.ma.zeros(len(integrand))
+    
     result[::d] = np.ma.cumsum(to_int[::d] * s)
 
     if extend:
@@ -4414,14 +4414,20 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
             if extrapolate:
                 # TODO: Does it make sense to subtract 1 from the section stop??
                 #array.data[section] = array.data[section.stop - 1]
-                array.data[section] = array.data[section.stop]
+                if zero_if_masked:
+                    array.data[section]=0.0
+                else:
+                    array.data[section] = array.data[section.stop]
                 array.mask[section] = False
             else:
                 continue # Can't interpolate if we don't know the first sample
 
         elif section.stop == len(array):
             if extrapolate:
-                array.data[section] = array.data[section.start - 1]
+                if zero_if_masked:
+                    array.data[section]=0.0
+                else:
+                    array.data[section] = array.data[section.start - 1]
                 array.mask[section] = False
             else:
                 continue # Can't interpolate if we don't know the last sample

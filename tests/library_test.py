@@ -2405,8 +2405,17 @@ class TestIntegrate (unittest.TestCase):
         data = np.ma.array(data = [1,1,2,2],
                            mask = [0,0,0,1])
         result = integrate(data,1.0)
-        np.testing.assert_array_equal(result.data, [0,1,2,2])
-        np.testing.assert_array_equal(result.mask, [0,0,0,1])
+        ma_test.assert_array_equal(np.ma.array(data=[0,1,2.5,2.5], mask=[0,0,0,1]),
+                                   result)
+        
+    def test_integration_masked_tail_repaired(self):
+        # This test was added to assess the effect of masked values rolling back into the integrand.
+        data = np.ma.array(data = [1,1,2,99],
+                           mask = [0,0,0,1])
+        result = integrate(data,1.0, repair=True)
+        ma_test.assert_array_equal(np.ma.array(data=[0,1,2.5,3.5], mask=[0,0,0,0]),
+                                   result)
+
 
     def test_integration_extended(self):
         data = np.ma.array([1,2,5,4.0])
@@ -3452,6 +3461,13 @@ class TestRepairMask(unittest.TestCase):
         self.assertFalse(np.ma.is_masked(res[7]))
         self.assertFalse(np.ma.is_masked(res[8]))
         self.assertFalse(np.ma.is_masked(res[9]))
+
+    def test_zero_if_masked(self):
+        array = np.ma.array([2,4,6,7,5,3,1],mask=[1,1,0,0,1,1,1])
+        res = repair_mask(array, zero_if_masked=True)
+        expected = np.ma.array([0,0,6,7,0,0,0],mask=[0,0,0,0,0,0,0])
+        ma_test.assert_array_equal(res, expected)
+
 
 
 class TestResample(unittest.TestCase):
