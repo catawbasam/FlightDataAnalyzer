@@ -52,6 +52,7 @@ from analysis_engine.key_point_values import (
     AirspeedWhileGearRetractingMax,
     AirspeedAt8000Ft,
     AirspeedAt35FtDuringTakeoff,
+    AirspeedAtFlapExtensionWithGearDown,
     AirspeedAtGearDownSelection,
     AirspeedAtGearUpSelection,
     AirspeedAtLiftoff,
@@ -2281,16 +2282,49 @@ class TestAltitudeAtFlapExtensionWithGearDown(unittest.TestCase, NodeTest):
         node.derive(flap_p=flap, alt_aal=alt_aal, gear_ext=gear, airborne=airs)
         first = node.get_first()
         self.assertEqual(first.index, 8)
-        self.assertEqual(first.value, 10)
+        self.assertEqual(first.value, 400)
         self.assertEqual(first.name, 'Altitude At Flap 10 Extension With Gear Down')
         second = node.get_next(8)
         self.assertEqual(second.index, 9)
-        self.assertEqual(second.value, 20)
+        self.assertEqual(second.value, 300)
         self.assertEqual(second.name, 'Altitude At Flap 20 Extension With Gear Down')
         third = node.get_last()
         self.assertEqual(third.index, 12)
-        self.assertEqual(third.value, 35)
+        self.assertEqual(third.value, 50)
         self.assertEqual(third.name, 'Altitude At Flap 35 Extension With Gear Down')
+
+
+class TestAirspeedAtFlapExtensionWithGearDown(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedAtFlapExtensionWithGearDown
+        self.operational_combinations = [('Flap', 'Airspeed', 
+                                          'Gear Extended', 'Airborne')]
+
+
+    def test_derive(self):
+        flap = P('Flap', np.ma.array([0, 5, 5, 0, 0, 0, 1, 1, 10, 20, 20, 20, 35, 35, 15, 0.0]))
+        gear = buildsection('Gear Extended', 7, None)
+        
+        air_spd_array = np.ma.array([0, 0, 0, 50, 100, 200, 250, 280])
+        air_spd_array2 = np.ma.concatenate((air_spd_array,air_spd_array[::-1]))
+        air_spd = P('Airspeed', air_spd_array2)
+        airs = buildsection('Airborne', 2, 14)
+
+        node = AirspeedAtFlapExtensionWithGearDown()
+        node.derive(flap_p=flap, air_spd=air_spd, gear_ext=gear, airborne=airs)
+        first = node.get_first()
+        self.assertEqual(first.index, 8)
+        self.assertEqual(first.value, 280)
+        self.assertEqual(first.name, 'Airspeed At Flap 10 Extension With Gear Down')
+        second = node.get_next(8)
+        self.assertEqual(second.index, 9)
+        self.assertEqual(second.value, 250)
+        self.assertEqual(second.name, 'Airspeed At Flap 20 Extension With Gear Down')
+        third = node.get_last()
+        self.assertEqual(third.index, 12)
+        self.assertEqual(third.value, 50)
+        self.assertEqual(third.name, 'Airspeed At Flap 35 Extension With Gear Down')
 
 
 
