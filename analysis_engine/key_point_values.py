@@ -2269,7 +2269,7 @@ class AltitudeAtFlapExtensionWithGearDown(KeyPointValueNode):
                 # The flap we are moving to is +1 from the diff index
                 index = (air_down.start or 0) + extend_index + 1
                 selected_flap = flap_p.array[index]
-                self.create_kpv(index, selected_flap, flap=selected_flap)
+                self.create_kpv(index, selected_flap, flap=int(selected_flap))
 
 
 class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):

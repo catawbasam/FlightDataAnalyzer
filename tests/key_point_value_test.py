@@ -2269,7 +2269,7 @@ class TestAltitudeAtFlapExtensionWithGearDown(unittest.TestCase, NodeTest):
 
 
     def test_derive(self):
-        flap = P('Flap', np.ma.array([0, 5, 5, 0, 0, 0, 1, 1, 10, 20, 20, 20, 35, 35, 15, 0]))
+        flap = P('Flap', np.ma.array([0, 5, 5, 0, 0, 0, 1, 1, 10, 20, 20, 20, 35, 35, 15, 0.0]))
         gear = buildsection('Gear Extended', 7, None)
         
         alt_aal_array = np.ma.array([0, 0, 0, 50, 100, 200, 300, 400])
