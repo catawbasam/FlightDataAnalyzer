@@ -583,8 +583,12 @@ class GearExtended(FlightPhaseNode):
     Simple phase to avoid repetition elsewhere.
     '''
     def derive(self, gear_down=M('Gear Down')):
-        self.create_phases(np.ma.clump_unmasked(
-            np.ma.masked_equal(gear_down.array,0)))
+        slice_list = np.ma.clump_unmasked(np.ma.masked_equal(gear_down.array,0))
+        # Untidy trap for slices that match the array boundary.
+        # TODO: Someone think of a better solution than this?
+        if slice_list[-1].stop == len(gear_down.array):
+            slice_list[-1]=slice(slice_list[-1].start,slice_list[-1].stop-1)
+        self.create_phases(slice_list)
 
 
 class GearRetracting(FlightPhaseNode):
