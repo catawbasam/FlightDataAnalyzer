@@ -3883,41 +3883,41 @@ class ILSFrequency(DerivedParameterNode):
     def can_operate(cls, available):
         return ('ILS (1) Frequency' in available and
                 'ILS (2) Frequency' in available) or \
-               ('ILS-VOR (1) Frequency' in available and
-                'ILS-VOR (2) Frequency' in available)
-
+               ('ILS-VOR (1) Frequency' in available)
+    
     def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
                f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency')):
-               
-               
+                
 
         #TODO: Extend to allow for three-receiver installations
-        
-        
-        # On some frames only one ILS frequency recording works
-        if False:
-            pass
-        ##if frame_name in ['737-6'] and \
-           ##(np.ma.count(f2.array) == 0 or np.ma.ptp(f2.array) == 0.0):
-            ##self.array = f1.array
 
-        # In all cases other than those identified above we look for both
-        # receivers being tuned together to form a valid signal
+
+        if f1 and f2:
+            first = f1.array
+            second = f2.array
         else:
-            if f1 and f2:
-                first = f1.array
-                second = f2.array
-            else:
+            if f1v and f2v==None:
+                # Some aircraft have inoperative ILS-VOR (2) systems, which
+                # record frequencies outside the valid range.
+                first = f1v.array
+            elif f1v and f2v:
                 first = f1v.array
                 second = f2v.array
+            else:
+                raise "Unrecognised set of ILS frequency parameters"
 
-            # Mask invalid frequencies
-            f1_trim = filter_vor_ils_frequencies(first, 'ILS')
+        # Mask invalid frequencies
+        f1_trim = filter_vor_ils_frequencies(first, 'ILS')
+        if f1v and f2v==None:
+            mask = first.mask
+        else:
+            # We look for both
+            # receivers being tuned together to form a valid signal
             f2_trim = filter_vor_ils_frequencies(second, 'ILS')
-
             # and mask where the two receivers are not matched
             mask = np.ma.masked_not_equal(f1_trim - f2_trim, 0.0).mask
-            self.array = np.ma.array(data=f1_trim.data, mask=mask)
+
+        self.array = np.ma.array(data=f1_trim.data, mask=mask)
 
 
 class ILSLocalizer(DerivedParameterNode):
