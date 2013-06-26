@@ -4279,11 +4279,11 @@ def peak_index(a):
                 return loc+peak
 
 
-def rate_of_change_array(to_diff, hz, width=2.0, method='two_points'):
+def rate_of_change_array(to_diff, hz, width=None, method='two_points'):
     '''
     Lower level access to rate of change algorithm. See rate_of_change for
     description.
-    
+
     The regression method was added to provide greater smoothing over an
     extended period. This is required where the parameter being
     differentiated has poor quantisation, e.g. Altitude STD with 32ft steps.
@@ -4300,10 +4300,15 @@ def rate_of_change_array(to_diff, hz, width=2.0, method='two_points'):
     :returns: masked array of values with differentiation applied
 
     '''
+    if width is None:
+        width = 2 / hz
+
     hw = int(width * hz / 2.0)
+
     if hw < 1:
         raise ValueError('Rate of change called with inadequate width.')
-    if len(to_diff) <= 2*hw:
+
+    if len(to_diff) <= 2 * hw:
         logger.info("Rate of change called with short data segment. Zero rate "
                     "returned")
         return np_ma_zeros_like(to_diff)
