@@ -5291,9 +5291,13 @@ class Tailwind(DerivedParameterNode):
 
 class SAT(DerivedParameterNode):
     """
-    Computes Static Air Temperature from the Total Air Temperature, allowing
-    for compressibility effects, or if this is not available, the standard
-    atmosphere and lapse rate.
+    Computes Static Air Temperature (temperature of the outside air) from the
+    Total Air Temperature, allowing for compressibility effects, or if this
+    is not available, the standard atmosphere and lapse rate.
+    
+    Q: Support transforming SAT from OAT (as they are equal).
+    
+    TODO: Review naming convention - rename to "Static Air Temperature"?
     """
     @classmethod
     def can_operate(cls, available):
@@ -5312,6 +5316,9 @@ class SAT(DerivedParameterNode):
 class TAT(DerivedParameterNode):
     """
     Blends data from two air temperature sources.
+    
+    TODO: Support generation from SAT, Mach and Altitude STD    
+    TODO: Review naming convention - rename to "Total Air Temperature"?
     """
     name = "TAT"
     units = 'C'
