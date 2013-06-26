@@ -3189,11 +3189,12 @@ class GearOnGround(MultistateDerivedParameterNode):
         # this parameter directly: 737-4, 737-i
 
         if gl and gr:
-            if gl.offset == gr.offset:
-                # A common case is for the left and right gear to be mapped
-                # onto different bits of the same word. In this case we
-                # accept that either wheel on the ground equates to gear on
-                # ground.
+            delta = abs((gl.offset - gr.offset) * gl.frequency)
+            if 0.75 < delta or delta < 0.25:
+                # If the samples of the left and right gear are close together,
+                # the best representation is to map them onto a single
+                # parameter in which we accept that either wheel on the ground
+                # equates to gear on ground.
                 self.array = np.ma.logical_or(gl.array, gr.array)
                 self.frequency = gl.frequency
                 self.offset = gl.offset
