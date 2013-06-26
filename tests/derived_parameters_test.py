@@ -3056,6 +3056,20 @@ class TestAileron(unittest.TestCase):
         np.testing.assert_array_equal(aileron.array, expected_data)
         self.assertEqual(aileron.frequency, 0.5)
         self.assertEqual(aileron.offset, 0.1)        
+        
+    def test_right_only_with_both_outboards(self):
+        # ensure that with both outboards and a single inboard, the inboard is chosen
+        right = P('Aileron (R)', np.ma.array([3.0]*2+[2.0]*2), frequency=2.0, offset = 0.3)
+        left_outboard = P('Aileron (L) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
+        right_outboard = P('Aileron (R) Outboard', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset=1.1)
+        
+        aileron = Aileron()
+        aileron.derive(None, right, left_outboard, right_outboard)
+        expected_data = right.array # ignored left and right outboards
+        np.testing.assert_array_equal(aileron.array, expected_data)
+        self.assertEqual(aileron.frequency, 2.0)
+        self.assertEqual(aileron.offset, 0.3)
+        
 
     def test_outboard_two_sensors(self):
         left_outboard = P('Aileron (L) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)

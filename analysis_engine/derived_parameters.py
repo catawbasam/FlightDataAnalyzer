@@ -5551,12 +5551,13 @@ class WindAcrossLandingRunway(DerivedParameterNode):
 
 class Aileron(DerivedParameterNode):
     '''
+    Aileron is based on the Inboard signals where possible.
+    
     Blends alternate aileron samples. Note that this technique requires both
     aileron samples to be scaled similarly and have positive sign for
     positive rolling moment. That is, port aileron down and starboard aileron
     up have positive sign.
     '''
-    # TODO: TEST
     align = False
     name = 'Aileron'
     units = 'deg'
@@ -5567,20 +5568,32 @@ class Aileron(DerivedParameterNode):
                        'Aileron (R) Outboard'), available)
 
     def derive(self,
-               al=P('Aileron (L)'),
-               ar=P('Aileron (R)'),
+               al=P('Aileron (L)'),  # this is Inboard
+               ar=P('Aileron (R)'),  # this is Inboard
                alo=P('Aileron (L) Outboard'),
                aro=P('Aileron (R) Outboard')):
-        al = al or alo
-        ar = ar or aro
+        if al and ar:
+            # Use both Inboards if available
+            self.info("Using Aileron Inboard signals")
+        elif al or ar:
+            # Use a single Inboard signal in preference to outboar signals
+            ail = al or ar
+            self.info("Using a single Aileron Inboard signal: %s", ail.name)
+        elif alo and aro:
+            al = alo
+            ar = aro
+            self.info("Using Aileron Outboard signals")
+        else:
+            ail = alo or aro
+            self.info("Using a single Aileron Outboard signal %s", ail.name)
+        # Now do the work
         if al and ar:
             self.array, self.frequency, self.offset = blend_two_parameters(al, ar)
-        elif al or ar:
-            self.array = al.array if al else ar.array
-            self.frequency = al.frequency if al else ar.frequency
-            self.offset = al.offset if al else ar.offset
         else:
-            return NotImplemented
+            self.array = ail.array
+            self.frequency = ail.frequency
+            self.offset = ail.offset
+
 
 class AileronLeft(DerivedParameterNode):
     # See ElevatorLeft for explanation
