@@ -6503,13 +6503,11 @@ class RateOfClimb35To1000FtMin(KeyPointValueNode):
     def derive(self,
                vrt_spd=P('Vertical Speed'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               climbs=S('Climb'),
-               initial_climbs=S('Initial Climb')):
+               climbs=S('Combined Climb')):
 
-        combined_climbs = slices_or(climbs.get_slices()+initial_climbs.get_slices())
-        for climb_slice in combined_climbs:
-            alt_band = np.ma.masked_outside(alt_aal.array, 35, 1000)
-            alt_climb_band = mask_outside_slices(alt_band, [climb_slice])
+        alt_band = np.ma.masked_outside(alt_aal.array, 35, 1000)
+        for climb in climbs:
+            alt_climb_band = mask_outside_slices(alt_band, [climb.slice])
             alt_climb_sections = np.ma.clump_unmasked(alt_climb_band)
             self.create_kpv_from_slices(vrt_spd.array, alt_climb_sections, min_value)
 
@@ -6579,12 +6577,13 @@ class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
     def derive(self,
                vrt_spd=P('Vertical Speed'),
                alt_aal=P('Altitude STD Smoothed'),
-               descents=S('Descent')):
-
+               descents=S('Combined Descent')):
+        alt_band = np.ma.masked_less(alt_aal.array, 10000)
         for descent in descents:
-            above_10k = np.ma.masked_less(alt_aal.array, 10000)
-            drops = np.ma.clump_unmasked(above_10k)
-            self.create_kpvs_within_slices(vrt_spd.array, drops, min_value)
+            alt_descent_band = mask_outside_slices(alt_band, [descent.slice])
+            alt_descent_sections = np.ma.clump_unmasked(alt_descent_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_descent_sections, min_value)
+
 
 
 class RateOfDescentBelow10000FtMax(KeyPointValueNode):
@@ -6598,13 +6597,13 @@ class RateOfDescentBelow10000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
-
-        self.create_kpvs_within_slices(
-            vrt_spd.array,
-            alt_aal.slices_from_to(10000, 0),
-            min_value,
-        )
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               descents=S('Combined Descent')):
+        alt_band = np.ma.masked_outside(alt_aal.array, 0, 10000)
+        for descent in descents:
+            alt_descent_band = mask_outside_slices(alt_band, [climb_slice])
+            alt_descent_sections = np.ma.clump_unmasked(alt_descent_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_descent_sections, min_value)
 
 
 class RateOfDescent10000To5000FtMax(KeyPointValueNode):
@@ -6615,13 +6614,14 @@ class RateOfDescent10000To5000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude STD Smoothed')):
+               alt_aal=P('Altitude STD Smoothed'),
+               descents=S('Combined Descent')):
+        alt_band = np.ma.masked_outside(alt_aal.array, 5000, 10000)
+        for descent in descents:
+            alt_descent_band = mask_outside_slices(alt_band, [climb_slice])
+            alt_descent_sections = np.ma.clump_unmasked(alt_descent_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_descent_sections, min_value)
 
-        self.create_kpvs_within_slices(
-            vrt_spd.array,
-            alt_aal.slices_from_to(10000, 5000),
-            min_value,
-        )
 
 class RateOfDescent5000To3000FtMax(KeyPointValueNode):
     '''
@@ -6631,13 +6631,15 @@ class RateOfDescent5000To3000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               descents=S('Combined Descent')):
 
-        self.create_kpvs_within_slices(
-            vrt_spd.array,
-            alt_aal.slices_from_to(5000, 3000),
-            min_value,
-        )
+        alt_band = np.ma.masked_outside(alt_aal.array, 3000, 5000)
+        for descent in descents:
+            alt_desc_band = mask_outside_slices(alt_band, [descent.slice])
+            alt_desc_sections = np.ma.clump_unmasked(alt_desc_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_desc_sections, min_value)
+
 
 class RateOfDescent3000To2000FtMax(KeyPointValueNode):
     '''
@@ -6647,13 +6649,14 @@ class RateOfDescent3000To2000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               descents=S('Combined Descent')):
 
-        self.create_kpvs_within_slices(
-            vrt_spd.array,
-            alt_aal.slices_from_to(3000, 2000),
-            min_value,
-        )
+        alt_band = np.ma.masked_outside(alt_aal.array, 2000, 3000)
+        for descent in descents:
+            alt_desc_band = mask_outside_slices(alt_band, [descent.slice])
+            alt_desc_sections = np.ma.clump_unmasked(alt_desc_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_desc_sections, min_value)
 
 
 class RateOfDescent2000To1000FtMax(KeyPointValueNode):
@@ -6664,13 +6667,14 @@ class RateOfDescent2000To1000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               descents=S('Combined Descent')):
 
-        self.create_kpvs_within_slices(
-            vrt_spd.array,
-            alt_aal.slices_from_to(2000, 1000),
-            min_value,
-        )
+        alt_band = np.ma.masked_outside(alt_aal.array, 1000, 2000)
+        for descent in descents:
+            alt_desc_band = mask_outside_slices(alt_band, [descent.slice])
+            alt_desc_sections = np.ma.clump_unmasked(alt_desc_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_desc_sections, min_value)
 
 
 class RateOfDescent1000To500FtMax(KeyPointValueNode):
@@ -6681,13 +6685,14 @@ class RateOfDescent1000To500FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               descents=S('Combined Descent')):
 
-        self.create_kpvs_within_slices(
-            vrt_spd.array,
-            alt_aal.slices_from_to(1000, 500),
-            min_value,
-        )
+        alt_band = np.ma.masked_outside(alt_aal.array, 1000, 500)
+        for descent in descents:
+            alt_desc_band = mask_outside_slices(alt_band, [descent.slice])
+            alt_desc_sections = np.ma.clump_unmasked(alt_desc_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_desc_sections, min_value)
 
 
 class RateOfDescent500To50FtMax(KeyPointValueNode):
@@ -6698,13 +6703,14 @@ class RateOfDescent500To50FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               final_apps=S('Combined Descent')):
 
-        self.create_kpvs_within_slices(
-            vrt_spd.array,
-            alt_aal.slices_from_to(500, 50),
-            min_value,
-        )
+        alt_band = np.ma.masked_outside(alt_aal.array, 50, 500)
+        for descent in final_apps:
+            alt_desc_band = mask_outside_slices(alt_band, [descent.slice])
+            alt_desc_sections = np.ma.clump_unmasked(alt_desc_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_desc_sections, min_value)
 
 
 class RateOfDescent50FtToTouchdownMax(KeyPointValueNode):
@@ -6733,7 +6739,6 @@ class RateOfDescent50FtToTouchdownMax(KeyPointValueNode):
         )
 
 
-# FIXME: Should this use the KTI 'Touchdown'?
 class RateOfDescentAtTouchdown(KeyPointValueNode):
     '''
     We use the inertial vertical speed to avoid ground effects and give an

@@ -351,7 +351,7 @@ class CombinedClimb(FlightPhaseNode):
 
         slice_idxs = zip(start_list, end_list)
         for slice_tuple in slice_idxs:
-            assert slice_tuple[0] <= slice_tuple[1]
+            assert slice_tuple[0] <= slice_tuple[1], "Expected problem with detection of KTI's"
             self.create_phase(slice(*slice_tuple))
 
 
