@@ -2660,7 +2660,7 @@ class TestILSFrequency(unittest.TestCase):
         opts = ILSFrequency.get_operational_combinations()
         self.assertTrue([e in opts for e in expected])
         
-    def test_ils_frequency_in_range(self):
+    def test_ils_vor_frequency_in_range(self):
         f1 = P('ILS-VOR (1) Frequency', 
                np.ma.array([1,2,108.10,108.15,111.95,112.00]),
                offset = 0.1, frequency = 0.5)
@@ -2668,7 +2668,33 @@ class TestILSFrequency(unittest.TestCase):
                np.ma.array([1,2,108.10,108.15,111.95,112.00]),
                offset = 1.1, frequency = 0.5)
         ils = ILSFrequency()
-        result = ils.get_derived([f1, f2])
+        result = ils.get_derived([None, None, f1, f2])
+        expected_array = np.ma.array(
+            data=[1,2,108.10,108.15,111.95,112.00], 
+             mask=[True,True,False,False,False,True])
+        ma_test.assert_masked_array_approx_equal(result.array, expected_array)
+        
+    def test_single_ils_vor_frequency_in_range(self):
+        f1 = P('ILS-VOR (1) Frequency', 
+               np.ma.array(data=[1,2,108.10,108.15,111.95,112.00],
+                           mask=[True,True,False,False,False,True]),
+               offset = 0.1, frequency = 0.5)
+        ils = ILSFrequency()
+        result = ils.get_derived([None, None, f1, None])
+        expected_array = np.ma.array(
+            data=[1,2,108.10,108.15,111.95,112.00], 
+             mask=[True,True,False,False,False,True])
+        ma_test.assert_masked_array_approx_equal(result.array, expected_array)
+        
+    def test_ils_frequency_in_range(self):
+        f1 = P('ILS (1) Frequency', 
+               np.ma.array([1,2,108.10,108.15,111.95,112.00]),
+               offset = 0.1, frequency = 0.5)
+        f2 = P('ILS (2) Frequency', 
+               np.ma.array([1,2,108.10,108.15,111.95,112.00]),
+               offset = 1.1, frequency = 0.5)
+        ils = ILSFrequency()
+        result = ils.get_derived([f1, f2, None, None])
         expected_array = np.ma.array(
             data=[1,2,108.10,108.15,111.95,112.00], 
              mask=[True,True,False,False,False,True])
