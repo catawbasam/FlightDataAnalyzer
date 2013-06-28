@@ -6601,7 +6601,7 @@ class RateOfDescentBelow10000FtMax(KeyPointValueNode):
                descents=S('Combined Descent')):
         alt_band = np.ma.masked_outside(alt_aal.array, 0, 10000)
         for descent in descents:
-            alt_descent_band = mask_outside_slices(alt_band, [climb_slice])
+            alt_descent_band = mask_outside_slices(alt_band, [descent.slice])
             alt_descent_sections = np.ma.clump_unmasked(alt_descent_band)
             self.create_kpv_from_slices(vrt_spd.array, alt_descent_sections, min_value)
 
@@ -6618,7 +6618,7 @@ class RateOfDescent10000To5000FtMax(KeyPointValueNode):
                descents=S('Combined Descent')):
         alt_band = np.ma.masked_outside(alt_aal.array, 5000, 10000)
         for descent in descents:
-            alt_descent_band = mask_outside_slices(alt_band, [climb_slice])
+            alt_descent_band = mask_outside_slices(alt_band, [descent.slice])
             alt_descent_sections = np.ma.clump_unmasked(alt_descent_band)
             self.create_kpv_from_slices(vrt_spd.array, alt_descent_sections, min_value)
 
@@ -6704,10 +6704,10 @@ class RateOfDescent500To50FtMax(KeyPointValueNode):
     def derive(self,
                vrt_spd=P('Vertical Speed'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               final_apps=S('Combined Descent')):
+               descents=S('Combined Descent')):
 
         alt_band = np.ma.masked_outside(alt_aal.array, 50, 500)
-        for descent in final_apps:
+        for descent in descents:
             alt_desc_band = mask_outside_slices(alt_band, [descent.slice])
             alt_desc_sections = np.ma.clump_unmasked(alt_desc_band)
             self.create_kpv_from_slices(vrt_spd.array, alt_desc_sections, min_value)
