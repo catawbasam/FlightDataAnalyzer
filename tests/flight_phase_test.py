@@ -464,7 +464,7 @@ class TestInitialApproach(unittest.TestCase):
 
 class TestCombinedClimb(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Top Of Climb', 'Go Around', 'Liftoff')]
+        expected = [('Top Of Climb', 'Go Around', 'Liftoff', 'Touchdown')]
         opts = CombinedClimb.get_operational_combinations()
         self.assertEqual(opts, expected)
 
