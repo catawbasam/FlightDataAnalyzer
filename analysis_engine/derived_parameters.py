@@ -5909,7 +5909,29 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             raise NotImplementedError
 
 
-################################################################################
+class SpeedbrakeHandle(DerivedParameterNode):
+    @classmethod
+    def can_operate(cls, available):
+        return any_of((
+            'Speedbrake Handle (L)',
+            'Speedbrake Handle (R)',
+            'Speedbrake Handle (C)'
+        ), available)
+
+    def derive(self,
+               sbh_l=M('Speedbrake Handle (L)'),
+               sbh_r=M('Speedbrake Handle (R)'),
+               sbh_c=M('Speedbrake Handle (C)')):
+
+        available = [par for par in [sbh_l, sbh_r, sbh_c] if par]
+        if len(available) > 1:
+            self.array = blend_parameters(
+                available, self.offset, self.frequency)
+        elif len(available) == 1:
+            self.array = available[0]
+
+
+###############################################################################
 # Stick Shaker
 
 
