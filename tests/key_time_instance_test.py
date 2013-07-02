@@ -23,6 +23,7 @@ from analysis_engine.key_time_instances import (
     EngStop,
     EnterHold,
     ExitHold,
+    FirstFlapExtensionWhileAirborne,
     FlapExtensionWhileAirborne,
     FlapSet,
     GearDownSelection,
@@ -861,6 +862,25 @@ class TestFlapExtensionWhileAirborne(unittest.TestCase, NodeTest):
             KeyTimeInstance(index=3.5, name='Flap Extension While Airborne'),
             KeyTimeInstance(index=5.5, name='Flap Extension While Airborne'),
         ])
+
+
+class TestFirstFlapExtensionWhileAirborne(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = FirstFlapExtensionWhileAirborne
+        self.operational_combinations = [('Flap', 'Airborne')]
+        self.flap = P(
+            name='Flap',
+            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
+        )
+
+    def test_derive(self):
+        airborne = buildsection('Airborne', 1, 12)
+        node = FirstFlapExtensionWhileAirborne()
+        node.derive(self.flap, airborne)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=1.5, name='First Flap Extension While Airborne'),
+            ])
 
 
 class TestFlapRetractionWhileAirborne(unittest.TestCase, NodeTest):

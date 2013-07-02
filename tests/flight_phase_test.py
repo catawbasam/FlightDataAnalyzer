@@ -8,6 +8,7 @@ from analysis_engine.flight_phase import (Airborne,
                                           Approach,
                                           ApproachAndLanding,
                                           BouncedLanding,
+                                          CombinedClimb,
                                           ClimbCruiseDescent,
                                           Climbing,
                                           Cruise,
@@ -16,7 +17,9 @@ from analysis_engine.flight_phase import (Airborne,
                                           DescentToFlare,
                                           Fast,
                                           FinalApproach,
+                                          GearExtended,
                                           GearExtending,
+                                          GearRetracted,
                                           GearRetracting,
                                           GoAroundAndClimbout,
                                           GoAround5MinRating,
@@ -457,6 +460,32 @@ class TestInitialApproach(unittest.TestCase):
         expected = [Section(name='Initial Approach', slice=slice(2, 4, None))]
         self.assertEqual(app, expected)
 """
+
+
+class TestCombinedClimb(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Top Of Climb', 'Go Around', 'Liftoff', 'Touchdown')]
+        opts = CombinedClimb.get_operational_combinations()
+        self.assertEqual(opts, expected)
+
+    def test_derive(self):
+        toc_name = 'Top Of Climb'
+        toc = KTI(toc_name, items=[KeyTimeInstance(4338, toc_name),
+                                   KeyTimeInstance(5496, toc_name),
+                                   KeyTimeInstance(7414, toc_name)])
+        ga_name = 'Go Around'
+        ga = KTI(ga_name, items=[KeyTimeInstance(5404.4375, ga_name),
+                                       KeyTimeInstance(6314.9375, ga_name)])
+        lo = KTI('Liftoff', items=[KeyTimeInstance(3987.9375, 'Liftoff')])
+        node = CombinedClimb()
+        node.derive(toc, ga, lo)
+        climb_name = 'Combined Climb'
+        expected = S(climb_name,
+                     items=[Section(name='Combined Climb', slice=slice(3988.9375, 4344, None), start_edge=3988.9375, stop_edge=4344),
+                            Section(name='Combined Climb', slice=slice(5404.4375, 5496, None), start_edge=5404.4375, stop_edge=5496),
+                            Section(name='Combined Climb', slice=slice(6314.9375, 7414, None), start_edge=6314.9375, stop_edge=7414)]
+                     )
+
 
 class TestClimbCruiseDescent(unittest.TestCase):
     def test_can_operate(self):
@@ -1375,6 +1404,34 @@ class TestGearExtending(unittest.TestCase):
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
+class TestGearExtended(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(GearExtended.get_operational_combinations(),
+                         [('Gear Down',)])
+        
+    def test_basic(self):
+        gear = M(
+            name='Gear Down',
+            array=np.ma.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]),
+            values_mapping={0: 'Up', 1: 'Down'})
+        gear_ext=GearExtended()
+        gear_ext.derive(gear)
+        self.assertEqual(gear_ext[0].slice, slice(0, 5))
+        self.assertEqual(gear_ext[1].slice, slice(14,16))
+
+class TestGearRetracted(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(GearExtended.get_operational_combinations(),
+                         [('Gear Down',)])
+        
+    def test_basic(self):
+        gear = M(
+            name='Gear Down',
+            array=np.ma.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]),
+            values_mapping={0: 'Up', 1: 'Down'})
+        gear_ext=GearRetracted()
+        gear_ext.derive(gear)
+        self.assertEqual(gear_ext[0].slice, slice(5, 14))
 
 class TestGoAround5MinRating(unittest.TestCase):
     def test_can_operate(self):

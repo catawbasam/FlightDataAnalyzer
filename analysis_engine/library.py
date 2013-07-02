@@ -827,11 +827,7 @@ def cycle_select(array, min_step, max_time, hz, offset=0):
 
     Each cycle must have a period of not more than ``cycle_time`` seconds, and
     have a variation greater than ``min_step``.  The selected value is the
-    largest peak-to-peak value of the cycles.
-
-    Note: Where two events with the same cycle difference arise in the same
-    array, the latter is recorded as it is normally the later in the flight
-    that will be most hazardous.
+    largest peak-to-peak value of a returning cycle.
 
     :param array: Array of data to count cycles within.
     :type array: numpy.ma.core.MaskedArray
@@ -843,9 +839,9 @@ def cycle_select(array, min_step, max_time, hz, offset=0):
     :type hz: float
     :param offset: Index offset to start of the provided array.
     :type offset: int
-    :returns: A tuple containing the index of the array element at the end of
-        the highest difference and the highest difference between a peak and a
-        trough in the array while cycling.
+    :returns: A tuple containing the index of the array element at the peak of
+        the highest difference and the highest difference between a peak and the 
+        troughs either side.
     :rtype: (int, float)
     '''
     idxs, vals = cycle_finder(array, min_step=min_step)
@@ -857,12 +853,16 @@ def cycle_select(array, min_step, max_time, hz, offset=0):
 
     # Determine the half cycle times and ptp values for the half cycles:
     half_cycle_times = np.ediff1d(idxs) / hz
-    half_cycle_diffs = np.ediff1d(vals)
-    half_cycle_pairs = zip(half_cycle_times, half_cycle_diffs)
-    for n, (half_cycle_time, value) in enumerate(half_cycle_pairs):
+    half_cycle_diffs = abs(np.ediff1d(vals))
+    if len(half_cycle_diffs)<2:
+        return Value(None, None)
+    full_cycle_pairs = zip(half_cycle_times[1:]+half_cycle_times[:-1],
+                           [min(half_cycle_diffs[n],half_cycle_diffs[n+1]) \
+                            for n in range(len(half_cycle_diffs)-1)])
+    for n, (cycle_time, value) in enumerate(full_cycle_pairs):
         # If we are within the max time and have max difference, keep it:
-        if half_cycle_time < max_time and abs(value) >= max_value:
-            max_index, max_value = idxs[n + 1], abs(value)
+        if cycle_time < max_time and value >= max_value:
+            max_index, max_value = idxs[n + 1], value
 
     if max_index is None:
         return Value(None, None)
@@ -2461,18 +2461,17 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
     :returns integral: Result of integration by time
     :type integral: Numpy masked array.
     """
+    
     if np.ma.count(array)==0:
         return np_ma_masked_zeros_like(array)
 
     if repair:
-        result = repair_mask(array, 
-                             repair_duration=None,
-                             zero_if_masked=True,
-                             extrapolate=True)
-    else:
-        result = np.ma.copy(array)
-
-    if contiguous:
+        integrand = repair_mask(array, 
+                                     repair_duration=None,
+                                     zero_if_masked=True,
+                                     extrapolate=True,
+                                     copy=True)
+    elif contiguous:
         blocks = np.ma.clump_unmasked(array)
         longest_index = None
         longest_slice = 0
@@ -2485,7 +2484,7 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
         integrand[blocks[longest_index]] = array[blocks[longest_index]]
     else:
         integrand = array
-
+        
     if direction.lower() == 'forwards':
         d = +1
         s = +1
@@ -2512,7 +2511,9 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
         else:
             to_int[edges[1]] = initial_value * s
             # Note: Sign of initial value will be reversed twice for backwards case.
-
+    
+    result=np.ma.zeros(len(integrand))
+    
     result[::d] = np.ma.cumsum(to_int[::d] * s)
 
     if extend:
@@ -2543,7 +2544,7 @@ def integ_value(array,
     """
     index = stop_edge or _slice.stop or len(array)
     try:
-        value = integrate(array,
+        value = integrate(array[_slice],
                           frequency=frequency,
                           scale=scale,
                           repair=True,
@@ -2878,9 +2879,14 @@ def slices_and(first_list, second_list):
                (second_slice.step is not None and second_slice.step < 0):
                 raise ValueError('slices_and will not work with reverse slices')
             if slices_overlap(first_slice, second_slice):
-                result_list.append(
-                    slice(max(first_slice.start, second_slice.start),
-                          min(first_slice.stop, second_slice.stop)))
+                slice_start = max(first_slice.start, second_slice.start)
+                if first_slice.stop == None:
+                    slice_stop = second_slice.stop
+                elif second_slice.stop == None:
+                    slice_stop = first_slice.stop
+                else:
+                    slice_stop = min(first_slice.stop, second_slice.stop)
+                result_list.append(slice(slice_start,slice_stop))
     return result_list
 
 def slices_and_not(first, second):
@@ -4273,11 +4279,11 @@ def peak_index(a):
                 return loc+peak
 
 
-def rate_of_change_array(to_diff, hz, width=2.0, method='two_points'):
+def rate_of_change_array(to_diff, hz, width=None, method='two_points'):
     '''
     Lower level access to rate of change algorithm. See rate_of_change for
     description.
-    
+
     The regression method was added to provide greater smoothing over an
     extended period. This is required where the parameter being
     differentiated has poor quantisation, e.g. Altitude STD with 32ft steps.
@@ -4294,10 +4300,15 @@ def rate_of_change_array(to_diff, hz, width=2.0, method='two_points'):
     :returns: masked array of values with differentiation applied
 
     '''
+    if width is None:
+        width = 2 / hz
+
     hw = int(width * hz / 2.0)
+
     if hw < 1:
         raise ValueError('Rate of change called with inadequate width.')
-    if len(to_diff) <= 2*hw:
+
+    if len(to_diff) <= 2 * hw:
         logger.info("Rate of change called with short data segment. Zero rate "
                     "returned")
         return np_ma_zeros_like(to_diff)
@@ -4408,14 +4419,20 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
             if extrapolate:
                 # TODO: Does it make sense to subtract 1 from the section stop??
                 #array.data[section] = array.data[section.stop - 1]
-                array.data[section] = array.data[section.stop]
+                if zero_if_masked:
+                    array.data[section]=0.0
+                else:
+                    array.data[section] = array.data[section.stop]
                 array.mask[section] = False
             else:
                 continue # Can't interpolate if we don't know the first sample
 
         elif section.stop == len(array):
             if extrapolate:
-                array.data[section] = array.data[section.start - 1]
+                if zero_if_masked:
+                    array.data[section]=0.0
+                else:
+                    array.data[section] = array.data[section.start - 1]
                 array.mask[section] = False
             else:
                 continue # Can't interpolate if we don't know the last sample
@@ -4905,7 +4922,7 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     :rtype: np.ma.array
     """
     stepping_points = np.ediff1d(steps, to_end=[0])/2.0 + steps
-    stepped_array = np.zeros_like(array.data)
+    stepped_array = np_ma_zeros_like(array)
     low = None
     rt = rate_threshold/array_hz
     for level, high in zip(steps, stepping_points):
@@ -4917,6 +4934,7 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     else:
         # all values above the last
         stepped_array[low < array] = level
+    stepped_array.mask = np.ma.getmaskarray(array)
         
     if step_at!='midpoint':
         
@@ -4975,9 +4993,9 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                     else:
                         # OK - just ran from one step to another without dwelling, so fill with the start or end values.
                         if step_at == 'move_start':
-                            stepped_array[span] = stepped_array[span.start]
+                            stepped_array[span] = first_valid_sample(stepped_array[span]).value
                         else:
-                            stepped_array[span] = stepped_array[span.start]
+                            stepped_array[span] = first_valid_sample(stepped_array[span]).value
                 
                 elif step_at == 'move_start':
                     stepped_array[span][:to_chg] = stepped_array[span.start]

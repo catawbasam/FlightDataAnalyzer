@@ -1380,13 +1380,23 @@ class TestCycleSelect(unittest.TestCase):
 
     def test_cycle_select(self):
         index, value = cycle_select(self.array, 3.0, 10, 1.0, 0)
-        self.assertEqual(index, 29)
-        self.assertAlmostEqual(value, 3.93586778133)
+        self.assertEqual(index, 25)
+        self.assertAlmostEqual(value, 3.90451619)
 
+    def test_incomplete_cycle_rejected(self):
+        index, value = cycle_select(np.ma.array([0,0,5,5.0,2,2]),4.0, 3.0, 1.0)
+        self.assertEqual(index, None)
+        self.assertEqual(value, None)
+        
+    def test_full_cycle_identified(self):
+        index, value = cycle_select(np.ma.array([1,0,5,5.0,0,1]),4.0, 4.0, 1.0)
+        self.assertEqual(index, 2)
+        self.assertEqual(value, 5)
+        
     def test_cycle_select_with_offset(self):
         index, value = cycle_select(self.array, 3.0, 10, 1.0, 1234)
-        self.assertEqual(index, 1234 + 29)
-        self.assertAlmostEqual(value, 3.93586778133)
+        self.assertEqual(index, 1234 + 25)
+        self.assertAlmostEqual(value, 3.90451619)
 
     def test_cycle_select_too_slow(self):
         index, value = cycle_select(self.array, 3.0, 1, 1.0, 0)
@@ -1403,7 +1413,7 @@ class TestCycleSelect(unittest.TestCase):
         array = np.ma.array([0.0,3.0,-4.0,-2.0,0.0])
         index, value = cycle_select(array, 3.0, 10, 1.0, 0)
         self.assertEqual(index, 2)
-        self.assertEqual(value, 7.0)
+        self.assertEqual(value, 4.0)
 
 
 class TestCycleFinder(unittest.TestCase):
@@ -2395,8 +2405,17 @@ class TestIntegrate (unittest.TestCase):
         data = np.ma.array(data = [1,1,2,2],
                            mask = [0,0,0,1])
         result = integrate(data,1.0)
-        np.testing.assert_array_equal(result.data, [0,1,2,2])
-        np.testing.assert_array_equal(result.mask, [0,0,0,1])
+        ma_test.assert_array_equal(np.ma.array(data=[0,1,2.5,2.5], mask=[0,0,0,1]),
+                                   result)
+        
+    def test_integration_masked_tail_repaired(self):
+        # This test was added to assess the effect of masked values rolling back into the integrand.
+        data = np.ma.array(data = [1,1,2,99],
+                           mask = [0,0,0,1])
+        result = integrate(data,1.0, repair=True)
+        ma_test.assert_array_equal(np.ma.array(data=[0,1,2.5,3.5], mask=[0,0,0,0]),
+                                   result)
+
 
     def test_integration_extended(self):
         data = np.ma.array([1,2,5,4.0])
@@ -3443,6 +3462,13 @@ class TestRepairMask(unittest.TestCase):
         self.assertFalse(np.ma.is_masked(res[8]))
         self.assertFalse(np.ma.is_masked(res[9]))
 
+    def test_zero_if_masked(self):
+        array = np.ma.array([2,4,6,7,5,3,1],mask=[1,1,0,0,1,1,1])
+        res = repair_mask(array, zero_if_masked=True)
+        expected = np.ma.array([0,0,6,7,0,0,0],mask=[0,0,0,0,0,0,0])
+        ma_test.assert_array_equal(res, expected)
+
+
 
 class TestResample(unittest.TestCase):
     def test_resample_upsample(self):
@@ -3831,7 +3857,10 @@ class TestSliceDuration(unittest.TestCase):
 
 class TestSlicesAnd(unittest.TestCase):
     def test_slices_and(self):
-        slices_and
+        self.assertEqual(slices_and([slice(2,5)],[slice(3,7)]),
+                         [slice(3,5)])
+        self.assertEqual(slices_and([slice(2,5),slice(7,None)],[slice(3,9)]),
+                         [slice(3,5), slice(7,9)])
 
 
 class TestSlicesAbove(unittest.TestCase):
@@ -4315,7 +4344,7 @@ class TestStepValues(unittest.TestCase):
                           5,5,5,5,5,5,5,5,5,15,15,15,15,15,15,15,15,15,15,15,15,
                           15,15,15,15,15,15,15,15,15,15,15,15,5,5,5,5,5,5,5,5,5,
                           5,5,5,5,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
-    
+
     def test_step_trailing_edge_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
                              0.67, 0.98, 1.15, 1.28, 1.5, 1.71, 1.92, 2.12, 
@@ -4331,6 +4360,21 @@ class TestStepValues(unittest.TestCase):
                           15,15,15,15,15,15,15,15,15,15,15,15,15,15,5,5,5,5,5,5,
                           5,5,5,5,5,5,5,5,5,5,5,5,5,5,1,1,1,0,0,0,0,0,0,0,0,0,0,
                           0])
+
+    def test_step_trailing_edge_masked_data(self):
+        '''
+        tests first values being masked and remaining values have no cusp
+        '''
+        array = np.ma.array(
+            [0, 0, 0, 0, 4.92184, 4.92184, 4.92184, 4.92184,
+             4.92184, 4.92184, 4.92184, 4.92184, 4.92184, 4.92184])
+        array = np.ma.concatenate((array,array[::-1]))
+        array[:4]=np.ma.masked
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_end')
+        expected = np.ma.array([0,0,0,0,5,5,5,5,5,5,5,5,5,5])
+        expected = np.ma.concatenate((expected,expected[::-1]))
+        expected[:4]=np.ma.masked
+        self.assertEqual(list(stepped), list(expected))
 
 
 class TestStraightenAltitudes(unittest.TestCase):

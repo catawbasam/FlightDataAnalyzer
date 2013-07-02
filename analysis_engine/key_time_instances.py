@@ -406,7 +406,11 @@ class FirstFlapExtensionWhileAirborne(KeyTimeInstanceNode):
             if not isinstance(cleans, list):
                 continue
             for clean in cleans:
-                self.create_kti(clean.stop + air.slice.start)
+                # Skip the case where the airborne slice ends
+                if clean.stop == air.slice.stop-air.slice.start:
+                    continue
+                # Subtract half a sample index as the transition took place between indices.
+                self.create_kti(clean.stop + air.slice.start - 0.5)
 
 
 
@@ -653,10 +657,13 @@ class Liftoff(KeyTimeInstanceNode):
                     # use the last liftoff point
                     index = edges[-1] + back_3
                     # Check we were within 5ft of the ground when the switch triggered.
-                    if alt_rad.array[index] < 5.0 \
-                       or not alt_rad \
-                       or alt_rad.array[index] is np.ma.masked:
+                    if alt_rad == None:
                         index_gog = index
+                    elif alt_rad.array[index] < 5.0 or \
+                         alt_rad.array[index] is np.ma.masked:
+                        index_gog = index
+                    else:
+                        index_gog = None
 
             # We pick the second  recorded indication for the point of liftoff.
             index_list = sorted_valid_list([index_air, 

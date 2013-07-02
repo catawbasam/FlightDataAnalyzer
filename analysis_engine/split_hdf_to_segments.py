@@ -574,7 +574,7 @@ def append_segment_info(hdf_segment_path, segment_type, segment_slice, part,
 
 
 def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
-                          draw=False):
+                          draw=False, dest_dir=None):
     """
     Main method - analyses an HDF file for flight segments and splits each
     flight into a new segment appropriately.
@@ -587,10 +587,17 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
     :type fallback_dt: datetime
     :param draw: Whether to use matplotlib to plot the flight
     :type draw: Boolean
+    :param dest_dir: Destination directory, if None, the source file directory
+        is used
+    :type dest_dir: str
     :returns: List of Segments
     :rtype: List of Segment recordtypes ('slice type part duration path hash')
     """
     logger.info("Processing file: %s", hdf_path)
+
+    if dest_dir is None:
+        dest_dir = os.path.dirname(hdf_path)
+
     if draw:
         from analysis_engine.plot_flight import plot_essential
         plot_essential(hdf_path)
@@ -625,7 +632,9 @@ def split_hdf_to_segments(hdf_path, aircraft_info, fallback_dt=None,
     for part, segment_tuple in enumerate(segment_tuples, start=1):
         segment_type, segment_slice = segment_tuple
         # write segment to new split file (.001)
-        dest_path = os.path.splitext(hdf_path)[0] + '.%03d.hdf5' % part
+        basename = os.path.basename(hdf_path)
+        dest_basename = os.path.splitext(basename)[0] + '.%03d.hdf5' % part
+        dest_path = os.path.join(dest_dir, dest_basename)
         logger.debug("Writing segment %d: %s", part, dest_path)
         write_segment(hdf_path, segment_slice, dest_path, supf_boundary=superframe_present)
         segment = append_segment_info(dest_path, segment_type, segment_slice,

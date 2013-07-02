@@ -1419,22 +1419,26 @@ class KeyTimeInstanceNode(FormattedNameNode):
                 _slice = slice(0, len(array))
             if len(array[_slice]) == 0:
                 return
-            state_periods = np.ma.clump_unmasked(
-                np.ma.masked_not_equal(array[_slice].raw,
-                                       array.get_state_value(state)))
-            slice_len = len(array[_slice])
-            for period in state_periods:
-                # Calculate the location in the array
-                start = period.start + _slice.start
-                stop = period.stop + _slice.start
-                if change in ('entering', 'entering_and_leaving') \
-                   and period.start > 0:
-                    # We don't create the KTI at the beginning of the data, as
-                    # it is not a "state change"
-                    self.create_kti(start - 0.5)
-                if change in ('leaving', 'entering_and_leaving') \
-                   and period.stop < slice_len:
-                    self.create_kti(stop - 0.5)
+            valid_periods = np.ma.clump_unmasked(array[_slice])
+            for valid_period in valid_periods:
+                valid_slice = slice(valid_period.start + _slice.start,
+                                    valid_period.stop + _slice.start)
+                state_periods = np.ma.clump_unmasked(
+                    np.ma.masked_not_equal(array[valid_slice].raw,
+                                           array.get_state_value(state)))
+                slice_len = len(array[valid_slice])
+                for period in state_periods:
+                    # Calculate the location in the array
+                    if change in ('entering', 'entering_and_leaving') \
+                       and period.start > 0:
+                        # We don't create the KTI at the beginning of the data, as
+                        # it is not a "state change"
+                        start = period.start + valid_slice.start
+                        self.create_kti(start - 0.5)
+                    if change in ('leaving', 'entering_and_leaving') \
+                       and period.stop < slice_len:
+                        stop = period.stop + valid_slice.start
+                        self.create_kti(stop - 0.5)
             return
 
         repaired_array = repair_mask(array, frequency=self.frequency, repair_duration=64)

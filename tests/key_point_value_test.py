@@ -52,6 +52,7 @@ from analysis_engine.key_point_values import (
     AirspeedWhileGearRetractingMax,
     AirspeedAt8000Ft,
     AirspeedAt35FtDuringTakeoff,
+    AirspeedAtFlapExtensionWithGearDown,
     AirspeedAtGearDownSelection,
     AirspeedAtGearUpSelection,
     AirspeedAtLiftoff,
@@ -104,6 +105,7 @@ from analysis_engine.key_point_values import (
     AltitudeOvershootAtSuspectedLevelBust,
     AltitudeAtGearDownSelection,
     AltitudeAtGearDownSelectionWithFlapUp,
+    AltitudeAtGearDownSelectionWithFlapDown,
     AltitudeAtGearUpSelection,
     AltitudeAtAPDisengagedSelection,
     AltitudeAtAPEngagedSelection,
@@ -113,6 +115,7 @@ from analysis_engine.key_point_values import (
     AltitudeFirstStableDuringApproachBeforeGoAround,
     AltitudeFirstStableDuringLastApproach,
     AltitudeAtFlapExtension,
+    AltitudeAtFlapExtensionWithGearDown,
     AltitudeAtFirstFlapExtensionAfterLiftoff,
     AltitudeAtFirstFlapRetraction,
     AltitudeAtFirstFlapRetractionDuringGoAround,
@@ -140,6 +143,8 @@ from analysis_engine.key_point_values import (
     EngEPRDuringMaximumContinuousPowerMax,
     EngEPR500To50FtMax,
     EngEPR500To50FtMin,
+    EngEPRFor5Sec1000To500FtMin,
+    EngEPRFor5Sec500To50FtMin,
     EngFireWarningDuration,
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
@@ -2215,11 +2220,112 @@ class TestAltitudeAtFirstFlapChangeAfterLiftoff(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AltitudeAtFirstFlapChangeAfterLiftoff
-        self.operational_combinations = [('Flap', 'Altitude AAL', 'Airborne')]
+        self.operational_combinations = [('Flap', 'Flap At Liftoff', 'Altitude AAL', 'Airborne')]
 
-    @unittest.skip('Test Not Implemented')
+
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        flap_takeoff = KPV('Flap At Liftoff', items=[
+            KeyPointValue(name='Flap At Liftoff', index=2, value=5.0),
+        ])
+        flap = P('Flap', np.ma.array([0, 5, 5, 5, 5, 0, 0, 0, 0, 15, 30, 30, 30, 30, 15, 0]))
+        alt_aal_array = np.ma.array([0, 0, 0, 50, 100, 200, 300, 400])
+        alt_aal_array = np.ma.concatenate((alt_aal_array,alt_aal_array[::-1]))
+        alt_aal = P('Altitude AAL', alt_aal_array)
+        airs = buildsection('Airborne', 2, 14)
+
+        node = AltitudeAtFirstFlapChangeAfterLiftoff()
+        node.derive(flap=flap, flap_liftoff=flap_takeoff,
+                   alt_aal=alt_aal, airborne=airs)
+
+        expected = KPV('Altitude At First Flap Change After Liftoff', items=[
+            KeyPointValue(name='Altitude At First Flap Change After Liftoff', index=4.5, value=150),
+        ])
+        self.assertEqual(node, expected)
+
+
+    def test_derive_no_flap_takeoff(self):
+        flap_takeoff = KPV('Flap At Liftoff', items=[
+            KeyPointValue(name='Flap At Liftoff', index=2, value=0.0),
+        ])
+        flap = P('Flap', np.ma.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 30, 30, 30, 30, 15, 0]))
+        alt_aal_array = np.ma.array([0, 0, 0, 50, 100, 200, 300, 400])
+        alt_aal_array = np.ma.concatenate((alt_aal_array,alt_aal_array[::-1]))
+        alt_aal = P('Altitude AAL', alt_aal_array)
+        airs = buildsection('Airborne', 2, 14)
+
+        node = AltitudeAtFirstFlapChangeAfterLiftoff()
+        node.derive(flap=flap, flap_liftoff=flap_takeoff,
+                   alt_aal=alt_aal, airborne=airs)
+
+        expected = flap_takeoff = KPV('Altitude At First Flap Change After Liftoff', items=[])
+        self.assertEqual(node, expected)
+
+
+class TestAltitudeAtFlapExtensionWithGearDown(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtFlapExtensionWithGearDown
+        self.operational_combinations = [('Flap', 'Altitude AAL', 
+                                          'Gear Extended', 'Airborne')]
+
+
+    def test_derive(self):
+        flap = P('Flap', np.ma.array([0, 5, 5, 0, 0, 0, 1, 1, 10, 20, 20, 20, 35, 35, 15, 0.0]))
+        gear = buildsection('Gear Extended', 7, None)
+        
+        alt_aal_array = np.ma.array([0, 0, 0, 50, 100, 200, 300, 400])
+        alt_aal_array = np.ma.concatenate((alt_aal_array,alt_aal_array[::-1]))
+        alt_aal = P('Altitude AAL', alt_aal_array)
+        airs = buildsection('Airborne', 2, 14)
+
+        node = AltitudeAtFlapExtensionWithGearDown()
+        node.derive(flap_p=flap, alt_aal=alt_aal, gear_ext=gear, airborne=airs)
+        first = node.get_first()
+        self.assertEqual(first.index, 8)
+        self.assertEqual(first.value, 400)
+        self.assertEqual(first.name, 'Altitude At Flap 10 Extension With Gear Down')
+        second = node.get_next(8)
+        self.assertEqual(second.index, 9)
+        self.assertEqual(second.value, 300)
+        self.assertEqual(second.name, 'Altitude At Flap 20 Extension With Gear Down')
+        third = node.get_last()
+        self.assertEqual(third.index, 12)
+        self.assertEqual(third.value, 50)
+        self.assertEqual(third.name, 'Altitude At Flap 35 Extension With Gear Down')
+
+
+class TestAirspeedAtFlapExtensionWithGearDown(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AirspeedAtFlapExtensionWithGearDown
+        self.operational_combinations = [('Flap', 'Airspeed', 
+                                          'Gear Extended', 'Airborne')]
+
+
+    def test_derive(self):
+        flap = P('Flap', np.ma.array([0, 5, 5, 0, 0, 0, 1, 1, 10, 20, 20, 20, 35, 35, 15, 0.0]))
+        gear = buildsection('Gear Extended', 7, None)
+        
+        air_spd_array = np.ma.array([0, 0, 0, 50, 100, 200, 250, 280])
+        air_spd_array2 = np.ma.concatenate((air_spd_array,air_spd_array[::-1]))
+        air_spd = P('Airspeed', air_spd_array2)
+        airs = buildsection('Airborne', 2, 14)
+
+        node = AirspeedAtFlapExtensionWithGearDown()
+        node.derive(flap_p=flap, air_spd=air_spd, gear_ext=gear, airborne=airs)
+        first = node.get_first()
+        self.assertEqual(first.index, 8)
+        self.assertEqual(first.value, 280)
+        self.assertEqual(first.name, 'Airspeed At Flap 10 Extension With Gear Down')
+        second = node.get_next(8)
+        self.assertEqual(second.index, 9)
+        self.assertEqual(second.value, 250)
+        self.assertEqual(second.name, 'Airspeed At Flap 20 Extension With Gear Down')
+        third = node.get_last()
+        self.assertEqual(third.index, 12)
+        self.assertEqual(third.value, 50)
+        self.assertEqual(third.name, 'Airspeed At Flap 35 Extension With Gear Down')
+
 
 
 class TestAltitudeAtLastFlapChangeBeforeTouchdown(unittest.TestCase, NodeTest):
@@ -2327,6 +2433,24 @@ class TestAltitudeAtGearDownSelection(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAltitudeAtGearDownSelectionWithFlapDown(unittest.TestCase):
+    def setUp(self):
+        self.node_class = AltitudeAtGearDownSelectionWithFlapDown
+        self.operational_combinations = [('Altitude AAL', 'Gear Down Selection', 'Flap')]
+    
+    def test_derive_basic(self):
+        alt_aal = P('Altitude AAL', array=np.ma.arange(0, 1000, 100))
+        gear_downs = KTI('Gear Down Selection', items=[KeyTimeInstance(2),
+                                                       KeyTimeInstance(4),
+                                                       KeyTimeInstance(6),
+                                                       KeyTimeInstance(8)])
+        flap = P('Flap', array=[5] * 3 + [0] * 5 + [20] * 2)
+        node = self.node_class()
+        node.derive(alt_aal, gear_downs, flap)
+        self.assertEqual(node, [KeyPointValue(2, 200, 'Altitude At Gear Down Selection With Flap Down'),
+                                KeyPointValue(8, 800, 'Altitude At Gear Down Selection With Flap Down')])
 
 
 class TestAltitudeAtGearUpSelection(unittest.TestCase, NodeTest):
@@ -3295,6 +3419,28 @@ class TestEngEPR500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.operational_combinations = [('Eng (*) EPR Min', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngEPRFor5Sec1000To500FtMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngEPRFor5Sec1000To500FtMin
+        self.operational_combinations = [('Eng (*) EPR Min For 5 Sec', 'Altitude AAL For Flight Phases', 'HDF Duration')]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngEPRFor5Sec500To50FtMin(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = EngEPRFor5Sec500To50FtMin
+        self.operational_combinations = [('Eng (*) EPR Min For 5 Sec', 'Altitude AAL For Flight Phases', 'HDF Duration')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -5403,30 +5549,53 @@ class TestRateOfClimbMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRateOfClimb35To1000FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestRateOfClimb35To1000FtMin(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = RateOfClimb35To1000FtMin
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (35, 1000), {})]
+    def test_can_operate(self):
+        opts = RateOfClimb35To1000FtMin.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Combined Climb')])
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        array = np.ma.concatenate((np.ma.arange(0, 500, 25), np.ma.arange(500, 1000, 100), [1050, 950, 990], [1100]*5))
+        array = np.ma.concatenate((array, array[::-1]))
+        alt = P('Altitude AAL For Flight Phases', array)
+        roc_array = np.ma.concatenate(([25]*19, [43, 62, 81, 100, 112, 62, 47, 50, 12, 37, 27, 0, 0, 0]))
+        roc_array = np.ma.concatenate((roc_array, -roc_array[::-1]))
+        vert_spd = P('Vertical Speed', roc_array)
+
+        climb = buildsection('Combined Climb', 1.4, 28)
+
+        node = RateOfClimb35To1000FtMin()
+        node.derive(vert_spd, alt, climb)
+
+        expected = KPV('Rate Of Climb 35 To 1000 Ft Min', items=[
+            KeyPointValue(name='Rate Of Climb 35 To 1000 Ft Min', index=27, value=12),
+        ])
+        self.assertEqual(node, expected)
 
 
-class TestRateOfClimbBelow10000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestRateOfClimbBelow10000FtMax(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = RateOfClimbBelow10000FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
-        self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (0, 10000), {})]
+    def test_can_operate(self):
+        opts = RateOfClimbBelow10000FtMax.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases')])
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        array = np.ma.concatenate((np.ma.arange(0, 5000, 250), np.ma.arange(5000, 10000, 1000), [10500, 9500, 9900], [11000]*5))
+        array = np.ma.concatenate((array, array[::-1]))
+        alt = P('Altitude AAL For Flight Phases', array)
+        roc_array = np.ma.concatenate(([250]*19, [437, 625, 812, 1000, 1125, 625, 475, 500, 125, 375, 275, 0, 0, 0]))
+        roc_array = np.ma.concatenate((roc_array, 1-roc_array[::-1]))
+        vert_spd = P('Vertical Speed', roc_array)
+
+        node = RateOfClimbBelow10000FtMax()
+        node.derive(vert_spd, alt)
+
+        expected = KPV('Rate Of Climb Below 10000 Ft Max', items=[
+            KeyPointValue(name='Rate Of Climb Below 10000 Ft Max', index=23, value=1125),
+            KeyPointValue(name='Rate Of Climb Below 10000 Ft Max', index=26, value=500),
+        ])
+        self.assertEqual(node, expected)
 
 
 class TestRateOfClimbDuringGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
@@ -5456,120 +5625,177 @@ class TestRateOfDescentMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestRateOfDescentTopOfDescentTo10000FtMax(unittest.TestCase, NodeTest):
+class TestRateOfDescentTopOfDescentTo10000FtMax(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = RateOfDescentTopOfDescentTo10000FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude STD Smoothed', 'Descent')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRateOfDescentBelow10000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-
-    def setUp(self):
-        self.node_class = RateOfDescentBelow10000FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (10000, 0), {})]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestRateOfDescent10000To5000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-
-    def setUp(self):
-        self.node_class = RateOfDescent10000To5000FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude STD Smoothed')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (10000, 5000), {})]
+    def test_can_operate(self):
+        opts = RateOfDescentTopOfDescentTo10000FtMax.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude STD Smoothed', 'Combined Descent')])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestRateOfDescent5000To3000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestRateOfDescentBelow10000FtMax(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = RateOfDescent5000To3000FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (5000, 3000), {})]
+    def test_can_operate(self):
+        opts = RateOfDescentBelow10000FtMax.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Combined Descent')])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestRateOfDescent3000To2000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestRateOfDescent10000To5000FtMax(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = RateOfDescent3000To2000FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (3000, 2000), {})]
+    def test_can_operate(self):
+        opts = RateOfDescent10000To5000FtMax.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude STD Smoothed', 'Combined Descent')])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestRateOfDescent2000To1000FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestRateOfDescent5000To3000FtMax(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = RateOfDescent2000To1000FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (2000, 1000), {})]
+    def test_can_operate(self):
+        opts = RateOfDescent5000To3000FtMax.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Combined Descent')])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestRateOfDescent1000To500FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestRateOfDescent3000To2000FtMax(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = RateOfDescent1000To500FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (1000, 500), {})]
+    def test_can_operate(self):
+        opts = RateOfDescent3000To2000FtMax.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Combined Descent')])
 
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
+        array = np.ma.concatenate((np.ma.arange(0, 1500, 100), np.ma.arange(1500, 3000, 200), [3050, 2850, 2990], [3150]*5))
+        array = np.ma.concatenate((array, array[::-1]))
+        alt = P('Altitude AAL For Flight Phases', array)
+        roc_array = np.ma.concatenate(([100]*14, [125, 150, 175, 200, 200, 200, 200, 187, 87, 72, 62, 25, 75, 40, 0, 0, 0]))
+        roc_array = np.ma.concatenate((roc_array, -roc_array[::-1]))
+        vert_spd = P('Vertical Speed', roc_array)
+
+        descents = buildsection('Combined Descent', 38, 62)
+
+        node = RateOfDescent3000To2000FtMax()
+        node.derive(vert_spd, alt, descents)
+
+        expected = KPV('Rate Of Descent 3000 To 2000 Ft Max', items=[
+            KeyPointValue(name='Rate Of Descent 3000 To 2000 Ft Max', index=41, value=-200),
+        ])
+        self.assertEqual(node, expected)
 
 
-class TestRateOfDescent500To50FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
-    def setUp(self):
-        self.node_class = RateOfDescent500To50FtMax
-        self.operational_combinations = [('Vertical Speed', 'Altitude AAL For Flight Phases')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_from_to', (500, 50), {})]
+class TestRateOfDescent2000To1000FtMax(unittest.TestCase):
 
-    @unittest.skip('Test Not Implemented')
+
+    def test_can_operate(self):
+        opts = RateOfDescent2000To1000FtMax.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Combined Descent')])
+
     def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
+        array = np.ma.concatenate((np.ma.arange(0, 500, 25), np.ma.arange(500, 2000, 100), [2050, 1850, 1990], [2150]*5))
+        array = np.ma.concatenate((array, array[::-1]))
+        alt = P('Altitude AAL For Flight Phases', array)
+        roc_array = np.ma.concatenate(([25]*19, [43, 62, 81, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 112, 37, 47, 62, 25, 75, 40, 0, 0, 0]))
+        roc_array = np.ma.concatenate((roc_array, -roc_array[::-1]))
+        vert_spd = P('Vertical Speed', roc_array)
+
+        descents = buildsection('Combined Descent', 48, 60)
+
+        node = RateOfDescent2000To1000FtMax()
+        node.derive(vert_spd, alt, descents)
+
+        expected = KPV('Rate Of Descent 2000 To 1000 Ft Max', items=[
+            KeyPointValue(name='Rate Of Descent 2000 To 1000 Ft Max', index=52, value=-112),
+        ])
+        self.assertEqual(node, expected)
 
 
-class TestRateOfDescent50FtToTouchdownMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestRateOfDescent1000To500FtMax(unittest.TestCase):
 
-    def setUp(self):
-        # XXX: This test does not explicitly test how the Touchdown dependency is used.
-        self.node_class = RateOfDescent50FtToTouchdownMax
-        self.operational_combinations = [('Vertical Speed Inertial', 'Altitude AAL For Flight Phases', 'Touchdown')]
-        self.function = min_value
-        self.second_param_method_calls = [('slices_to_kti', (50, []), {})]
 
-    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        opts = RateOfDescent1000To500FtMax.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Combined Descent')])
+
     def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
+        array = np.ma.concatenate((np.ma.arange(0, 500, 25), np.ma.arange(500, 1000, 100), [1050, 950, 990], [1090]*5))
+        array = np.ma.concatenate((array, array[::-1]))
+        alt = P('Altitude AAL For Flight Phases', array)
+        roc_array = np.ma.concatenate(([25]*19, [43, 62, 81, 100, 112, 62, 47, 47, 10, 35, 25, 0, 0, 0]))
+        roc_array = np.ma.concatenate((roc_array, -roc_array[::-1]))
+        vert_spd = P('Vertical Speed', roc_array)
+
+        descents = buildsection('Combined Descent', 37, 63)
+
+        node = RateOfDescent1000To500FtMax()
+        node.derive(vert_spd, alt, descents)
+
+        expected = KPV('Rate Of Descent 1000 To 500 Ft Max', items=[
+            KeyPointValue(name='Rate Of Descent 1000 To 500 Ft Max', index=42, value=-112),
+        ])
+        self.assertEqual(node, expected)
+
+
+class TestRateOfDescent500To50FtMax(unittest.TestCase):
+
+    def test_can_operate(self):
+        opts = RateOfDescent500To50FtMax.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Combined Descent')])
+
+    def test_derive(self):
+        array = np.ma.concatenate((np.ma.arange(0, 50, 25), np.ma.arange(50, 500, 100), [550, 450, 540], [590]*5))
+        array = np.ma.concatenate((array, array[::-1]))
+        alt = P('Altitude AAL For Flight Phases', array)
+        roc_array = np.ma.concatenate(([25]*2, [62, 81, 100, 100, 50, 47, 35, 10, 35, 12, 0, 0, 0]))
+        roc_array = np.ma.concatenate((roc_array, -roc_array[::-1]))
+        vert_spd = P('Vertical Speed', roc_array)
+
+        descents = buildsection('Combined Descent', 19, 27)
+
+        node = RateOfDescent500To50FtMax()
+        node.derive(vert_spd, alt, descents)
+
+        expected = KPV('Rate Of Descent 500 To 50 Ft Max', items=[
+            KeyPointValue(name='Rate Of Descent 500 To 50 Ft Max', index=24, value=-100),
+        ])
+        self.assertEqual(node, expected)
+
+
+class TestRateOfDescent50FtToTouchdownMax(unittest.TestCase):
+
+    def test_can_operate(self):
+        opts = RateOfDescent50FtToTouchdownMax.get_operational_combinations()
+        self.assertEqual(opts, [('Vertical Speed Inertial', 'Altitude AAL For Flight Phases', 'Touchdown')])
+
+    def test_derive(self):
+        array = np.ma.concatenate((np.ma.arange(0, 50, 5), [55, 45, 54], [59]*5))
+        array = np.ma.concatenate((array, array[::-1]))
+        alt = P('Altitude AAL For Flight Phases', array)
+        roc_array = np.ma.concatenate(([5]*8, [6, 2, 3, 3, 1, 3, 1, 0, 0, 0]))
+        roc_array = np.ma.concatenate((roc_array, -roc_array[::-1]))
+        roc_array[33] = -26
+        vert_spd = P('Vertical Speed Inertial', roc_array)
+
+        touch_down = KTI('Touchdown', items=[KeyTimeInstance(34, 'Touchdown')])
+
+        node = RateOfDescent50FtToTouchdownMax()
+        node.derive(vert_spd, alt, touch_down)
+
+        expected = KPV('Rate Of Descent 50 Ft To Touchdown Max', items=[
+            KeyPointValue(name='Rate Of Descent 50 Ft To Touchdown Max', index=33, value=-26),
+        ])
+        self.assertEqual(node, expected)
 
 
 class TestRateOfDescentAtTouchdown(unittest.TestCase, NodeTest):
