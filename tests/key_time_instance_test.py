@@ -23,6 +23,7 @@ from analysis_engine.key_time_instances import (
     EngStop,
     EnterHold,
     ExitHold,
+    FirstFlapExtensionWhileAirborne,
     FlapExtensionWhileAirborne,
     FlapSet,
     GearDownSelection,
@@ -437,10 +438,10 @@ class TestLandingTurnOffRunway(unittest.TestCase):
 
 
 class TestLiftoff(unittest.TestCase):
+    #TODO: Extend test coverage. This algorithm was developed using lots of
+    #test data and graphical inspection, but needs a formal test framework.
     def test_can_operate(self):
-        self.assertEqual(Liftoff.get_operational_combinations(),
-                         [('Airborne',),
-                          ('Vertical Speed Inertial', 'Airborne')])
+        self.assertTrue(('Airborne',) in Liftoff.get_operational_combinations())
 
     def test_liftoff_basic(self):
         # Linearly increasing climb rate with the 5 fpm threshold set between 
@@ -450,8 +451,8 @@ class TestLiftoff(unittest.TestCase):
         # Airborne section encloses the test point.
         airs = buildsection('Airborne', 6, None)
         lift=Liftoff()
-        lift.derive(vert_spd, airs)
-        expected = [KeyTimeInstance(index=5.5, name='Liftoff')]
+        lift.derive(vert_spd, None, None, None, None, airs, None)
+        expected = [KeyTimeInstance(index=6, name='Liftoff')]
         self.assertEqual(lift, expected)
     
     def test_liftoff_no_vert_spd_detected(self):
@@ -460,7 +461,7 @@ class TestLiftoff(unittest.TestCase):
                              (np.ma.array([0] * 40)))
         airs = buildsection('Airborne', 6, None)
         lift=Liftoff()
-        lift.derive(vert_spd, airs)
+        lift.derive(vert_spd, None, None, None, None, airs, None)
         expected = [KeyTimeInstance(index=6, name='Liftoff')]
         self.assertEqual(lift, expected)
     
@@ -752,17 +753,38 @@ class TestEngStart(unittest.TestCase):
         self.assertTrue(('Eng (4) N2',) in combinations)
         self.assertTrue(('Eng (1) N2', 'Eng (2) N2',
                          'Eng (3) N2', 'Eng (4) N2') in combinations)
+        self.assertTrue(('Eng (1) N3',) in combinations)
+        self.assertTrue(('Eng (2) N3',) in combinations)
+        self.assertTrue(('Eng (3) N3',) in combinations)
+        self.assertTrue(('Eng (4) N3',) in combinations)
+        self.assertTrue(('Eng (1) N3', 'Eng (2) N3',
+                         'Eng (3) N3', 'Eng (4) N3') in combinations)
     
     def test_basic(self):
         eng2 = Parameter('Eng (2) N2', np.ma.array([0,20,40,60]))
         eng1 = Parameter('Eng (1) N2', np.ma.array(data=[0,0,99,99,60,60,60], 
                                                    mask=[1,1, 1, 1, 0, 0, 0]))
         es = EngStart()
-        es.derive(eng1, eng2, None, None)
+        es.derive(eng1, eng2, None, None, None, None, None, None)
         self.assertEqual(es[0].name, 'Eng (1) Start')
         self.assertEqual(es[0].index, 4)
         self.assertEqual(es[1].name, 'Eng (2) Start')
         self.assertEqual(es[1].index, 2.5)
+
+    def test_three_spool(self):
+        eng22 = Parameter('Eng (2) N2', np.ma.array([0,20,40,60, 0, 20, 40, 60]))
+        eng12 = Parameter('Eng (1) N2', np.ma.array(data=[0,0,99,99,60,60,60,60], 
+                                                   mask=[1,1, 1, 1, 0, 0, 0, 0]))
+        eng23 = Parameter('Eng (2) N3', np.ma.array([0,40,60,60, 0, 0, 30, 60]))
+        eng13 = Parameter('Eng (1) N3', np.ma.array(data=[0,0,99,99,60,60,60, 60], 
+                                                   mask=[1,1, 1, 1, 0, 0, 0, 0]))
+        es = EngStart()
+        es.derive(eng12, eng22, None, None, eng13, eng23, None, None)
+        self.assertEqual(es[0].name, 'Eng (1) Start')
+        self.assertEqual(es[0].index, 4)
+        self.assertEqual(es[1].name, 'Eng (2) Start')
+        self.assertEqual(es[1].index, 1.5)
+
 
 
 
@@ -861,6 +883,25 @@ class TestFlapExtensionWhileAirborne(unittest.TestCase, NodeTest):
             KeyTimeInstance(index=3.5, name='Flap Extension While Airborne'),
             KeyTimeInstance(index=5.5, name='Flap Extension While Airborne'),
         ])
+
+
+class TestFirstFlapExtensionWhileAirborne(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = FirstFlapExtensionWhileAirborne
+        self.operational_combinations = [('Flap', 'Airborne')]
+        self.flap = P(
+            name='Flap',
+            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
+        )
+
+    def test_derive(self):
+        airborne = buildsection('Airborne', 1, 12)
+        node = FirstFlapExtensionWhileAirborne()
+        node.derive(self.flap, airborne)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=1.5, name='First Flap Extension While Airborne'),
+            ])
 
 
 class TestFlapRetractionWhileAirborne(unittest.TestCase, NodeTest):

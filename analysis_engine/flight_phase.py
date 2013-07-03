@@ -336,7 +336,35 @@ class ClimbCruiseDescent(FlightPhaseNode):
                             n += 1
 
 
+class CombinedClimb(FlightPhaseNode):
+    '''
+    Climb phase from liftoff or go around to top of climb
+    '''
+    def derive(self,
+               toc=KTI('Top Of Climb'),
+               ga=KTI('Go Around'),
+               lo=KTI('Liftoff'),
+               touchdown=KTI('Touchdown')):
+
+        end_list = [x.index for x in toc.get_ordered_by_index()]
+        start_list = [y.index for y in [lo.get_first()] + ga.get_ordered_by_index()]
+
+        if len(start_list) == len(end_list):
+            slice_idxs = zip(start_list, end_list)
+            for slice_tuple in slice_idxs:
+                self.create_phase(slice(*slice_tuple))
+        else:
+            #TODO: remove else once ClimbCruiseDescent has been improved
+            self.warning('Differing number of Liftoff/GA vs TOC, using whole flight as Fallback')
+            start = lo.get_first().index
+            end = touchdown.get_last().index
+            self.create_phase(slice(start, end))
+
 class Climb(FlightPhaseNode):
+    '''
+    This phase goes from 1000 feet (top of Initial Climb) in the climb to the
+    top of climb
+    '''
     def derive(self,
                toc=KTI('Top Of Climb'),
                eot=KTI('Climb Start'), # AKA End Of Initial Climb
@@ -403,6 +431,28 @@ class Cruise(FlightPhaseNode):
                 end = begin + 1
 
             self.create_phase(slice(begin,end))
+
+
+class CombinedDescent(FlightPhaseNode):
+    def derive(self,
+               tod_set=KTI('Top Of Descent'),
+               bod_set=KTI('Bottom Of Descent'),
+               liftoff=KTI('Liftoff'),
+               touchdown=KTI('Touchdown')):
+
+        end_list = [x.index for x in bod_set.get_ordered_by_index()]
+        start_list = [y.index for y in tod_set.get_ordered_by_index()]
+
+        if len(start_list) == len(end_list):
+            slice_idxs = zip(start_list, end_list)
+            for slice_tuple in slice_idxs:
+                self.create_phase(slice(*slice_tuple))
+        else:
+            #TODO: remove else once ClimbCruiseDescent has been improved
+            self.warning('Differing number of TOD vs BOD, using whole flight as Fallback')
+            start = liftoff.get_first().index
+            end = touchdown.get_last().index
+            self.create_phase(slice(start, end))
 
 
 class Descending(FlightPhaseNode):
@@ -578,6 +628,19 @@ class GearExtending(FlightPhaseNode):
                 self.create_phase(slice(begin, end))
 
 
+class GearExtended(FlightPhaseNode):
+    '''
+    Simple phase to avoid repetition elsewhere.
+    '''
+    def derive(self, gear_down=M('Gear Down')):
+        slice_list = np.ma.clump_unmasked(np.ma.masked_equal(gear_down.array,0))
+        # Untidy trap for slices that match the array boundary.
+        # TODO: Someone think of a better solution than this?
+        if slice_list[-1].stop == len(gear_down.array):
+            slice_list[-1]=slice(slice_list[-1].start,slice_list[-1].stop-1)
+        self.create_phases(slice_list)
+
+
 class GearRetracting(FlightPhaseNode):
     '''
     See Gear Extending for comments.
@@ -625,6 +688,15 @@ class GearRetracting(FlightPhaseNode):
                 begin = edge
                 end = edge + (5.0 * gear_down.frequency)
                 self.create_phase(slice(begin, end))
+
+
+class GearRetracted(FlightPhaseNode):
+    '''
+    Simple phase to avoid repetition elsewhere.
+    '''
+    def derive(self, gear_down=M('Gear Down')):
+        self.create_phases(np.ma.clump_unmasked(
+            np.ma.masked_equal(gear_down.array,1)))
 
 
 def scan_ils(beam, ils_dots, height, scan_slice):

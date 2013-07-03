@@ -10,6 +10,8 @@ from scipy import interpolate as scipy_interpolate, optimize
 
 from hdfaccess.parameter import MappedArray
 
+from flightdatautilities.velocity_speed import get_vspeed_map
+
 from settings import (CURRENT_YEAR,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
@@ -2461,19 +2463,17 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
     :returns integral: Result of integration by time
     :type integral: Numpy masked array.
     """
+    
     if np.ma.count(array)==0:
         return np_ma_masked_zeros_like(array)
 
     if repair:
-        result = repair_mask(array, 
-                             repair_duration=None,
-                             zero_if_masked=True,
-                             extrapolate=True,
-                             copy=True)
-    else:
-        result = np.ma.copy(array)
-
-    if contiguous:
+        integrand = repair_mask(array, 
+                                     repair_duration=None,
+                                     zero_if_masked=True,
+                                     extrapolate=True,
+                                     copy=True)
+    elif contiguous:
         blocks = np.ma.clump_unmasked(array)
         longest_index = None
         longest_slice = 0
@@ -2486,7 +2486,7 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
         integrand[blocks[longest_index]] = array[blocks[longest_index]]
     else:
         integrand = array
-
+        
     if direction.lower() == 'forwards':
         d = +1
         s = +1
@@ -2513,7 +2513,9 @@ def integrate(array, frequency, initial_value=0.0, scale=1.0,
         else:
             to_int[edges[1]] = initial_value * s
             # Note: Sign of initial value will be reversed twice for backwards case.
-
+    
+    result=np.ma.zeros(len(integrand))
+    
     result[::d] = np.ma.cumsum(to_int[::d] * s)
 
     if extend:
@@ -2879,9 +2881,14 @@ def slices_and(first_list, second_list):
                (second_slice.step is not None and second_slice.step < 0):
                 raise ValueError('slices_and will not work with reverse slices')
             if slices_overlap(first_slice, second_slice):
-                result_list.append(
-                    slice(max(first_slice.start, second_slice.start),
-                          min(first_slice.stop, second_slice.stop)))
+                slice_start = max(first_slice.start, second_slice.start)
+                if first_slice.stop == None:
+                    slice_stop = second_slice.stop
+                elif second_slice.stop == None:
+                    slice_stop = first_slice.stop
+                else:
+                    slice_stop = min(first_slice.stop, second_slice.stop)
+                result_list.append(slice(slice_start,slice_stop))
     return result_list
 
 def slices_and_not(first, second):
@@ -4274,11 +4281,11 @@ def peak_index(a):
                 return loc+peak
 
 
-def rate_of_change_array(to_diff, hz, width=2.0, method='two_points'):
+def rate_of_change_array(to_diff, hz, width=None, method='two_points'):
     '''
     Lower level access to rate of change algorithm. See rate_of_change for
     description.
-    
+
     The regression method was added to provide greater smoothing over an
     extended period. This is required where the parameter being
     differentiated has poor quantisation, e.g. Altitude STD with 32ft steps.
@@ -4295,10 +4302,15 @@ def rate_of_change_array(to_diff, hz, width=2.0, method='two_points'):
     :returns: masked array of values with differentiation applied
 
     '''
+    if width is None:
+        width = 2 / hz
+
     hw = int(width * hz / 2.0)
+
     if hw < 1:
         raise ValueError('Rate of change called with inadequate width.')
-    if len(to_diff) <= 2*hw:
+
+    if len(to_diff) <= 2 * hw:
         logger.info("Rate of change called with short data segment. Zero rate "
                     "returned")
         return np_ma_zeros_like(to_diff)
@@ -4409,14 +4421,20 @@ def repair_mask(array, frequency=1, repair_duration=REPAIR_DURATION,
             if extrapolate:
                 # TODO: Does it make sense to subtract 1 from the section stop??
                 #array.data[section] = array.data[section.stop - 1]
-                array.data[section] = array.data[section.stop]
+                if zero_if_masked:
+                    array.data[section]=0.0
+                else:
+                    array.data[section] = array.data[section.stop]
                 array.mask[section] = False
             else:
                 continue # Can't interpolate if we don't know the first sample
 
         elif section.stop == len(array):
             if extrapolate:
-                array.data[section] = array.data[section.start - 1]
+                if zero_if_masked:
+                    array.data[section]=0.0
+                else:
+                    array.data[section] = array.data[section.start - 1]
                 array.mask[section] = False
             else:
                 continue # Can't interpolate if we don't know the last sample
@@ -5561,6 +5579,31 @@ def value_at_index(array, index, interpolate=True):
             return array[index + 0.5]
         # In the cases of no mask, or neither sample masked, interpolate.
         return r*high_value + (1-r) * low_value
+
+
+    
+def vspeed_lookup(vspeed, aircraft, flap, gw):
+    '''
+    Single point lookup for the vspeed tables.
+    
+    :param vspeed: Selection of "V2" or "Vref"
+    :type vspeed: String
+    :param aircraft: Aircraft type identifier, family or series.
+    :type aircraft: String
+    :param flap: Flap setting
+    :type flap: float # TODO: Include Config - not tested yet.
+    :param gw: Gross Weight in kg
+    :type gw: float
+    
+    :returns: Vspeed in knots
+    :type: float
+    '''
+    vspeed_class = get_vspeed_map(aircraft)
+    vspeed_table = vspeed_class()
+    if vspeed.lower() == 'v2':
+        return vspeed_table.v2(flap, gw)
+    else:
+        return vspeed_table.vref(flap, gw)
 
 
 def vstack_params(*params):

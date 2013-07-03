@@ -2660,7 +2660,7 @@ class TestILSFrequency(unittest.TestCase):
         opts = ILSFrequency.get_operational_combinations()
         self.assertTrue([e in opts for e in expected])
         
-    def test_ils_frequency_in_range(self):
+    def test_ils_vor_frequency_in_range(self):
         f1 = P('ILS-VOR (1) Frequency', 
                np.ma.array([1,2,108.10,108.15,111.95,112.00]),
                offset = 0.1, frequency = 0.5)
@@ -2668,7 +2668,33 @@ class TestILSFrequency(unittest.TestCase):
                np.ma.array([1,2,108.10,108.15,111.95,112.00]),
                offset = 1.1, frequency = 0.5)
         ils = ILSFrequency()
-        result = ils.get_derived([f1, f2])
+        result = ils.get_derived([None, None, f1, f2])
+        expected_array = np.ma.array(
+            data=[1,2,108.10,108.15,111.95,112.00], 
+             mask=[True,True,False,False,False,True])
+        ma_test.assert_masked_array_approx_equal(result.array, expected_array)
+        
+    def test_single_ils_vor_frequency_in_range(self):
+        f1 = P('ILS-VOR (1) Frequency', 
+               np.ma.array(data=[1,2,108.10,108.15,111.95,112.00],
+                           mask=[True,True,False,False,False,True]),
+               offset = 0.1, frequency = 0.5)
+        ils = ILSFrequency()
+        result = ils.get_derived([None, None, f1, None])
+        expected_array = np.ma.array(
+            data=[1,2,108.10,108.15,111.95,112.00], 
+             mask=[True,True,False,False,False,True])
+        ma_test.assert_masked_array_approx_equal(result.array, expected_array)
+        
+    def test_ils_frequency_in_range(self):
+        f1 = P('ILS (1) Frequency', 
+               np.ma.array([1,2,108.10,108.15,111.95,112.00]),
+               offset = 0.1, frequency = 0.5)
+        f2 = P('ILS (2) Frequency', 
+               np.ma.array([1,2,108.10,108.15,111.95,112.00]),
+               offset = 1.1, frequency = 0.5)
+        ils = ILSFrequency()
+        result = ils.get_derived([f1, f2, None, None])
         expected_array = np.ma.array(
             data=[1,2,108.10,108.15,111.95,112.00], 
              mask=[True,True,False,False,False,True])
@@ -3702,8 +3728,25 @@ class TestGearDownSelected(unittest.TestCase):
                    frequency=1, 
                    offset=0.1)
         dn_sel=GearDownSelected()
-        dn_sel.derive(gdn, None, None, None)
+        dn_sel.derive(gdn, None, None, None, None)
         np.testing.assert_array_equal(dn_sel.array, [0,0,0,1,1,1])
+        self.assertEqual(dn_sel.frequency, 1.0)
+        self.assertAlmostEqual(dn_sel.offset, 0.1)
+
+    def test_gear_down_selected_from_recorded_up(self):
+        gdn = M(array=np.ma.array(data=[0,0,0,0,0,0]),
+                   values_mapping={1:'Down',0:'Up'},
+                   name='Gear Down', 
+                   frequency=1, 
+                   offset=0.1)
+        gup_sel = M(array=np.ma.array(data=[1,1,0,0,1,1]),
+                    values_mapping={0:'Down',1:'Up'},
+                    name='Gear Up Selected', 
+                    frequency=1, 
+                    offset=0.1)
+        dn_sel=GearDownSelected()
+        dn_sel.derive(gdn, gup_sel, None, None, None)
+        np.testing.assert_array_equal(dn_sel.array, [0,0,1,1,0,0])
         self.assertEqual(dn_sel.frequency, 1.0)
         self.assertAlmostEqual(dn_sel.offset, 0.1)
 
@@ -3719,7 +3762,7 @@ class TestGearDownSelected(unittest.TestCase):
                 frequency=1, 
                 offset=0.6)
         dn_sel=GearDownSelected()
-        dn_sel.derive(gdn, red, red, red)
+        dn_sel.derive(gdn, None, red, red, red)
         np.testing.assert_array_equal(dn_sel.array.raw, [0,1,1,1,1,1])
         self.assertEqual(dn_sel.frequency, 1.0)
         self.assertAlmostEqual(dn_sel.offset, 0.1)

@@ -3189,11 +3189,12 @@ class GearOnGround(MultistateDerivedParameterNode):
         # this parameter directly: 737-4, 737-i
 
         if gl and gr:
-            if gl.offset == gr.offset:
-                # A common case is for the left and right gear to be mapped
-                # onto different bits of the same word. In this case we
-                # accept that either wheel on the ground equates to gear on
-                # ground.
+            delta = abs((gl.offset - gr.offset) * gl.frequency)
+            if 0.75 < delta or delta < 0.25:
+                # If the samples of the left and right gear are close together,
+                # the best representation is to map them onto a single
+                # parameter in which we accept that either wheel on the ground
+                # equates to gear on ground.
                 self.array = np.ma.logical_or(gl.array, gr.array)
                 self.frequency = gl.frequency
                 self.offset = gl.offset
@@ -3218,6 +3219,8 @@ class GearDownSelected(MultistateDerivedParameterNode):
     Where 'Gear Down Selected' is recorded, this derived parameter will be
     skipped automatically.
 
+    In ideal cases, 'Gear Up Selected' is available and we just invert this.
+    
     Red warnings are included as the selection may first be indicated by one
     of the red warning lights coming on, rather than the gear status
     changing.
@@ -3238,10 +3241,18 @@ class GearDownSelected(MultistateDerivedParameterNode):
 
     def derive(self,
                gear_down=M('Gear Down'),
+               gear_up_sel=P('Gear Up Selected'),
                gear_warn_l=P('Gear (L) Red Warning'),
                gear_warn_n=P('Gear (N) Red Warning'),
                gear_warn_r=P('Gear (R) Red Warning')):
 
+        if gear_up_sel:
+            # Invert the recorded gear up selected parameter.
+            self.array = 1-gear_up_sel.array
+            self.frequency = gear_up_sel.frequency
+            self.offset = gear_up_sel.offset
+            return
+        
         dn = gear_down.array.raw
         if gear_warn_l and gear_warn_n and gear_warn_r:
             # Join available gear parameters and use whichever are available.
@@ -3305,24 +3316,25 @@ class GearUpSelected(MultistateDerivedParameterNode):
 
 ################################################################################
 
-class GrossWeight(DerivedParameterNode):
-    '''
-    Merges alternate gross weight measurements. 757-DHK frame applies.
-    '''
-    units = 'kg'
-    align = False
+## There is no difference between the two sources, and the sample rate is so low as to make merging pointless.
+##class GrossWeight(DerivedParameterNode):
+    ##'''
+    ##Merges alternate gross weight measurements. 757-DHK frame applies.
+    ##'''
+    ##units = 'kg'
+    ##align = False
 
-    def derive(self,
-               source_L = P('Gross Weight (L)'),
-               source_R = P('Gross Weight (R)'),
-               frame = A('Frame')):
+    ##def derive(self,
+               ##source_L = P('Gross Weight (L)'),
+               ##source_R = P('Gross Weight (R)'),
+               ##frame = A('Frame')):
 
-        if frame.value in ['757-DHL']:
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_L, source_R)
+        ##if frame.value in ['757-DHL']:
+            ##self.array, self.frequency, self.offset = \
+                ##blend_two_parameters(source_L, source_R)
 
-        else:
-            raise DataFrameError(self.name, frame.value)
+        ##else:
+            ##raise DataFrameError(self.name, frame.value)
 
     
 
@@ -3872,41 +3884,41 @@ class ILSFrequency(DerivedParameterNode):
     def can_operate(cls, available):
         return ('ILS (1) Frequency' in available and
                 'ILS (2) Frequency' in available) or \
-               ('ILS-VOR (1) Frequency' in available and
-                'ILS-VOR (2) Frequency' in available)
-
+               ('ILS-VOR (1) Frequency' in available)
+    
     def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
                f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency')):
-               
-               
+                
 
         #TODO: Extend to allow for three-receiver installations
-        
-        
-        # On some frames only one ILS frequency recording works
-        if False:
-            pass
-        ##if frame_name in ['737-6'] and \
-           ##(np.ma.count(f2.array) == 0 or np.ma.ptp(f2.array) == 0.0):
-            ##self.array = f1.array
 
-        # In all cases other than those identified above we look for both
-        # receivers being tuned together to form a valid signal
+
+        if f1 and f2:
+            first = f1.array
+            second = f2.array
         else:
-            if f1 and f2:
-                first = f1.array
-                second = f2.array
-            else:
+            if f1v and f2v==None:
+                # Some aircraft have inoperative ILS-VOR (2) systems, which
+                # record frequencies outside the valid range.
+                first = f1v.array
+            elif f1v and f2v:
                 first = f1v.array
                 second = f2v.array
+            else:
+                raise "Unrecognised set of ILS frequency parameters"
 
-            # Mask invalid frequencies
-            f1_trim = filter_vor_ils_frequencies(first, 'ILS')
+        # Mask invalid frequencies
+        f1_trim = filter_vor_ils_frequencies(first, 'ILS')
+        if f1v and f2v==None:
+            mask = first.mask
+        else:
+            # We look for both
+            # receivers being tuned together to form a valid signal
             f2_trim = filter_vor_ils_frequencies(second, 'ILS')
-
             # and mask where the two receivers are not matched
             mask = np.ma.masked_not_equal(f1_trim - f2_trim, 0.0).mask
-            self.array = np.ma.array(data=f1_trim.data, mask=mask)
+
+        self.array = np.ma.array(data=f1_trim.data, mask=mask)
 
 
 class ILSLocalizer(DerivedParameterNode):
@@ -5917,7 +5929,29 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             raise NotImplementedError
 
 
-################################################################################
+class SpeedbrakeHandle(DerivedParameterNode):
+    @classmethod
+    def can_operate(cls, available):
+        return any_of((
+            'Speedbrake Handle (L)',
+            'Speedbrake Handle (R)',
+            'Speedbrake Handle (C)'
+        ), available)
+
+    def derive(self,
+               sbh_l=M('Speedbrake Handle (L)'),
+               sbh_r=M('Speedbrake Handle (R)'),
+               sbh_c=M('Speedbrake Handle (C)')):
+
+        available = [par for par in [sbh_l, sbh_r, sbh_c] if par]
+        if len(available) > 1:
+            self.array = blend_parameters(
+                available, self.offset, self.frequency)
+        elif len(available) == 1:
+            self.array = available[0]
+
+
+###############################################################################
 # Stick Shaker
 
 

@@ -1483,6 +1483,22 @@ class TestKeyTimeInstanceNode(unittest.TestCase):
         self.assertEqual(kti, [KeyTimeInstance(index=0.5, name='Kti'),
                                KeyTimeInstance(index=6.5, name='Kti')])
 
+    def test_create_ktis_on_state_change_entering_with_long_mask(self):
+        '''
+        Test case for longer periods of masked data (>64 seconds) incorrectly
+        triggering KPV's
+        '''
+        kti = self.kti
+        test_param = MappedArray([0]*400+[1]*600+[0]*50,
+                                 values_mapping={0: 'Off', 1: 'On'})
+        test_param[50:60] = np.ma.masked # small masked period
+        test_param[460:604] = np.ma.masked # large masked period
+
+        kti.create_ktis_on_state_change('On', test_param, change='entering')
+        #Check that long mask does not create additional KTI
+        self.assertEqual(len(kti), 1, msg='Expecting single KTI')
+        self.assertEqual(kti, [KeyTimeInstance(index=399.5, name='Kti')])
+        
     def test_create_ktis_on_state_change_leaving(self):
         kti = self.kti
         test_param = MappedArray([0, 1, 1, 0, 0, 0, 0, 1, 0],
