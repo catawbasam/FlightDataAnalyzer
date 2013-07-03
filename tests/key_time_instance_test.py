@@ -440,8 +440,7 @@ class TestLandingTurnOffRunway(unittest.TestCase):
 class TestLiftoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Liftoff.get_operational_combinations(),
-                         [('Airborne',),
-                          ('Vertical Speed Inertial', 'Airborne')])
+                         [('Airborne',)])
 
     def test_liftoff_basic(self):
         # Linearly increasing climb rate with the 5 fpm threshold set between 
@@ -753,17 +752,38 @@ class TestEngStart(unittest.TestCase):
         self.assertTrue(('Eng (4) N2',) in combinations)
         self.assertTrue(('Eng (1) N2', 'Eng (2) N2',
                          'Eng (3) N2', 'Eng (4) N2') in combinations)
+        self.assertTrue(('Eng (1) N3',) in combinations)
+        self.assertTrue(('Eng (2) N3',) in combinations)
+        self.assertTrue(('Eng (3) N3',) in combinations)
+        self.assertTrue(('Eng (4) N3',) in combinations)
+        self.assertTrue(('Eng (1) N3', 'Eng (2) N3',
+                         'Eng (3) N3', 'Eng (4) N3') in combinations)
     
     def test_basic(self):
         eng2 = Parameter('Eng (2) N2', np.ma.array([0,20,40,60]))
         eng1 = Parameter('Eng (1) N2', np.ma.array(data=[0,0,99,99,60,60,60], 
                                                    mask=[1,1, 1, 1, 0, 0, 0]))
         es = EngStart()
-        es.derive(eng1, eng2, None, None)
+        es.derive(eng1, eng2, None, None, None, None, None, None)
         self.assertEqual(es[0].name, 'Eng (1) Start')
         self.assertEqual(es[0].index, 4)
         self.assertEqual(es[1].name, 'Eng (2) Start')
         self.assertEqual(es[1].index, 2.5)
+
+    def test_three_spool(self):
+        eng22 = Parameter('Eng (2) N2', np.ma.array([0,20,40,60, 0, 20, 40, 60]))
+        eng12 = Parameter('Eng (1) N2', np.ma.array(data=[0,0,99,99,60,60,60,60], 
+                                                   mask=[1,1, 1, 1, 0, 0, 0, 0]))
+        eng23 = Parameter('Eng (2) N3', np.ma.array([0,40,60,60, 0, 0, 30, 60]))
+        eng13 = Parameter('Eng (1) N3', np.ma.array(data=[0,0,99,99,60,60,60, 60], 
+                                                   mask=[1,1, 1, 1, 0, 0, 0, 0]))
+        es = EngStart()
+        es.derive(eng12, eng22, None, None, eng13, eng23, None, None)
+        self.assertEqual(es[0].name, 'Eng (1) Start')
+        self.assertEqual(es[0].index, 4)
+        self.assertEqual(es[1].name, 'Eng (2) Start')
+        self.assertEqual(es[1].index, 1.5)
+
 
 
 
