@@ -5858,9 +5858,9 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             raise ValueError("Can't work without either Speedbrake or Handle")
         return array
 
-    def b767_speedbrake(self, handle):
+    def b757_767_speedbrake(self, handle):
         '''
-        Speedbrake Handle Positions for 767:
+        Speedbrake Handle Positions for 757 & 767:
 
             ========    ============
               %           Notes
@@ -5901,7 +5901,7 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             self.array = self.b737_speedbrake(spdbrk, handle)
 
         elif family_name in ['B757', 'B767']:
-            self.array = self.b767_speedbrake(handle)
+            self.array = self.b757_767_speedbrake(handle)
 
         elif family_name == 'A320':
             self.array = self.a320_speedbrake(armed, spdbrk)

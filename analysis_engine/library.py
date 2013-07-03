@@ -10,6 +10,8 @@ from scipy import interpolate as scipy_interpolate, optimize
 
 from hdfaccess.parameter import MappedArray
 
+from flightdatautilities.velocity_speed import get_vspeed_map
+
 from settings import (CURRENT_YEAR,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
@@ -5577,6 +5579,31 @@ def value_at_index(array, index, interpolate=True):
             return array[index + 0.5]
         # In the cases of no mask, or neither sample masked, interpolate.
         return r*high_value + (1-r) * low_value
+
+
+    
+def vspeed_lookup(vspeed, aircraft, flap, gw):
+    '''
+    Single point lookup for the vspeed tables.
+    
+    :param vspeed: Selection of "V2" or "Vref"
+    :type vspeed: String
+    :param aircraft: Aircraft type identifier, family or series.
+    :type aircraft: String
+    :param flap: Flap setting
+    :type flap: float # TODO: Include Config - not tested yet.
+    :param gw: Gross Weight in kg
+    :type gw: float
+    
+    :returns: Vspeed in knots
+    :type: float
+    '''
+    vspeed_class = get_vspeed_map(aircraft)
+    vspeed_table = vspeed_class()
+    if vspeed.lower() == 'v2':
+        return vspeed_table.v2(flap, gw)
+    else:
+        return vspeed_table.vref(flap, gw)
 
 
 def vstack_params(*params):

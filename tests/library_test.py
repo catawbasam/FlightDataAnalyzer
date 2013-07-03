@@ -4717,6 +4717,17 @@ class TestValueAtIndex(unittest.TestCase):
             self.assertEquals(value_at_index(array, x, interpolate=False), expected)
 
 
+class TestVsppedLookup(unittest.TestCase):
+    def test_vspdlkup_basic(self):
+        self.assertEqual(vspeed_lookup('V2', 'B737-300', 15, 65000), 152)
+        
+    def test_vspdlkup_key_error(self):
+        self.assertRaises(KeyError, vspeed_lookup,'V2', 'B737_300', 15, 65000)
+        
+    def test_vspdlkup_out_of_range_error(self):
+        self.assertRaises(KeyError, vspeed_lookup,'V2', 'B737-300', 25, 65000)
+        
+        
 class TestVstackParams(unittest.TestCase):
     def test_vstack_params(self):
         a = P('a', array=np.ma.array(range(0, 10)))
