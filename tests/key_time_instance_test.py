@@ -45,9 +45,11 @@ from analysis_engine.key_time_instances import (
     LowestAltitudeDuringApproach,
     MinsToTouchdown,
     SecsToTouchdown,
+    SlatAlternateArmed,
     TakeoffAccelerationStart,
     TakeoffPeakAcceleration,
     TakeoffTurnOntoRunway,
+    TAWSGlideslopeCancelPressed,
     TopOfClimb,
     TopOfDescent,
     TouchAndGo,
@@ -546,6 +548,18 @@ class TestTakeoffTurnOntoRunway(unittest.TestCase):
         self.assertEqual(instance, expected)
 
 
+class TestTAWSGlideslopeCancelPressed(unittest.TestCase):
+
+    def test_basic(self):
+        tgc = M('TAWS Glideslope Cancel', ['Cancel', '-', '-', 'Cancel', 'Cancel', '-', '-'],
+               values_mapping={0: '-', 1: 'Cancel'})
+        air = buildsection('Airborne', 2, 8)
+        glide = TAWSGlideslopeCancelPressed()
+        glide.derive(tgc, air)
+        expected = [KeyTimeInstance(index=3, name='TAWS Glideslope Cancel Pressed')]
+        self.assertEqual(glide, expected)
+        
+ 
 class TestTopOfClimb(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
     # outside edges of the envelope.
@@ -840,7 +854,17 @@ class TestExitHold(unittest.TestCase):
 
 
 ##############################################################################
-# Flap
+# Flap & Slat
+
+class TestSlatAlternateArmed(unittest.TestCase):
+    def test_derive(self):
+        saa = M('Slat Alternate Armed', ['-', '-', 'Armed', 'Armed', 'Armed', '-', '-'],
+               values_mapping={0: '-', 1: 'Armed'})
+        armed = SlatAlternateArmed()
+        armed.derive(saa) # Get the pun !
+        expected = [KeyTimeInstance(index=1.5, name='Slat Alternate Armed')]
+        self.assertEqual(armed, expected)
+
 
 class TestFlapAlternateArmed(unittest.TestCase):
     def test_derive(self):

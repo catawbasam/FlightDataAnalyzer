@@ -469,10 +469,22 @@ class FlapAlternateArmed(KeyTimeInstanceNode):
     '''
     Indicates where flap alternate system has been armed.
     '''
-    def derive(self, flr=M('Flap Alternate Armed')):
+    def derive(self, faa=M('Flap Alternate Armed')):
         self.create_ktis_on_state_change(
             'Armed',
-            flr.array,
+            faa.array,
+            change='entering'
+            )
+
+
+class SlatAlternateArmed(KeyTimeInstanceNode):
+    '''
+    Indicates where slat alternate system has been armed.
+    '''
+    def derive(self, saa=M('Slat Alternate Armed')):
+        self.create_ktis_on_state_change(
+            'Armed',
+            saa.array,
             change='entering'
             )
 
@@ -561,6 +573,23 @@ class GearUpSelectionDuringGoAround(KeyTimeInstanceNode):
 
         self.create_ktis_on_state_change('Up', gear_up_sel.array,
                                          change='entering', phase=go_arounds)
+
+
+##############################################################################
+# TAWS
+
+class TAWSGlideslopeCancelPressed(KeyTimeInstanceNode):
+    
+    name = 'TAWS Glideslope Cancel Pressed'
+    
+    def derive(self, tgc=P('TAWS Glideslope Cancel'), airborne=S('Airborne')):
+        # Monitor only while airborne, in case this is triggered pre-flight.
+        for air in airborne:
+            press_index = np.ma.nonzero(tgc.array[air.slice])[0]
+            if len(press_index):
+                self.create_kti(press_index[0] + air.slice.start)
+        
+
 
 
 ##############################################################################
