@@ -23,8 +23,54 @@ not_windows = sys.platform not in ('win32', 'win64') # False for Windows :-(
 """
 TODO:
 =====
-* reverse digraph to get arrows poitning towards the root - use pre's rather than successors in tree traversal
+
+* Nice to have: reverse digraph to get arrows poitning towards the root - use
+  pre's rather than successors in tree traversal
 """
+
+def indent_tree(graph, node, level=0, space='  ', delim='- '):
+    '''
+    Small tool to assist representing a tree on the console.
+    
+      print '\n'.join(indent_tree(gr_all, 'root'))
+      
+      - root
+        - sub1
+          - sub2
+        - sub3
+      
+    :param graph: Entire graph
+    :type graph: nx.DiGraph
+    :param node: Node to start recursing successors from
+    :type node: String/object
+    :param level: Current indent level down the tree
+    :type level: Int
+    :param space: Multiplied by indent level
+    :type space: String
+    :param delim: Delimiter between space and name
+    :type delim: String
+    '''
+    if graph.node[node].get('active', True):
+        node_repr = node
+    else:
+        node_repr = '[%s]' % node
+    row = '%s%s%s' % (space*level, delim, node_repr)
+    level_rows = [row]
+    for succ in sorted(graph.successors(node)):
+        sub_level = indent_tree(graph, succ, level=level+1, 
+                                space=space, delim=delim)
+        level_rows.extend(sub_level)
+    return level_rows
+
+
+def print_tree(graph, node='root', **kwargs):
+    '''
+    Helper to shortcut printing of indent_tree.
+    
+    See indent_tree for help with args/kwargs.
+    '''
+    print '\n'.join(indent_tree(graph, node, **kwargs))
+
 
 def dependencies3(di_graph, root, node_mgr):
     '''
@@ -130,6 +176,32 @@ def draw_graph(graph, name, horizontal=False):
     logger.info("Dependency tree drawn: %s", os.path.abspath(file_path))
 
 
+def any_predecessors_in_requested(node_name, requested, graph):
+    '''
+    Recursively move towards the start of the tree (those which depend upon
+    this node) searching for a node predecessor that's within the list of
+    requested nodes.
+    
+    If the node itself has been requested, and none of its predecessors are
+    requested, the result is "False".
+    
+    :param node_name: Name of the node to recurse down the graph
+    :type node_name: String / object
+    :param requested: List of nodes requested
+    :type requested: List of Strings/objects
+    :param graph: Directed graph to recurse across links
+    :type graph: nx.DiGraph
+    '''
+    for predecessor in graph.predecessors(node_name):
+        if predecessor in requested:
+            return predecessor
+        else:
+            # recurse this predecessor's path
+            return any_predecessors_in_requested(predecessor, requested, graph)
+    else:
+        return False
+
+
 def graph_adjacencies(graph):
     '''
     Create a dictionary of each nodes adjacencies within the graph. Useful for
@@ -188,12 +260,17 @@ def graph_nodes(node_mgr):
     # add root - the top level application dependency structure based on required nodes
     # filter only nodes which are at the top of the tree (no predecessors)
     # TODO: Ask Chris about this causing problems with the trimmer.
-    # TODO: If requesting a single Node which has a circular dependency to 
-    #       itself in the graph, it will have predecessors and therefore not be
-    #       linked to the root and not be processed. Add more logic to 'if not'
     gr_all.add_node('root', color='#ffffff')
-    root_edges = [('root', node_name) for node_name in node_mgr.requested \
-                  if not gr_all.predecessors(node_name)]
+    root_edges = []
+    for node_req in node_mgr.requested:
+        if any_predecessors_in_requested(node_req, node_mgr.requested, gr_all):
+            # no need to link root to this requested node as one of it's
+            # predecessors will have the link therefore the tree will be
+            # built inclusive of this node.
+            continue
+        else:
+            # This node is required to build the tree
+            root_edges.append(('root', node_req))
     gr_all.add_edges_from(root_edges) ##, color='red')
     
     #TODO: Split this up into the following lists of nodes
@@ -242,6 +319,7 @@ def process_order(gr_all, node_mgr):
     
     for n, node in enumerate(process_order):
         gr_all.node[node]['label'] = '%d: %s' % (n, node)
+        gr_all.node[node]['active'] = True
         
     inactive_nodes = set(gr_all.nodes()) - set(process_order)
     logger.debug("Inactive nodes: %s", list(sorted(inactive_nodes)))
@@ -249,7 +327,9 @@ def process_order(gr_all, node_mgr):
     gr_st.remove_nodes_from(inactive_nodes)
     
     for node in inactive_nodes:
+        # add attributes to the node to reflect it's inactivity
         gr_all.node[node]['color'] = '#c0c0c0'  # silver
+        gr_all.node[node]['active'] = False
         inactive_edges = gr_all.in_edges(node)
         gr_all.add_edges_from(inactive_edges, color='#c0c0c0')  # silver
         
