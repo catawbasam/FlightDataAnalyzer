@@ -2668,6 +2668,26 @@ class AltitudeAtATDisengagedSelection(KeyPointValueNode):
         self.create_kpvs_at_ktis(alt_aal.array, at_dis)
 
 
+class AltitudeAtFirstAPEngagedAfterLiftoff(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Altitude At First AP Engaged After Liftoff'
+    units = 'ft'
+
+    def derive(self,
+               ap=KTI('AP Engaged'),
+               alt_aal=P('Altitude AAL'),
+               airborne=S('Airborne')):
+
+
+        change_indexes = find_edges_on_state_change('Engaged', ap.array,
+                                                    phase=airborne)
+        if len(change_indexes):
+            # Create at first change:
+            index = change_indexes[0]
+            self.create_kpv(index, value_at_index(alt_aal.array, index))
+
 ########################################
 # Altitude: Mach
 
