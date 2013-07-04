@@ -5495,10 +5495,12 @@ class V2Lookup(DerivedParameterNode):
         except KeyError:
             if v2:
                 return  # Ignore lookup table error as recorded/provided.
-            raise
+            else:
+                vspeed = None
 
         setting_param = flap or conf
         vspeed_table = vspeed_class()
+
         if weight_liftoffs is not None:
             # Explicitly looking for no Gross Weight At Liftoff node, as
             # opposed to having a node with no KPVs
@@ -5506,16 +5508,21 @@ class V2Lookup(DerivedParameterNode):
             index, weight = weight_liftoff.index, weight_liftoff.value
         else:
             index, weight = liftoffs.get_first().index, None
+
         setting = setting_param.array[index]
+
         try:
             vspeed = vspeed_table.v2(setting, weight)
         except:
             if v2:
                 return  # Ignore lookup table error as recorded/provided.
-            raise
+            else:
+                vspeed=None
+
+        if vspeed is not None:
+            self.array[0:] = vspeed
         else:
-            if vspeed is not None:
-                self.array[0:] = vspeed
+            self.array[0:] = np.ma.masked
 
 
 class WindAcrossLandingRunway(DerivedParameterNode):
