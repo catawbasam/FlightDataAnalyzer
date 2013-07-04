@@ -7886,6 +7886,22 @@ class TakeoffConfigurationStabilizerWarningDuration(KeyPointValueNode):
 
 
 ##############################################################################
+# Warnings: Takeoff Configuration
+
+
+class LandingConfigurationGearWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               landing_cfg_warn=M('Landing Configuration Gear Warning')):
+        self.create_kpvs_where(landing_cfg_warn.array == 'Warning',
+                               landing_cfg_warn.hz)
+
+
+##############################################################################
 # Warnings: Alpha Floor, Alternate Law, Direct Law
 
 

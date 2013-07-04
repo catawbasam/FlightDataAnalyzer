@@ -243,6 +243,7 @@ from analysis_engine.key_point_values import (
     ILSLocalizerDeviation1000To500FtMax,
     ILSLocalizerDeviation500To200FtMax,
     ILSLocalizerDeviationAtTouchdown,
+    LandingConfigurationGearWarningDuration,
     LastFlapChangeToTakeoffRollEndDuration,
     LastUnstableStateDuringApproachBeforeGoAround,
     LastUnstableStateDuringLastApproach,
@@ -6264,6 +6265,24 @@ class TestMasterCautionDuringTakeoffDuration(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+
+
+##############################################################################
+# Warnings: Landing Configuration Warning
+
+
+class TestLandingConfigurationGearWarningDuration(unittest.TestCase):
+    def test_can_operate(self):
+        opts = LandingConfigurationGearWarningDuration.get_operational_combinations()
+        self.assertEqual(opts, [('Landing Configuration Gear Warning',)])
+        
+    def test_derive(self):
+        low = LandingConfigurationGearWarningDuration()
+        low.derive(M(array=np.ma.array([0,0,1,1,0]),
+                     values_mapping={1: 'Warning'}))
+        self.assertEqual(low[0].index, 2)
 
 
 ##############################################################################
