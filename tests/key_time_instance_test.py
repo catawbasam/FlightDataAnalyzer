@@ -19,6 +19,7 @@ from analysis_engine.key_time_instances import (
     ATEngagedSelection,
     BottomOfDescent,
     ClimbStart,
+    EngFireExtinguishSwitchPulled,
     EngStart,
     EngStop,
     EnterHold,
@@ -883,6 +884,65 @@ class TestFlapExtensionWhileAirborne(unittest.TestCase, NodeTest):
             KeyTimeInstance(index=3.5, name='Flap Extension While Airborne'),
             KeyTimeInstance(index=5.5, name='Flap Extension While Airborne'),
         ])
+
+
+class TestEngFireExtinguishSwitchPulled(unittest.TestCase):
+
+    def test_basic(self):
+        e1f = P(name = 'Eng (1) Fire Extinguish Switch',
+                array = np.ma.array(data=[0,0,0,0,0,0,1,0,0,0]),
+                frequency=1, offset=0,)
+        e2f = P(name = 'Eng (2) Fire Extinguish Switch',
+                array = np.ma.array([0]*10),
+                frequency=1, offset=0,)
+        air = buildsection('Airborne', 2, 8)
+        pull = EngFireExtinguishSwitchPulled()
+        pull.derive(e1f, e2f, air)
+        self.assertEqual(pull, [
+            KeyTimeInstance(index=6, name='Eng Fire Extinguish Switch Pulled'),
+            ])
+        
+    def test_none(self):
+        e1f = P(name = 'Eng (1) Fire Extinguish Switch',
+                array = np.ma.array(data=[0,0,0,0,0,0,0,0,0,0]),
+                frequency=1, offset=0,)
+        e2f = P(name = 'Eng (2) Fire Extinguish Switch',
+                array = np.ma.array([0]*10),
+                frequency=1, offset=0,)
+        air = buildsection('Airborne', 2, 8)
+        pull = EngFireExtinguishSwitchPulled()
+        pull.derive(e1f, e2f, air)
+        self.assertEqual(pull, [])
+
+    def test_either(self):
+        e2f = P(name = 'Eng (2) Fire Extinguish Switch',
+                array = np.ma.array(data=[0,0,0,0,0,1,1,1,0,0]),
+                frequency=1, offset=0,)
+        e1f = P(name = 'Eng (1) Fire Extinguish Switch',
+                array = np.ma.array([0]*10),
+                frequency=1, offset=0,)
+        air = buildsection('Airborne', 2, 8)
+        pull = EngFireExtinguishSwitchPulled()
+        pull.derive(e1f, e2f, air)
+        self.assertEqual(pull, [
+            KeyTimeInstance(index=5, name='Eng Fire Extinguish Switch Pulled'),
+            ])
+        
+    def test_both(self):
+        e1f = P(name = 'Eng (1) Fire Extinguish Switch',
+                array = np.ma.array(data=[0,0,0,1,0,1,1,1,0,0]),
+                frequency=1, offset=0,)
+        e2f = P(name = 'Eng (2) Fire Extinguish Switch',
+                array = np.ma.array(data=[0,0,0,1,1,1,1,1,0,0]),
+                frequency=1, offset=0,)
+        air = buildsection('Airborne', 1, 5)
+        pull = EngFireExtinguishSwitchPulled()
+        pull.derive(e1f, e2f, air)
+        self.assertEqual(pull, [
+            KeyTimeInstance(index=3, name='Eng Fire Extinguish Switch Pulled'),
+            ])
+        
+
 
 
 class TestFirstFlapExtensionWhileAirborne(unittest.TestCase, NodeTest):

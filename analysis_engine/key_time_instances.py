@@ -303,6 +303,17 @@ class ExitHold(KeyTimeInstanceNode):
             self.create_kti(hold.slice.stop)
 
 
+class EngFireExtinguishSwitchPulled(KeyTimeInstanceNode):
+    def derive(self, e1f = P('Eng (1) Fire Extinguish Switch'),
+               e2f = P('Eng (2) Fire Extinguish Switch'),
+               airborne = S('Airborne')):
+        ef = np.ma.logical_or(e1f.array, e2f.array)
+        for air in airborne:
+            pull_index = np.ma.nonzero(ef[air.slice])[0]
+            if len(pull_index):
+                self.create_kti(pull_index[0] + air.slice.start)
+        
+
 class GoAround(KeyTimeInstanceNode):
     """
     In POLARIS we define a Go-Around as any descent below 3000ft followed by
