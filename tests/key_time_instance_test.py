@@ -32,6 +32,7 @@ from analysis_engine.key_time_instances import (
     GearUpSelection,
     GearUpSelectionDuringGoAround,
     GoAround,
+    FlapAlternateArmed,
     FlapRetractionWhileAirborne,
     FlapRetractionDuringGoAround,
     InitialClimbStart,
@@ -840,6 +841,16 @@ class TestExitHold(unittest.TestCase):
 
 ##############################################################################
 # Flap
+
+class TestFlapAlternateArmed(unittest.TestCase):
+    def test_derive(self):
+        faa = M('Flap Alternate Armed', ['-', '-', '-', 'Armed', 'Armed', 'Armed', '-'],
+               values_mapping={0: '-', 1: 'Armed'})
+        armed = FlapAlternateArmed()
+        armed.derive(faa) # Get the pun !
+        expected = [KeyTimeInstance(index=2.5, name='Flap Alternate Armed')]
+        self.assertEqual(armed, expected)
+
 
 class TestFlapLoadRelief(unittest.TestCase):
     def test_derive(self):

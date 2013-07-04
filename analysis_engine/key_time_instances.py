@@ -463,6 +463,18 @@ class FlapLoadRelief(KeyTimeInstanceNode):
             flr.array,
             change='entering'
             )
+        
+        
+class FlapAlternateArmed(KeyTimeInstanceNode):
+    '''
+    Indicates where flap alternate system has been armed.
+    '''
+    def derive(self, flr=M('Flap Alternate Armed')):
+        self.create_ktis_on_state_change(
+            'Armed',
+            flr.array,
+            change='entering'
+            )
 
 
 class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
