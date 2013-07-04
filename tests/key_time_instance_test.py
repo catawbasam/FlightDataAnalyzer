@@ -26,6 +26,7 @@ from analysis_engine.key_time_instances import (
     ExitHold,
     FirstFlapExtensionWhileAirborne,
     FlapExtensionWhileAirborne,
+    FlapLoadRelief,
     FlapSet,
     GearDownSelection,
     GearUpSelection,
@@ -839,6 +840,15 @@ class TestExitHold(unittest.TestCase):
 
 ##############################################################################
 # Flap
+
+class TestFlapLoadRelief(unittest.TestCase):
+    def test_derive(self):
+        flr = M('Flap Load Relief', ['-', '-', '-', 'Load Relief', 'Load Relief', '-', '-'],
+               values_mapping={0: '-', 1: 'Load Relief'})
+        loaded = FlapLoadRelief()
+        loaded.derive(flr)
+        expected = [KeyTimeInstance(index=2.5, name='Flap Load Relief')]
+        self.assertEqual(loaded, expected)
 
 
 class TestFlapSet(unittest.TestCase, NodeTest):

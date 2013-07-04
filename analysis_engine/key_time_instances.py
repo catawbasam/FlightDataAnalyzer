@@ -308,6 +308,8 @@ class EngFireExtinguishSwitchPulled(KeyTimeInstanceNode):
                e2f = P('Eng (2) Fire Extinguish Switch'),
                airborne = S('Airborne')):
         ef = np.ma.logical_or(e1f.array, e2f.array)
+        
+        # Monitor only while airborne, in case this is triggered by pre-flight tests.
         for air in airborne:
             pull_index = np.ma.nonzero(ef[air.slice])[0]
             if len(pull_index):
@@ -449,6 +451,18 @@ class FlapExtensionWhileAirborne(KeyTimeInstanceNode):
 
         self.create_ktis_at_edges(flap.array, 
                                   phase = airborne)
+
+
+class FlapLoadRelief(KeyTimeInstanceNode):
+    '''
+    Indicates where flap load relief has taken place.
+    '''
+    def derive(self, flr=M('Flap Load Relief')):
+        self.create_ktis_on_state_change(
+            'Load Relief',
+            flr.array,
+            change='entering'
+            )
 
 
 class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
