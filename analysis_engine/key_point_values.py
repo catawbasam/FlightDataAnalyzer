@@ -7916,9 +7916,10 @@ class LandingConfigurationGearWarningDuration(KeyPointValueNode):
     units = 's'
 
     def derive(self,
-               landing_cfg_warn=M('Landing Configuration Gear Warning')):
+               landing_cfg_warn=M('Landing Configuration Gear Warning'),
+               airs=S('Airborne')):
         self.create_kpvs_where(landing_cfg_warn.array == 'Warning',
-                               landing_cfg_warn.hz)
+                               landing_cfg_warn.hz, phase=airs)
 
 
 ##############################################################################

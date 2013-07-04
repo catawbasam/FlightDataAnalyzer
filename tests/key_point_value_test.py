@@ -6303,10 +6303,12 @@ class TestLandingConfigurationGearWarningDuration(unittest.TestCase):
         self.assertEqual(opts, [('Landing Configuration Gear Warning',)])
         
     def test_derive(self):
-        low = LandingConfigurationGearWarningDuration()
-        low.derive(M(array=np.ma.array([0,0,1,1,0]),
-                     values_mapping={1: 'Warning'}))
-        self.assertEqual(low[0].index, 2)
+        node = LandingConfigurationGearWarningDuration()
+        airs = buildsection('Airborne', 2, 8)
+        warn = M(array=np.ma.array([0,0,0,0,0,1,1,0,0,0]),
+                             values_mapping={1: 'Warning'})
+        node.derive(warn, airs)
+        self.assertEqual(node[0].index, 5)
 
 
 ##############################################################################
