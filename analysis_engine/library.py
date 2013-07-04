@@ -5582,14 +5582,16 @@ def value_at_index(array, index, interpolate=True):
 
 
     
-def vspeed_lookup(vspeed, aircraft, flap, gw):
+def vspeed_lookup(vspeed, aircraft, engine, flap, gw):
     '''
     Single point lookup for the vspeed tables.
     
     :param vspeed: Selection of "V2" or "Vref"
     :type vspeed: String
-    :param aircraft: Aircraft type identifier, family or series.
+    :param aircraft: Aircraft series identifier.
     :type aircraft: String
+    :param engine: Engine Type identifier.
+    :type engine: String
     :param flap: Flap setting
     :type flap: float # TODO: Include Config - not tested yet.
     :param gw: Gross Weight in kg
@@ -5598,7 +5600,7 @@ def vspeed_lookup(vspeed, aircraft, flap, gw):
     :returns: Vspeed in knots
     :type: float
     '''
-    vspeed_class = get_vspeed_map(aircraft)
+    vspeed_class = get_vspeed_map(series=aircraft, engine_type=engine)
     vspeed_table = vspeed_class()
     if vspeed.lower() == 'v2':
         return vspeed_table.v2(flap, gw)
