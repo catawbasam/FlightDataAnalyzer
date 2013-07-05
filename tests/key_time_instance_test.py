@@ -556,7 +556,7 @@ class TestTAWSGlideslopeCancelPressed(unittest.TestCase):
         air = buildsection('Airborne', 2, 8)
         glide = TAWSGlideslopeCancelPressed()
         glide.derive(tgc, air)
-        expected = [KeyTimeInstance(index=3, name='TAWS Glideslope Cancel Pressed')]
+        expected = [KeyTimeInstance(index=2.5, name='TAWS Glideslope Cancel Pressed')]
         self.assertEqual(glide, expected)
         
  

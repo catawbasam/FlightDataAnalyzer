@@ -584,12 +584,8 @@ class TAWSGlideslopeCancelPressed(KeyTimeInstanceNode):
     
     def derive(self, tgc=P('TAWS Glideslope Cancel'), airborne=S('Airborne')):
         # Monitor only while airborne, in case this is triggered pre-flight.
-        for air in airborne:
-            press_index = np.ma.nonzero(tgc.array[air.slice])[0]
-            if len(press_index):
-                self.create_kti(press_index[0] + air.slice.start)
-        
-
+        self.create_ktis_on_state_change('Cancel', tgc.array,
+                                         change='entering', phase=airborne)        
 
 
 ##############################################################################
