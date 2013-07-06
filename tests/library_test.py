@@ -2126,9 +2126,14 @@ class TestIndexClosestValue(unittest.TestCase):
         array = np.ma.array([1, 2, 3, 4, 5, 4, 3])
         self.assertEqual(index_closest_value(array, 6, slice(2, 5)), 4)
 
+    '''
+    
+    This test is for a function not currently avaialble, but included for future use.
+    
     def test_index_closest_value_backwards(self):
         array = np.ma.array([3, 2, 1, 4, 5, 6, 7])
         self.assertEqual(index_closest_value(array, -9, slice(5, 1, -1)), 2)
+    '''
 
 
 class TestIndexOfFirstStart(unittest.TestCase):
@@ -4717,15 +4722,19 @@ class TestValueAtIndex(unittest.TestCase):
             self.assertEquals(value_at_index(array, x, interpolate=False), expected)
 
 
-class TestVsppedLookup(unittest.TestCase):
+class TestVspeedLookup(unittest.TestCase):
     def test_vspdlkup_basic(self):
-        self.assertEqual(vspeed_lookup('V2', 'B737-300', 15, 65000), 152)
+        self.assertEqual(vspeed_lookup('V2', 'B737-300', None, 15, 65000), 152)
+
+    def test_vspdlkup_vref(self):
+        self.assertEqual(vspeed_lookup('VRef', 'B737-300', None, 30, 45000), 127)
         
     def test_vspdlkup_key_error(self):
-        self.assertRaises(KeyError, vspeed_lookup,'V2', 'B737_300', 15, 65000)
+        self.assertRaises(KeyError, vspeed_lookup,'V2', 'B737_300', None, 15, 65000)
         
     def test_vspdlkup_out_of_range_error(self):
-        self.assertRaises(KeyError, vspeed_lookup,'V2', 'B737-300', 25, 65000)
+        # We return None so that the incorrect flap at takeoff can be reported.
+        self.assertEqual(vspeed_lookup('V2', 'B737-300', None, 25, 65000), None)
         
         
 class TestVstackParams(unittest.TestCase):
