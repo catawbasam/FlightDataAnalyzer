@@ -4308,8 +4308,7 @@ class TestStepValues(unittest.TestCase):
                              2,2,2,0,0,0])
         stepped = step_values(array, 1.0, (0, 1, 5, 10, 15), step_at='move_start')
         self.assertEqual(list(stepped),
-                         [0,0,0,1,1,1,5,5,5,5,10,15,15,15,10,10,10,5,1,1,1,1,1,
-                          0,0,0])
+                         [0]*3+[1]+[5]*6+[10]+[15]*2+[10]*4+[5]+[1]*2+[0]*6)
         
     def test_step_leading_edge_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
@@ -4321,7 +4320,7 @@ class TestStepValues(unittest.TestCase):
         array = np.ma.concatenate((array,array[::-1]))
         stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_start', skip=False)
         self.assertEqual(list(stepped),
-                         [0]*11+[1]*12+[5]*13+[15]*24+[5]*13+[1]*12+[0]*11)
+                         [0]*10+[1]*3+[5]*18+[15]*28+[5]*6+[1]*18+[0]*13)
         
     def test_step_leading_edge_skip_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 

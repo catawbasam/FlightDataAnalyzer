@@ -4856,7 +4856,7 @@ plt.show()
 for i in xnew:
     print f(i)
 """
-def step_local_cusp(array):
+def step_local_cusp(array, span):
     """
     A small function developed for the step function to find local cusps
     where data has changed from static to sloping. Cusp defined as the point
@@ -4875,18 +4875,20 @@ def step_local_cusp(array):
     :returns: index to cusp from start of data. Zero if no cusp found.
     :rtype: integer
     """
-    if len(array)==0:
+    local_array=array[span]
+    if len(local_array)==0:
         return None
-    elif len(array)<3:
+    elif len(local_array)<3:
         return 0
     else:
-        v0 = array[0]
+        v0 = local_array[0]
         v_1=v0
-        for n, v in enumerate(array[1:]):
+        for n, v in enumerate(local_array[1:]):
             slope_0 = abs(v-v0)/(n+1)
             slope_n = abs(v-v_1)*2.0
             v_1=v
-            if slope_n<slope_0:
+            # The condition reverses for reversed slices.
+            if slope_n*span.step<slope_0*span.step:
                 return n
         return 0
                 
@@ -4933,9 +4935,8 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
         else:
             stepped_array[(low < array) & (array <= high)] = level
         low = high
-    else:
-        # all values above the last
-        stepped_array[low < array] = level
+    # all the remaining values are above the top step level
+    stepped_array[low < array] = level
     stepped_array.mask = np.ma.getmaskarray(array)
         
     if step_at!='midpoint':
@@ -4972,7 +4973,7 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                     spans.append(slice(changes[i], changes[i+1], +1))
 
             for span in spans:
-                to_chg = step_local_cusp(array[span])
+                to_chg = step_local_cusp(array, span)
             
                 if to_chg==0:
                     # Continuous movement, so change at the step value if this passes through a step.
@@ -4989,7 +4990,7 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                         idx = index_at_value(array, this_step, span)
                         if idx:
                             if step_at == 'move_start':
-                                stepped_array[ceil(idx):span.start+1] = stepped_array[span.start]
+                                stepped_array[ceil(idx):span.start+1] = stepped_array[span.start+1]
                             else:
                                 stepped_array[span.start:floor(idx)] = stepped_array[span.start]
                     else:
@@ -5000,19 +5001,19 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                             stepped_array[span] = first_valid_sample(stepped_array[span]).value
                 
                 elif step_at == 'move_start':
-                    stepped_array[span][:to_chg] = stepped_array[span.start]
+                    stepped_array[span][:to_chg] = stepped_array[span.start+1]
                 else:
                     stepped_array[span][:to_chg] = stepped_array[span.start]
                 
-        """
-        import matplotlib.pyplot as plt
-        one = np_ma_ones_like(array)
-        for step in steps:
-            plt.plot(one*step)
-        plt.plot(array)
-        plt.plot(stepped_array)
-        plt.show()
-        """
+    '''    
+    import matplotlib.pyplot as plt
+    one = np_ma_ones_like(array)
+    for step in steps:
+        plt.plot(one*step)
+    plt.plot(array)
+    plt.plot(stepped_array)
+    plt.show()
+    '''    
     return np.ma.array(stepped_array, mask=array.mask)
         
             
