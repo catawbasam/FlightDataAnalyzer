@@ -4930,7 +4930,7 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     :param steps: Steps to round to nearest value
     :type steps: list of integers
     :param step_at: Step conversion mode
-    :type step_at: String, default='midpoint', options'move_start', 'move_end'
+    :type step_at: String, default='midpoint', options'move_start', 'move_end', 'lowest_setting'
     :param skip: Selects whether steps that are passed straight through should be mapped or not.
     :type skip: logical, default = False
     :param rate_threshold: rate of change threshold for non-moving control
@@ -4979,14 +4979,16 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                 list(np.ediff1d(stepped_array, to_end=0.0).nonzero()[0]) + \
                 [len(stepped_array)]
             
-            spans = []
+            #spans = []
             for i in range(1, len(changes)-1):
-                if step_at == 'move_start':
-                    spans.append(slice(changes[i], changes[i-1], -1))
+                if step_at == 'move_start' or\
+                   step_at == 'lowest_setting' and stepped_array[changes[i]+1]<stepped_array[changes[i]]:
+                    mode = 'backwards'
+                    span = slice(changes[i], changes[i-1], -1)
                 else:
-                    spans.append(slice(changes[i], changes[i+1], +1))
+                    mode='forwards'
+                    span = slice(changes[i], changes[i+1], +1)
 
-            for span in spans:
                 to_chg = step_local_cusp(array, span)
             
                 if to_chg==0:
@@ -5003,23 +5005,21 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                         # Find where we passed through this value...
                         idx = index_at_value(array, this_step, span)
                         if idx:
-                            if step_at == 'move_start':
+                            if mode == 'backwards':
                                 stepped_array[ceil(idx):span.start+1] = stepped_array[span.start+1]
                             else:
                                 stepped_array[span.start:floor(idx)] = stepped_array[span.start]
                     else:
                         # OK - just ran from one step to another without dwelling, so fill with the start or end values.
-                        if step_at == 'move_start':
+                        if mode == 'backwards':
                             stepped_array[span] = first_valid_sample(stepped_array[span]).value
                         else:
                             stepped_array[span] = first_valid_sample(stepped_array[span]).value
                 
-                elif step_at == 'move_start':
+                elif mode == 'backwards':
                     stepped_array[span][:to_chg] = stepped_array[span.start+1]
                 else:
                     stepped_array[span][:to_chg] = stepped_array[span.start]
-                
-        
     '''
     import matplotlib.pyplot as plt
     one = np_ma_ones_like(array)
@@ -5031,7 +5031,6 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     '''    
     return np.ma.array(stepped_array, mask=array.mask)
         
-            
 
 def touchdown_inertial(land, roc, alt):
     """

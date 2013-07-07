@@ -4363,9 +4363,9 @@ class TestStepValues(unittest.TestCase):
                              9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
                              15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
         array = np.ma.concatenate((array,array[::-1]))
-        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_start', skip=True, rate_threshold=0.1)
-        self.assertEqual(list(stepped),
-                         [0]*10+[15]*47+[0]*39)
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_start', 
+                              skip=True, rate_threshold=0.1)
+        self.assertEqual(list(stepped), [0]*10+[15]*47+[0]*39)
         
     def test_step_midpoint_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
@@ -4381,6 +4381,17 @@ class TestStepValues(unittest.TestCase):
                           5,5,5,5,5,5,5,5,5,15,15,15,15,15,15,15,15,15,15,15,15,
                           15,15,15,15,15,15,15,15,15,15,15,15,5,5,5,5,5,5,5,5,5,
                           5,5,5,5,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
+
+    def test_step_lowest_setting_real_data(self):
+        array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
+                             0.67, 0.98, 1.15, 1.28, 1.5, 1.71, 1.92, 2.12, 
+                             2.32, 2.53, 2.75, 2.96, 3.18, 3.39, 3.6, 3.83, 
+                             4.06, 4.3, 4.57, 4.82, 5.1, 5.41, 5.85, 7.12, 
+                             9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
+                             15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
+        array = np.ma.concatenate((array,array[::-1]))
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='lowest_setting')
+        self.assertEqual(list(stepped),[0]*12+[1]*18+[5]*7+[15]*21+[5]*7+[1]*18+[0]*13)
 
     def test_step_trailing_edge_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
