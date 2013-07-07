@@ -133,7 +133,7 @@ class FlapOrConfigurationMaxOrMin(object):
             # Ensure KPVs with integer detents don't have decimal places and
             # that those that are floats only have one decimal place:
             detent = int(detent) if float(detent).is_integer() else '%.1f' % detent
-            key = 'flap' if conflap.name == 'Flap' else 'conf'
+            key = 'flap' if conflap.name in ['Flap', 'Flap Achieved'] else 'conf'
             self.create_kpv(index, value, **{key: detent})
 
 
@@ -1342,7 +1342,7 @@ class AirspeedWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Achieved'),
                airspeed=P('Airspeed'),
                scope=S('Fast')):
 
@@ -1382,7 +1382,7 @@ class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOr
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Achieved'),
                airspeed=P('Airspeed'),
                scope=S('Climb')):
 
@@ -1418,7 +1418,7 @@ class AirspeedWithFlapDuringDescentMax(KeyPointValueNode, FlapOrConfigurationMax
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Achieved'),
                airspeed=P('Airspeed'),
                scope=S('Descent')):
 
@@ -2269,7 +2269,7 @@ class AltitudeAtFlapExtensionWithGearDown(KeyPointValueNode):
 
     units = 'ft'
 
-    def derive(self, flap_p=P('Flap'),
+    def derive(self, flap_p=P('Flap Lever Detent'),
                alt_aal=P('Altitude AAL'),
                gear_ext=S('Gear Extended'),
                airborne=S('Airborne')):
@@ -2298,7 +2298,7 @@ class AirspeedAtFlapExtensionWithGearDown(KeyPointValueNode):
     
     units = 'kts'
     
-    def derive(self, flap_p=P('Flap'),
+    def derive(self, flap_p=P('Flap Lever Detent'),
                air_spd=P('Airspeed'),
                gear_ext=S('Gear Extended'),
                airborne=S('Airborne')):
@@ -2415,7 +2415,7 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
     units = 'ft'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever Detent'),
                flap_liftoff=KPV('Flap At Liftoff'),
                alt_aal=P('Altitude AAL'),
                airborne=S('Airborne')):
@@ -2441,7 +2441,7 @@ class AltitudeAtLastFlapChangeBeforeTouchdown(KeyPointValueNode):
     units = 'ft'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever Detent'),
                alt_aal=P('Altitude AAL'),
                touchdowns=KTI('Touchdown')):
 
@@ -8419,12 +8419,12 @@ class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
     The idea is that the flaps should not be changed when the aircraft has
     started accelerating down the runway.
 
-    We detect the last change of flap position during the takeoff roll phase
+    We detect the last change of flap selection during the takeoff roll phase
     and calculate the time between this instant and the end of takeoff roll.
     '''
     units = 's'
 
-    def derive(self, flap=P('Flap'), rolls=S('Takeoff Roll')):
+    def derive(self, flap=P('Flap Lever Detent'), rolls=S('Takeoff Roll')):
         for roll in rolls:
             changes = find_edges(flap.array, roll.slice, 'all_edges')
             if changes:

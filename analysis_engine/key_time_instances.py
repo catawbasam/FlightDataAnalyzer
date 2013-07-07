@@ -410,7 +410,7 @@ class FlapSet(KeyTimeInstanceNode):
     NAME_VALUES = NAME_VALUES_FLAP
 
     def derive(self,
-               flap=P('Flap')):
+               flap=P('Flap Lever Detent')):
 
         # Mark all flap changes, and annotate with the new flap position.
         # Could include "phase=airborne" if we want to eliminate ground flap
@@ -424,7 +424,7 @@ class FirstFlapExtensionWhileAirborne(KeyTimeInstanceNode):
     Records each flap extension from clean configuration.
     '''
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever Detent'),
                airborne=S('Airborne')):
 
         for air in airborne:
@@ -446,7 +446,7 @@ class FlapExtensionWhileAirborne(KeyTimeInstanceNode):
     Records every flap extension in flight.
     '''
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever Detent'),
                airborne=S('Airborne')):
 
         self.create_ktis_at_edges(flap.array, 
@@ -494,7 +494,7 @@ class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
     '''
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever Detent'),
                airborne=S('Airborne')):
 
         self.create_ktis_at_edges(
@@ -509,7 +509,7 @@ class FlapRetractionDuringGoAround(KeyTimeInstanceNode):
     '''
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever Detent'),
                go_arounds=S('Go Around And Climbout')):
 
         self.create_ktis_at_edges(

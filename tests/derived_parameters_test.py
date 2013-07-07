@@ -115,7 +115,6 @@ from analysis_engine.derived_parameters import (
     EngThrustModeRequired,
     Flap,
     FlapLeverDetent,
-    FlapLeverSynthetic,
     FlapSurface,
     FuelQty,
     FuelQty_Low,
@@ -3635,31 +3634,24 @@ class TestEng_VibN3Max(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapLeverDetent(unittest.TestCase, NodeTest):
+class TestFlapLeverDetent(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = FlapLeverDetent
-        self.operational_combinations = [
-            ('Flap Lever', 'Series', 'Family'),
-            ('Flap Surface', 'Series', 'Family'),
-        ]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestFlapLeverSynthetic(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = FlapLeverSynthetic
-        self.operational_combinations = [
-            ('Flap Surface', 'Series', 'Family'),
-        ]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    #def setUp(self):
+        ##self.node_class = FlapLeverDetent
+        ##self.operational_combinations = [
+            ##('Flap Lever', 'Series', 'Family'),
+            ##('Flap Surface', 'Series', 'Family'),
+        ##]
+        #self.series=A('B737-300')
+        #self.family=A('B737')
+        #self.lvr=P('Flap Lever', np.ma.array(data=[0,0,1,2,15,15]))
+        #self.surf=P('Flap Surface', np.ma.array(data=[2,2,5,10,15]))
+        
+    def basic_lever(self):
+        fld =FlapLeverDetent()
+        fld.derive(self.lvr, None, self.series, self.family)
+        result = np.ma.array([0,0,1,1,15,15])
+        ma_test.assert_array_equal(fld.array, result)
 
 
 class TestFlapSurface(unittest.TestCase, NodeTest):

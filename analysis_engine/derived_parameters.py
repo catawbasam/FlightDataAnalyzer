@@ -3455,44 +3455,38 @@ class FlapLeverDetent(DerivedParameterNode):
                series=A('Series'),
                family=A('Family')):
 
-        # Use flap lever position where recorded, otherwise revert to flap surface.
-        flap = flap_lvr if flap_lvr else flap_surf
-
         try:
             flap_steps = get_flap_map(series.value, family.value)
         except KeyError:
             # no flaps mapping, round to nearest 5 degrees
             self.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
-            self.array = round_to_nearest(flap.array, 5.0)
+            flap_steps = range(0, 50, 5)
+
+        # Use flap lever position where recorded, otherwise revert to flap surface.
+        if flap_lvr:
+            # Take the moment the lever passes midway between two flap detents.
+            self.array = step_values(flap_lvr.array, flap_lvr.frequency, 
+                                     flap_steps, step_at='midpoint')
         else:
-            self.array = step_values(flap.array, flap.frequency, flap_steps, step_at='move_start')
+            # Take the moment the flap starts to move.
+            self.array = step_values(flap_surf.array, flap_surf.frequency, 
+                                     flap_steps, step_at='move_start')
 
 
-class FlapLeverSynthetic(DerivedParameterNode):
+class FlapAchieved(DerivedParameterNode):
     '''
-    Steps raw Flap angle from lever into detents. This is being developed,
-    along with extensions to the step_values algorithm, to cater for aircraft
-    that do not record flap lever position separately.
-
-    At the same time, extensions to step_values to reflect the different
-    needs of safety and maintenance organisations are being included, so for
-    the present version the step_at keyword should not be used.
+    Specifically designed to cater for maintenance monitoring, this assumes
+    that when moving the lower of the start and endpoints of the movement
+    apply. This minimises the chance of needing a flap overspeed inspection.
     '''
 
     units = 'deg'
 
-    @classmethod
-    def can_operate(cls, available):
-        return all_of(('Flap Surface', 'Series', 'Family'), available)
-
     def derive(self,
-               flap_lvr=P('Flap Lever'),  # XXX: Just for alignment? Or copied over from FlapLeverDetent?
-               flap_surf=P('Flap Surface'),
+               flap=P('Flap Surface'),
                series=A('Series'),
                family=A('Family')):
-
-        flap = flap_surf
 
         try:
             flap_steps = get_flap_map(series.value, family.value)
@@ -3502,11 +3496,11 @@ class FlapLeverSynthetic(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap.frequency,
-                                     flap_steps,
-                                     skip=True)
+            self.array = step_values(flap.array, flap.frequency, flap_steps, 
+                                     step_at='lowest_setting')
 
 
+    
 class FlapSurface(DerivedParameterNode):
     '''
     Gather the recorded flap parameters and convert into a single analogue.
@@ -3603,7 +3597,7 @@ class Flap(DerivedParameterNode):
                 # round to nearest 5 degrees
                 self.array = round_to_nearest(flap.array, 5.0)
             else:
-                self.array = step_values(flap.array, flap.frequency, flap_steps, step_at='move_end')
+                self.array = step_values(flap.array, flap.frequency, flap_steps)
         else:
             raise DataFrameError(self.name, frame_name)
 
