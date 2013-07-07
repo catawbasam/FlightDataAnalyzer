@@ -3866,6 +3866,11 @@ class TestSlicesAnd(unittest.TestCase):
                          [slice(3,5)])
         self.assertEqual(slices_and([slice(2,5),slice(7,None)],[slice(3,9)]),
                          [slice(3,5), slice(7,9)])
+        self.assertEqual(slices_and([slice(2,5),slice(7,None)],[slice(9,3,-1)]),
+                         [slice(4,5), slice(7,10)])
+        self.assertEqual(slices_and([slice(5,2,-1),slice(7,None)],[slice(9,3,-1)]),
+                         [slice(4,6), slice(7,10)])
+
 
 
 class TestSlicesAbove(unittest.TestCase):
@@ -4090,8 +4095,9 @@ class TestSlicesOverlay(unittest.TestCase):
         no_overlap = slice(25,40)
         self.assertEqual(slices_and(second, [no_overlap]), [])
 
-        # step negative
-        self.assertRaises(ValueError, slices_and, first, [slice(1, 2, -1)])
+        ## This test now redundant as slices_and handles reverse order.
+        ### step negative
+        ##self.assertRaises(ValueError, slices_and, first, [slice(1, 2, -1)])
 
         # complex with all four permutations
         first = [slice(5, 15), slice(20, 25), slice(30, 40)]
@@ -4256,22 +4262,44 @@ class TestSlicesOr(unittest.TestCase):
 class TestStepLocalCusp(unittest.TestCase):
     def test_step_cusp_basic(self):
         array = np.ma.array([3,7,9,9])
-        cusp = step_local_cusp(array)
+        test_slice=slice(0, 4, 1)
+        cusp = step_local_cusp(array, test_slice)
         self.assertEqual(cusp, 2)
               
-    def test_step_cusp_negative(self):
+    def test_step_cusp_downward(self):
         array = np.ma.array([9,8,9,9,8,5,1,1,1,1])
-        cusp = step_local_cusp(array)
-        self.assertEqual(cusp, 6)
+        test_slice=slice(3, None, None)
+        cusp = step_local_cusp(array, test_slice)
+        self.assertEqual(cusp, 3)
+
+    def test_step_cusp_negative_with_step(self):
+        array = np.ma.array([1,1,1,1,1,5,8,9,9,9,9])
+        test_slice=slice(7, 0, -1)
+        cusp = step_local_cusp(array, test_slice)
+        self.assertEqual(cusp, 4)
+    
+    def test_step_cusp_level_start(self):
+        array = np.ma.array([1,1,1,1,1,5,8,9,9,9,9])
+        test_slice=slice(None, None, None)
+        cusp = step_local_cusp(array, test_slice)
+        self.assertEqual(cusp, 0)
+    
+    def test_step_cusp_level_start_reverse(self):
+        array = np.ma.array([1,1,1,1,1,5,8,9,9,9,9])
+        test_slice=slice(9, 0, -1)
+        cusp = step_local_cusp(array, test_slice)
+        self.assertEqual(cusp, 0)
     
     def test_step_cusp_static(self):
         array = np.ma.array([33]*8)
-        cusp = step_local_cusp(array)
+        test_slice=slice(None, None, None)
+        cusp = step_local_cusp(array, test_slice)
         self.assertEqual(cusp, 0)
         
     def test_step_cusp_short(self):
         array = np.ma.array([33])
-        cusp = step_local_cusp(array)
+        test_slice=slice(None, None, None)
+        cusp = step_local_cusp(array, test_slice)
         self.assertEqual(cusp, 0)
         
         
@@ -4304,11 +4332,16 @@ class TestStepValues(unittest.TestCase):
                          [10, 10, 10, 11, 11, 11, 11, 15, 15])
 
     def test_step_leading_edge(self):
-        array = np.ma.array([0,0.1,0.0,0.8,1.6,3,6,6,6,6,8,13,18,18,9,9,9,6,3,2,
+        array = np.ma.array([0,0.1,0.0,0.8,1.6,3,6,6,6,6,8,13,14,14,9,9,9,6,3,2,
                              2,2,2,0,0,0])
         stepped = step_values(array, 1.0, (0, 1, 5, 10, 15), step_at='move_start')
         self.assertEqual(list(stepped),
-                         [0]*3+[1]+[5]*6+[10]+[15]*2+[10]*4+[5]+[1]*2+[0]*6)
+                         [0]*3+[1]+[5]*6+[10]+[15]*3+[10]*3+[5]+[1]*5+[0]*3)
+        
+    def test_step_move_start(self):
+        array = np.ma.array(data=[0]*5+[1,2,3,4]+[5]*5)
+        stepped = step_values(array, 1.0, (0, 4), step_at='move_start')
+        self.assertEqual(list(stepped), [0]*4+[4]*10)
         
     def test_step_leading_edge_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
@@ -4320,7 +4353,7 @@ class TestStepValues(unittest.TestCase):
         array = np.ma.concatenate((array,array[::-1]))
         stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_start', skip=False)
         self.assertEqual(list(stepped),
-                         [0]*10+[1]*3+[5]*18+[15]*28+[5]*6+[1]*18+[0]*13)
+                         [0]*11+[1]*2+[5]*20+[15]*25+[5]*7+[1]*18+[0]*13)
         
     def test_step_leading_edge_skip_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 

@@ -2862,10 +2862,9 @@ def slices_overlap(first_slice, second_slice):
 
 def slices_and(first_list, second_list):
     '''
-    This is a simple AND function to allow two slice lists to be merged.
-
-    Note: This currently has a trap for reverse slices, although this could be
-    extended.
+    This is a simple AND function to allow two slice lists to be merged. This
+    function accepts reverse sequence input slices, but the output is always
+    forward ordered.
 
     :param first_list: First list of slices
     :type first_list: List of slices
@@ -2874,20 +2873,26 @@ def slices_and(first_list, second_list):
 
     :returns: List of slices where first and second lists overlap.
     '''
+    def fwd(_slice):
+        if (_slice.step is not None and _slice.step < 0):
+            return slice(_slice.stop+1, max(_slice.start+1,0), -_slice.step)
+        else:  
+            return _slice
+        
     result_list = []
     for first_slice in first_list:
         for second_slice in second_list:
-            if (first_slice.step is not None and first_slice.step < 0) or \
-               (second_slice.step is not None and second_slice.step < 0):
-                raise ValueError('slices_and will not work with reverse slices')
-            if slices_overlap(first_slice, second_slice):
-                slice_start = max(first_slice.start, second_slice.start)
-                if first_slice.stop == None:
-                    slice_stop = second_slice.stop
-                elif second_slice.stop == None:
-                    slice_stop = first_slice.stop
+            slice_1 = fwd(first_slice)
+            slice_2 = fwd(second_slice)
+            
+            if slices_overlap(slice_1, slice_2):
+                slice_start = max(slice_1.start, slice_2.start)
+                if slice_1.stop == None:
+                    slice_stop = slice_2.stop
+                elif slice_2.stop == None:
+                    slice_stop = slice_1.stop
                 else:
-                    slice_stop = min(first_slice.stop, second_slice.stop)
+                    slice_stop = min(slice_1.stop, slice_2.stop)
                 result_list.append(slice(slice_start,slice_stop))
     return result_list
 
@@ -4859,7 +4864,7 @@ for i in xnew:
 def step_local_cusp(array, span):
     """
     A small function developed for the step function to find local cusps
-    where data has changed from static to sloping. Cusp defined as the point
+    where data has changed from sloping to steady. Cusp defined as the point
     closest to the start of the data where the local slope is half the slope
     from the first sample.
     
@@ -4872,7 +4877,8 @@ def step_local_cusp(array, span):
                  (must be passed in using reverse indexing if backwards operation needed).
     :type array: np.ma.array
     
-    :returns: index to cusp from start of data. Zero if no cusp found.
+    :returns: index to cusp from start of data. Zero if no cusp found, or if
+    the slope increases significantly after the start of the range to test.
     :rtype: integer
     """
     local_array=array[span]
@@ -4884,12 +4890,20 @@ def step_local_cusp(array, span):
         v0 = local_array[0]
         v_1=v0
         for n, v in enumerate(local_array[1:]):
-            slope_0 = abs(v-v0)/(n+1)
-            slope_n = abs(v-v_1)*2.0
-            v_1=v
+            slope_0 = abs(v-v0)/float(n+1)
+            slope_n = abs(v-v_1)
             # The condition reverses for reversed slices.
-            if slope_n*span.step<slope_0*span.step:
-                return n
+            if span.step==-1:
+                if slope_n < slope_0/2.0:
+                    return n+1
+                if slope_n > slope_0*2.0:
+                    return 0
+            else:
+                if slope_n < slope_0/2.0:
+                    return n
+                if slope_n > slope_0*2.0:
+                    return 0
+            v_1=v
         return 0
                 
     
@@ -4943,9 +4957,9 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
         
         # We are being asked to adjust the step point to either the beginning or
         # end of a change period. First find where the changes took place:
+        spans = np.ma.clump_unmasked(np.ma.masked_inside(np.ediff1d(array),-rt,rt))
         if skip:
             # We change to cover the movements of the output array
-            spans = np.ma.clump_unmasked(np.ma.masked_inside(np.ediff1d(array),-rt,rt))
             for span in spans:
                 if step_at == 'move_start':
                     stepped_array[span] = stepped_array[span.stop+1]
@@ -5005,7 +5019,8 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                 else:
                     stepped_array[span][:to_chg] = stepped_array[span.start]
                 
-    '''    
+        
+    '''
     import matplotlib.pyplot as plt
     one = np_ma_ones_like(array)
     for step in steps:
