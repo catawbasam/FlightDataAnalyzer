@@ -4382,7 +4382,7 @@ class TestStepValues(unittest.TestCase):
                           15,15,15,15,15,15,15,15,15,15,15,15,5,5,5,5,5,5,5,5,5,
                           5,5,5,5,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
 
-    def test_step_lowest_setting_real_data(self):
+    def test_step_excluding_transition_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
                              0.67, 0.98, 1.15, 1.28, 1.5, 1.71, 1.92, 2.12, 
                              2.32, 2.53, 2.75, 2.96, 3.18, 3.39, 3.6, 3.83, 
@@ -4390,8 +4390,19 @@ class TestStepValues(unittest.TestCase):
                              9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
                              15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
         array = np.ma.concatenate((array,array[::-1]))
-        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='lowest_setting')
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='excluding_transition')
         self.assertEqual(list(stepped),[0]*12+[1]*18+[5]*7+[15]*21+[5]*7+[1]*18+[0]*13)
+
+    def test_step_including_transition_real_data(self):
+        array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
+                             0.67, 0.98, 1.15, 1.28, 1.5, 1.71, 1.92, 2.12, 
+                             2.32, 2.53, 2.75, 2.96, 3.18, 3.39, 3.6, 3.83, 
+                             4.06, 4.3, 4.57, 4.82, 5.1, 5.41, 5.85, 7.12, 
+                             9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
+                             15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
+        array = np.ma.concatenate((array,array[::-1]))
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='including_transition')
+        self.assertEqual(list(stepped),[0]*11+[1]*2+[5]*20+[15]*29+[5]*20+[1]*3+[0]*11)
 
     def test_step_trailing_edge_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 

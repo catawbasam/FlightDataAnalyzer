@@ -4930,8 +4930,8 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     :param steps: Steps to round to nearest value
     :type steps: list of integers
     :param step_at: Step conversion mode
-    :type step_at: String, default='midpoint', options'move_start', 'move_end', 'lowest_setting'
-    :param skip: Selects whether steps that are passed straight through should be mapped or not.
+    :type step_at: String, default='midpoint', options'move_start', 'move_end', 'excluding_transition', 'including_transition'
+    :param skip: Selects whether steps that are passed straight through should be mapped or not. Only relates to 'move_start' or 'move_end' options.
     :type skip: logical, default = False
     :param rate_threshold: rate of change threshold for non-moving control
     :type rate_threshold: float, default 0.5 is suitable for flap operation.
@@ -4982,7 +4982,8 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
             #spans = []
             for i in range(1, len(changes)-1):
                 if step_at == 'move_start' or\
-                   step_at == 'lowest_setting' and stepped_array[changes[i]+1]<stepped_array[changes[i]]:
+                   step_at == 'excluding_transition' and stepped_array[changes[i]+1]<stepped_array[changes[i]] or\
+                   step_at == 'including_transition' and stepped_array[changes[i]+1]>stepped_array[changes[i]]:
                     mode = 'backwards'
                     span = slice(changes[i], changes[i-1], -1)
                 else:
@@ -5025,8 +5026,8 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     one = np_ma_ones_like(array)
     for step in steps:
         plt.plot(one*step)
-    plt.plot(array)
-    plt.plot(stepped_array)
+    plt.plot(array, '-b')
+    plt.plot(stepped_array, '-k')
     plt.show()
     '''    
     return np.ma.array(stepped_array, mask=array.mask)
