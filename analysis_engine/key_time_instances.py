@@ -303,6 +303,19 @@ class ExitHold(KeyTimeInstanceNode):
             self.create_kti(hold.slice.stop)
 
 
+class EngFireExtinguishSwitchPulled(KeyTimeInstanceNode):
+    def derive(self, e1f = P('Eng (1) Fire Extinguish Switch'),
+               e2f = P('Eng (2) Fire Extinguish Switch'),
+               airborne = S('Airborne')):
+        ef = np.ma.logical_or(e1f.array, e2f.array)
+        
+        # Monitor only while airborne, in case this is triggered by pre-flight tests.
+        for air in airborne:
+            pull_index = np.ma.nonzero(ef[air.slice])[0]
+            if len(pull_index):
+                self.create_kti(pull_index[0] + air.slice.start)
+        
+
 class GoAround(KeyTimeInstanceNode):
     """
     In POLARIS we define a Go-Around as any descent below 3000ft followed by
@@ -397,7 +410,7 @@ class FlapSet(KeyTimeInstanceNode):
     NAME_VALUES = NAME_VALUES_FLAP
 
     def derive(self,
-               flap=P('Flap')):
+               flap=P('Flap Lever')):
 
         # Mark all flap changes, and annotate with the new flap position.
         # Could include "phase=airborne" if we want to eliminate ground flap
@@ -411,7 +424,7 @@ class FirstFlapExtensionWhileAirborne(KeyTimeInstanceNode):
     Records each flap extension from clean configuration.
     '''
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever'),
                airborne=S('Airborne')):
 
         for air in airborne:
@@ -433,11 +446,47 @@ class FlapExtensionWhileAirborne(KeyTimeInstanceNode):
     Records every flap extension in flight.
     '''
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever'),
                airborne=S('Airborne')):
 
         self.create_ktis_at_edges(flap.array, 
                                   phase = airborne)
+
+
+class FlapLoadRelief(KeyTimeInstanceNode):
+    '''
+    Indicates where flap load relief has taken place.
+    '''
+    def derive(self, flr=M('Flap Load Relief')):
+        self.create_ktis_on_state_change(
+            'Load Relief',
+            flr.array,
+            change='entering'
+            )
+        
+        
+class FlapAlternateArmed(KeyTimeInstanceNode):
+    '''
+    Indicates where flap alternate system has been armed.
+    '''
+    def derive(self, faa=M('Flap Alternate Armed')):
+        self.create_ktis_on_state_change(
+            'Armed',
+            faa.array,
+            change='entering'
+            )
+
+
+class SlatAlternateArmed(KeyTimeInstanceNode):
+    '''
+    Indicates where slat alternate system has been armed.
+    '''
+    def derive(self, saa=M('Slat Alternate Armed')):
+        self.create_ktis_on_state_change(
+            'Armed',
+            saa.array,
+            change='entering'
+            )
 
 
 class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
@@ -445,7 +494,7 @@ class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
     '''
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever'),
                airborne=S('Airborne')):
 
         self.create_ktis_at_edges(
@@ -460,7 +509,7 @@ class FlapRetractionDuringGoAround(KeyTimeInstanceNode):
     '''
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever'),
                go_arounds=S('Go Around And Climbout')):
 
         self.create_ktis_at_edges(
@@ -524,6 +573,19 @@ class GearUpSelectionDuringGoAround(KeyTimeInstanceNode):
 
         self.create_ktis_on_state_change('Up', gear_up_sel.array,
                                          change='entering', phase=go_arounds)
+
+
+##############################################################################
+# TAWS
+
+class TAWSGlideslopeCancelPressed(KeyTimeInstanceNode):
+    
+    name = 'TAWS Glideslope Cancel Pressed'
+    
+    def derive(self, tgc=P('TAWS Glideslope Cancel'), airborne=S('Airborne')):
+        # Monitor only while airborne, in case this is triggered pre-flight.
+        self.create_ktis_on_state_change('Cancel', tgc.array,
+                                         change='entering', phase=airborne)        
 
 
 ##############################################################################

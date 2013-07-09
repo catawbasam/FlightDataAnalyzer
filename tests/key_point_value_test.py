@@ -116,6 +116,7 @@ from analysis_engine.key_point_values import (
     AltitudeFirstStableDuringLastApproach,
     AltitudeAtFlapExtension,
     AltitudeAtFlapExtensionWithGearDown,
+    AltitudeAtFirstAPEngagedAfterLiftoff,
     AltitudeAtFirstFlapExtensionAfterLiftoff,
     AltitudeAtFirstFlapRetraction,
     AltitudeAtFirstFlapRetractionDuringGoAround,
@@ -243,6 +244,7 @@ from analysis_engine.key_point_values import (
     ILSLocalizerDeviation1000To500FtMax,
     ILSLocalizerDeviation500To200FtMax,
     ILSLocalizerDeviationAtTouchdown,
+    LandingConfigurationGearWarningDuration,
     LastFlapChangeToTakeoffRollEndDuration,
     LastUnstableStateDuringApproachBeforeGoAround,
     LastUnstableStateDuringLastApproach,
@@ -2566,6 +2568,29 @@ class TestAltitudeWithGearDownMax(unittest.TestCase, NodeTest):
             KeyPointValue(index=3, value=3.0, name='Altitude With Gear Down Max'),
             KeyPointValue(index=5, value=5.0, name='Altitude With Gear Down Max'),
         ])
+
+
+class TestAltitudeAtFirstAPEngagedAfterLiftoff(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeAtFirstAPEngagedAfterLiftoff
+        self.operational_combinations = [('AP Engaged', 'Altitude AAL', 'Airborne')]
+
+    def test_derive_basic(self):
+
+        ap = M('AP Engaged', np.ma.array([0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), values_mapping={1:'Engaged'})
+        alt_aal_array = np.ma.array([0, 0, 0, 50, 100, 200, 300, 400])
+        alt_aal_array = np.ma.concatenate((alt_aal_array,alt_aal_array[::-1]))
+        alt_aal = P('Altitude AAL', alt_aal_array)
+        airs = buildsection('Airborne', 2, 14)
+
+        node = self.node_class()
+        node.derive(ap=ap,alt_aal=alt_aal, airborne=airs)
+
+        expected = KPV('Altitude At First AP Engaged After Liftoff', items=[
+            KeyPointValue(name='Altitude At First AP Engaged After Liftoff', index=4.5, value=150),
+        ])
+        self.assertEqual(node, expected)
 
 
 ########################################
@@ -6264,6 +6289,26 @@ class TestMasterCautionDuringTakeoffDuration(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+
+
+##############################################################################
+# Warnings: Landing Configuration Warning
+
+
+class TestLandingConfigurationGearWarningDuration(unittest.TestCase):
+    def test_can_operate(self):
+        opts = LandingConfigurationGearWarningDuration.get_operational_combinations()
+        self.assertEqual(opts, [('Landing Configuration Gear Warning',)])
+        
+    def test_derive(self):
+        node = LandingConfigurationGearWarningDuration()
+        airs = buildsection('Airborne', 2, 8)
+        warn = M(array=np.ma.array([0,0,0,0,0,1,1,0,0,0]),
+                             values_mapping={1: 'Warning'})
+        node.derive(warn, airs)
+        self.assertEqual(node[0].index, 5)
 
 
 ##############################################################################

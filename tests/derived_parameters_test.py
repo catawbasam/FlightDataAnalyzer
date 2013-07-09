@@ -115,9 +115,8 @@ from analysis_engine.derived_parameters import (
     EngThrustModeRequired,
     Flap,
     Flaperon,
-    FlapLeverDetent,
-    FlapLeverSynthetic,
-    FlapSurface,
+    FlapAngle,
+    FlapLever,
     FuelQty,
     FuelQty_Low,
     GearDown,
@@ -2073,10 +2072,10 @@ class TestFlap(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = Flap
-        self.operational_combinations = [('Flap Surface', 'Series', 'Family')]
+        self.operational_combinations = [('Flap Angle', 'Series', 'Family')]
 
     def test_flap_stepped_nearest_5(self):
-        flap = P('Flap Surface', np.ma.arange(50))
+        flap = P('Flap Angle', np.ma.arange(50))
         node = self.node_class()
         node.derive(flap, A('Series', None), A('Family', None))
         expected = [0] * 3 + [5] * 5 + [10] * 5 + [15] * 2
@@ -2084,7 +2083,7 @@ class TestFlap(unittest.TestCase, NodeTest):
         expected = [45] * 5 + [50] * 2
         self.assertEqual(node.array[-7:].tolist(), expected)
 
-        flap = P('Flap Surface', np.ma.array(range(20), mask=[True] * 10 + [False] * 10))
+        flap = P('Flap Angle', np.ma.array(range(20), mask=[True] * 10 + [False] * 10))
         node.derive(flap, A('Series', None), A('Family', None))
         expected = [-1] * 10 + [10] * 3 + [15] * 5 + [20] * 2
         self.assertEqual(np.ma.filled(node.array, fill_value=-1).tolist(), expected)
@@ -2094,7 +2093,7 @@ class TestFlap(unittest.TestCase, NodeTest):
         # Note: Flap uses library.step_values(..., step_at='move_end')!
         indexes = (1, 57, 58)
         flap = P(
-            name='Flap Surface',
+            name='Flap Angle',
             array=np.ma.array(range(50) + range(-5, 0) + [13.1, 1.3, 10, 10]),
         )
         for index in indexes:
@@ -3649,37 +3648,30 @@ class TestEng_VibN3Max(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestFlapLeverDetent(unittest.TestCase, NodeTest):
+class TestFlapLeverDetent(unittest.TestCase):
+
+    #def setUp(self):
+        ##self.node_class = FlapLeverDetent
+        ##self.operational_combinations = [
+            ##('Flap Lever', 'Series', 'Family'),
+            ##('Flap Angle', 'Series', 'Family'),
+        ##]
+        #self.series=A('B737-300')
+        #self.family=A('B737')
+        #self.lvr=P('Flap Lever', np.ma.array(data=[0,0,1,2,15,15]))
+        #self.surf=P('Flap Angle', np.ma.array(data=[2,2,5,10,15]))
+        
+    def basic_lever(self):
+        fld =FlapLeverDetent()
+        fld.derive(self.lvr, None, self.series, self.family)
+        result = np.ma.array([0,0,1,1,15,15])
+        ma_test.assert_array_equal(fld.array, result)
+
+
+class TestFlapAngle(unittest.TestCase, NodeTest):
 
     def setUp(self):
-        self.node_class = FlapLeverDetent
-        self.operational_combinations = [
-            ('Flap Lever', 'Series', 'Family'),
-            ('Flap Surface', 'Series', 'Family'),
-        ]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestFlapLeverSynthetic(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = FlapLeverSynthetic
-        self.operational_combinations = [
-            ('Flap Surface', 'Series', 'Family'),
-        ]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestFlapSurface(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = FlapSurface
+        self.node_class = FlapAngle
         self.operational_combinations = [
             ('Flap (L)',),
             ('Flap (R)',),

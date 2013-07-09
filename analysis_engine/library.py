@@ -2862,10 +2862,9 @@ def slices_overlap(first_slice, second_slice):
 
 def slices_and(first_list, second_list):
     '''
-    This is a simple AND function to allow two slice lists to be merged.
-
-    Note: This currently has a trap for reverse slices, although this could be
-    extended.
+    This is a simple AND function to allow two slice lists to be merged. This
+    function accepts reverse sequence input slices, but the output is always
+    forward ordered.
 
     :param first_list: First list of slices
     :type first_list: List of slices
@@ -2874,20 +2873,26 @@ def slices_and(first_list, second_list):
 
     :returns: List of slices where first and second lists overlap.
     '''
+    def fwd(_slice):
+        if (_slice.step is not None and _slice.step < 0):
+            return slice(_slice.stop+1, max(_slice.start+1,0), -_slice.step)
+        else:  
+            return _slice
+        
     result_list = []
     for first_slice in first_list:
         for second_slice in second_list:
-            if (first_slice.step is not None and first_slice.step < 0) or \
-               (second_slice.step is not None and second_slice.step < 0):
-                raise ValueError('slices_and will not work with reverse slices')
-            if slices_overlap(first_slice, second_slice):
-                slice_start = max(first_slice.start, second_slice.start)
-                if first_slice.stop == None:
-                    slice_stop = second_slice.stop
-                elif second_slice.stop == None:
-                    slice_stop = first_slice.stop
+            slice_1 = fwd(first_slice)
+            slice_2 = fwd(second_slice)
+            
+            if slices_overlap(slice_1, slice_2):
+                slice_start = max(slice_1.start, slice_2.start)
+                if slice_1.stop == None:
+                    slice_stop = slice_2.stop
+                elif slice_2.stop == None:
+                    slice_stop = slice_1.stop
                 else:
-                    slice_stop = min(first_slice.stop, second_slice.stop)
+                    slice_stop = min(slice_1.stop, slice_2.stop)
                 result_list.append(slice(slice_start,slice_stop))
     return result_list
 
@@ -4856,10 +4861,10 @@ plt.show()
 for i in xnew:
     print f(i)
 """
-def step_local_cusp(array):
+def step_local_cusp(array, span):
     """
     A small function developed for the step function to find local cusps
-    where data has changed from static to sloping. Cusp defined as the point
+    where data has changed from sloping to steady. Cusp defined as the point
     closest to the start of the data where the local slope is half the slope
     from the first sample.
     
@@ -4872,22 +4877,33 @@ def step_local_cusp(array):
                  (must be passed in using reverse indexing if backwards operation needed).
     :type array: np.ma.array
     
-    :returns: index to cusp from start of data. Zero if no cusp found.
+    :returns: index to cusp from start of data. Zero if no cusp found, or if
+    the slope increases significantly after the start of the range to test.
     :rtype: integer
     """
-    if len(array)==0:
+    local_array=array[span]
+    if len(local_array)==0:
         return None
-    elif len(array)<3:
+    elif len(local_array)<3:
         return 0
     else:
-        v0 = array[0]
+        v0 = local_array[0]
         v_1=v0
-        for n, v in enumerate(array[1:]):
-            slope_0 = abs(v-v0)/(n+1)
-            slope_n = abs(v-v_1)*2.0
+        for n, v in enumerate(local_array[1:]):
+            slope_0 = abs(v-v0)/float(n+1)
+            slope_n = abs(v-v_1)
+            # The condition reverses for reversed slices.
+            if span.step==-1:
+                if slope_n < slope_0/2.0:
+                    return n+1
+                if slope_n > slope_0*2.0:
+                    return 0
+            else:
+                if slope_n < slope_0/2.0:
+                    return n
+                if slope_n > slope_0*2.0:
+                    return 0
             v_1=v
-            if slope_n<slope_0:
-                return n
         return 0
                 
     
@@ -4914,8 +4930,8 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     :param steps: Steps to round to nearest value
     :type steps: list of integers
     :param step_at: Step conversion mode
-    :type step_at: String, default='midpoint', options'move_start', 'move_end'
-    :param skip: Selects whether steps that are passed straight through should be mapped or not.
+    :type step_at: String, default='midpoint', options'move_start', 'move_end', 'excluding_transition', 'including_transition'
+    :param skip: Selects whether steps that are passed straight through should be mapped or not. Only relates to 'move_start' or 'move_end' options.
     :type skip: logical, default = False
     :param rate_threshold: rate of change threshold for non-moving control
     :type rate_threshold: float, default 0.5 is suitable for flap operation.
@@ -4933,18 +4949,17 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
         else:
             stepped_array[(low < array) & (array <= high)] = level
         low = high
-    else:
-        # all values above the last
-        stepped_array[low < array] = level
+    # all the remaining values are above the top step level
+    stepped_array[low < array] = level
     stepped_array.mask = np.ma.getmaskarray(array)
         
     if step_at!='midpoint':
         
         # We are being asked to adjust the step point to either the beginning or
         # end of a change period. First find where the changes took place:
+        spans = np.ma.clump_unmasked(np.ma.masked_inside(np.ediff1d(array),-rt,rt))
         if skip:
             # We change to cover the movements of the output array
-            spans = np.ma.clump_unmasked(np.ma.masked_inside(np.ediff1d(array),-rt,rt))
             for span in spans:
                 if step_at == 'move_start':
                     stepped_array[span] = stepped_array[span.stop+1]
@@ -4964,15 +4979,18 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                 list(np.ediff1d(stepped_array, to_end=0.0).nonzero()[0]) + \
                 [len(stepped_array)]
             
-            spans = []
+            #spans = []
             for i in range(1, len(changes)-1):
-                if step_at == 'move_start':
-                    spans.append(slice(changes[i], changes[i-1], -1))
+                if step_at == 'move_start' or\
+                   step_at == 'excluding_transition' and stepped_array[changes[i]+1]<stepped_array[changes[i]] or\
+                   step_at == 'including_transition' and stepped_array[changes[i]+1]>stepped_array[changes[i]]:
+                    mode = 'backwards'
+                    span = slice(changes[i], changes[i-1], -1)
                 else:
-                    spans.append(slice(changes[i], changes[i+1], +1))
+                    mode='forwards'
+                    span = slice(changes[i], changes[i+1], +1)
 
-            for span in spans:
-                to_chg = step_local_cusp(array[span])
+                to_chg = step_local_cusp(array, span)
             
                 if to_chg==0:
                     # Continuous movement, so change at the step value if this passes through a step.
@@ -4988,34 +5006,32 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                         # Find where we passed through this value...
                         idx = index_at_value(array, this_step, span)
                         if idx:
-                            if step_at == 'move_start':
-                                stepped_array[ceil(idx):span.start+1] = stepped_array[span.start]
+                            if mode == 'backwards':
+                                stepped_array[ceil(idx):span.start+1] = stepped_array[span.start+1]
                             else:
                                 stepped_array[span.start:floor(idx)] = stepped_array[span.start]
                     else:
                         # OK - just ran from one step to another without dwelling, so fill with the start or end values.
-                        if step_at == 'move_start':
+                        if mode == 'backwards':
                             stepped_array[span] = first_valid_sample(stepped_array[span]).value
                         else:
                             stepped_array[span] = first_valid_sample(stepped_array[span]).value
                 
-                elif step_at == 'move_start':
-                    stepped_array[span][:to_chg] = stepped_array[span.start]
+                elif mode == 'backwards':
+                    stepped_array[span][:to_chg] = stepped_array[span.start+1]
                 else:
                     stepped_array[span][:to_chg] = stepped_array[span.start]
-                
-        """
-        import matplotlib.pyplot as plt
-        one = np_ma_ones_like(array)
-        for step in steps:
-            plt.plot(one*step)
-        plt.plot(array)
-        plt.plot(stepped_array)
-        plt.show()
-        """
+    '''
+    import matplotlib.pyplot as plt
+    one = np_ma_ones_like(array)
+    for step in steps:
+        plt.plot(one*step)
+    plt.plot(array, '-b')
+    plt.plot(stepped_array, '-k')
+    plt.show()
+    '''    
     return np.ma.array(stepped_array, mask=array.mask)
         
-            
 
 def touchdown_inertial(land, roc, alt):
     """
@@ -5582,14 +5598,16 @@ def value_at_index(array, index, interpolate=True):
 
 
     
-def vspeed_lookup(vspeed, aircraft, flap, gw):
+def vspeed_lookup(vspeed, aircraft, engine, flap, gw):
     '''
     Single point lookup for the vspeed tables.
     
     :param vspeed: Selection of "V2" or "Vref"
     :type vspeed: String
-    :param aircraft: Aircraft type identifier, family or series.
+    :param aircraft: Aircraft series identifier.
     :type aircraft: String
+    :param engine: Engine Type identifier.
+    :type engine: String
     :param flap: Flap setting
     :type flap: float # TODO: Include Config - not tested yet.
     :param gw: Gross Weight in kg
@@ -5598,7 +5616,7 @@ def vspeed_lookup(vspeed, aircraft, flap, gw):
     :returns: Vspeed in knots
     :type: float
     '''
-    vspeed_class = get_vspeed_map(aircraft)
+    vspeed_class = get_vspeed_map(series=aircraft, engine_type=engine)
     vspeed_table = vspeed_class()
     if vspeed.lower() == 'v2':
         return vspeed_table.v2(flap, gw)

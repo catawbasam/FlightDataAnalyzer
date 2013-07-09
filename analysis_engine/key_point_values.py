@@ -133,7 +133,10 @@ class FlapOrConfigurationMaxOrMin(object):
             # Ensure KPVs with integer detents don't have decimal places and
             # that those that are floats only have one decimal place:
             detent = int(detent) if float(detent).is_integer() else '%.1f' % detent
-            key = 'flap' if conflap.name == 'Flap' else 'conf'
+            key = 'flap' if conflap.name in ['Flap', 
+                                             'Flap Excluding Transition', 
+                                             'Flap Including Transition'] \
+                else 'conf'
             self.create_kpv(index, value, **{key: detent})
 
 
@@ -1382,7 +1385,7 @@ class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOr
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Including Transition'),
                airspeed=P('Airspeed'),
                scope=S('Climb')):
 
@@ -1418,7 +1421,7 @@ class AirspeedWithFlapDuringDescentMax(KeyPointValueNode, FlapOrConfigurationMax
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Including Transition'),
                airspeed=P('Airspeed'),
                scope=S('Descent')):
 
@@ -1459,6 +1462,19 @@ class AirspeedRelativeWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigur
                scope=S('Descent To Flare')):
 
         self.flap_or_conf_max_or_min(flap, airspeed, min_value, scope=scope)
+
+
+class AirspeedAtFirstFlapExtensionWhileAirborne(KeyPointValueNode):
+    '''
+    '''
+    
+    units = 'kt'
+    
+    def derive(self, airspeed=P('Airspeed'),
+               ff_ext=KTI('First Flap Extension While Airborne')):
+        if ff_ext:
+            index=ff_ext[-1].index
+            self.create_kpv(index, value_at_index(airspeed.array, index))
 
 
 ########################################
@@ -2256,7 +2272,7 @@ class AltitudeAtFlapExtensionWithGearDown(KeyPointValueNode):
 
     units = 'ft'
 
-    def derive(self, flap_p=P('Flap'),
+    def derive(self, flap_p=P('Flap Lever'),
                alt_aal=P('Altitude AAL'),
                gear_ext=S('Gear Extended'),
                airborne=S('Airborne')):
@@ -2273,6 +2289,7 @@ class AltitudeAtFlapExtensionWithGearDown(KeyPointValueNode):
                 selected_flap = int(flap_p.array[index])
                 self.create_kpv(index, value, flap=int(selected_flap))
 
+
 class AirspeedAtFlapExtensionWithGearDown(KeyPointValueNode):
     '''
     Prepared to cover one customer's SOP relating to selection of Flap 20 on
@@ -2284,7 +2301,7 @@ class AirspeedAtFlapExtensionWithGearDown(KeyPointValueNode):
     
     units = 'kts'
     
-    def derive(self, flap_p=P('Flap'),
+    def derive(self, flap_p=P('Flap Lever'),
                air_spd=P('Airspeed'),
                gear_ext=S('Gear Extended'),
                airborne=S('Airborne')):
@@ -2302,26 +2319,56 @@ class AirspeedAtFlapExtensionWithGearDown(KeyPointValueNode):
                 self.create_kpv(index, value, flap=int(selected_flap))
 
 
-class AirspeedRelativeAtFlap20Selection(KeyPointValueNode):
+##########################################################################
+# Speeds relative to Vref Flap 30 + 80 kts (Boeing procedures for 757/767).
+##########################################################################
+
+class AirspeedRelativeAtFirstFlapRetraction(KeyPointValueNode):
+    '''
+    Specific to certain 757/767 operations, this is the speed relative to the
+    Vref for flap 30 plus 80kts, at the point of first flap retraction.
+    '''
+    
+    name = 'Airspeed Relative To Vref30+80 At First Flap Retraction'
+
+    units = 'kts'
+
+    def derive (self, airspeed=P('Airspeed'),
+                gw=P('Gross Weight Smoothed'),
+                alt_retract=KPV('Altitude At First Flap Change After Liftoff'),
+                series=A('Series'),
+                engine=A('Engine Type')):
+
+        if series.value not in ['B757-200(F)', 'B767-300F(ER)']:
+            return
+        if alt_retract:
+            index = alt_retract[0].index
+            speed_ret = value_at_index(airspeed.array, index)
+            gw_ret = value_at_index(gw.array, index)
+            # Get the Vref speed for flap 30 and the current weight.
+            vref = vspeed_lookup('Vref', series.value, engine.value, 30.0, gw_ret)
+            self.create_kpv(index, speed_ret-(vref+80.0))
+
+
+class AirspeedRelativeAtFirstFlapExtensionWithGearDown(KeyPointValueNode):
     '''
     Specific to certain 757/767 operations, this is the speed relative to the
     Vref at the landing weight, assuming a flap 30 landing, plus 80kts.
     '''
     
-    name = 'Airspeed Relative At Flap 20 Selection'
+    name = 'Airspeed Relative To Vref30+80 At First Flap Extension With Gear Down'
 
     units = 'kts'
 
     def derive (self, speed=KPV('Airspeed At Flap Extension With Gear Down'),
                 gw_ldg=KPV('Gross Weight At Touchdown'),
                 series=A('Series'),
-                family=A('Family'),
-                engine=A('Engine')):
+                engine=A('Engine Type')):
 
         if series.value not in ['B757-200(F)', 'B767-300F(ER)']:
             return
 
-        kpv_20 = [k for k in speed if '25' in k.name]
+        kpv_20 = [k for k in speed if '20' in k.name]
         if kpv_20==[]:
             # The crew did not select flap 20 with gear down on this flight.
             return
@@ -2330,9 +2377,38 @@ class AirspeedRelativeAtFlap20Selection(KeyPointValueNode):
         speed_20 = kpv_20[-1].value
         
         # Get the Vref speed for a landing at flap 30 and the projected weight.
-        vref_ldg = vspeed_lookup('Vref', series.value, 30.0, gw_ldg[0].value)
+        vref_ldg = vspeed_lookup('Vref', series.value, engine.value, 30.0, gw_ldg[0].value)
         self.create_kpv(index, speed_20-(vref_ldg+80.0))
 
+class AirspeedRelativeAtFlap20SelectionWithGearDown(KeyPointValueNode):
+    '''
+    Specific to certain 757/767 operations, this is the speed relative to the
+    Vref at the landing weight, assuming a flap 30 landing, plus 80kts.
+    '''
+
+    name = 'Airspeed Relative To Vref30+80 At Flap 20 Selection With Gear Down'
+    units = 'kts'
+
+    def derive (self, speed=KPV('Airspeed At Flap Extension With Gear Down'),
+                gw_ldg=KPV('Gross Weight At Touchdown'),
+                series=A('Series'), engine=A('Engine Type'),):
+
+        if series.value not in ['B757-200(F)', 'B767-300F(ER)']:
+            return
+
+        kpv_20 = speed.get_ordered_by_index()
+        if kpv_20==[]:
+            # The crew did not extend flap with gear down on this flight.
+            return
+        # We are only interested in the first one.
+        index = kpv_20[0].index
+        speed_20 = kpv_20[0].value
+        
+        # Get the Vref speed for a landing at flap 30 and the projected weight.
+        vref_ldg = vspeed_lookup('Vref', series.value, engine.value, 30.0, gw_ldg[0].value)
+        self.create_kpv(index, speed_20-(vref_ldg+80.0))
+
+##########################################################################
 
 
 class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
@@ -2342,7 +2418,7 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
     units = 'ft'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever'),
                flap_liftoff=KPV('Flap At Liftoff'),
                alt_aal=P('Altitude AAL'),
                airborne=S('Airborne')):
@@ -2368,7 +2444,7 @@ class AltitudeAtLastFlapChangeBeforeTouchdown(KeyPointValueNode):
     units = 'ft'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=P('Flap Lever'),
                alt_aal=P('Altitude AAL'),
                touchdowns=KTI('Touchdown')):
 
@@ -2594,6 +2670,26 @@ class AltitudeAtATDisengagedSelection(KeyPointValueNode):
 
         self.create_kpvs_at_ktis(alt_aal.array, at_dis)
 
+
+class AltitudeAtFirstAPEngagedAfterLiftoff(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Altitude At First AP Engaged After Liftoff'
+    units = 'ft'
+
+    def derive(self,
+               ap=KTI('AP Engaged'),
+               alt_aal=P('Altitude AAL'),
+               airborne=S('Airborne')):
+
+
+        change_indexes = find_edges_on_state_change('Engaged', ap.array,
+                                                    phase=airborne)
+        if len(change_indexes):
+            # Create at first change:
+            index = change_indexes[0]
+            self.create_kpv(index, value_at_index(alt_aal.array, index))
 
 ########################################
 # Altitude: Mach
@@ -7813,6 +7909,23 @@ class TakeoffConfigurationStabilizerWarningDuration(KeyPointValueNode):
 
 
 ##############################################################################
+# Warnings: Takeoff Configuration
+
+
+class LandingConfigurationGearWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               landing_cfg_warn=M('Landing Configuration Gear Warning'),
+               airs=S('Airborne')):
+        self.create_kpvs_where(landing_cfg_warn.array == 'Warning',
+                               landing_cfg_warn.hz, phase=airs)
+
+
+##############################################################################
 # Warnings: Alpha Floor, Alternate Law, Direct Law
 
 
@@ -8309,12 +8422,12 @@ class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
     The idea is that the flaps should not be changed when the aircraft has
     started accelerating down the runway.
 
-    We detect the last change of flap position during the takeoff roll phase
+    We detect the last change of flap selection during the takeoff roll phase
     and calculate the time between this instant and the end of takeoff roll.
     '''
     units = 's'
 
-    def derive(self, flap=P('Flap'), rolls=S('Takeoff Roll')):
+    def derive(self, flap=P('Flap Lever'), rolls=S('Takeoff Roll')):
         for roll in rolls:
             changes = find_edges(flap.array, roll.slice, 'all_edges')
             if changes:

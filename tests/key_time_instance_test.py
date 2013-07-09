@@ -19,17 +19,20 @@ from analysis_engine.key_time_instances import (
     ATEngagedSelection,
     BottomOfDescent,
     ClimbStart,
+    EngFireExtinguishSwitchPulled,
     EngStart,
     EngStop,
     EnterHold,
     ExitHold,
     FirstFlapExtensionWhileAirborne,
     FlapExtensionWhileAirborne,
+    FlapLoadRelief,
     FlapSet,
     GearDownSelection,
     GearUpSelection,
     GearUpSelectionDuringGoAround,
     GoAround,
+    FlapAlternateArmed,
     FlapRetractionWhileAirborne,
     FlapRetractionDuringGoAround,
     InitialClimbStart,
@@ -42,9 +45,11 @@ from analysis_engine.key_time_instances import (
     LowestAltitudeDuringApproach,
     MinsToTouchdown,
     SecsToTouchdown,
+    SlatAlternateArmed,
     TakeoffAccelerationStart,
     TakeoffPeakAcceleration,
     TakeoffTurnOntoRunway,
+    TAWSGlideslopeCancelPressed,
     TopOfClimb,
     TopOfDescent,
     TouchAndGo,
@@ -543,6 +548,18 @@ class TestTakeoffTurnOntoRunway(unittest.TestCase):
         self.assertEqual(instance, expected)
 
 
+class TestTAWSGlideslopeCancelPressed(unittest.TestCase):
+
+    def test_basic(self):
+        tgc = M('TAWS Glideslope Cancel', ['Cancel', '-', '-', 'Cancel', 'Cancel', '-', '-'],
+               values_mapping={0: '-', 1: 'Cancel'})
+        air = buildsection('Airborne', 2, 8)
+        glide = TAWSGlideslopeCancelPressed()
+        glide.derive(tgc, air)
+        expected = [KeyTimeInstance(index=2.5, name='TAWS Glideslope Cancel Pressed')]
+        self.assertEqual(glide, expected)
+        
+ 
 class TestTopOfClimb(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
     # outside edges of the envelope.
@@ -837,7 +854,36 @@ class TestExitHold(unittest.TestCase):
 
 
 ##############################################################################
-# Flap
+# Flap & Slat
+
+class TestSlatAlternateArmed(unittest.TestCase):
+    def test_derive(self):
+        saa = M('Slat Alternate Armed', ['-', '-', 'Armed', 'Armed', 'Armed', '-', '-'],
+               values_mapping={0: '-', 1: 'Armed'})
+        armed = SlatAlternateArmed()
+        armed.derive(saa) # Get the pun !
+        expected = [KeyTimeInstance(index=1.5, name='Slat Alternate Armed')]
+        self.assertEqual(armed, expected)
+
+
+class TestFlapAlternateArmed(unittest.TestCase):
+    def test_derive(self):
+        faa = M('Flap Alternate Armed', ['-', '-', '-', 'Armed', 'Armed', 'Armed', '-'],
+               values_mapping={0: '-', 1: 'Armed'})
+        armed = FlapAlternateArmed()
+        armed.derive(faa) # Get the pun !
+        expected = [KeyTimeInstance(index=2.5, name='Flap Alternate Armed')]
+        self.assertEqual(armed, expected)
+
+
+class TestFlapLoadRelief(unittest.TestCase):
+    def test_derive(self):
+        flr = M('Flap Load Relief', ['-', '-', '-', 'Load Relief', 'Load Relief', '-', '-'],
+               values_mapping={0: '-', 1: 'Load Relief'})
+        loaded = FlapLoadRelief()
+        loaded.derive(flr)
+        expected = [KeyTimeInstance(index=2.5, name='Flap Load Relief')]
+        self.assertEqual(loaded, expected)
 
 
 class TestFlapSet(unittest.TestCase, NodeTest):
@@ -883,6 +929,65 @@ class TestFlapExtensionWhileAirborne(unittest.TestCase, NodeTest):
             KeyTimeInstance(index=3.5, name='Flap Extension While Airborne'),
             KeyTimeInstance(index=5.5, name='Flap Extension While Airborne'),
         ])
+
+
+class TestEngFireExtinguishSwitchPulled(unittest.TestCase):
+
+    def test_basic(self):
+        e1f = P(name = 'Eng (1) Fire Extinguish Switch',
+                array = np.ma.array(data=[0,0,0,0,0,0,1,0,0,0]),
+                frequency=1, offset=0,)
+        e2f = P(name = 'Eng (2) Fire Extinguish Switch',
+                array = np.ma.array([0]*10),
+                frequency=1, offset=0,)
+        air = buildsection('Airborne', 2, 8)
+        pull = EngFireExtinguishSwitchPulled()
+        pull.derive(e1f, e2f, air)
+        self.assertEqual(pull, [
+            KeyTimeInstance(index=6, name='Eng Fire Extinguish Switch Pulled'),
+            ])
+        
+    def test_none(self):
+        e1f = P(name = 'Eng (1) Fire Extinguish Switch',
+                array = np.ma.array(data=[0,0,0,0,0,0,0,0,0,0]),
+                frequency=1, offset=0,)
+        e2f = P(name = 'Eng (2) Fire Extinguish Switch',
+                array = np.ma.array([0]*10),
+                frequency=1, offset=0,)
+        air = buildsection('Airborne', 2, 8)
+        pull = EngFireExtinguishSwitchPulled()
+        pull.derive(e1f, e2f, air)
+        self.assertEqual(pull, [])
+
+    def test_either(self):
+        e2f = P(name = 'Eng (2) Fire Extinguish Switch',
+                array = np.ma.array(data=[0,0,0,0,0,1,1,1,0,0]),
+                frequency=1, offset=0,)
+        e1f = P(name = 'Eng (1) Fire Extinguish Switch',
+                array = np.ma.array([0]*10),
+                frequency=1, offset=0,)
+        air = buildsection('Airborne', 2, 8)
+        pull = EngFireExtinguishSwitchPulled()
+        pull.derive(e1f, e2f, air)
+        self.assertEqual(pull, [
+            KeyTimeInstance(index=5, name='Eng Fire Extinguish Switch Pulled'),
+            ])
+        
+    def test_both(self):
+        e1f = P(name = 'Eng (1) Fire Extinguish Switch',
+                array = np.ma.array(data=[0,0,0,1,0,1,1,1,0,0]),
+                frequency=1, offset=0,)
+        e2f = P(name = 'Eng (2) Fire Extinguish Switch',
+                array = np.ma.array(data=[0,0,0,1,1,1,1,1,0,0]),
+                frequency=1, offset=0,)
+        air = buildsection('Airborne', 1, 5)
+        pull = EngFireExtinguishSwitchPulled()
+        pull.derive(e1f, e2f, air)
+        self.assertEqual(pull, [
+            KeyTimeInstance(index=3, name='Eng Fire Extinguish Switch Pulled'),
+            ])
+        
+
 
 
 class TestFirstFlapExtensionWhileAirborne(unittest.TestCase, NodeTest):

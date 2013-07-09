@@ -3449,62 +3449,57 @@ class Groundspeed(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
-class FlapLeverDetent(DerivedParameterNode):
+class FlapLever(DerivedParameterNode):
     '''
-    Steps raw Flap angle from lever into detents.
+    TEMPORARY KPV TO TEST EFFECT OF CHANGE IN FLAP DATA PROCESSING. TO BE
+    REPLACED BY "FLAP LEVER IF FLAP LEVER ELSE FLAP" LOGIC LATER WHERE
+    REQUIRED.
     '''
 
     units = 'deg'
 
-    @classmethod
-    def can_operate(cls, available):
-        return any_of(('Flap Surface', 'Flap Lever'), available) \
-            and all_of(('Series', 'Family'), available)
+    ##@classmethod
+    ##def can_operate(cls, available):
+        ##return any_of(('Flap Angle'), available) \
+            ##and all_of(('Series', 'Family'), available)
 
     def derive(self,
-               flap_lvr=P('Flap Lever'),
-               flap_surf=P('Flap Surface'),
+               flap_surf=P('Flap Angle'),
                series=A('Series'),
                family=A('Family')):
+
+        try:
+            flap_steps = get_flap_map(series.value, family.value)
+        except KeyError:
+            # no flaps mapping, round to nearest 5 degrees
+            self.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            flap_steps = range(0, 50, 5)
 
         # Use flap lever position where recorded, otherwise revert to flap surface.
-        flap = flap_lvr if flap_lvr else flap_surf
-
-        try:
-            flap_steps = get_flap_map(series.value, family.value)
-        except KeyError:
-            # no flaps mapping, round to nearest 5 degrees
-            self.warning("No flap settings - rounding to nearest 5")
-            # round to nearest 5 degrees
-            self.array = round_to_nearest(flap.array, 5.0)
-        else:
-            self.array = step_values(flap.array, flap.frequency, flap_steps, step_at='move_start')
+        ##if flap_lvr:
+            ### Take the moment the lever passes midway between two flap detents.
+            ##self.array = step_values(flap_lvr.array, flap_lvr.frequency, 
+                                     ##flap_steps, step_at='midpoint')
+        ##else:
+            # Take the moment the flap starts to move.
+        self.array = step_values(flap_surf.array, flap_surf.frequency, 
+                                 flap_steps, step_at='move_start')
 
 
-class FlapLeverSynthetic(DerivedParameterNode):
+class FlapExcludingTransition(DerivedParameterNode):
     '''
-    Steps raw Flap angle from lever into detents. This is being developed,
-    along with extensions to the step_values algorithm, to cater for aircraft
-    that do not record flap lever position separately.
-
-    At the same time, extensions to step_values to reflect the different
-    needs of safety and maintenance organisations are being included, so for
-    the present version the step_at keyword should not be used.
+    Specifically designed to cater for maintenance monitoring, this assumes
+    that when moving the lower of the start and endpoints of the movement
+    apply. This minimises the chance of needing a flap overspeed inspection.
     '''
 
     units = 'deg'
 
-    @classmethod
-    def can_operate(cls, available):
-        return all_of(('Flap Surface', 'Series', 'Family'), available)
-
     def derive(self,
-               flap_lvr=P('Flap Lever'),  # XXX: Just for alignment? Or copied over from FlapLeverDetent?
-               flap_surf=P('Flap Surface'),
+               flap=P('Flap Angle'),
                series=A('Series'),
                family=A('Family')):
-
-        flap = flap_surf
 
         try:
             flap_steps = get_flap_map(series.value, family.value)
@@ -3514,12 +3509,39 @@ class FlapLeverSynthetic(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
         else:
-            self.array = step_values(flap.array, flap.frequency,
-                                     flap_steps,
-                                     skip=True)
+            self.array = step_values(flap.array, flap.frequency, flap_steps, 
+                                     step_at='excluding_transition')
 
 
-class FlapSurface(DerivedParameterNode):
+class FlapIncludingTransition(DerivedParameterNode):
+    '''
+    Specifically designed to cater for maintenance monitoring, this assumes
+    that when moving the higher of the start and endpoints of the movement
+    apply. This increases the chance of needing a flap overspeed inspection,
+    but provides a more cautious interpretation of the maintenance
+    requirements.
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               flap=P('Flap Angle'),
+               series=A('Series'),
+               family=A('Family')):
+
+        try:
+            flap_steps = get_flap_map(series.value, family.value)
+        except KeyError:
+            # no flaps mapping, round to nearest 5 degrees
+            self.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            self.array = round_to_nearest(flap.array, 5.0)
+        else:
+            self.array = step_values(flap.array, flap.frequency, flap_steps, 
+                                     step_at='including_transition')
+
+    
+class FlapAngle(DerivedParameterNode):
     '''
     Gather the recorded flap parameters and convert into a single analogue.
     '''
@@ -3530,19 +3552,18 @@ class FlapSurface(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         return any_of((
-            'Flap (L)', 'Flap (R)',
+            'Flap Angle (L)', 'Flap Angle (R)',
             'Flap (L) Inboard', 'Flap (R) Inboard',
         ), available)
 
     def derive(self,
-               flap_A=P('Flap (L)'),
-               flap_B=P('Flap (R)'),
+               flap_A=P('Flap Angle (L)'),
+               flap_B=P('Flap Angle (R)'),
                flap_A_inboard=P('Flap (L) Inboard'),
                flap_B_inboard=P('Flap (R) Inboard'),
                frame=A('Frame')):
 
         frame_name = frame.value if frame else ''
-
         flap_A = flap_A or flap_A_inboard
         flap_B = flap_B or flap_B_inboard
         
@@ -3550,10 +3571,7 @@ class FlapSurface(DerivedParameterNode):
             # Only the right inboard flap is instrumented.
             self.array = flap_B.array
         else:
-            ##if frame_name.startswith('737-') or frame_name in ['757-2227000-59A',
-                                                           ##'757-DHL',
-                                                           ##'767-232F_DELTA-85',
-                                                           ##'767-2227000-59B']:
+            # By default, blend the two parameters.
             self.array, self.frequency, self.offset = blend_two_parameters(
                 flap_A, flap_B)
 
@@ -3570,7 +3588,7 @@ class Flap(DerivedParameterNode):
         '''
         can operate with Frame and Alt aal if herc or Flap surface
         '''
-        if 'Flap Surface' in available:
+        if 'Flap Angle' in available:
             # normal use, we require series / family to lookup the detents
             return all_of(('Series', 'Family'), available)
         else:
@@ -3579,7 +3597,7 @@ class Flap(DerivedParameterNode):
             return all_of(('Frame', 'Altitude AAL'), available)
 
     def derive(self,
-               flap=P('Flap Surface'),
+               flap=P('Flap Angle'),
                series=A('Series'),
                family=A('Family'),
                frame=A('Frame'),
@@ -3611,7 +3629,7 @@ class Flap(DerivedParameterNode):
                 # round to nearest 5 degrees
                 self.array = round_to_nearest(flap.array, 5.0)
             else:
-                self.array = step_values(flap.array, flap.frequency, flap_steps, step_at='move_end')
+                self.array = step_values(flap.array, flap.frequency, flap_steps)
         else:
             raise DataFrameError(self.name, frame_name)
 
@@ -5513,10 +5531,12 @@ class V2Lookup(DerivedParameterNode):
         except KeyError:
             if v2:
                 return  # Ignore lookup table error as recorded/provided.
-            raise
+            else:
+                vspeed = None
 
         setting_param = flap or conf
         vspeed_table = vspeed_class()
+
         if weight_liftoffs is not None:
             # Explicitly looking for no Gross Weight At Liftoff node, as
             # opposed to having a node with no KPVs
@@ -5524,16 +5544,21 @@ class V2Lookup(DerivedParameterNode):
             index, weight = weight_liftoff.index, weight_liftoff.value
         else:
             index, weight = liftoffs.get_first().index, None
+
         setting = setting_param.array[index]
+
         try:
             vspeed = vspeed_table.v2(setting, weight)
         except:
             if v2:
                 return  # Ignore lookup table error as recorded/provided.
-            raise
+            else:
+                vspeed=None
+
+        if vspeed is not None:
+            self.array[0:] = vspeed
         else:
-            if vspeed is not None:
-                self.array[0:] = vspeed
+            self.array[0:] = np.ma.masked
 
 
 class WindAcrossLandingRunway(DerivedParameterNode):
@@ -5927,9 +5952,9 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             raise ValueError("Can't work without either Speedbrake or Handle")
         return array
 
-    def b767_speedbrake(self, handle):
+    def b757_767_speedbrake(self, handle):
         '''
-        Speedbrake Handle Positions for 767:
+        Speedbrake Handle Positions for 757 & 767:
 
             ========    ============
               %           Notes
@@ -5970,7 +5995,7 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             self.array = self.b737_speedbrake(spdbrk, handle)
 
         elif family_name in ['B757', 'B767']:
-            self.array = self.b767_speedbrake(handle)
+            self.array = self.b757_767_speedbrake(handle)
 
         elif family_name == 'A320':
             self.array = self.a320_speedbrake(armed, spdbrk)

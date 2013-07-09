@@ -2126,9 +2126,14 @@ class TestIndexClosestValue(unittest.TestCase):
         array = np.ma.array([1, 2, 3, 4, 5, 4, 3])
         self.assertEqual(index_closest_value(array, 6, slice(2, 5)), 4)
 
+    '''
+    
+    This test is for a function not currently avaialble, but included for future use.
+    
     def test_index_closest_value_backwards(self):
         array = np.ma.array([3, 2, 1, 4, 5, 6, 7])
         self.assertEqual(index_closest_value(array, -9, slice(5, 1, -1)), 2)
+    '''
 
 
 class TestIndexOfFirstStart(unittest.TestCase):
@@ -3861,6 +3866,11 @@ class TestSlicesAnd(unittest.TestCase):
                          [slice(3,5)])
         self.assertEqual(slices_and([slice(2,5),slice(7,None)],[slice(3,9)]),
                          [slice(3,5), slice(7,9)])
+        self.assertEqual(slices_and([slice(2,5),slice(7,None)],[slice(9,3,-1)]),
+                         [slice(4,5), slice(7,10)])
+        self.assertEqual(slices_and([slice(5,2,-1),slice(7,None)],[slice(9,3,-1)]),
+                         [slice(4,6), slice(7,10)])
+
 
 
 class TestSlicesAbove(unittest.TestCase):
@@ -4085,8 +4095,9 @@ class TestSlicesOverlay(unittest.TestCase):
         no_overlap = slice(25,40)
         self.assertEqual(slices_and(second, [no_overlap]), [])
 
-        # step negative
-        self.assertRaises(ValueError, slices_and, first, [slice(1, 2, -1)])
+        ## This test now redundant as slices_and handles reverse order.
+        ### step negative
+        ##self.assertRaises(ValueError, slices_and, first, [slice(1, 2, -1)])
 
         # complex with all four permutations
         first = [slice(5, 15), slice(20, 25), slice(30, 40)]
@@ -4251,22 +4262,44 @@ class TestSlicesOr(unittest.TestCase):
 class TestStepLocalCusp(unittest.TestCase):
     def test_step_cusp_basic(self):
         array = np.ma.array([3,7,9,9])
-        cusp = step_local_cusp(array)
+        test_slice=slice(0, 4, 1)
+        cusp = step_local_cusp(array, test_slice)
         self.assertEqual(cusp, 2)
               
-    def test_step_cusp_negative(self):
+    def test_step_cusp_downward(self):
         array = np.ma.array([9,8,9,9,8,5,1,1,1,1])
-        cusp = step_local_cusp(array)
-        self.assertEqual(cusp, 6)
+        test_slice=slice(3, None, None)
+        cusp = step_local_cusp(array, test_slice)
+        self.assertEqual(cusp, 3)
+
+    def test_step_cusp_negative_with_step(self):
+        array = np.ma.array([1,1,1,1,1,5,8,9,9,9,9])
+        test_slice=slice(7, 0, -1)
+        cusp = step_local_cusp(array, test_slice)
+        self.assertEqual(cusp, 4)
+    
+    def test_step_cusp_level_start(self):
+        array = np.ma.array([1,1,1,1,1,5,8,9,9,9,9])
+        test_slice=slice(None, None, None)
+        cusp = step_local_cusp(array, test_slice)
+        self.assertEqual(cusp, 0)
+    
+    def test_step_cusp_level_start_reverse(self):
+        array = np.ma.array([1,1,1,1,1,5,8,9,9,9,9])
+        test_slice=slice(9, 0, -1)
+        cusp = step_local_cusp(array, test_slice)
+        self.assertEqual(cusp, 0)
     
     def test_step_cusp_static(self):
         array = np.ma.array([33]*8)
-        cusp = step_local_cusp(array)
+        test_slice=slice(None, None, None)
+        cusp = step_local_cusp(array, test_slice)
         self.assertEqual(cusp, 0)
         
     def test_step_cusp_short(self):
         array = np.ma.array([33])
-        cusp = step_local_cusp(array)
+        test_slice=slice(None, None, None)
+        cusp = step_local_cusp(array, test_slice)
         self.assertEqual(cusp, 0)
         
         
@@ -4299,12 +4332,16 @@ class TestStepValues(unittest.TestCase):
                          [10, 10, 10, 11, 11, 11, 11, 15, 15])
 
     def test_step_leading_edge(self):
-        array = np.ma.array([0,0.1,0.0,0.8,1.6,3,6,6,6,6,8,13,18,18,9,9,9,6,3,2,
+        array = np.ma.array([0,0.1,0.0,0.8,1.6,3,6,6,6,6,8,13,14,14,9,9,9,6,3,2,
                              2,2,2,0,0,0])
         stepped = step_values(array, 1.0, (0, 1, 5, 10, 15), step_at='move_start')
         self.assertEqual(list(stepped),
-                         [0,0,0,1,1,1,5,5,5,5,10,15,15,15,10,10,10,5,1,1,1,1,1,
-                          0,0,0])
+                         [0]*3+[1]+[5]*6+[10]+[15]*3+[10]*3+[5]+[1]*5+[0]*3)
+        
+    def test_step_move_start(self):
+        array = np.ma.array(data=[0]*5+[1,2,3,4]+[5]*5)
+        stepped = step_values(array, 1.0, (0, 4), step_at='move_start')
+        self.assertEqual(list(stepped), [0]*4+[4]*10)
         
     def test_step_leading_edge_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
@@ -4316,7 +4353,7 @@ class TestStepValues(unittest.TestCase):
         array = np.ma.concatenate((array,array[::-1]))
         stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_start', skip=False)
         self.assertEqual(list(stepped),
-                         [0]*11+[1]*12+[5]*13+[15]*24+[5]*13+[1]*12+[0]*11)
+                         [0]*11+[1]*2+[5]*20+[15]*25+[5]*7+[1]*18+[0]*13)
         
     def test_step_leading_edge_skip_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
@@ -4326,9 +4363,9 @@ class TestStepValues(unittest.TestCase):
                              9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
                              15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
         array = np.ma.concatenate((array,array[::-1]))
-        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_start', skip=True, rate_threshold=0.1)
-        self.assertEqual(list(stepped),
-                         [0]*10+[15]*47+[0]*39)
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='move_start', 
+                              skip=True, rate_threshold=0.1)
+        self.assertEqual(list(stepped), [0]*10+[15]*47+[0]*39)
         
     def test_step_midpoint_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
@@ -4344,6 +4381,28 @@ class TestStepValues(unittest.TestCase):
                           5,5,5,5,5,5,5,5,5,15,15,15,15,15,15,15,15,15,15,15,15,
                           15,15,15,15,15,15,15,15,15,15,15,15,5,5,5,5,5,5,5,5,5,
                           5,5,5,5,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
+
+    def test_step_excluding_transition_real_data(self):
+        array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
+                             0.67, 0.98, 1.15, 1.28, 1.5, 1.71, 1.92, 2.12, 
+                             2.32, 2.53, 2.75, 2.96, 3.18, 3.39, 3.6, 3.83, 
+                             4.06, 4.3, 4.57, 4.82, 5.1, 5.41, 5.85, 7.12, 
+                             9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
+                             15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
+        array = np.ma.concatenate((array,array[::-1]))
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='excluding_transition')
+        self.assertEqual(list(stepped),[0]*12+[1]*18+[5]*7+[15]*21+[5]*7+[1]*18+[0]*13)
+
+    def test_step_including_transition_real_data(self):
+        array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
+                             0.67, 0.98, 1.15, 1.28, 1.5, 1.71, 1.92, 2.12, 
+                             2.32, 2.53, 2.75, 2.96, 3.18, 3.39, 3.6, 3.83, 
+                             4.06, 4.3, 4.57, 4.82, 5.1, 5.41, 5.85, 7.12, 
+                             9.92, 13.24, 15.03, 15.36, 15.36, 15.36, 15.37, 
+                             15.38, 15.39, 15.37, 15.37, 15.41, 15.44])
+        array = np.ma.concatenate((array,array[::-1]))
+        stepped = step_values(array, 1.0, (0, 1, 5, 15), step_at='including_transition')
+        self.assertEqual(list(stepped),[0]*11+[1]*2+[5]*20+[15]*29+[5]*20+[1]*3+[0]*11)
 
     def test_step_trailing_edge_real_data(self):
         array = np.ma.array([0, 0, 0, 0, 0, 0, 0.12, 0.37, 0.5, 0.49, 0.49, 
@@ -4717,15 +4776,19 @@ class TestValueAtIndex(unittest.TestCase):
             self.assertEquals(value_at_index(array, x, interpolate=False), expected)
 
 
-class TestVsppedLookup(unittest.TestCase):
+class TestVspeedLookup(unittest.TestCase):
     def test_vspdlkup_basic(self):
-        self.assertEqual(vspeed_lookup('V2', 'B737-300', 15, 65000), 152)
+        self.assertEqual(vspeed_lookup('V2', 'B737-300', None, 15, 65000), 152)
+
+    def test_vspdlkup_vref(self):
+        self.assertEqual(vspeed_lookup('VRef', 'B737-300', None, 30, 45000), 127)
         
     def test_vspdlkup_key_error(self):
-        self.assertRaises(KeyError, vspeed_lookup,'V2', 'B737_300', 15, 65000)
+        self.assertRaises(KeyError, vspeed_lookup,'V2', 'B737_300', None, 15, 65000)
         
     def test_vspdlkup_out_of_range_error(self):
-        self.assertRaises(KeyError, vspeed_lookup,'V2', 'B737-300', 25, 65000)
+        # We return None so that the incorrect flap at takeoff can be reported.
+        self.assertEqual(vspeed_lookup('V2', 'B737-300', None, 25, 65000), None)
         
         
 class TestVstackParams(unittest.TestCase):
