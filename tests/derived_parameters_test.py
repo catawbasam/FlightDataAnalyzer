@@ -3035,35 +3035,27 @@ class TestAileron(unittest.TestCase):
     
     def test_can_operate(self):
         opts = Aileron.get_operational_combinations()
-        self.assertTrue(('Aileron (L)',) in opts)
-        self.assertTrue(('Aileron (R)',) in opts)
-        self.assertTrue(('Aileron (L) Outboard',) in opts)
-        self.assertTrue(('Aileron (R) Outboard',) in opts)
-        self.assertTrue(('Aileron (L)', 'Aileron (R)', 'Aileron (L) Outboard',
-                         'Aileron (R) Outboard') in opts)
+        self.assertTrue(opts,
+                        [('Aileron (L)',),
+                         ('Aileron (R)',),
+                         ('Aileron (L)', 'Aileron (R)'),
+                        ])
 
     def test_normal_two_sensors(self):
         left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
         right = P('Aileron (R)', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset=1.1)
         aileron = Aileron()
-        aileron.derive(left, right, None, None)
-        expected_data = np.ma.array([1.5]*3+[1.75]*2+[1.5]*3)
+        aileron.get_derived([left, right])
+        expected_data = np.ma.array([np.ma.masked, 1.5, 1.75, 1.5])
         np.testing.assert_array_equal(aileron.array, expected_data)
-        self.assertEqual(aileron.frequency, 1.0)
+        self.assertEqual(aileron.frequency, 0.5)
         self.assertEqual(aileron.offset, 0.1)
 
     def test_left_only(self):
         left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
         aileron = Aileron()
-        aileron.derive(left, None, None, None)
+        aileron.get_derived([left, None])
         expected_data = left.array
-        np.testing.assert_array_equal(aileron.array, expected_data)
-        self.assertEqual(aileron.frequency, 0.5)
-        self.assertEqual(aileron.offset, 0.1)
-        left_outboard = P('Aileron (L) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
-        aileron = Aileron()
-        aileron.derive(None, None, left_outboard, None)
-        expected_data = left_outboard.array
         np.testing.assert_array_equal(aileron.array, expected_data)
         self.assertEqual(aileron.frequency, 0.5)
         self.assertEqual(aileron.offset, 0.1)
@@ -3071,42 +3063,22 @@ class TestAileron(unittest.TestCase):
     def test_right_only(self):
         right = P('Aileron (R)', np.ma.array([3.0]*2+[2.0]*2), frequency=2.0, offset = 0.3)
         aileron = Aileron()
-        aileron.derive(None, right, None, None)
+        aileron.get_derived([None, right])
         expected_data = right.array
         np.testing.assert_array_equal(aileron.array, expected_data)
         self.assertEqual(aileron.frequency, 2.0)
-        self.assertEqual(aileron.offset, 0.3)
-        right_outboard = P('Aileron (R) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
-        aileron = Aileron()
-        aileron.derive(None, None, right_outboard, None)
-        expected_data = right_outboard.array
-        np.testing.assert_array_equal(aileron.array, expected_data)
-        self.assertEqual(aileron.frequency, 0.5)
-        self.assertEqual(aileron.offset, 0.1)        
+        self.assertEqual(aileron.offset, 0.3)    
         
-    def test_right_only_with_both_outboards(self):
-        # ensure that with both outboards and a single inboard, the inboard is chosen
-        right = P('Aileron (R)', np.ma.array([3.0]*2+[2.0]*2), frequency=2.0, offset = 0.3)
-        left_outboard = P('Aileron (L) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
-        right_outboard = P('Aileron (R) Outboard', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset=1.1)
-        
-        aileron = Aileron()
-        aileron.derive(None, right, left_outboard, right_outboard)
-        expected_data = right.array # ignored left and right outboards
-        np.testing.assert_array_equal(aileron.array, expected_data)
-        self.assertEqual(aileron.frequency, 2.0)
-        self.assertEqual(aileron.offset, 0.3)
-        
-
-    def test_outboard_two_sensors(self):
-        left_outboard = P('Aileron (L) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
-        right_outboard = P('Aileron (R) Outboard', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset=1.1)
-        aileron = Aileron()
-        aileron.derive(None, None, left_outboard, right_outboard)
-        expected_data = np.ma.array([1.5]*3+[1.75]*2+[1.5]*3)
-        np.testing.assert_array_equal(aileron.array, expected_data)
-        self.assertEqual(aileron.frequency, 1.0)
-        self.assertEqual(aileron.offset, 0.1)
+    def test_aileron_with_flaperon(self):
+        al = load(os.path.join(test_data_path, 'aileron_left.nod'))
+        ar = load(os.path.join(test_data_path, 'aileron_right.nod'))
+        ail = Aileron()
+        ail.derive(al, ar)
+        # this section is averaging 4.833 degrees on the way in
+        self.assertAlmostEqual(np.ma.average(ail.array[160:600]), 0.04, 1)
+        # this section is averaging 9.106 degrees, ensure it gets moved to 0
+        #self.assertAlmostEqual(np.ma.average(ail.array[800:1000]), 0.2, 1)
+        assert_array_within_tolerance(ail.array[800:1000], 0, 4, 90)
 
 
 class TestAileronTrim(unittest.TestCase):

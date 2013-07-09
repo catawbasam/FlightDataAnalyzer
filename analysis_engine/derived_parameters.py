@@ -5567,60 +5567,79 @@ class WindAcrossLandingRunway(DerivedParameterNode):
 
 class Aileron(DerivedParameterNode):
     '''
-    Aileron is based on the Inboard signals where possible.
+    Aileron measures the roll control from the Left and Right Aileron
+    signals. By taking the average of the two signals, any Flaperon movement
+    is removed from the signal, leaving only the difference between the left
+    and right which results in the roll control.
     
-    Blends alternate aileron samples. Note that this technique requires both
-    aileron samples to be scaled similarly and have positive sign for
-    positive rolling moment. That is, port aileron down and starboard aileron
-    up have positive sign.
+    Note: This requires that both Aileron signals have positive sign for
+    positive (right) rolling moment. That is, port aileron down and starboard
+    aileron up have positive sign.
     '''
-    align = False
-    name = 'Aileron'
+    align = True
     units = 'deg'
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Aileron (L)', 'Aileron (R)', 'Aileron (L) Outboard',
-                       'Aileron (R) Outboard'), available)
+        return any_of(('Aileron (L)', 'Aileron (R)'), available)
 
-    def derive(self,
-               al=P('Aileron (L)'),  # this is Inboard
-               ar=P('Aileron (R)'),  # this is Inboard
-               alo=P('Aileron (L) Outboard'),
-               aro=P('Aileron (R) Outboard')):
+    def derive(self, al=P('Aileron (L)'), ar=P('Aileron (R)')):
         if al and ar:
-            # Use both Inboards if available
-            self.info("Using Aileron Inboard signals")
-        elif al or ar:
-            # Use a single Inboard signal in preference to outboar signals
+            # Taking the average will ensure that positive roll to the right
+            # on both signals is maintained as positive control, where as
+            # any flaperon action (left positive, right negative) will
+            # average out as no roll control.
+            self.array = (al.array + ar.array) / 2
+        else:
             ail = al or ar
-            self.info("Using a single Aileron Inboard signal: %s", ail.name)
-        elif alo and aro:
-            al = alo
-            ar = aro
-            self.info("Using Aileron Outboard signals")
-        else:
-            ail = alo or aro
-            self.info("Using a single Aileron Outboard signal %s", ail.name)
-        # Now do the work
-        if al and ar:
-            self.array, self.frequency, self.offset = blend_two_parameters(al, ar)
-        else:
             self.array = ail.array
-            self.frequency = ail.frequency
-            self.offset = ail.offset
+
+            
+class Flaperon(DerivedParameterNode):
+    '''
+    Where Ailerons move together and used as Flaps, these are known as
+    "Flaperon" control.
+    
+    Flaperons are measured where both Left and Right Ailerons move down,
+    which on the left creates possitive roll but on the right causes negative
+    roll. The difference of the two signals is the Flaperon control.
+    
+    The Flaperon is stepped into nearest aileron detents, e.g. 0, 5, 10 deg
+    
+    Note: This is used for Airbus models and does not necessarily mean as
+    much to other aircraft types.
+    '''
+    def derive(self, al=P('Aileron (L)'), ar=P('Aileron (R)'),
+               series=A('Series'), family=A('Family')):
+        # Take the difference of the two signals (which should cancel each
+        # other out when rolling) and divide the range by two (to account for
+        # the left going negative and right going positive when flaperons set)
+        flaperon_angle = (al.array - ar.array) / 2
+        try:
+            ail_steps = get_aileron_map(series.value, family.value)
+        except KeyError:
+            # no mapping, aircraft must not support ailerons so return so that 
+            # a masked 0 array is created.
+            return
+        else:
+            self.array = step_values(flaperon_angle, self.frequency, ail_steps)
 
 
 class AileronLeft(DerivedParameterNode):
     # See ElevatorLeft for explanation
     name = 'Aileron (L)'
+    
     @classmethod
     def can_operate(cls, available):
         return any_of(('Aileron (L) Potentiometer', 
-                       'Aileron (L) Synchro'), available)
+                       'Aileron (L) Synchro',
+                       'Aileron (L) Inboard',
+                       'Aileron (L) Outboard'), available)
     
     def derive(self, pot=P('Aileron (L) Potentiometer'),
-               synchro=P('Aileron (L) Synchro')):
+               synchro=P('Aileron (L) Synchro'),
+               ali=P('Aileron (L) Inboard'),
+               alo=P('Aileron (L) Outboard')):
         synchro_samples = 0
         if synchro:
             synchro_samples = np.ma.count(synchro.array)
@@ -5629,17 +5648,27 @@ class AileronLeft(DerivedParameterNode):
             pot_samples = np.ma.count(pot.array)
             if pot_samples>synchro_samples:
                 self.array = pot.array
+        # If Inboard available, use this in preference
+        if ali:
+            self.array = ali.array
+        elif alo:
+            self.array = alo.array
         
 class AileronRight(DerivedParameterNode):
     # See ElevatorLeft for explanation
     name = 'Aileron (R)'
+    
     @classmethod
     def can_operate(cls, available):
         return any_of(('Aileron (R) Potentiometer', 
-                       'Aileron (R) Synchro'), available)
+                       'Aileron (R) Synchro',
+                       'Aileron (R) Inboard',
+                       'Aileron (R) Outboard'), available)
     
     def derive(self, pot=P('Aileron (R) Potentiometer'),
-               synchro=P('Aileron (R) Synchro')):
+               synchro=P('Aileron (R) Synchro'),
+               ari=P('Aileron (R) Inboard'),
+               aro=P('Aileron (R) Outboard')):
 
         synchro_samples = 0
         if synchro:
@@ -5649,7 +5678,11 @@ class AileronRight(DerivedParameterNode):
             pot_samples = np.ma.count(pot.array)
             if pot_samples>synchro_samples:
                 self.array = pot.array
-        
+        # If Inboard available, use this in preference
+        if ari:
+            self.array = ari.array
+        elif aro:
+            self.array = aro.array        
 
 class AileronTrim(DerivedParameterNode): # RollTrim
     '''
