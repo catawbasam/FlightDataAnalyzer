@@ -62,24 +62,33 @@ def indent_tree(graph, node, level=0, space='  ', delim='- ', label=True,
     :param recurse_active: Whether to show the tree for active params
     :type recurse_active: Boolean
     '''
-    if graph.node[node].get('active', True):
-        if recurse_active:
-            node_repr = node
+    
+    def recurse_tree(node, level):
+        if node in path:
+            # circular dependency started!
+            path.append(node)
+            return ['<<Circular Depenency to: %s>>' % node]
+        path.append(node)
+        if graph.node[node].get('active', True):
+            if recurse_active:
+                node_repr = node
+            else:
+                return []
         else:
-            return []
-    else:
-        node_repr = '[%s]' % node
-    node_type = graph.node[node].get('node_type')
-    if node_type and label:
-        node_repr = '%s (%s)' % (node_repr, node_type)
-    row = '%s%s%s' % (space*level, delim, node_repr)
-    level_rows = [row]
-    for succ in sorted(graph.successors(node)):
-        sub_level = indent_tree(graph, succ, level=level+1, 
-                                space=space, delim=delim, label=label, 
-                                recurse_active=recurse_active)
-        level_rows.extend(sub_level)
-    return level_rows
+            node_repr = '[%s]' % node
+        node_type = graph.node[node].get('node_type')
+        if node_type and label:
+            node_repr = '%s (%s)' % (node_repr, node_type)
+        row = '%s%s%s' % (space*level, delim, node_repr)
+        level_rows = [row]
+        for succ in sorted(graph.successors(node)):
+            sub_level = recurse_tree(succ, level=level+1)
+            path.pop()
+            level_rows.extend(sub_level)
+        return level_rows
+    
+    path = deque()  # current branch path
+    return recurse_tree(node, level)
 
 
 def print_tree(graph, node='root', **kwargs):
