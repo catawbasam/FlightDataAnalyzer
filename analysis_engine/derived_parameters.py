@@ -3437,21 +3437,22 @@ class Groundspeed(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
-class FlapLeverDetent(DerivedParameterNode):
+class FlapLever(DerivedParameterNode):
     '''
-    Steps raw Flap angle from lever into detents.
+    TEMPORARY KPV TO TEST EFFECT OF CHANGE IN FLAP DATA PROCESSING. TO BE
+    REPLACED BY "FLAP LEVER IF FLAP LEVER ELSE FLAP" LOGIC LATER WHERE
+    REQUIRED.
     '''
 
     units = 'deg'
 
-    @classmethod
-    def can_operate(cls, available):
-        return any_of(('Flap Surface', 'Flap Lever'), available) \
-            and all_of(('Series', 'Family'), available)
+    ##@classmethod
+    ##def can_operate(cls, available):
+        ##return any_of(('Flap Angle'), available) \
+            ##and all_of(('Series', 'Family'), available)
 
     def derive(self,
-               flap_lvr=P('Flap Lever'),
-               flap_surf=P('Flap Surface'),
+               flap_surf=P('Flap Angle'),
                series=A('Series'),
                family=A('Family')):
 
@@ -3464,17 +3465,17 @@ class FlapLeverDetent(DerivedParameterNode):
             flap_steps = range(0, 50, 5)
 
         # Use flap lever position where recorded, otherwise revert to flap surface.
-        if flap_lvr:
-            # Take the moment the lever passes midway between two flap detents.
-            self.array = step_values(flap_lvr.array, flap_lvr.frequency, 
-                                     flap_steps, step_at='midpoint')
-        else:
+        ##if flap_lvr:
+            ### Take the moment the lever passes midway between two flap detents.
+            ##self.array = step_values(flap_lvr.array, flap_lvr.frequency, 
+                                     ##flap_steps, step_at='midpoint')
+        ##else:
             # Take the moment the flap starts to move.
-            self.array = step_values(flap_surf.array, flap_surf.frequency, 
-                                     flap_steps, step_at='move_start')
+        self.array = step_values(flap_surf.array, flap_surf.frequency, 
+                                 flap_steps, step_at='move_start')
 
 
-class FlapAchieved(DerivedParameterNode):
+class FlapExcludingTransition(DerivedParameterNode):
     '''
     Specifically designed to cater for maintenance monitoring, this assumes
     that when moving the lower of the start and endpoints of the movement
@@ -3484,7 +3485,7 @@ class FlapAchieved(DerivedParameterNode):
     units = 'deg'
 
     def derive(self,
-               flap=P('Flap Surface'),
+               flap=P('Flap Angle'),
                series=A('Series'),
                family=A('Family')):
 
@@ -3497,11 +3498,38 @@ class FlapAchieved(DerivedParameterNode):
             self.array = round_to_nearest(flap.array, 5.0)
         else:
             self.array = step_values(flap.array, flap.frequency, flap_steps, 
-                                     step_at='lowest_setting')
+                                     step_at='excluding_transition')
 
+
+class FlapIncludingTransition(DerivedParameterNode):
+    '''
+    Specifically designed to cater for maintenance monitoring, this assumes
+    that when moving the higher of the start and endpoints of the movement
+    apply. This increases the chance of needing a flap overspeed inspection,
+    but provides a more cautious interpretation of the maintenance
+    requirements.
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               flap=P('Flap Angle'),
+               series=A('Series'),
+               family=A('Family')):
+
+        try:
+            flap_steps = get_flap_map(series.value, family.value)
+        except KeyError:
+            # no flaps mapping, round to nearest 5 degrees
+            self.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            self.array = round_to_nearest(flap.array, 5.0)
+        else:
+            self.array = step_values(flap.array, flap.frequency, flap_steps, 
+                                     step_at='including_transition')
 
     
-class FlapSurface(DerivedParameterNode):
+class FlapAngle(DerivedParameterNode):
     '''
     Gather the recorded flap parameters and convert into a single analogue.
     '''
@@ -3512,13 +3540,13 @@ class FlapSurface(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         return any_of((
-            'Flap (L)', 'Flap (R)',
+            'Flap Angle (L)', 'Flap Angle (R)',
             'Flap (L) Inboard', 'Flap (R) Inboard',
         ), available)
 
     def derive(self,
-               flap_A=P('Flap (L)'),
-               flap_B=P('Flap (R)'),
+               flap_A=P('Flap Angle (L)'),
+               flap_B=P('Flap Angle (R)'),
                flap_A_inboard=P('Flap (L) Inboard'),
                flap_B_inboard=P('Flap (R) Inboard'),
                frame=A('Frame')):
@@ -3556,7 +3584,7 @@ class Flap(DerivedParameterNode):
         '''
         can operate with Frame and Alt aal if herc or Flap surface
         '''
-        if 'Flap Surface' in available:
+        if 'Flap Angle' in available:
             # normal use, we require series / family to lookup the detents
             return all_of(('Series', 'Family'), available)
         else:
@@ -3565,7 +3593,7 @@ class Flap(DerivedParameterNode):
             return all_of(('Frame', 'Altitude AAL'), available)
 
     def derive(self,
-               flap=P('Flap Surface'),
+               flap=P('Flap Angle'),
                series=A('Series'),
                family=A('Family'),
                frame=A('Frame'),
