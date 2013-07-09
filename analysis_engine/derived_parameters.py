@@ -5615,8 +5615,9 @@ class Flaperon(DerivedParameterNode):
         try:
             ail_steps = get_aileron_map(series.value, family.value)
         except KeyError:
-            # no mapping, aircraft must not support ailerons so return so that 
-            # a masked 0 array is created.
+            # no mapping, aircraft must not support Flaperons so create a
+            # masked 0 array.
+            self.array = None
             return
         else:
             self.array = step_values(flaperon_angle, self.frequency, ail_steps)
