@@ -5703,6 +5703,10 @@ class Elevator(DerivedParameterNode):
 
     align = False
     units = 'deg'
+    
+    @classmethod
+    def can_operate(cls,available):
+        return any_of(('Elevator (L)', 'Elevator (R)'), available)
 
     def derive(self,
                el=P('Elevator (L)'),
