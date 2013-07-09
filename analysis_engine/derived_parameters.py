@@ -465,17 +465,28 @@ class AirspeedReferenceLookup(DerivedParameterNode):
         vspeed_table = vspeed_class()
         for approach in approaches:
             _slice = approach.slice
-            index = np.ma.argmax(setting_param.array[_slice])
-            setting = setting_param.array[_slice][index]
-            weight = repaired_gw[_slice][index] if gw is not None else None
+            index, setting = max_value(setting_param.array, _slice)
+            # Allow no gross weight for aircraft which use a fixed vspeed
+            weight = repaired_gw[index] if gw is not None else None
 
             if not is_index_within_slice(touchdowns.get_last().index, _slice) \
                 and setting not in vspeed_table.vref_settings:
-                # No landing and max setting not in vspeed table:
+                # Not the final landing and max setting not in vspeed table,
+                # so use the maximum setting possible as a reference.
                 if setting_param.name == 'Flap':
-                    setting = max(get_flap_map(series.value, family.value))
+                    max_setting = max(get_flap_map(series.value, family.value))
                 else:
-                    setting = max(get_conf_map(series.value, family.value).keys())
+                    max_setting = max(get_conf_map(series.value, family.value).keys())
+                self.info("No touchdown in this approach and maximum "
+                          "%s '%s' not in lookup table. Using max "
+                          "possible setting '%s' as reference",
+                          setting_param.name, setting, max_setting)
+                setting = max_setting
+            else:
+                # We either touched down, so use the touchdown flap/conf
+                # setting or we had reached a maximum flap setting during the
+                # approach which in the vref table. Continue to establish Vref.
+                pass
 
             try:
                 vspeed = vspeed_table.vref(setting, weight)
