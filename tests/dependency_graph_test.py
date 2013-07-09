@@ -79,26 +79,11 @@ class TestDependencyGraph(unittest.TestCase):
         gr = graph_nodes(mgr2)
         gr.node['Raw1']['active'] = True
         gr.node['Raw2']['active'] = False
+        gr.node['P4']['active'] = False
         self.assertEqual(
-            indent_tree(gr, 'root'),
-            ['- root',
-             '  - P7',
-             '    - P4',
-             '      - Raw1',
-             '      - [Raw2]',
-             '    - P5',
-             '      - Raw3',
-             '      - Raw4',             
-             '    - P6',
-             '      - Raw3',
-             '  - P8',
-             '    - Raw5',
-            ])
-        
-        self.assertEqual(
-            indent_tree(gr, 'P7', space='__', delim=' '),
+            indent_tree(gr, 'P7', space='__', delim=' ', label=False),
             [' P7',
-             '__ P4',
+             '__ [P4]',
              '____ Raw1',
              '____ [Raw2]',
              '__ P5',
@@ -106,7 +91,34 @@ class TestDependencyGraph(unittest.TestCase):
              '____ Raw4',             
              '__ P6',
              '____ Raw3',
-            ])        
+            ])
+        # don't recurse valid parameters...
+        self.assertEqual(
+            indent_tree(gr, 'P5', label=False, recurse_active=False),
+            [])
+        self.assertEqual(
+            indent_tree(gr, 'P4', label=False, recurse_active=False),
+            ['- [P4]',
+             '  - [Raw2]',
+             ])        
+        
+        self.assertEqual(
+            indent_tree(gr, 'root'),
+            ['- root',
+             '  - P7 (DerivedParameterNode)',
+             '    - [P4] (DerivedParameterNode)',
+             '      - Raw1 (HDFNode)',
+             '      - [Raw2] (HDFNode)',
+             '    - P5 (DerivedParameterNode)',
+             '      - Raw3 (HDFNode)',
+             '      - Raw4 (HDFNode)',             
+             '    - P6 (DerivedParameterNode)',
+             '      - Raw3 (HDFNode)',
+             '  - P8 (DerivedParameterNode)',
+             '    - Raw5 (HDFNode)',
+            ])
+        
+     
         
     def test_graph_predecessors(self):
         edges = [('a', 'b'), ('b', 'c1'), ('b', 'c2'), ('b', 'c3'), ('c2', 'd'),
@@ -185,10 +197,10 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertEqual(len(gr), 5)
         # LFL
         self.assertEqual(gr.edges(1), []) # as it's in LFL, it shouldn't have any edges
-        self.assertEqual(gr.node[1], {'color': '#72f4eb'})
+        self.assertEqual(gr.node[1], {'color': '#72f4eb', 'node_type': 'HDFNode'})
         # Derived
         self.assertEqual(gr.edges(4), [(4,'DepFour')])
-        self.assertEqual(gr.node[4], {'color': '#72cdf4'})
+        self.assertEqual(gr.node[4], {'color': '#72cdf4', 'node_type': 'DerivedParameterNode'})
         # Root
         from analysis_engine.dependency_graph import draw_graph
         draw_graph(gr, 'test_graph_nodes_with_duplicate_key_in_lfl_and_derived')
