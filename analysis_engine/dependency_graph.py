@@ -328,7 +328,7 @@ def graph_nodes(node_mgr):
     return gr_all
 
     
-def process_order(gr_all, node_mgr):
+def process_order(gr_all, node_mgr, raise_inoperable_required=False):
     """
     :param gr_all:
     :type gr_all: nx.DiGraph
@@ -361,20 +361,28 @@ def process_order(gr_all, node_mgr):
         logger.warning("Found %s inoperable required parameters.",
                         len(inoperable_required))
         items = []
-        for p in sorted(inoperable_required):
-            available = []
-            unavailable = []
-            for d in sorted(gr_all[p].keys()):
-                if d in inactive_nodes:
-                    unavailable.append(d)
-                else:
-                    available.append(d)
-            deps_avail = "'%s'\n - Available: %s\n - Unavailable: %s" % (p,
-                ', '.join(available),
-                ', '.join(unavailable))
-            items.append(deps_avail)
-        logger.info("Inoperable required parameters: \n%s",
-                    '\n'.join(items))
+        for n in inoperable_required:
+            tree = indent_tree(gr_all, n, recurse_active=False)
+            if tree:
+                items.append('------- INOPERABLE -------')
+                items.extend(tree)
+        logger.warn('\n'.join(items))        
+        ##for p in sorted(inoperable_required):
+            ##available = []
+            ##unavailable = []
+            ##for d in sorted(gr_all[p].keys()):
+                ##if d in inactive_nodes:
+                    ##unavailable.append(d)
+                ##else:
+                    ##available.append(d)
+            ##deps_avail = "'%s'\n - Available: %s\n - Unavailable: %s" % (p,
+                ##', '.join(available),
+                ##', '.join(unavailable))
+            ##items.append(deps_avail)
+        ##logger.info("Inoperable required parameters: \n%s",
+                    ##'\n'.join(items))
+        if raise_inoperable_required:
+            raise InoperableDependencies(inoperable_required)
     
     return gr_all, gr_st, process_order[:-1] # exclude 'root'
 
@@ -390,7 +398,7 @@ def remove_floating_nodes(graph):
     return graph
      
      
-def dependency_order(node_mgr, draw=not_windows):
+def dependency_order(node_mgr, draw=not_windows, raise_inoperable_required=False):
     """
     Main method for retrieving processing order of nodes.
     
@@ -402,13 +410,7 @@ def dependency_order(node_mgr, draw=not_windows):
     :rtype: (list of strings, dict)
     """
     _graph = graph_nodes(node_mgr)
-    try:
-        gr_all, gr_st, order = process_order(_graph, node_mgr)
-    except RuntimeError:
-        msg = ('The following loops in the dependency tree caused infinite '
-               'recursion:\n%s' % pformat(nx.simple_cycles(_graph)))
-        print msg
-        raise RuntimeError(msg)
+    gr_all, gr_st, order = process_order(_graph, node_mgr, raise_inoperable_required)
     if draw:
         from json import dumps
         logger.info("JSON Graph Representation:\n%s", dumps( graph_adjacencies(gr_st), indent=2))
