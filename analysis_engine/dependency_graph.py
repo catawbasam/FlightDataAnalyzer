@@ -251,7 +251,8 @@ def graph_nodes(node_mgr):
     gr_all = nx.DiGraph()
     # create nodes without attributes now as you can only add attributes once
     # (limitation of add_node_attribute())
-    gr_all.add_nodes_from(node_mgr.hdf_keys, color='#72f4eb')  # turquoise
+    gr_all.add_nodes_from(node_mgr.hdf_keys, color='#72f4eb', # turquoise
+                          node_type='HDFNode')
     derived_minus_lfl = dict_filter(node_mgr.derived_nodes,
                                     remove=node_mgr.hdf_keys)
     # Group into node types to apply colour. TODO: Make colours less garish.
@@ -264,9 +265,12 @@ def graph_nodes(node_mgr):
         KeyPointValueNode: '#bed630',  # fds-green
         KeyTimeInstanceNode: '#fdbb30',  # fds-orange
     }
-    gr_all.add_nodes_from(
-        [(name, {'color': colors[node.__base__]}) \
-         for name, node in derived_minus_lfl.items()])
+    derived_nodes = []
+    for name, node in derived_minus_lfl.items():
+        node_info = (name, {'color': colors[node.__base__],
+                            'node_type': node.__base__.__name__})
+        derived_nodes.append(node_info)
+    gr_all.add_nodes_from(derived_nodes)
     
     # build list of dependencies
     derived_deps = set()  # list of derived dependencies
