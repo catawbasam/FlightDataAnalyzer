@@ -3553,14 +3553,14 @@ class FlapAngle(DerivedParameterNode):
     def can_operate(cls, available):
         return any_of((
             'Flap Angle (L)', 'Flap Angle (R)',
-            'Flap (L) Inboard', 'Flap (R) Inboard',
+            'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard',
         ), available)
 
     def derive(self,
                flap_A=P('Flap Angle (L)'),
                flap_B=P('Flap Angle (R)'),
-               flap_A_inboard=P('Flap (L) Inboard'),
-               flap_B_inboard=P('Flap (R) Inboard'),
+               flap_A_inboard=P('Flap Angle (L) Inboard'),
+               flap_B_inboard=P('Flap Angle (R) Inboard'),
                frame=A('Frame')):
 
         frame_name = frame.value if frame else ''

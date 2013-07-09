@@ -3673,13 +3673,13 @@ class TestFlapAngle(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = FlapAngle
         self.operational_combinations = [
-            ('Flap (L)',),
-            ('Flap (R)',),
-            ('Flap (L) Inboard',),
-            ('Flap (R) Inboard',),
-            ('Flap (L)', 'Flap (R)'),
-            ('Flap (L) Inboard', 'Flap (R) Inboard'),
-            ('Flap (L)', 'Flap (R)', 'Flap (L) Inboard', 'Flap (R) Inboard', 'Frame'),
+            ('Flap Angle (L)',),
+            ('Flap Angle (R)',),
+            ('Flap Angle (L) Inboard',),
+            ('Flap Angle (R) Inboard',),
+            ('Flap Angle (L)', 'Flap Angle (R)'),
+            ('Flap Angle (L) Inboard', 'Flap Angle (R) Inboard'),
+            ('Flap Angle (L)', 'Flap Angle (R)', 'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard', 'Frame'),
         ]
 
     @unittest.skip('Test Not Implemented')
