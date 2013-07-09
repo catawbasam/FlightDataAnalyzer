@@ -7,7 +7,8 @@ from math import ceil, radians
 
 from analysis_engine.exceptions import DataFrameError
 
-from flightdatautilities.model_information import (get_conf_map,
+from flightdatautilities.model_information import (get_aileron_map,
+                                                   get_conf_map,
                                                    get_flap_map,
                                                    get_slat_map)
 from flightdatautilities.velocity_speed import get_vspeed_map
@@ -3711,26 +3712,29 @@ class Configuration(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return all_of(('Flap', 'Slat', 'Series', 'Family'), available)
+        return all_of(('Slat', 'Flap', 'Series', 'Family'), available)
 
-    def derive(self, flap=P('Flap'), slat=P('Slat'), aileron=P('Aileron'),
+    def derive(self, slat=P('Slat'), flap=P('Flap'), flaperon=P('Flaperon'),
                series=A('Series'), family=A('Family')):
         #TODO: manu=A('Manufacturer') - we could ensure this is only done for Airbus?
 
         mapping = get_conf_map(series.value, family.value)
         qty_param = len(mapping.itervalues().next())
-        if qty_param == 3 and not aileron:
+        if qty_param == 3 and not flaperon:
             # potential problem here!
-            self.warning("Aileron not available, so will calculate Configuration using only slat and flap")
+            self.warning("Flaperon not available, so will calculate "
+                         "Configuration using only slat and flap")
             qty_param = 2
-        elif qty_param == 2 and aileron:
+        elif qty_param == 2 and flaperon:
             # only two items in values tuple
-            self.debug("Aileron available but not required for Configuration calculation")
+            self.debug("Flaperon available but not required for "
+                       "Configuration calculation")
             pass
 
-        #TODO: Scale each parameter individually to ensure uniqueness
-        # sum the required parameters
-        summed = vstack_params(*(flap, slat, aileron)[:qty_param]).sum(axis=0)
+        #TODO: Scale each parameter individually to ensure uniqueness.
+        
+        # Sum the required parameters (creates a unique state value at present)
+        summed = vstack_params(*(slat, flap, flaperon)[:qty_param]).sum(axis=0)
 
         # create a placeholder array fully masked
         self.array = MappedArray(np_ma_masked_zeros_like(flap.array), 

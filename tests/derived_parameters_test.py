@@ -114,6 +114,7 @@ from analysis_engine.derived_parameters import (
     Eng_4_FuelBurn,
     EngThrustModeRequired,
     Flap,
+    Flaperon,
     FlapLeverDetent,
     FlapLeverSynthetic,
     FlapSurface,
@@ -1441,7 +1442,7 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         self.node_class = Configuration
         self.operational_combinations = [
             ('Flap', 'Slat', 'Series', 'Family'),
-            ('Flap', 'Slat', 'Aileron', 'Series', 'Family'),
+            ('Flap', 'Slat', 'Flaperon', 'Series', 'Family'),
         ]
         # Note: The last state is invalid...
         s = [0] * 2 + [16] * 4 + [20] * 4 + [23] * 6 + [16]
@@ -1449,7 +1450,7 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         a = [0] * 4 + [5] * 2 + [10] * 10 + [10]
         self.slat = P('Slat', np.tile(np.ma.array(s), 10000))
         self.flap = P('Flap', np.tile(np.ma.array(f), 10000))
-        self.ails = P('Aileron', np.tile(np.ma.array(a), 10000))
+        self.ails = P('Flaperon', np.tile(np.ma.array(a), 10000))
 
     def test_conf_for_a330(self):
         # Note: The last state is invalid...
@@ -1459,7 +1460,7 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         series = A('Series', 'A330-301')
         family = A('Family', 'A330')
         node = self.node_class()
-        node.derive(self.flap, self.slat, self.ails, series, family)
+        node.derive(self.slat, self.flap, self.ails, series, family)
         self.assertEqual(list(node.array[:17]), expected)
 
     def test_time_taken(self):
