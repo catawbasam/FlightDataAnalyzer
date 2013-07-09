@@ -3089,7 +3089,31 @@ class TestAileronTrim(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+        
 
+class TestFlaperon(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Flaperon.get_operational_combinations()
+        self.assertEqual(opts, 
+                         [('Aileron (L)', 'Aileron (R)', 'Series', 'Family')])
+        
+    def test_derive(self):
+        al = load(os.path.join(test_data_path, 'aileron_left.nod'))
+        ar = load(os.path.join(test_data_path, 'aileron_right.nod'))
+        series = A('Series', 'A330-200')
+        family = A('Family', 'A330')
+        flaperon = Flaperon()
+        flaperon.derive(al, ar, series, family)
+        def unique_values(array):
+            y = np.bincount(array)
+            ii = np.nonzero(y)[0]
+            return zip(ii,y[ii])
+        
+        # ensure values are grouped into aileron settings accordingly
+        self.assertEqual(unique_values(flaperon.array.astype(int)),
+                         [(0, 22123), (5, 278), (10, 1151)])
+        
+        
 
 class TestAirspeedMinusV2For3Sec(unittest.TestCase):
     def test_can_operate(self):
