@@ -361,12 +361,12 @@ def process_order(gr_all, node_mgr, raise_inoperable_required=False):
         logger.warning("Found %s inoperable required parameters.",
                         len(inoperable_required))
         items = []
-        for n in inoperable_required:
+        for n in sorted(inoperable_required):
             tree = indent_tree(gr_all, n, recurse_active=False)
             if tree:
                 items.append('------- INOPERABLE -------')
                 items.extend(tree)
-        logger.warn('\n'.join(items))        
+        logger.warn('\n'+'\n'.join(items))        
         ##for p in sorted(inoperable_required):
             ##available = []
             ##unavailable = []
