@@ -3146,9 +3146,12 @@ class TestAltitudeSTD(unittest.TestCase):
 
 
 class TestElevator(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(Elevator.get_operational_combinations(),
+                         [('Elevator (L)',),
+                          ('Elevator (R)',),
+                          ('Elevator (L)', 'Elevator (R)'),
+                          ])
         
     def test_normal_two_sensors(self):
         left = P('Elevator (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset = 0.1)
