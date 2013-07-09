@@ -1,6 +1,14 @@
 Changes
 =======
 
+0.0.7
+-----
+Dependency tree fulfils a full tree structure when requested node is not the end leaf of a tree
+
+???
+-----
+Dependency tree accounts for cyclic dependencies - very clever!
+
 0.0.2
 -----
 
