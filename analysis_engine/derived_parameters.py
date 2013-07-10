@@ -3631,7 +3631,11 @@ class Flap(DerivedParameterNode):
             else:
                 self.array = step_values(flap.array, flap.frequency, flap_steps)
         else:
-            raise DataFrameError(self.name, frame_name)
+            self.array = None
+            self.warning("No Flap, assigning a masked array")
+            # We don't want to fail, because some aircraft might not have Flap
+            # recorded correctly
+            # raise DataFrameError(self.name, frame_name)
 
 
 '''
