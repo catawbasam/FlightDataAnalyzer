@@ -1135,12 +1135,12 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
 
         frame_name = frame.value if frame else ''
 
-        if frame_name in ['737-i'] or \
+        if frame_name in ['737-i', '757-DHL'] or \
            frame_name.startswith('737-6'):
-            # The altitude signal is measured in steps of 32 ft so needs
-            # smoothing. A 5-point Gaussian distribution was selected as a
-            # balance between smoothing effectiveness and excessive
-            # manipulation of the data.
+            # The altitude signal is measured in steps of 32 ft (10ft for
+            # 757-DHL) so needs smoothing. A 5-point Gaussian distribution
+            # was selected as a balance between smoothing effectiveness and
+            # excessive manipulation of the data.
             gauss = [0.054488683, 0.244201343, 0.402619948, 0.244201343, 0.054488683]
             self.array = moving_average(alt.array, window=5, weightings=gauss)
         elif frame_name in ['E135-145', 'L382-Hercules']:
