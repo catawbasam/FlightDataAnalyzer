@@ -27,6 +27,7 @@ from settings import (CLIMB_THRESHOLD,
                       NAME_VALUES_ENGINE,
                       NAME_VALUES_FLAP,
                       TAKEOFF_ACCELERATION_THRESHOLD,
+                      TRANSITION_ALTITUDE,
                       VERTICAL_SPEED_FOR_LIFTOFF,
                       WORKING_DIR
                       )
@@ -1127,7 +1128,7 @@ class AltitudeWhenClimbing(KeyTimeInstanceNode):
             for alt_threshold in self.NAME_VALUES['altitude']:
                 # Will trigger a single KTI per height (if threshold is crossed)
                 # per climbing phase.
-                if alt_threshold <= 5000:
+                if alt_threshold <= TRANSITION_ALTITUDE:
                     # Use height above airfield.
                     alt = alt_aal.array
                 else:
@@ -1155,7 +1156,7 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
                 # crossed) per descending phase. The altitude array is
                 # scanned backwards to make sure we trap the last instance at
                 # each height.
-                if alt_threshold <= 5000:
+                if alt_threshold <= TRANSITION_ALTITUDE:
                     # Use height above airfield.
                     alt = alt_aal.array
                 else:

@@ -1135,7 +1135,7 @@ class TestAirspeed8000To5000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
     def setUp(self):
         self.node_class = Airspeed8000To5000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude STD Smoothed')]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (8000, 5000), {})]
 

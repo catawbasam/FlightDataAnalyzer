@@ -739,7 +739,6 @@ class Airspeed35To1000FtMin(KeyPointValueNode):
         )
 
 
-# XXX: Using 'Altitude AAL For Flight Phases' as 1000-5000 range > 5000-8000...
 class Airspeed1000To8000FtMax(KeyPointValueNode):
     '''
     '''

@@ -281,6 +281,11 @@ MU_GOOD = 0.2
 MU_MEDIUM = 0.1
 MU_POOR = 0.05 # dimensionless.
 '''
+# Transition altitude - above use Altitude STD, below use Altitude AAL.
+# Note: This affects the generic KTIs and dependent nodes only. Some KPVs are 
+# "hard wired", e.g. 8000-10000 ft ranges. 
+TRANSITION_ALTITUDE = 8000  # ft
+
 # Vertical speed limits of 800 fpm and -500 fpm gives good distinction with
 # level flight. Separately defined to allow for future adjustment.
 VERTICAL_SPEED_FOR_CLIMB_PHASE = 800  # fpm
