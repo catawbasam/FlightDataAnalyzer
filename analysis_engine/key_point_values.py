@@ -582,7 +582,7 @@ class AirspeedAt8000Ft(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_std_desc=S('Altitude STD When Descending')):
+               alt_std_desc=S('Altitude When Descending')):
         
         self.create_kpvs_at_ktis(air_spd.array,
                                  alt_std_desc.get(name='8000 Ft Descending'))
@@ -1730,7 +1730,7 @@ class ModeControlPanelAirspeedSelectedAt8000Ft(KeyPointValueNode):
     
     def derive(self,
                mcp=P('Mode Control Panel Airspeed Selected'),
-               alt_std_desc=S('Altitude STD When Descending')):
+               alt_std_desc=S('Altitude When Descending')):
         
         # TODO: Confirm MCP parameter name.
         self.create_kpvs_at_ktis(mcp.array,
@@ -6641,7 +6641,6 @@ class RateOfClimb35To1000FtMin(KeyPointValueNode):
             self.create_kpv_from_slices(vrt_spd.array, alt_climb_sections, min_value)
 
 
-# XXX: Should use 'Altitude STD Smoothed'?
 class RateOfClimbBelow10000FtMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
@@ -6653,7 +6652,7 @@ class RateOfClimbBelow10000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude STD Smoothed')):
 
         self.create_kpvs_within_slices(
             vrt_spd.array,
@@ -6726,7 +6725,7 @@ class RateOfDescentBelow10000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases'),
+               alt_aal=P('Altitude STD Smoothed'),
                descents=S('Combined Descent')):
         alt_band = np.ma.masked_outside(alt_aal.array, 0, 10000)
         for descent in descents:

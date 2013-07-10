@@ -892,7 +892,7 @@ class TestAccelerationNormalOffset(unittest.TestCase, NodeTest):
 class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AirspeedAt8000Ft
-        self.operational_combinations = [('Airspeed', 'Altitude STD When Descending')]
+        self.operational_combinations = [('Airspeed', 'Altitude When Descending')]
     
     def test_derive_basic(self):
         air_spd = P('Airspeed', array=np.ma.arange(0, 200, 10))
@@ -912,7 +912,7 @@ class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
 class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = ModeControlPanelAirspeedSelectedAt8000Ft
-        self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude STD When Descending')]
+        self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude When Descending')]
 
     def test_derive_basic(self):
         air_spd = P('Mode Control Panel Airspeed Selected', array=np.ma.arange(0, 200, 5))

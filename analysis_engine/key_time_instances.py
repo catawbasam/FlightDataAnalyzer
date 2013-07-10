@@ -1120,15 +1120,21 @@ class AltitudeWhenClimbing(KeyTimeInstanceNode):
     NAME_FORMAT = '%(altitude)d Ft Climbing'
     NAME_VALUES = NAME_VALUES_CLIMB
 
-    HYSTERESIS = 0 # Was 10 Q: Better as setting? A: Remove this as we want the true altitudes - DJ
-
-    def derive(self, climbing=S('Climbing'), alt_aal=P('Altitude AAL')):
-        alt_array = hysteresis(alt_aal.array, self.HYSTERESIS)
+    def derive(self, climbing=S('Climbing'), 
+               alt_aal=P('Altitude AAL'),
+               alt_std=P('Altitude STD Smoothed')):
         for climb in climbing:
             for alt_threshold in self.NAME_VALUES['altitude']:
                 # Will trigger a single KTI per height (if threshold is crossed)
                 # per climbing phase.
-                index = index_at_value(alt_array, alt_threshold, climb.slice)
+                if alt_threshold <= 5000:
+                    # Use height above airfield.
+                    alt = alt_aal.array
+                else:
+                    # Use standard altitudes.
+                    alt = alt_std.array
+
+                index = index_at_value(alt, alt_threshold, climb.slice)
                 if index:
                     self.create_kti(index, altitude=alt_threshold)
 
@@ -1140,22 +1146,33 @@ class AltitudeWhenDescending(KeyTimeInstanceNode):
     NAME_FORMAT = '%(altitude)d Ft Descending'
     NAME_VALUES = NAME_VALUES_DESCENT
 
-    HYSTERESIS = 0 # Was 10 Q: Better as a constant in the settings?
-
-    def derive(self, descending=S('Descending'), alt_aal=P('Altitude AAL')):
-        alt_array = alt_aal.array
+    def derive(self, descending=S('Descending'), 
+               alt_aal=P('Altitude AAL'),
+               alt_std=P('Altitude STD Smoothed')):
         for descend in descending:
             for alt_threshold in self.NAME_VALUES['altitude']:
                 # Will trigger a single KTI per height (if threshold is
                 # crossed) per descending phase. The altitude array is
                 # scanned backwards to make sure we trap the last instance at
                 # each height.
-                index = index_at_value(alt_array, alt_threshold,
+                if alt_threshold <= 5000:
+                    # Use height above airfield.
+                    alt = alt_aal.array
+                else:
+                    # Use standard altitudes.
+                    alt = alt_std.array
+                    
+                index = index_at_value(alt, alt_threshold,
                                        slice(descend.slice.stop,
                                              descend.slice.start, -1))
                 if index:
                     self.create_kti(index, altitude=alt_threshold)
 
+
+"""
+
+Altitudes split with 5000ft and below related to airfield, and above this
+standard pressure altitudes. Therefore Altitude STD Descending is redundant.
 
 class AltitudeSTDWhenDescending(KeyTimeInstanceNode):
     '''
@@ -1166,22 +1183,29 @@ class AltitudeSTDWhenDescending(KeyTimeInstanceNode):
     NAME_FORMAT = '%(altitude)d Ft Descending'
     NAME_VALUES = NAME_VALUES_DESCENT
 
-    HYSTERESIS = 0 # Was 10 Q: Better as a constant in the settings?
+    def derive(self, descending=S('Descending'),
+               alt_aal=P('Altitude AAL'),
+               alt_std=P('Altitude STD Smoothed')):
 
-    def derive(self, descending=S('Descending'), alt_std=P('Altitude STD')):
-        alt_array = alt_std.array
         for descend in descending:
             for alt_threshold in self.NAME_VALUES['altitude']:
                 # Will trigger a single KTI per height (if threshold is
                 # crossed) per descending phase. The altitude array is
                 # scanned backwards to make sure we trap the last instance at
                 # each height.
-                index = index_at_value(alt_array, alt_threshold,
+                if alt_threshold <= 5000:
+                    # Use height above airfield.
+                    alt = alt_aal.array
+                else:
+                    # Use standard altitudes.
+                    alt = alt_std.array
+
+                index = index_at_value(alt, alt_threshold,
                                        slice(descend.slice.stop,
                                              descend.slice.start, -1))
                 if index:
                     self.create_kti(index, altitude=alt_threshold)
-
+"""
 
 class MinsToTouchdown(KeyTimeInstanceNode):
     #TODO: TESTS
