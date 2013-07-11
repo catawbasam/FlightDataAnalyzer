@@ -3605,7 +3605,7 @@ class FlapAngle(DerivedParameterNode):
                 flap_A, flap_B)
 
 
-class Flap(DerivedParameterNode):
+class Flap(MultistateDerivedParameterNode):
     '''
     Steps raw Flap angle from surface into detents.
     '''
@@ -3635,10 +3635,12 @@ class Flap(DerivedParameterNode):
         frame_name = frame.value if frame else None
 
         if frame_name == 'L382-Hercules':
+            self.values_mapping = {0: '0', 50: '50', 100: '100'}
+            
             # Flap is not recorded, so invent one of the correct length.
             flap_herc = np_ma_zeros_like(alt_aal.array)
 
-            # Takeoff is normally with 50% flap
+            # Takeoff is normally with 50% flap382
             _, toffs = slices_from_to(alt_aal.array, 0.0,1000.0)
             flap_herc[:toffs[0].stop] = 50.0
 
@@ -3657,10 +3659,16 @@ class Flap(DerivedParameterNode):
                 self.warning("No flap settings - rounding to nearest 5")
                 # round to nearest 5 degrees
                 self.array = round_to_nearest(flap.array, 5.0)
+                self.values_mapping = {f: str(f) for f in 
+                                       np.ma.unique(self.array.raw)}
+                if np.ma.masked in self.values_mapping:
+                    del self.values_mapping[np.ma.masked]
             else:
+                self.values_mapping = {f: str(f) for f in flap_steps}
                 self.array = step_values(flap.array, flap.frequency, flap_steps)
         else:
             self.array = None
+            self.values_mapping = {}
             self.warning("No Flap, assigning a masked array")
             # We don't want to fail, because some aircraft might not have Flap
             # recorded correctly
