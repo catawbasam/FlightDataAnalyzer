@@ -12,7 +12,6 @@ from analysis_engine.key_time_instances import (
     AltitudePeak,
     AltitudeWhenClimbing,
     AltitudeWhenDescending,
-    AltitudeSTDWhenDescending,
     APDisengagedSelection,
     APEngagedSelection,
     ATDisengagedSelection,
@@ -325,22 +324,22 @@ class TestAltitudeWhenDescending(unittest.TestCase):
         ])
 
 
-class TestAltitudeSTDWhenDescending(unittest.TestCase):
-    def test_can_operate(self):
-        self.assertEqual(AltitudeSTDWhenDescending.get_operational_combinations(),
-                         [('Descending', 'Altitude AAL', 'Altitude STD Smoothed')])
+#class TestAltitudeSTDWhenDescending(unittest.TestCase):
+    #def test_can_operate(self):
+        #self.assertEqual(AltitudeSTDWhenDescending.get_operational_combinations(),
+                         #[('Descending', 'Altitude AAL', 'Altitude STD Smoothed')])
 
-    def test_derive(self):
-        descending = buildsections('Descending', [0, 10], [11, 20])
-        alt_aal = P('Altitude STD',
-                    np.ma.masked_array(range(100, 0, -10),
-                                       mask=[False] * 6 + [True] * 3 + [False]))
-        altitude_when_descending = AltitudeSTDWhenDescending()
-        altitude_when_descending.derive(descending, alt_aal)
-        self.assertEqual(list(altitude_when_descending),
-          [KeyTimeInstance(index=2.5, name='75 Ft Descending'),
-           KeyTimeInstance(index=5.0, name='50 Ft Descending'),
-        ])
+    #def test_derive(self):
+        #descending = buildsections('Descending', [0, 10], [11, 20])
+        #alt_aal = P('Altitude STD',
+                    #np.ma.masked_array(range(100, 0, -10),
+                                       #mask=[False] * 6 + [True] * 3 + [False]))
+        #altitude_when_descending = AltitudeSTDWhenDescending()
+        #altitude_when_descending.derive(descending, alt_aal)
+        #self.assertEqual(list(altitude_when_descending),
+          #[KeyTimeInstance(index=2.5, name='75 Ft Descending'),
+           #KeyTimeInstance(index=5.0, name='50 Ft Descending'),
+        #])
 
 
 class TestInitialClimbStart(unittest.TestCase):

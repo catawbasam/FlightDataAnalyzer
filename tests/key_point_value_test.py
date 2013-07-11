@@ -15,6 +15,10 @@ from analysis_engine.node import (
     KeyTimeInstance, Section, S
 )
 
+from analysis_engine.derived_parameters import (
+    FlapExcludingTransition,
+    FlapIncludingTransition,
+)
 from analysis_engine.key_point_values import (
     AccelerationLateralAtTouchdown,
     AccelerationLateralDuringLandingMax,
@@ -387,7 +391,7 @@ from analysis_engine.key_point_values import (
     IsolationValveOpenAtLiftoff,
 )
 from analysis_engine.key_time_instances import (
-    AltitudeSTDWhenDescending,
+    AltitudeWhenDescending,
     EngStop,
 )
 from analysis_engine.library import (max_abs_value, max_value, min_value)
@@ -896,7 +900,7 @@ class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
     
     def test_derive_basic(self):
         air_spd = P('Airspeed', array=np.ma.arange(0, 200, 10))
-        alt_std_desc = AltitudeSTDWhenDescending(
+        alt_std_desc = AltitudeWhenDescending(
             items=[KeyTimeInstance(8, '6000 Ft Descending'),
                    KeyTimeInstance(10, '8000 Ft Descending'),
                    KeyTimeInstance(16, '8000 Ft Descending'),
@@ -916,7 +920,7 @@ class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase, NodeTest):
 
     def test_derive_basic(self):
         air_spd = P('Mode Control Panel Airspeed Selected', array=np.ma.arange(0, 200, 5))
-        alt_std_desc = AltitudeSTDWhenDescending(
+        alt_std_desc = AltitudeWhenDescending(
             items=[KeyTimeInstance(13, '8000 Ft Descending'),
                    KeyTimeInstance(26, '8000 Ft Descending'),
                    KeyTimeInstance(32, '8000 Ft Descending'),
@@ -1135,7 +1139,7 @@ class TestAirspeed8000To5000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
     def setUp(self):
         self.node_class = Airspeed8000To5000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Airspeed', 'Altitude STD Smoothed')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (8000, 5000), {})]
 
@@ -1525,30 +1529,36 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
         self.assertEqual(air_spd_flap_max[3].index, 29)
         self.assertEqual(air_spd_flap_max[3].value, 29)
 
-    # TODO: Fix with correct flap params.
-    #def test_derive_alternative_method(self):
-        ## Note: This test will produce the following warning:
-        ##       "No flap settings - rounding to nearest 5"
-        #flap = [[0, 1, 2, 5, 10, 15, 25, 30, 40, 0]] * 2
-        #flap_inc_trans = P('Flap Including Transition', np.ma.array(reduce(operator.add, zip(*flap))))
-        #flap_exc_trans = P('Flap Excluding Transition', np.ma.array(reduce(operator.add, zip(*flap))))
-        #air_spd = P('Airspeed', np.ma.arange(20))
-        #fast = buildsection('Fast', 0, 20)
-        #step_inc_trans = Flap()
-        #step_inc_trans.derive(flap_inc_trans)
-        #step_exc_trans = Flap()
-        #step_exc_trans.derive(flap_exc_trans)
-        #air_spd_flap_max = AirspeedWithFlapMax()
-        #air_spd_flap_max.derive(step_inc_trans, step_exc_trans, air_spd, fast)
+     #TODO: Fix with correct flap params.
+    def test_derive_alternative_method(self):
+        # Note: This test will produce the following warning:
+        #       "No flap settings - rounding to nearest 5"
+        flap = [[0, 1, 2, 5, 10, 15, 25, 30, 40, 0]] * 2
+        flap_inc_trans = P('Flap Including Transition', np.ma.array(reduce(operator.add, zip(*flap))))
+        flap_exc_trans = P('Flap Excluding Transition', np.ma.array(reduce(operator.add, zip(*flap))))
+        air_spd = P('Airspeed', np.ma.arange(20))
+        fast = buildsection('Fast', 0, 20)
+        step_inc_trans = FlapIncludingTransition()
+        step_inc_trans.derive(flap_inc_trans)
+        step_exc_trans = FlapExcludingTransition()
+        step_exc_trans.derive(flap_exc_trans)
+        air_spd_flap_max = AirspeedWithFlapMax()
+        air_spd_flap_max.derive(step_inc_trans, step_exc_trans, air_spd, fast)
 
-        #self.assertEqual(air_spd_flap_max, [
-            #KeyPointValue(index=7, value=7, name='Airspeed With Flap 5 Max'),
-            #KeyPointValue(index=9, value=9, name='Airspeed With Flap 10 Max'),
-            #KeyPointValue(index=11, value=11, name='Airspeed With Flap 15 Max'),
-            #KeyPointValue(index=13, value=13, name='Airspeed With Flap 25 Max'),
-            #KeyPointValue(index=15, value=15, name='Airspeed With Flap 30 Max'),
-            #KeyPointValue(index=17, value=17, name='Airspeed With Flap 40 Max'),
-        #])
+        self.assertEqual(air_spd_flap_max, [
+            KeyPointValue(index=7, value=7, name='Airspeed With Flap Including Transition 5 Max'),
+            KeyPointValue(index=9, value=9, name='Airspeed With Flap Including Transition 10 Max'),
+            KeyPointValue(index=11, value=11, name='Airspeed With Flap Including Transition 15 Max'),
+            KeyPointValue(index=13, value=13, name='Airspeed With Flap Including Transition 25 Max'),
+            KeyPointValue(index=15, value=15, name='Airspeed With Flap Including Transition 30 Max'),
+            KeyPointValue(index=17, value=17, name='Airspeed With Flap Including Transition 40 Max'),
+            KeyPointValue(index=7, value=7, name='Airspeed With Flap Excluding Transition 5 Max'),
+            KeyPointValue(index=9, value=9, name='Airspeed With Flap Excluding Transition 10 Max'),
+            KeyPointValue(index=11, value=11, name='Airspeed With Flap Excluding Transition 15 Max'),
+            KeyPointValue(index=13, value=13, name='Airspeed With Flap Excluding Transition 25 Max'),
+            KeyPointValue(index=15, value=15, name='Airspeed With Flap Excluding Transition 30 Max'),
+            KeyPointValue(index=17, value=17, name='Airspeed With Flap Excluding Transition 40 Max'),
+        ])
 
     @patch.dict('analysis_engine.key_point_values.AirspeedWithFlapMax.NAME_VALUES',
             {'flap': (5.5, 10.1, 20.9)})
@@ -1568,6 +1578,7 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
         self.assertEqual(air_spd_flap_max[3].name, 'Airspeed With Flap Excluding Transition 5.5 Max')
         self.assertEqual(air_spd_flap_max[4].name, 'Airspeed With Flap Excluding Transition 10.1 Max')
         self.assertEqual(air_spd_flap_max[5].name, 'Airspeed With Flap Excluding Transition 20.9 Max')
+
 
 class TestAirspeedWithFlapMin(unittest.TestCase, NodeTest):
 
@@ -5680,12 +5691,12 @@ class TestRateOfClimbBelow10000FtMax(unittest.TestCase):
 
     def test_can_operate(self):
         opts = RateOfClimbBelow10000FtMax.get_operational_combinations()
-        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases')])
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude STD Smoothed')])
 
     def test_derive(self):
         array = np.ma.concatenate((np.ma.arange(0, 5000, 250), np.ma.arange(5000, 10000, 1000), [10500, 9500, 9900], [11000]*5))
         array = np.ma.concatenate((array, array[::-1]))
-        alt = P('Altitude AAL For Flight Phases', array)
+        alt = P('Altitude STD Smoothed', array)
         roc_array = np.ma.concatenate(([250]*19, [437, 625, 812, 1000, 1125, 625, 475, 500, 125, 375, 275, 0, 0, 0]))
         roc_array = np.ma.concatenate((roc_array, 1-roc_array[::-1]))
         vert_spd = P('Vertical Speed', roc_array)
@@ -5742,7 +5753,7 @@ class TestRateOfDescentBelow10000FtMax(unittest.TestCase):
 
     def test_can_operate(self):
         opts = RateOfDescentBelow10000FtMax.get_operational_combinations()
-        self.assertEqual(opts, [('Vertical Speed', 'Altitude AAL For Flight Phases', 'Combined Descent')])
+        self.assertEqual(opts, [('Vertical Speed', 'Altitude STD Smoothed', 'Combined Descent')])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -6377,7 +6388,7 @@ class TestMasterCautionDuringTakeoffDuration(unittest.TestCase, NodeTest):
 class TestLandingConfigurationGearWarningDuration(unittest.TestCase):
     def test_can_operate(self):
         opts = LandingConfigurationGearWarningDuration.get_operational_combinations()
-        self.assertEqual(opts, [('Landing Configuration Gear Warning',)])
+        self.assertEqual(opts, [('Landing Configuration Gear Warning', 'Airborne',)])
         
     def test_derive(self):
         node = LandingConfigurationGearWarningDuration()
