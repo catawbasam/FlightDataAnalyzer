@@ -137,7 +137,6 @@ class FlapOrConfigurationMaxOrMin(object):
             kpvs.append((index, value, detent))
         return kpvs
 
-
 ##############################################################################
 # Helpers
 
@@ -580,7 +579,7 @@ class AirspeedAt8000Ft(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_std_desc=S('Altitude STD When Descending')):
+               alt_std_desc=S('Altitude When Descending')):
         
         self.create_kpvs_at_ktis(air_spd.array,
                                  alt_std_desc.get(name='8000 Ft Descending'))
@@ -737,7 +736,6 @@ class Airspeed35To1000FtMin(KeyPointValueNode):
         )
 
 
-# XXX: Using 'Altitude AAL For Flight Phases' as 1000-5000 range > 5000-8000...
 class Airspeed1000To8000FtMax(KeyPointValueNode):
     '''
     '''
@@ -1755,7 +1753,7 @@ class ModeControlPanelAirspeedSelectedAt8000Ft(KeyPointValueNode):
     
     def derive(self,
                mcp=P('Mode Control Panel Airspeed Selected'),
-               alt_std_desc=S('Altitude STD When Descending')):
+               alt_std_desc=S('Altitude When Descending')):
         
         # TODO: Confirm MCP parameter name.
         self.create_kpvs_at_ktis(mcp.array,
@@ -2302,7 +2300,7 @@ class AltitudeAtFlapExtensionWithGearDown(KeyPointValueNode):
         return (('Flap Lever' in available or 'Flap' in available) and
                 all_of(('Altitude AAL', 'Gear Extended', 'Airborne'),
                        available))
-
+    
     def derive(self, flap_lever=P('Flap Lever'),
                flap_synth=P('Flap'),
                alt_aal=P('Altitude AAL'),
@@ -2463,8 +2461,7 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
                 all_of(('Flap At Liftoff', 'Altitude AAL', 'Airborne'),
                        available))
 
-    def derive(self,
-               flap_lever=P('Flap Lever'),
+    def derive(self, flap_lever=P('Flap Lever'),
                flap_synth=P('Flap'),
                flap_liftoff=KPV('Flap At Liftoff'),
                alt_aal=P('Altitude AAL'),
@@ -2496,8 +2493,7 @@ class AltitudeAtLastFlapChangeBeforeTouchdown(KeyPointValueNode):
         return (('Flap Lever' in available or 'Flap' in available) and
                 'Altitude AAL' in available and 'Touchdown' in available)
 
-    def derive(self,
-               flap_lever=P('Flap Lever'),
+    def derive(self, flap_lever=P('Flap Lever'),
                flap_synth=P('Flap'),
                alt_aal=P('Altitude AAL'),
                touchdowns=KTI('Touchdown')):
@@ -6696,7 +6692,6 @@ class RateOfClimb35To1000FtMin(KeyPointValueNode):
             self.create_kpv_from_slices(vrt_spd.array, alt_climb_sections, min_value)
 
 
-# XXX: Should use 'Altitude STD Smoothed'?
 class RateOfClimbBelow10000FtMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
@@ -6708,7 +6703,7 @@ class RateOfClimbBelow10000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude STD Smoothed')):
 
         self.create_kpvs_within_slices(
             vrt_spd.array,
@@ -6781,7 +6776,7 @@ class RateOfDescentBelow10000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases'),
+               alt_aal=P('Altitude STD Smoothed'),
                descents=S('Combined Descent')):
         alt_band = np.ma.masked_outside(alt_aal.array, 0, 10000)
         for descent in descents:

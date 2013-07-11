@@ -892,7 +892,7 @@ class TestAccelerationNormalOffset(unittest.TestCase, NodeTest):
 class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AirspeedAt8000Ft
-        self.operational_combinations = [('Airspeed', 'Altitude STD When Descending')]
+        self.operational_combinations = [('Airspeed', 'Altitude When Descending')]
     
     def test_derive_basic(self):
         air_spd = P('Airspeed', array=np.ma.arange(0, 200, 10))
@@ -912,7 +912,7 @@ class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
 class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = ModeControlPanelAirspeedSelectedAt8000Ft
-        self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude STD When Descending')]
+        self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude When Descending')]
 
     def test_derive_basic(self):
         air_spd = P('Mode Control Panel Airspeed Selected', array=np.ma.arange(0, 200, 5))
@@ -1135,7 +1135,7 @@ class TestAirspeed8000To5000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
     def setUp(self):
         self.node_class = Airspeed8000To5000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude STD Smoothed')]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (8000, 5000), {})]
 

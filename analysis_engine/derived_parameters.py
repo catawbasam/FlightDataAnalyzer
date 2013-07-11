@@ -7,7 +7,8 @@ from math import ceil, radians
 
 from analysis_engine.exceptions import DataFrameError
 
-from flightdatautilities.model_information import (get_conf_map,
+from flightdatautilities.model_information import (get_aileron_map,
+                                                   get_conf_map,
                                                    get_flap_map,
                                                    get_slat_map)
 from flightdatautilities.velocity_speed import get_vspeed_map
@@ -464,17 +465,28 @@ class AirspeedReferenceLookup(DerivedParameterNode):
         vspeed_table = vspeed_class()
         for approach in approaches:
             _slice = approach.slice
-            index = np.ma.argmax(setting_param.array[_slice])
-            setting = setting_param.array[_slice][index]
-            weight = repaired_gw[_slice][index] if gw is not None else None
+            index, setting = max_value(setting_param.array, _slice)
+            # Allow no gross weight for aircraft which use a fixed vspeed
+            weight = repaired_gw[index] if gw is not None else None
 
             if not is_index_within_slice(touchdowns.get_last().index, _slice) \
                 and setting not in vspeed_table.vref_settings:
-                # No landing and max setting not in vspeed table:
+                # Not the final landing and max setting not in vspeed table,
+                # so use the maximum setting possible as a reference.
                 if setting_param.name == 'Flap':
-                    setting = max(get_flap_map(series.value, family.value))
+                    max_setting = max(get_flap_map(series.value, family.value))
                 else:
-                    setting = max(get_conf_map(series.value, family.value).keys())
+                    max_setting = max(get_conf_map(series.value, family.value).keys())
+                self.info("No touchdown in this approach and maximum "
+                          "%s '%s' not in lookup table. Using max "
+                          "possible setting '%s' as reference",
+                          setting_param.name, setting, max_setting)
+                setting = max_setting
+            else:
+                # We either touched down, so use the touchdown flap/conf
+                # setting or we had reached a maximum flap setting during the
+                # approach which in the vref table. Continue to establish Vref.
+                pass
 
             try:
                 vspeed = vspeed_table.vref(setting, weight)
@@ -720,8 +732,10 @@ class AltitudeAAL(DerivedParameterNode):
 
         
         alt_rad_aal = np.ma.maximum(alt_rad, 0.0)
-        x = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
-        ralt_sections = [y for y in x if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
+        #x = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
+        #ralt_sections = [y for y in x if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
+        ralt_sections = np.ma.clump_unmasked(np.ma.masked_greater(alt_rad_aal, 100.0))
+        #ralt_sections = [y for y in x if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
 
         if len(ralt_sections)==0:
             # Either Altitude Radio did not drop below 100, or did not get
@@ -736,25 +750,10 @@ class AltitudeAAL(DerivedParameterNode):
             alt_result[ralt_section] = alt_rad_aal[ralt_section]
 
             for baro_section in baro_sections:
-                begin_index = baro_section.start
-
-                if ralt_section.stop == baro_section.start:
-                    alt_diff = (alt_std[begin_index:begin_index + 60] -
-                                alt_rad[begin_index:begin_index + 60])
-                    slip, up_diff = first_valid_sample(alt_diff)
-                    if slip is None:
-                        up_diff = 0.0
-                    else:
-                        # alt_std is invalid at the point of handover
-                        # so stretch the radio signal until we can
-                        # handover.
-                        fix_slice = slice(begin_index,
-                                          begin_index + slip)
-                        alt_result[fix_slice] = alt_rad[fix_slice]
-                        begin_index += slip
-
-                    alt_result[begin_index:] = \
-                        alt_std[begin_index:] - up_diff
+                # I know there must be a better way to code these symmetrical processes, but this works :o)
+                link_baro_rad_fwd(baro_section, ralt_section, alt_rad, alt_std, alt_result)
+                link_baro_rad_rev(baro_section, ralt_section, alt_rad, alt_std, alt_result)
+                
         return alt_result
 
     def derive(self, alt_rad=P('Altitude Radio'),
@@ -936,6 +935,48 @@ class AltitudeAAL(DerivedParameterNode):
         alt_aal[quick.start:alt_idxs[0]] = 0.0
         alt_aal[alt_idxs[-1]+1:quick.stop] = 0.0
         self.array = alt_aal
+
+def link_baro_rad_fwd(baro_section, ralt_section, alt_rad, alt_std, alt_result):
+    begin_index = baro_section.start
+
+    if ralt_section.stop == baro_section.start:
+        alt_diff = (alt_std[begin_index:begin_index + 60] -
+                    alt_rad[begin_index:begin_index + 60])
+        slip, up_diff = first_valid_sample(alt_diff)
+        if slip is None:
+            up_diff = 0.0
+        else:
+            # alt_std is invalid at the point of handover
+            # so stretch the radio signal until we can
+            # handover.
+            fix_slice = slice(begin_index,
+                              begin_index + slip)
+            alt_result[fix_slice] = alt_rad[fix_slice]
+            begin_index += slip
+
+        alt_result[begin_index:] = \
+            alt_std[begin_index:] - up_diff
+
+def link_baro_rad_rev(baro_section, ralt_section, alt_rad, alt_std, alt_result):
+    end_index = baro_section.stop
+
+    if ralt_section.start == baro_section.stop:
+        alt_diff = (alt_std[end_index-60:end_index] -
+                    alt_rad[end_index-60:end_index])
+        slip, up_diff = first_valid_sample(alt_diff[::-1])
+        if slip is None:
+            up_diff = 0.0
+        else:
+            # alt_std is invalid at the point of handover
+            # so stretch the radio signal until we can
+            # handover.
+            fix_slice = slice(end_index-slip,
+                              end_index)
+            alt_result[fix_slice] = alt_rad[fix_slice]
+            end_index -= slip
+
+        alt_result[:end_index] = \
+            alt_std[:end_index] - up_diff
 
 
 class AltitudeAALForFlightPhases(DerivedParameterNode):
@@ -1123,12 +1164,12 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
 
         frame_name = frame.value if frame else ''
 
-        if frame_name in ['737-i'] or \
+        if frame_name in ['737-i', '757-DHL'] or \
            frame_name.startswith('737-6'):
-            # The altitude signal is measured in steps of 32 ft so needs
-            # smoothing. A 5-point Gaussian distribution was selected as a
-            # balance between smoothing effectiveness and excessive
-            # manipulation of the data.
+            # The altitude signal is measured in steps of 32 ft (10ft for
+            # 757-DHL) so needs smoothing. A 5-point Gaussian distribution
+            # was selected as a balance between smoothing effectiveness and
+            # excessive manipulation of the data.
             gauss = [0.054488683, 0.244201343, 0.402619948, 0.244201343, 0.054488683]
             self.array = moving_average(alt.array, window=5, weightings=gauss)
         elif frame_name in ['E135-145', 'L382-Hercules']:
@@ -3437,21 +3478,22 @@ class Groundspeed(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
-class FlapLeverDetent(DerivedParameterNode):
+class FlapLever(DerivedParameterNode):
     '''
-    Steps raw Flap angle from lever into detents.
+    TEMPORARY KPV TO TEST EFFECT OF CHANGE IN FLAP DATA PROCESSING. TO BE
+    REPLACED BY "FLAP LEVER IF FLAP LEVER ELSE FLAP" LOGIC LATER WHERE
+    REQUIRED.
     '''
 
     units = 'deg'
 
-    @classmethod
-    def can_operate(cls, available):
-        return any_of(('Flap Surface', 'Flap Lever'), available) \
-            and all_of(('Series', 'Family'), available)
+    ##@classmethod
+    ##def can_operate(cls, available):
+        ##return any_of(('Flap Angle'), available) \
+            ##and all_of(('Series', 'Family'), available)
 
     def derive(self,
-               flap_lvr=P('Flap Lever'),
-               flap_surf=P('Flap Surface'),
+               flap_surf=P('Flap Angle'),
                series=A('Series'),
                family=A('Family')):
 
@@ -3464,17 +3506,17 @@ class FlapLeverDetent(DerivedParameterNode):
             flap_steps = range(0, 50, 5)
 
         # Use flap lever position where recorded, otherwise revert to flap surface.
-        if flap_lvr:
-            # Take the moment the lever passes midway between two flap detents.
-            self.array = step_values(flap_lvr.array, flap_lvr.frequency, 
-                                     flap_steps, step_at='midpoint')
-        else:
+        ##if flap_lvr:
+            ### Take the moment the lever passes midway between two flap detents.
+            ##self.array = step_values(flap_lvr.array, flap_lvr.frequency, 
+                                     ##flap_steps, step_at='midpoint')
+        ##else:
             # Take the moment the flap starts to move.
-            self.array = step_values(flap_surf.array, flap_surf.frequency, 
-                                     flap_steps, step_at='move_start')
+        self.array = step_values(flap_surf.array, flap_surf.frequency, 
+                                 flap_steps, step_at='move_start')
 
 
-class FlapAchieved(DerivedParameterNode):
+class FlapExcludingTransition(DerivedParameterNode):
     '''
     Specifically designed to cater for maintenance monitoring, this assumes
     that when moving the lower of the start and endpoints of the movement
@@ -3484,7 +3526,7 @@ class FlapAchieved(DerivedParameterNode):
     units = 'deg'
 
     def derive(self,
-               flap=P('Flap Surface'),
+               flap=P('Flap Angle'),
                series=A('Series'),
                family=A('Family')):
 
@@ -3497,11 +3539,38 @@ class FlapAchieved(DerivedParameterNode):
             self.array = round_to_nearest(flap.array, 5.0)
         else:
             self.array = step_values(flap.array, flap.frequency, flap_steps, 
-                                     step_at='lowest_setting')
+                                     step_at='excluding_transition')
 
+
+class FlapIncludingTransition(DerivedParameterNode):
+    '''
+    Specifically designed to cater for maintenance monitoring, this assumes
+    that when moving the higher of the start and endpoints of the movement
+    apply. This increases the chance of needing a flap overspeed inspection,
+    but provides a more cautious interpretation of the maintenance
+    requirements.
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               flap=P('Flap Angle'),
+               series=A('Series'),
+               family=A('Family')):
+
+        try:
+            flap_steps = get_flap_map(series.value, family.value)
+        except KeyError:
+            # no flaps mapping, round to nearest 5 degrees
+            self.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            self.array = round_to_nearest(flap.array, 5.0)
+        else:
+            self.array = step_values(flap.array, flap.frequency, flap_steps, 
+                                     step_at='including_transition')
 
     
-class FlapSurface(DerivedParameterNode):
+class FlapAngle(DerivedParameterNode):
     '''
     Gather the recorded flap parameters and convert into a single analogue.
     '''
@@ -3512,36 +3581,28 @@ class FlapSurface(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
         return any_of((
-            'Flap (L)', 'Flap (R)',
-            'Flap (L) Inboard', 'Flap (R) Inboard',
+            'Flap Angle (L)', 'Flap Angle (R)',
+            'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard',
         ), available)
 
     def derive(self,
-               flap_A=P('Flap (L)'),
-               flap_B=P('Flap (R)'),
-               flap_A_inboard=P('Flap (L) Inboard'),
-               flap_B_inboard=P('Flap (R) Inboard'),
+               flap_A=P('Flap Angle (L)'),
+               flap_B=P('Flap Angle (R)'),
+               flap_A_inboard=P('Flap Angle (L) Inboard'),
+               flap_B_inboard=P('Flap Angle (R) Inboard'),
                frame=A('Frame')):
 
         frame_name = frame.value if frame else ''
-
         flap_A = flap_A or flap_A_inboard
         flap_B = flap_B or flap_B_inboard
-
-        if frame_name.startswith('737-') or frame_name in ['757-2227000-59A',
-                                                           '757-DHL',
-                                                           '767-232F_DELTA-85',
-                                                           '767-2227000-59B',
-                                                           '787-A5V1RR0S']:
-            self.array, self.frequency, self.offset = blend_two_parameters(flap_A,
-                                                                           flap_B)
-
-        elif frame_name in ['747-200-GE', '747-200-PW', '747-200-AP-BIB']:
+        
+        if frame_name in ['747-200-GE', '747-200-PW', '747-200-AP-BIB']:
             # Only the right inboard flap is instrumented.
             self.array = flap_B.array
-
         else:
-            raise DataFrameError(self.name, frame_name)
+            # By default, blend the two parameters.
+            self.array, self.frequency, self.offset = blend_two_parameters(
+                flap_A, flap_B)
 
 
 class Flap(DerivedParameterNode):
@@ -3556,7 +3617,7 @@ class Flap(DerivedParameterNode):
         '''
         can operate with Frame and Alt aal if herc or Flap surface
         '''
-        if 'Flap Surface' in available:
+        if 'Flap Angle' in available:
             # normal use, we require series / family to lookup the detents
             return all_of(('Series', 'Family'), available)
         else:
@@ -3565,7 +3626,7 @@ class Flap(DerivedParameterNode):
             return all_of(('Frame', 'Altitude AAL'), available)
 
     def derive(self,
-               flap=P('Flap Surface'),
+               flap=P('Flap Angle'),
                series=A('Series'),
                family=A('Family'),
                frame=A('Frame'),
@@ -3599,7 +3660,11 @@ class Flap(DerivedParameterNode):
             else:
                 self.array = step_values(flap.array, flap.frequency, flap_steps)
         else:
-            raise DataFrameError(self.name, frame_name)
+            self.array = None
+            self.warning("No Flap, assigning a masked array")
+            # We don't want to fail, because some aircraft might not have Flap
+            # recorded correctly
+            # raise DataFrameError(self.name, frame_name)
 
 
 '''
@@ -3706,26 +3771,29 @@ class Configuration(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return all_of(('Flap', 'Slat', 'Series', 'Family'), available)
+        return all_of(('Slat', 'Flap', 'Series', 'Family'), available)
 
-    def derive(self, flap=P('Flap'), slat=P('Slat'), aileron=P('Aileron'),
+    def derive(self, slat=P('Slat'), flap=P('Flap'), flaperon=P('Flaperon'),
                series=A('Series'), family=A('Family')):
         #TODO: manu=A('Manufacturer') - we could ensure this is only done for Airbus?
 
         mapping = get_conf_map(series.value, family.value)
         qty_param = len(mapping.itervalues().next())
-        if qty_param == 3 and not aileron:
+        if qty_param == 3 and not flaperon:
             # potential problem here!
-            self.warning("Aileron not available, so will calculate Configuration using only slat and flap")
+            self.warning("Flaperon not available, so will calculate "
+                         "Configuration using only slat and flap")
             qty_param = 2
-        elif qty_param == 2 and aileron:
+        elif qty_param == 2 and flaperon:
             # only two items in values tuple
-            self.debug("Aileron available but not required for Configuration calculation")
+            self.debug("Flaperon available but not required for "
+                       "Configuration calculation")
             pass
 
-        #TODO: Scale each parameter individually to ensure uniqueness
-        # sum the required parameters
-        summed = vstack_params(*(flap, slat, aileron)[:qty_param]).sum(axis=0)
+        #TODO: Scale each parameter individually to ensure uniqueness.
+        
+        # Sum the required parameters (creates a unique state value at present)
+        summed = vstack_params(*(slat, flap, flaperon)[:qty_param]).sum(axis=0)
 
         # create a placeholder array fully masked
         self.array = MappedArray(np_ma_masked_zeros_like(flap.array), 
@@ -5298,9 +5366,13 @@ class Tailwind(DerivedParameterNode):
 
 class SAT(DerivedParameterNode):
     """
-    Computes Static Air Temperature from the Total Air Temperature, allowing
-    for compressibility effects, or if this is not available, the standard
-    atmosphere and lapse rate.
+    Computes Static Air Temperature (temperature of the outside air) from the
+    Total Air Temperature, allowing for compressibility effects, or if this
+    is not available, the standard atmosphere and lapse rate.
+    
+    Q: Support transforming SAT from OAT (as they are equal).
+    
+    TODO: Review naming convention - rename to "Static Air Temperature"?
     """
     @classmethod
     def can_operate(cls, available):
@@ -5319,6 +5391,9 @@ class SAT(DerivedParameterNode):
 class TAT(DerivedParameterNode):
     """
     Blends data from two air temperature sources.
+    
+    TODO: Support generation from SAT, Mach and Altitude STD    
+    TODO: Review naming convention - rename to "Total Air Temperature"?
     """
     name = "TAT"
     units = 'C'
@@ -5558,47 +5633,80 @@ class WindAcrossLandingRunway(DerivedParameterNode):
 
 class Aileron(DerivedParameterNode):
     '''
-    Blends alternate aileron samples. Note that this technique requires both
-    aileron samples to be scaled similarly and have positive sign for
-    positive rolling moment. That is, port aileron down and starboard aileron
-    up have positive sign.
+    Aileron measures the roll control from the Left and Right Aileron
+    signals. By taking the average of the two signals, any Flaperon movement
+    is removed from the signal, leaving only the difference between the left
+    and right which results in the roll control.
+    
+    Note: This requires that both Aileron signals have positive sign for
+    positive (right) rolling moment. That is, port aileron down and starboard
+    aileron up have positive sign.
     '''
-    # TODO: TEST
-    align = False
-    name = 'Aileron'
+    align = True
     units = 'deg'
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Aileron (L)', 'Aileron (R)', 'Aileron (L) Outboard',
-                       'Aileron (R) Outboard'), available)
+        return any_of(('Aileron (L)', 'Aileron (R)'), available)
 
-    def derive(self,
-               al=P('Aileron (L)'),
-               ar=P('Aileron (R)'),
-               alo=P('Aileron (L) Outboard'),
-               aro=P('Aileron (R) Outboard')):
-        al = al or alo
-        ar = ar or aro
+    def derive(self, al=P('Aileron (L)'), ar=P('Aileron (R)')):
         if al and ar:
-            self.array, self.frequency, self.offset = blend_two_parameters(al, ar)
-        elif al or ar:
-            self.array = al.array if al else ar.array
-            self.frequency = al.frequency if al else ar.frequency
-            self.offset = al.offset if al else ar.offset
+            # Taking the average will ensure that positive roll to the right
+            # on both signals is maintained as positive control, where as
+            # any flaperon action (left positive, right negative) will
+            # average out as no roll control.
+            self.array = (al.array + ar.array) / 2
         else:
-            return NotImplemented
+            ail = al or ar
+            self.array = ail.array
+
+            
+class Flaperon(DerivedParameterNode):
+    '''
+    Where Ailerons move together and used as Flaps, these are known as
+    "Flaperon" control.
+    
+    Flaperons are measured where both Left and Right Ailerons move down,
+    which on the left creates possitive roll but on the right causes negative
+    roll. The difference of the two signals is the Flaperon control.
+    
+    The Flaperon is stepped into nearest aileron detents, e.g. 0, 5, 10 deg
+    
+    Note: This is used for Airbus models and does not necessarily mean as
+    much to other aircraft types.
+    '''
+    def derive(self, al=P('Aileron (L)'), ar=P('Aileron (R)'),
+               series=A('Series'), family=A('Family')):
+        # Take the difference of the two signals (which should cancel each
+        # other out when rolling) and divide the range by two (to account for
+        # the left going negative and right going positive when flaperons set)
+        flaperon_angle = (al.array - ar.array) / 2
+        try:
+            ail_steps = get_aileron_map(series.value, family.value)
+        except KeyError:
+            # no mapping, aircraft must not support Flaperons so create a
+            # masked 0 array.
+            self.array = None
+            return
+        else:
+            self.array = step_values(flaperon_angle, self.frequency, ail_steps)
+
 
 class AileronLeft(DerivedParameterNode):
     # See ElevatorLeft for explanation
     name = 'Aileron (L)'
+    
     @classmethod
     def can_operate(cls, available):
         return any_of(('Aileron (L) Potentiometer', 
-                       'Aileron (L) Synchro'), available)
+                       'Aileron (L) Synchro',
+                       'Aileron (L) Inboard',
+                       'Aileron (L) Outboard'), available)
     
     def derive(self, pot=P('Aileron (L) Potentiometer'),
-               synchro=P('Aileron (L) Synchro')):
+               synchro=P('Aileron (L) Synchro'),
+               ali=P('Aileron (L) Inboard'),
+               alo=P('Aileron (L) Outboard')):
         synchro_samples = 0
         if synchro:
             synchro_samples = np.ma.count(synchro.array)
@@ -5607,17 +5715,27 @@ class AileronLeft(DerivedParameterNode):
             pot_samples = np.ma.count(pot.array)
             if pot_samples>synchro_samples:
                 self.array = pot.array
+        # If Inboard available, use this in preference
+        if ali:
+            self.array = ali.array
+        elif alo:
+            self.array = alo.array
         
 class AileronRight(DerivedParameterNode):
     # See ElevatorLeft for explanation
     name = 'Aileron (R)'
+    
     @classmethod
     def can_operate(cls, available):
         return any_of(('Aileron (R) Potentiometer', 
-                       'Aileron (R) Synchro'), available)
+                       'Aileron (R) Synchro',
+                       'Aileron (R) Inboard',
+                       'Aileron (R) Outboard'), available)
     
     def derive(self, pot=P('Aileron (R) Potentiometer'),
-               synchro=P('Aileron (R) Synchro')):
+               synchro=P('Aileron (R) Synchro'),
+               ari=P('Aileron (R) Inboard'),
+               aro=P('Aileron (R) Outboard')):
 
         synchro_samples = 0
         if synchro:
@@ -5627,7 +5745,11 @@ class AileronRight(DerivedParameterNode):
             pot_samples = np.ma.count(pot.array)
             if pot_samples>synchro_samples:
                 self.array = pot.array
-        
+        # If Inboard available, use this in preference
+        if ari:
+            self.array = ari.array
+        elif aro:
+            self.array = aro.array        
 
 class AileronTrim(DerivedParameterNode): # RollTrim
     '''
@@ -5651,6 +5773,10 @@ class Elevator(DerivedParameterNode):
 
     align = False
     units = 'deg'
+    
+    @classmethod
+    def can_operate(cls,available):
+        return any_of(('Elevator (L)', 'Elevator (R)'), available)
 
     def derive(self,
                el=P('Elevator (L)'),

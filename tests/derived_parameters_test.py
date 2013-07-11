@@ -114,8 +114,9 @@ from analysis_engine.derived_parameters import (
     Eng_4_FuelBurn,
     EngThrustModeRequired,
     Flap,
-    FlapLeverDetent,
-    FlapSurface,
+    Flaperon,
+    FlapAngle,
+    FlapLever,
     FuelQty,
     FuelQty_Low,
     GearDown,
@@ -930,6 +931,7 @@ class TestAltitudeAAL(unittest.TestCase):
         plt.plot(alt_aal.array)
         plt.show()
         '''
+        
         np.testing.assert_equal(alt_aal.array[0], 0.0)
         np.testing.assert_almost_equal(alt_aal.array[34], 7013, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[60], 3308, decimal=0)
@@ -938,6 +940,28 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[313], 17, decimal=0)
     
+    def test_alt_aal_complex_doubled(self):
+        testwave = np.ma.cos(np.arange(0, 3.14 * 2, 0.02)) * -5000 + 5500
+        rad_wave = np.copy(testwave)-500
+        #rad_wave[110:140] -= 8765 # The ground is 8,765 ft high at this point.
+        rad_data = np.ma.masked_greater(rad_wave, 2600)
+        double_test = np.ma.concatenate((testwave, testwave))
+        double_rad = np.ma.concatenate((rad_data, rad_data))
+        phase_fast = buildsection('Fast', 0, 2*len(testwave))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(P('Altitude Radio', double_rad),
+                       P('Altitude STD', double_test),
+                       phase_fast)
+        
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(double_test, '-b')
+        plt.plot(double_rad, 'o-r')
+        plt.plot(alt_aal.array, '-k')
+        plt.show()
+        '''
+        np.testing.assert_equal(alt_aal.array[0], 0.0)
+
 
     def test_alt_aal_complex_no_rad_alt(self):
         testwave = np.ma.cos(np.arange(0, 3.14 * 2 * 5, 0.1)) * -3000 + \
@@ -1440,7 +1464,7 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         self.node_class = Configuration
         self.operational_combinations = [
             ('Flap', 'Slat', 'Series', 'Family'),
-            ('Flap', 'Slat', 'Aileron', 'Series', 'Family'),
+            ('Flap', 'Slat', 'Flaperon', 'Series', 'Family'),
         ]
         # Note: The last state is invalid...
         s = [0] * 2 + [16] * 4 + [20] * 4 + [23] * 6 + [16]
@@ -1448,7 +1472,7 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         a = [0] * 4 + [5] * 2 + [10] * 10 + [10]
         self.slat = P('Slat', np.tile(np.ma.array(s), 10000))
         self.flap = P('Flap', np.tile(np.ma.array(f), 10000))
-        self.ails = P('Aileron', np.tile(np.ma.array(a), 10000))
+        self.ails = P('Flaperon', np.tile(np.ma.array(a), 10000))
 
     def test_conf_for_a330(self):
         # Note: The last state is invalid...
@@ -1458,7 +1482,7 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         series = A('Series', 'A330-301')
         family = A('Family', 'A330')
         node = self.node_class()
-        node.derive(self.flap, self.slat, self.ails, series, family)
+        node.derive(self.slat, self.flap, self.ails, series, family)
         self.assertEqual(list(node.array[:17]), expected)
 
     def test_time_taken(self):
@@ -2071,10 +2095,10 @@ class TestFlap(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = Flap
-        self.operational_combinations = [('Flap Surface', 'Series', 'Family')]
+        self.operational_combinations = [('Flap Angle', 'Series', 'Family')]
 
     def test_flap_stepped_nearest_5(self):
-        flap = P('Flap Surface', np.ma.arange(50))
+        flap = P('Flap Angle', np.ma.arange(50))
         node = self.node_class()
         node.derive(flap, A('Series', None), A('Family', None))
         expected = [0] * 3 + [5] * 5 + [10] * 5 + [15] * 2
@@ -2082,7 +2106,7 @@ class TestFlap(unittest.TestCase, NodeTest):
         expected = [45] * 5 + [50] * 2
         self.assertEqual(node.array[-7:].tolist(), expected)
 
-        flap = P('Flap Surface', np.ma.array(range(20), mask=[True] * 10 + [False] * 10))
+        flap = P('Flap Angle', np.ma.array(range(20), mask=[True] * 10 + [False] * 10))
         node.derive(flap, A('Series', None), A('Family', None))
         expected = [-1] * 10 + [10] * 3 + [15] * 5 + [20] * 2
         self.assertEqual(np.ma.filled(node.array, fill_value=-1).tolist(), expected)
@@ -2092,7 +2116,7 @@ class TestFlap(unittest.TestCase, NodeTest):
         # Note: Flap uses library.step_values(..., step_at='move_end')!
         indexes = (1, 57, 58)
         flap = P(
-            name='Flap Surface',
+            name='Flap Angle',
             array=np.ma.array(range(50) + range(-5, 0) + [13.1, 1.3, 10, 10]),
         )
         for index in indexes:
@@ -3033,35 +3057,27 @@ class TestAileron(unittest.TestCase):
     
     def test_can_operate(self):
         opts = Aileron.get_operational_combinations()
-        self.assertTrue(('Aileron (L)',) in opts)
-        self.assertTrue(('Aileron (R)',) in opts)
-        self.assertTrue(('Aileron (L) Outboard',) in opts)
-        self.assertTrue(('Aileron (R) Outboard',) in opts)
-        self.assertTrue(('Aileron (L)', 'Aileron (R)', 'Aileron (L) Outboard',
-                         'Aileron (R) Outboard') in opts)
+        self.assertTrue(opts,
+                        [('Aileron (L)',),
+                         ('Aileron (R)',),
+                         ('Aileron (L)', 'Aileron (R)'),
+                        ])
 
     def test_normal_two_sensors(self):
         left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
         right = P('Aileron (R)', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset=1.1)
         aileron = Aileron()
-        aileron.derive(left, right, None, None)
-        expected_data = np.ma.array([1.5]*3+[1.75]*2+[1.5]*3)
+        aileron.get_derived([left, right])
+        expected_data = np.ma.array([np.ma.masked, 1.5, 1.75, 1.5])
         np.testing.assert_array_equal(aileron.array, expected_data)
-        self.assertEqual(aileron.frequency, 1.0)
+        self.assertEqual(aileron.frequency, 0.5)
         self.assertEqual(aileron.offset, 0.1)
 
     def test_left_only(self):
         left = P('Aileron (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
         aileron = Aileron()
-        aileron.derive(left, None, None, None)
+        aileron.get_derived([left, None])
         expected_data = left.array
-        np.testing.assert_array_equal(aileron.array, expected_data)
-        self.assertEqual(aileron.frequency, 0.5)
-        self.assertEqual(aileron.offset, 0.1)
-        left_outboard = P('Aileron (L) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
-        aileron = Aileron()
-        aileron.derive(None, None, left_outboard, None)
-        expected_data = left_outboard.array
         np.testing.assert_array_equal(aileron.array, expected_data)
         self.assertEqual(aileron.frequency, 0.5)
         self.assertEqual(aileron.offset, 0.1)
@@ -3069,28 +3085,22 @@ class TestAileron(unittest.TestCase):
     def test_right_only(self):
         right = P('Aileron (R)', np.ma.array([3.0]*2+[2.0]*2), frequency=2.0, offset = 0.3)
         aileron = Aileron()
-        aileron.derive(None, right, None, None)
+        aileron.get_derived([None, right])
         expected_data = right.array
         np.testing.assert_array_equal(aileron.array, expected_data)
         self.assertEqual(aileron.frequency, 2.0)
-        self.assertEqual(aileron.offset, 0.3)
-        right_outboard = P('Aileron (R) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
-        aileron = Aileron()
-        aileron.derive(None, None, right_outboard, None)
-        expected_data = right_outboard.array
-        np.testing.assert_array_equal(aileron.array, expected_data)
-        self.assertEqual(aileron.frequency, 0.5)
-        self.assertEqual(aileron.offset, 0.1)        
-
-    def test_outboard_two_sensors(self):
-        left_outboard = P('Aileron (L) Outboard', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset=0.1)
-        right_outboard = P('Aileron (R) Outboard', np.ma.array([2.0]*2+[1.0]*2), frequency=0.5, offset=1.1)
-        aileron = Aileron()
-        aileron.derive(None, None, left_outboard, right_outboard)
-        expected_data = np.ma.array([1.5]*3+[1.75]*2+[1.5]*3)
-        np.testing.assert_array_equal(aileron.array, expected_data)
-        self.assertEqual(aileron.frequency, 1.0)
-        self.assertEqual(aileron.offset, 0.1)
+        self.assertEqual(aileron.offset, 0.3)    
+        
+    def test_aileron_with_flaperon(self):
+        al = load(os.path.join(test_data_path, 'aileron_left.nod'))
+        ar = load(os.path.join(test_data_path, 'aileron_right.nod'))
+        ail = Aileron()
+        ail.derive(al, ar)
+        # this section is averaging 4.833 degrees on the way in
+        self.assertAlmostEqual(np.ma.average(ail.array[160:600]), 0.04, 1)
+        # this section is averaging 9.106 degrees, ensure it gets moved to 0
+        #self.assertAlmostEqual(np.ma.average(ail.array[800:1000]), 0.2, 1)
+        assert_array_within_tolerance(ail.array[800:1000], 0, 4, 90)
 
 
 class TestAileronTrim(unittest.TestCase):
@@ -3101,7 +3111,31 @@ class TestAileronTrim(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+        
 
+class TestFlaperon(unittest.TestCase):
+    def test_can_operate(self):
+        opts = Flaperon.get_operational_combinations()
+        self.assertEqual(opts, 
+                         [('Aileron (L)', 'Aileron (R)', 'Series', 'Family')])
+        
+    def test_derive(self):
+        al = load(os.path.join(test_data_path, 'aileron_left.nod'))
+        ar = load(os.path.join(test_data_path, 'aileron_right.nod'))
+        series = A('Series', 'A330-200')
+        family = A('Family', 'A330')
+        flaperon = Flaperon()
+        flaperon.derive(al, ar, series, family)
+        def unique_values(array):
+            y = np.bincount(array)
+            ii = np.nonzero(y)[0]
+            return zip(ii,y[ii])
+        
+        # ensure values are grouped into aileron settings accordingly
+        self.assertEqual(unique_values(flaperon.array.astype(int)),
+                         [(0, 22123), (5, 278), (10, 1151)])
+        
+        
 
 class TestAirspeedMinusV2For3Sec(unittest.TestCase):
     def test_can_operate(self):
@@ -3134,9 +3168,12 @@ class TestAltitudeSTD(unittest.TestCase):
 
 
 class TestElevator(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.assertEqual(Elevator.get_operational_combinations(),
+                         [('Elevator (L)',),
+                          ('Elevator (R)',),
+                          ('Elevator (L)', 'Elevator (R)'),
+                          ])
         
     def test_normal_two_sensors(self):
         left = P('Elevator (L)', np.ma.array([1.0]*2+[2.0]*2), frequency=0.5, offset = 0.1)
@@ -3640,12 +3677,12 @@ class TestFlapLeverDetent(unittest.TestCase):
         ##self.node_class = FlapLeverDetent
         ##self.operational_combinations = [
             ##('Flap Lever', 'Series', 'Family'),
-            ##('Flap Surface', 'Series', 'Family'),
+            ##('Flap Angle', 'Series', 'Family'),
         ##]
         #self.series=A('B737-300')
         #self.family=A('B737')
         #self.lvr=P('Flap Lever', np.ma.array(data=[0,0,1,2,15,15]))
-        #self.surf=P('Flap Surface', np.ma.array(data=[2,2,5,10,15]))
+        #self.surf=P('Flap Angle', np.ma.array(data=[2,2,5,10,15]))
         
     def basic_lever(self):
         fld =FlapLeverDetent()
@@ -3654,18 +3691,18 @@ class TestFlapLeverDetent(unittest.TestCase):
         ma_test.assert_array_equal(fld.array, result)
 
 
-class TestFlapSurface(unittest.TestCase, NodeTest):
+class TestFlapAngle(unittest.TestCase, NodeTest):
 
     def setUp(self):
-        self.node_class = FlapSurface
+        self.node_class = FlapAngle
         self.operational_combinations = [
-            ('Flap (L)',),
-            ('Flap (R)',),
-            ('Flap (L) Inboard',),
-            ('Flap (R) Inboard',),
-            ('Flap (L)', 'Flap (R)'),
-            ('Flap (L) Inboard', 'Flap (R) Inboard'),
-            ('Flap (L)', 'Flap (R)', 'Flap (L) Inboard', 'Flap (R) Inboard', 'Frame'),
+            ('Flap Angle (L)',),
+            ('Flap Angle (R)',),
+            ('Flap Angle (L) Inboard',),
+            ('Flap Angle (R) Inboard',),
+            ('Flap Angle (L)', 'Flap Angle (R)'),
+            ('Flap Angle (L) Inboard', 'Flap Angle (R) Inboard'),
+            ('Flap Angle (L)', 'Flap Angle (R)', 'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard', 'Frame'),
         ]
 
     @unittest.skip('Test Not Implemented')

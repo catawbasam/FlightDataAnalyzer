@@ -7,9 +7,11 @@ from datetime import datetime
 from analysis_engine.node import (DerivedParameterNode, Node, NodeManager, P)
 from analysis_engine.process_flight import get_derived_nodes
 from analysis_engine.dependency_graph import (
+    any_predecessors_in_requested,
     dependency_order, 
     graph_nodes, 
-    graph_adjacencies, 
+    graph_adjacencies,
+    indent_tree,
     process_order,
 )
   
@@ -70,12 +72,109 @@ class TestDependencyGraph(unittest.TestCase):
     def tearDown(self):
         pass
     
+    def test_indent_tree(self):
+        required_nodes = ['P7', 'P8']
+        mgr2 = NodeManager(datetime.now(), 10, self.lfl_params, required_nodes, 
+                           self.derived_nodes, {}, {})
+        gr = graph_nodes(mgr2)
+        gr.node['Raw1']['active'] = True
+        gr.node['Raw2']['active'] = False
+        gr.node['P4']['active'] = False
+        self.assertEqual(
+            indent_tree(gr, 'P7', space='__', delim=' ', label=False),
+            [' P7',
+             '__ [P4]',
+             '____ Raw1',
+             '____ [Raw2]',
+             '__ P5',
+             '____ Raw3',
+             '____ Raw4',             
+             '__ P6',
+             '____ Raw3',
+            ])
+        # don't recurse valid parameters...
+        self.assertEqual(
+            indent_tree(gr, 'P5', label=False, recurse_active=False),
+            [])
+        self.assertEqual(
+            indent_tree(gr, 'P4', label=False, recurse_active=False),
+            ['- [P4]',
+             '  - [Raw2]',
+             ])        
+        
+        self.assertEqual(
+            indent_tree(gr, 'root'),
+            ['- root',
+             '  - P7 (DerivedParameterNode)',
+             '    - [P4] (DerivedParameterNode)',
+             '      - Raw1 (HDFNode)',
+             '      - [Raw2] (HDFNode)',
+             '    - P5 (DerivedParameterNode)',
+             '      - Raw3 (HDFNode)',
+             '      - Raw4 (HDFNode)',             
+             '    - P6 (DerivedParameterNode)',
+             '      - Raw3 (HDFNode)',
+             '  - P8 (DerivedParameterNode)',
+             '    - Raw5 (HDFNode)',
+            ])
+        
+     
+        
+    def test_graph_predecessors(self):
+        edges = [('a', 'b'), ('b', 'c1'), ('b', 'c2'), ('b', 'c3'), ('c2', 'd'),
+                 ('x', 'y'), ('y', 'z')]
+        gr = nx.DiGraph(edges)
+        # all requested
+        req = ['a', 'b', 'c1', 'c2', 'c3']
+        self.assertTrue(any_predecessors_in_requested('b', req, gr))
+        self.assertEqual(any_predecessors_in_requested('b', req, gr), 'a') # finds 'a'
+        self.assertTrue(any_predecessors_in_requested('c3', req, gr))
+        self.assertEqual(any_predecessors_in_requested('c3', req, gr), 'b') # finds 'b' just above
+        # no predecessors returns False
+        self.assertFalse(any_predecessors_in_requested('a', req, gr))
+        self.assertEqual(any_predecessors_in_requested('a', req, gr), False)
+        self.assertFalse(any_predecessors_in_requested('x', req, gr))
+        self.assertFalse(any_predecessors_in_requested('y', req, gr))
+        # only requested half way down ('b')
+        req = ['b', 'y']
+        self.assertFalse(any_predecessors_in_requested('a', req, gr))
+        self.assertEqual(any_predecessors_in_requested('a', req, gr), False)
+        # 'b' is requested, but NONE of its predecessors are requested!
+        self.assertFalse(any_predecessors_in_requested('b', req, gr))
+        # 'c1' is not requested, but 'b' is requested
+        self.assertTrue(any_predecessors_in_requested('c1', req, gr))
+        self.assertEqual(any_predecessors_in_requested('c1', req, gr), 'b')
+        # 'd' must pass through 'c2' then find 'b' in requested
+        self.assertTrue(any_predecessors_in_requested('d', req, gr))
+        self.assertEqual(any_predecessors_in_requested('d', req, gr), 'b')
+        # 'x' is not requested, and although 'y' is it has no predecessors available
+        self.assertFalse(any_predecessors_in_requested('x', req, gr))
+        self.assertFalse(any_predecessors_in_requested('y', req, gr))   
+        
     def test_graph_nodes_using_sample_tree(self): 
         required_nodes = ['P7', 'P8']
         mgr2 = NodeManager(datetime.now(), 10, self.lfl_params, required_nodes, 
                            self.derived_nodes, {}, {})
         gr = graph_nodes(mgr2)
         self.assertEqual(len(gr), 11)
+        self.assertEqual(gr.neighbors('root'), ['P8', 'P7'])
+        
+    def test_graph_requesting_all_dependencies_links_root_to_end_leafs(self):
+        # build list of all nodes as required
+        required_node = self.lfl_params + self.derived_nodes.keys()
+        mgr = NodeManager(datetime.now(), 1, self.lfl_params, required_node,
+                          self.derived_nodes, {}, {})
+        gr = graph_nodes(mgr)
+        # should only be linked to end leafs
+        self.assertEqual(gr.neighbors('root'), ['P8', 'P7'])
+        
+    def test_graph_middle_level_depenency_builds_partial_tree(self):
+        required_node = ['P5']
+        mgr = NodeManager(datetime.now(), 1, self.lfl_params, required_node,
+                          self.derived_nodes, {}, {})
+        gr = graph_nodes(mgr)
+        # should only be linked to P5
+        self.assertEqual(gr.neighbors('root'), ['P5'])
     
     def test_graph_nodes_with_duplicate_key_in_lfl_and_derived(self):
         """ Test that LFL nodes are used in place of Derived where available.
@@ -98,10 +197,10 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertEqual(len(gr), 5)
         # LFL
         self.assertEqual(gr.edges(1), []) # as it's in LFL, it shouldn't have any edges
-        self.assertEqual(gr.node[1], {'color': '#72f4eb'})
+        self.assertEqual(gr.node[1], {'color': '#72f4eb', 'node_type': 'HDFNode'})
         # Derived
         self.assertEqual(gr.edges(4), [(4,'DepFour')])
-        self.assertEqual(gr.node[4], {'color': '#72cdf4'})
+        self.assertEqual(gr.node[4], {'color': '#72cdf4', 'node_type': 'DerivedParameterNode'})
         # Root
         from analysis_engine.dependency_graph import draw_graph
         draw_graph(gr, 'test_graph_nodes_with_duplicate_key_in_lfl_and_derived')

@@ -286,7 +286,7 @@ class TestAltitudeInFinalApproach(unittest.TestCase):
 class TestAltitudeWhenClimbing(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeWhenClimbing.get_operational_combinations(),
-                         [('Climbing', 'Altitude AAL')])
+                         [('Climbing', 'Altitude AAL', 'Altitude STD Smoothed')])
     
     @mock.patch('analysis_engine.key_time_instances.hysteresis')
     def test_derive(self, hysteresis):
@@ -297,12 +297,8 @@ class TestAltitudeWhenClimbing(unittest.TestCase):
                                        range(0, 200, 20),
                                        mask=[False] * 6 + [True] * 3 + \
                                             [False] * 11))
-        # Do not apply hysteresis to simplify testing.
-        hysteresis.return_value = alt_aal.array
         altitude_when_climbing = AltitudeWhenClimbing()
         altitude_when_climbing.derive(climbing, alt_aal)
-        hysteresis.assert_called_once_with(alt_aal.array,
-                                           altitude_when_climbing.HYSTERESIS)
         self.assertEqual(list(altitude_when_climbing),
           [KeyTimeInstance(index=5.0, name='100 Ft Climbing'),
            KeyTimeInstance(index=12.5, name='50 Ft Climbing'),
@@ -314,7 +310,7 @@ class TestAltitudeWhenClimbing(unittest.TestCase):
 class TestAltitudeWhenDescending(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeWhenDescending.get_operational_combinations(),
-                         [('Descending', 'Altitude AAL')])
+                         [('Descending','Altitude AAL', 'Altitude STD Smoothed')])
 
     def test_derive(self):
         descending = buildsections('Descending', [0, 10], [11, 20])
@@ -332,7 +328,7 @@ class TestAltitudeWhenDescending(unittest.TestCase):
 class TestAltitudeSTDWhenDescending(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(AltitudeSTDWhenDescending.get_operational_combinations(),
-                         [('Descending', 'Altitude STD')])
+                         [('Descending', 'Altitude AAL', 'Altitude STD Smoothed')])
 
     def test_derive(self):
         descending = buildsections('Descending', [0, 10], [11, 20])

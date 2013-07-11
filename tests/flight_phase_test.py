@@ -327,8 +327,8 @@ class TestILSGlideslopeEstablished(unittest.TestCase):
 
 class TestILSLocalizerEstablished(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('ILS Localizer', 'Altitude AAL For Flight Phases', 'Approach'),
-                    ('ILS Localizer', 'Altitude AAL For Flight Phases', 'Approach', 'ILS Frequency')]
+        expected = [('ILS Localizer', 'Altitude AAL For Flight Phases', 'Approach And Landing'),
+                    ('ILS Localizer', 'Altitude AAL For Flight Phases', 'Approach And Landing', 'ILS Frequency')]
 
         self.assertEqual(ILSLocalizerEstablished.get_operational_combinations(),
                          expected)
@@ -1070,7 +1070,7 @@ class TestHolding(unittest.TestCase):
         hold=Holding()
         hold.derive(alt, hdg, lat, lon)
         expected=buildsections('Holding',[570,1290],[1470,2340])
-        self.assertEqual(hold, expected)
+        self.assertEqual(list(hold), list(expected))
 
     def test_hold_rejected_if_travelling(self):
         rot=[0]*600+([3]*60+[0]*60)*6+[0]*180+([3]*60+[0]*90)*6+[0]*600
