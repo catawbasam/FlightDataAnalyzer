@@ -3478,11 +3478,8 @@ class Groundspeed(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
-class FlapLever(DerivedParameterNode):
+class FlapLever(MultistateDerivedParameterNode):
     '''
-    TEMPORARY KPV TO TEST EFFECT OF CHANGE IN FLAP DATA PROCESSING. TO BE
-    REPLACED BY "FLAP LEVER IF FLAP LEVER ELSE FLAP" LOGIC LATER WHERE
-    REQUIRED.
     '''
 
     units = 'deg'
@@ -3504,6 +3501,8 @@ class FlapLever(DerivedParameterNode):
             self.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
             flap_steps = range(0, 50, 5)
+        
+        self.values_mapping = {f: str(f) for f in flap_steps}
 
         # Use flap lever position where recorded, otherwise revert to flap surface.
         ##if flap_lvr:
