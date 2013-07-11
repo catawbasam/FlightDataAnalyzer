@@ -3515,7 +3515,7 @@ class FlapLever(MultistateDerivedParameterNode):
                                  flap_steps, step_at='move_start')
 
 
-class FlapExcludingTransition(DerivedParameterNode):
+class FlapExcludingTransition(MultistateDerivedParameterNode):
     '''
     Specifically designed to cater for maintenance monitoring, this assumes
     that when moving the lower of the start and endpoints of the movement
@@ -3536,12 +3536,14 @@ class FlapExcludingTransition(DerivedParameterNode):
             self.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
             self.array = round_to_nearest(flap.array, 5.0)
+            self.values_mapping = {f: str(f) for f in flap_steps}
         else:
             self.array = step_values(flap.array, flap.frequency, flap_steps, 
                                      step_at='excluding_transition')
+            self.values_mapping = {f: str(f) for f in flap_steps}
 
 
-class FlapIncludingTransition(DerivedParameterNode):
+class FlapIncludingTransition(MultistateDerivedParameterNode):
     '''
     Specifically designed to cater for maintenance monitoring, this assumes
     that when moving the higher of the start and endpoints of the movement
@@ -5682,6 +5684,7 @@ class Flaperon(DerivedParameterNode):
     Note: This is used for Airbus models and does not necessarily mean as
     much to other aircraft types.
     '''
+    # TODO: Multistate
     def derive(self, al=P('Aileron (L)'), ar=P('Aileron (R)'),
                series=A('Series'), family=A('Family')):
         # Take the difference of the two signals (which should cancel each
