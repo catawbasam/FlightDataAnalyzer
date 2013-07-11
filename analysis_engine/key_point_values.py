@@ -60,7 +60,6 @@ from analysis_engine.library import (ambiguous_runway,
                                      slices_and_not,
                                      slices_from_to,
                                      slices_not,
-                                     slices_or,
                                      slices_overlap,
                                      slices_and,
                                      slices_remove_small_slices,
@@ -78,7 +77,8 @@ class FlapOrConfigurationMaxOrMin(object):
     '''
     Abstract superclass.
     '''
-    def flap_or_conf_max_or_min(self, conflap, parameter, function, scope=None, include_zero=False):
+    def flap_or_conf_max_or_min(self, conflap, parameter, function, scope=None,
+                                include_zero=False):
         '''
         Generic flap and conf key point value creation process.
 
@@ -107,6 +107,7 @@ class FlapOrConfigurationMaxOrMin(object):
                     int(valid.slice.start or 0):
                     int(valid.slice.stop or len(scope_array)) + 1] = False
 
+        kpvs = []
         for detent in np.ma.unique(conflap.array):
             if np.ma.is_masked(detent):
                 continue
@@ -133,8 +134,8 @@ class FlapOrConfigurationMaxOrMin(object):
             # Ensure KPVs with integer detents don't have decimal places and
             # that those that are floats only have one decimal place:
             detent = int(detent) if float(detent).is_integer() else '%.1f' % detent
-            key = 'flap' if conflap.name in ['Flap', 'Flap Achieved'] else 'conf'
-            self.create_kpv(index, value, **{key: detent})
+            kpvs.append((index, value, detent))
+        return kpvs
 
 
 ##############################################################################
@@ -1334,21 +1335,29 @@ class AirspeedRelativeFor3Sec20FtToTouchdownMin(KeyPointValueNode):
 class AirspeedWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
-
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)s Max'
-    NAME_VALUES = NAME_VALUES_FLAP
-
+    NAME_FORMAT = 'Airspeed With %(flap_param)s %(flap)s Max'
+    NAME_VALUES = NAME_VALUES_FLAP.copy()
+    NAME_VALUES.update({
+            'flap_param': ['Flap Including Transition',
+                           'Flap Excluding Transition'],
+    })
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap Achieved'),
+               flap_inc_trans=P('Flap Including Transition'),
+               flap_exc_trans=P('Flap Excluding Transition'),
                airspeed=P('Airspeed'),
                scope=S('Fast')):
 
         # Fast scope traps flap changes very late on the approach and raising
         # flaps before 80kn on the landing run.
-        self.flap_or_conf_max_or_min(flap, airspeed, max_value, scope=scope)
+        for param in (flap_inc_trans, flap_exc_trans):
+            kpvs = self.flap_or_conf_max_or_min(param, airspeed, max_value,
+                                                scope=scope)
+            for index, value, detent in kpvs:
+                self.create_kpv(index, value, flap_param=param.name,
+                                flap=detent)
 
 
 class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
@@ -1376,17 +1385,27 @@ class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOr
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Climb Max'
-    NAME_VALUES = NAME_VALUES_FLAP
+    NAME_FORMAT = 'Airspeed With %(flap_param)s %(flap)s During Climb Max'
+    NAME_VALUES = NAME_VALUES_FLAP.copy()
+    NAME_VALUES.update({
+        'flap_param': ['Flap Including Transition',
+                       'Flap Excluding Transition'],
+    })
 
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap Achieved'),
+               flap_inc_trans=P('Flap Including Transition'),
+               flap_exc_trans=P('Flap Excluding Transition'),
                airspeed=P('Airspeed'),
                scope=S('Climb')):
-
-        self.flap_or_conf_max_or_min(flap, airspeed, max_value, scope=scope)
+        
+        for param in (flap_inc_trans, flap_exc_trans):
+            kpvs = self.flap_or_conf_max_or_min(param, airspeed, max_value,
+                                                scope=scope)
+            for index, value, detent in kpvs:
+                self.create_kpv(index, value, flap_param=param.name,
+                                flap=detent)
 
 
 class AirspeedWithFlapDuringClimbMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
@@ -1412,17 +1431,26 @@ class AirspeedWithFlapDuringDescentMax(KeyPointValueNode, FlapOrConfigurationMax
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With Flap %(flap)s During Descent Max'
-    NAME_VALUES = NAME_VALUES_FLAP
-
+    NAME_FORMAT = 'Airspeed With %(flap_param)s %(flap)s During Descent Max'
+    NAME_VALUES = NAME_VALUES_FLAP.copy()
+    NAME_VALUES.update({
+            'flap_param': ['Flap Including Transition',
+                           'Flap Excluding Transition'],
+    })
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap Achieved'),
+               flap_inc_trans=P('Flap Including Transition'),
+               flap_exc_trans=P('Flap Excluding Transition'),
                airspeed=P('Airspeed'),
                scope=S('Descent')):
-
-        self.flap_or_conf_max_or_min(flap, airspeed, max_value, scope=scope)
+        
+        for param in (flap_inc_trans, flap_exc_trans):
+            kpvs = self.flap_or_conf_max_or_min(param, airspeed, max_value,
+                                                scope=scope)
+            for index, value, detent in kpvs:
+                self.create_kpv(index, value, flap_param=param.name,
+                                flap=detent)
 
 
 class AirspeedWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
@@ -2219,7 +2247,7 @@ class AltitudeAtFlapExtension(KeyPointValueNode):
     units = 'ft'
 
     def derive(self,
-               flaps=KTI('FlapExtensionWhileAirborne'),
+               flaps=KTI('Flap Extension While Airborne'),
                alt_aal=P('Altitude AAL')):
 
         if flaps:
@@ -2268,22 +2296,30 @@ class AltitudeAtFlapExtensionWithGearDown(KeyPointValueNode):
     NAME_VALUES = NAME_VALUES_FLAP
 
     units = 'ft'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return (('Flap Lever' in available or 'Flap' in available) and
+                all_of(('Altitude AAL', 'Gear Extended', 'Airborne'),
+                       available))
 
-    def derive(self, flap_p=P('Flap Lever Detent'),
+    def derive(self, flap_lever=P('Flap Lever'),
+               flap_synth=P('Flap'),
                alt_aal=P('Altitude AAL'),
                gear_ext=S('Gear Extended'),
                airborne=S('Airborne')):
+        flap = flap_lever or flap_synth
         
         for air_down in slices_and([a.slice for a in airborne], 
                                    [g.slice for g in gear_ext]):
-            extend_indexes = np.ma.where(np.ma.diff(flap_p.array[air_down])>0)[0]
+            extend_indexes = np.ma.where(np.ma.diff(flap.array[air_down])>0)[0]
             if len(extend_indexes)==0:
                 continue
             for extend_index in extend_indexes:
                 # The flap we are moving to is +1 from the diff index
                 index = (air_down.start or 0) + extend_index + 1
                 value = alt_aal.array[index]
-                selected_flap = int(flap_p.array[index])
+                selected_flap = int(flap.array[index])
                 self.create_kpv(index, value, flap=int(selected_flap))
 
 
@@ -2298,21 +2334,28 @@ class AirspeedAtFlapExtensionWithGearDown(KeyPointValueNode):
     
     units = 'kts'
     
-    def derive(self, flap_p=P('Flap Lever Detent'),
+    @classmethod
+    def can_operate(cls, available):
+        return (all_of(('Airspeed', 'Gear Extended', 'Airborne'), available) and
+                ('Flap Lever' in available or 'Flap' in available))
+    
+    def derive(self, flap_lever=P('Flap Lever'),
+               flap_synth=P('Flap'),
                air_spd=P('Airspeed'),
                gear_ext=S('Gear Extended'),
                airborne=S('Airborne')):
+        flap = flap_lever or flap_synth
         
         for air_down in slices_and([a.slice for a in airborne], 
                                    [g.slice for g in gear_ext]):
-            extend_indexes = np.ma.where(np.ma.diff(flap_p.array[air_down])>0)[0]
+            extend_indexes = np.ma.where(np.ma.diff(flap.array[air_down])>0)[0]
             if len(extend_indexes)==0:
                 continue
             for extend_index in extend_indexes:
                 # The flap we are moving to is +1 from the diff index
                 index = (air_down.start or 0) + extend_index + 1
                 value = air_spd.array[index]
-                selected_flap = int(flap_p.array[index])
+                selected_flap = int(flap.array[index])
                 self.create_kpv(index, value, flap=int(selected_flap))
 
 
@@ -2413,12 +2456,20 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
     '''
 
     units = 'ft'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return (('Flap Lever' in available or 'Flap' in available) and
+                all_of(('Flap At Liftoff', 'Altitude AAL', 'Airborne'),
+                       available))
 
     def derive(self,
-               flap=P('Flap Lever Detent'),
+               flap_lever=P('Flap Lever'),
+               flap_synth=P('Flap'),
                flap_liftoff=KPV('Flap At Liftoff'),
                alt_aal=P('Altitude AAL'),
                airborne=S('Airborne')):
+        flap = flap_lever or flap_synth
 
         if flap_liftoff.get_first().value == 0.0:
             # if taken off with flap 0 likely first flap change after liftoff
@@ -2439,11 +2490,18 @@ class AltitudeAtLastFlapChangeBeforeTouchdown(KeyPointValueNode):
     '''
 
     units = 'ft'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return (('Flap Lever' in available or 'Flap' in available) and
+                'Altitude AAL' in available and 'Touchdown' in available)
 
     def derive(self,
-               flap=P('Flap Lever Detent'),
+               flap_lever=P('Flap Lever'),
+               flap_synth=P('Flap'),
                alt_aal=P('Altitude AAL'),
                touchdowns=KTI('Touchdown')):
+        flap = flap_lever or flap_synth
 
         for touchdown in touchdowns:
             land_flap = flap.array[touchdown.index]
@@ -8401,8 +8459,7 @@ class TwoDegPitchTo35FtDuration(KeyPointValueNode):
     name = '2 Deg Pitch To 35 Ft Duration'
     units = 's'
 
-    def derive(self,
-               two_deg_pitch_to_35ft=S('2 Deg Pitch To 35 Ft')):
+    def derive(self, two_deg_pitch_to_35ft=S('2 Deg Pitch To 35 Ft')):
 
         self.create_kpvs_from_slice_durations(
             two_deg_pitch_to_35ft,
@@ -8423,8 +8480,17 @@ class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
     and calculate the time between this instant and the end of takeoff roll.
     '''
     units = 's'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return (('Flap Lever' in available or 'Flap' in available) and
+                'Takeoff Roll' in available)
 
-    def derive(self, flap=P('Flap Lever Detent'), rolls=S('Takeoff Roll')):
+    def derive(self, flap_lever=P('Flap Lever'),
+               flap_synth=P('Flap'),
+               rolls=S('Takeoff Roll')):
+        flap = flap_lever or flap_synth
+        
         for roll in rolls:
             changes = find_edges(flap.array, roll.slice, 'all_edges')
             if changes:
