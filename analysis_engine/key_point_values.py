@@ -2317,14 +2317,14 @@ class AltitudeAtFlapExtensionWithGearDown(KeyPointValueNode):
         
         for air_down in slices_and([a.slice for a in airborne], 
                                    [g.slice for g in gear_ext]):
-            extend_indexes = np.ma.where(np.ma.diff(flap.array[air_down])>0)[0]
+            extend_indexes = np.ma.where(np.ma.diff(flap.array.raw[air_down])>0)[0]
             if len(extend_indexes)==0:
                 continue
             for extend_index in extend_indexes:
                 # The flap we are moving to is +1 from the diff index
                 index = (air_down.start or 0) + extend_index + 1
                 value = alt_aal.array[index]
-                selected_flap = int(flap.array[index])
+                selected_flap = int(flap.array.raw[index])
                 self.create_kpv(index, value, flap=int(selected_flap))
 
 
@@ -2353,14 +2353,14 @@ class AirspeedAtFlapExtensionWithGearDown(KeyPointValueNode):
         
         for air_down in slices_and([a.slice for a in airborne], 
                                    [g.slice for g in gear_ext]):
-            extend_indexes = np.ma.where(np.ma.diff(flap.array[air_down])>0)[0]
+            extend_indexes = np.ma.where(np.ma.diff(flap.array.raw[air_down])>0)[0]
             if len(extend_indexes)==0:
                 continue
             for extend_index in extend_indexes:
                 # The flap we are moving to is +1 from the diff index
                 index = (air_down.start or 0) + extend_index + 1
                 value = air_spd.array[index]
-                selected_flap = int(flap.array[index])
+                selected_flap = int(flap.array.raw[index])
                 self.create_kpv(index, value, flap=int(selected_flap))
 
 
@@ -2507,8 +2507,8 @@ class AltitudeAtLastFlapChangeBeforeTouchdown(KeyPointValueNode):
         flap = flap_lever or flap_synth
 
         for touchdown in touchdowns:
-            land_flap = flap.array[touchdown.index]
-            flap_move = abs(flap.array-land_flap)
+            land_flap = flap.array.raw[touchdown.index]
+            flap_move = abs(flap.array.raw-land_flap)
             rough_index = index_at_value(flap_move, 0.5, slice(touchdown.index, 0, -1))
             # index_at_value tries to be precise, but in this case we really
             # just want the index at the new flap setting.
