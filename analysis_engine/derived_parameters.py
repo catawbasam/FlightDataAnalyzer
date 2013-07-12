@@ -3532,12 +3532,13 @@ class FlapExcludingTransition(MultistateDerivedParameterNode):
             # no flaps mapping, round to nearest 5 degrees
             self.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
-            self.array = round_to_nearest(flap.array, 5.0)
-            self.values_mapping = {f: str(f) for f in flap_steps}
+            array = round_to_nearest(flap.array, 5.0)
+            flap_steps = {f: str(f) for f in np.ma.unique(array)}
         else:
-            self.array = step_values(flap.array, flap.frequency, flap_steps, 
-                                     step_at='excluding_transition')
-            self.values_mapping = {f: str(f) for f in flap_steps}
+            array = step_values(flap.array, flap.frequency, flap_steps, 
+                                step_at='excluding_transition')
+        self.array = array
+        self.values_mapping = {f: str(f) for f in flap_steps}
 
 
 class FlapIncludingTransition(MultistateDerivedParameterNode):
@@ -3562,10 +3563,13 @@ class FlapIncludingTransition(MultistateDerivedParameterNode):
             # no flaps mapping, round to nearest 5 degrees
             self.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
-            self.array = round_to_nearest(flap.array, 5.0)
+            array = round_to_nearest(flap.array, 5.0)
+            flap_steps = {f: str(f) for f in np.ma.unique(array)}
         else:
-            self.array = step_values(flap.array, flap.frequency, flap_steps, 
-                                     step_at='including_transition')
+            array = step_values(flap.array, flap.frequency, flap_steps, 
+                                step_at='including_transition')
+        self.array = array
+        self.values_mapping = {f: str(f) for f in flap_steps}
 
     
 class FlapAngle(DerivedParameterNode):
