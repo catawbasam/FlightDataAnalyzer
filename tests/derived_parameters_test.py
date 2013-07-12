@@ -143,6 +143,7 @@ from analysis_engine.derived_parameters import (
     MagneticVariationFromRunway,
     MasterWarning,
     Pitch,
+    PitchAlternateLaw,
     RollRate,
     Speedbrake,
     SpeedbrakeSelected,
@@ -5057,6 +5058,36 @@ class TestMasterWarning(unittest.TestCase, NodeTest):
         )
         node = self.node_class()
         node.derive(warn_capt, warn_fo)
+        np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
+
+
+class TestPitchAlternateLaw(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = PitchAlternateLaw
+        self.operational_combinations = [
+            ('Pitch Alternate (1) Law',),
+            ('Pitch Alternate (2) Law',),
+            ('Pitch Alternate (1) Law', 'Pitch Alternate (2) Law'),
+        ]
+
+    def test_derive(self):
+        alt_law1 = M(
+            name='Pitch Alternate (1) Law',
+            array=np.ma.array(data=[0, 0, 0, 1, 1, 1]),
+            values_mapping={0: '-', 1: 'Alternate'},
+            frequency=1,
+            offset=0.1,
+        )
+        alt_law2 = M(
+            name='Pitch Alternate (2) Law',
+            array=np.ma.array(data=[0, 0, 1, 1, 0, 0]),
+            values_mapping={0: '-', 1: 'Alternate'},
+            frequency=1,
+            offset=0.1,
+        )
+        node = self.node_class()
+        node.derive(alt_law1, alt_law2)
         np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
 
 
