@@ -6773,4 +6773,25 @@ class MasterWarning(MultistateDerivedParameterNode):
         ).any(axis=0)
 
 
+class PitchAlternateLaw(MultistateDerivedParameterNode):
+    '''
+    Combine Pitch Alternate Law from sources (1) and/or (2).
+    
+    TODO: Review
+    '''
 
+    values_mapping = {0: '-', 1: 'Alternate'}
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               alt_law_1=M('Pitch Alternate (1) Law'),
+               alt_law_2=M('Pitch Alternate (2) Law')):
+
+        self.array = vstack_params_where_state(
+            (alt_law_1, 'Alternate'),
+            (alt_law_2, 'Alternate'),
+        ).any(axis=0)

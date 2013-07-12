@@ -7593,6 +7593,30 @@ class MasterCautionDuringTakeoffDuration(KeyPointValueNode):
                                caution.hz, phase=takeoff_rolls)
 
 
+class PitchAlternateLawDuration(KeyPointValueNode):
+    '''
+    TODO: Review
+    '''
+
+    units = 's'
+
+    def derive(self, alt_law=M('Pitch Alternate Law')):
+        self.create_kpvs_where(alt_law.array == 'Alternate',
+                               alt_law.hz)
+
+
+class PitchDirectLawDuration(KeyPointValueNode):
+    '''
+    TODO: Review
+    '''
+
+    units = 's'
+
+    def derive(self, dir_law=M('Pitch Direct Law')):
+        self.create_kpvs_where(dir_law.array == 'Direct',
+                               dir_law.hz)
+
+
 ##############################################################################
 # Warnings: Terrain Awareness & Warning System (TAWS)
 
