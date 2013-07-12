@@ -1505,10 +1505,12 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
 
     def test_derive(self):
         flap = [[0, 5, 10]] * 10
-        flap_inc_trans = P('Flap Including Transition',
-                           np.ma.array(reduce(operator.add, zip(*flap))))
-        flap_exc_trans = P('Flap Excluding Transition',
-                           np.ma.array(reduce(operator.add, zip(*flap))))
+        flap_array = np.ma.array(reduce(operator.add, zip(*flap)))
+        values_mapping = {f: str(f) for f in set(flap_array)}
+        flap_inc_trans = M('Flap Including Transition', flap_array.copy(),
+                           values_mapping=values_mapping)
+        flap_exc_trans = M('Flap Excluding Transition', flap_array.copy(),
+                           values_mapping=values_mapping)
         air_spd = P('Airspeed', np.ma.arange(30))
         fast = buildsection('Fast', 0, 30)
         flap_inc_trans.array[19] = np.ma.masked  # mask the max value
@@ -1516,47 +1518,47 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
         air_spd_flap_max.derive(flap_inc_trans, flap_exc_trans, air_spd, fast)
 
         self.assertEqual(len(air_spd_flap_max), 4)
-        self.assertEqual(air_spd_flap_max[0].name, 'Airspeed With Flap Including Transition 5 Max')
-        self.assertEqual(air_spd_flap_max[0].index, 18)  # 19 was masked
-        self.assertEqual(air_spd_flap_max[0].value, 18)
-        self.assertEqual(air_spd_flap_max[1].name, 'Airspeed With Flap Including Transition 10 Max')
-        self.assertEqual(air_spd_flap_max[1].index, 29)
-        self.assertEqual(air_spd_flap_max[1].value, 29)
-        self.assertEqual(air_spd_flap_max[2].name, 'Airspeed With Flap Excluding Transition 5 Max')
-        self.assertEqual(air_spd_flap_max[2].index, 19)
-        self.assertEqual(air_spd_flap_max[2].value, 19)
-        self.assertEqual(air_spd_flap_max[3].name, 'Airspeed With Flap Excluding Transition 10 Max')
-        self.assertEqual(air_spd_flap_max[3].index, 29)
-        self.assertEqual(air_spd_flap_max[3].value, 29)
+        self.assertEqual(air_spd_flap_max[1].name, 'Airspeed With Flap Including Transition 5 Max')
+        self.assertEqual(air_spd_flap_max[1].index, 18)  # 19 was masked
+        self.assertEqual(air_spd_flap_max[1].value, 18)
+        self.assertEqual(air_spd_flap_max[0].name, 'Airspeed With Flap Including Transition 10 Max')
+        self.assertEqual(air_spd_flap_max[0].index, 29)
+        self.assertEqual(air_spd_flap_max[0].value, 29)
+        self.assertEqual(air_spd_flap_max[3].name, 'Airspeed With Flap Excluding Transition 5 Max')
+        self.assertEqual(air_spd_flap_max[3].index, 19)
+        self.assertEqual(air_spd_flap_max[3].value, 19)
+        self.assertEqual(air_spd_flap_max[2].name, 'Airspeed With Flap Excluding Transition 10 Max')
+        self.assertEqual(air_spd_flap_max[2].index, 29)
+        self.assertEqual(air_spd_flap_max[2].value, 29)
 
      #TODO: Fix with correct flap params.
     def test_derive_alternative_method(self):
         # Note: This test will produce the following warning:
         #       "No flap settings - rounding to nearest 5"
         flap = [[0, 1, 2, 5, 10, 15, 25, 30, 40, 0]] * 2
-        flap_inc_trans = P('Flap Including Transition', np.ma.array(reduce(operator.add, zip(*flap))))
-        flap_exc_trans = P('Flap Excluding Transition', np.ma.array(reduce(operator.add, zip(*flap))))
+        flap_array = np.ma.array(reduce(operator.add, zip(*flap)))
+        flap_angle = P('Flap Angle', flap_array)
         air_spd = P('Airspeed', np.ma.arange(20))
         fast = buildsection('Fast', 0, 20)
-        step_inc_trans = FlapIncludingTransition()
-        step_inc_trans.derive(flap_inc_trans)
-        step_exc_trans = FlapExcludingTransition()
-        step_exc_trans.derive(flap_exc_trans)
+        flap_inc_trans = FlapIncludingTransition()
+        flap_inc_trans.derive(flap_angle)
+        flap_exc_trans = FlapExcludingTransition()
+        flap_exc_trans.derive(flap_angle)
         air_spd_flap_max = AirspeedWithFlapMax()
-        air_spd_flap_max.derive(step_inc_trans, step_exc_trans, air_spd, fast)
+        air_spd_flap_max.derive(flap_inc_trans, flap_exc_trans, air_spd, fast)
 
-        self.assertEqual(air_spd_flap_max, [
+        self.assertEqual(air_spd_flap_max.get_ordered_by_index(), [
             KeyPointValue(index=7, value=7, name='Airspeed With Flap Including Transition 5 Max'),
-            KeyPointValue(index=9, value=9, name='Airspeed With Flap Including Transition 10 Max'),
-            KeyPointValue(index=11, value=11, name='Airspeed With Flap Including Transition 15 Max'),
-            KeyPointValue(index=13, value=13, name='Airspeed With Flap Including Transition 25 Max'),
-            KeyPointValue(index=15, value=15, name='Airspeed With Flap Including Transition 30 Max'),
-            KeyPointValue(index=17, value=17, name='Airspeed With Flap Including Transition 40 Max'),
             KeyPointValue(index=7, value=7, name='Airspeed With Flap Excluding Transition 5 Max'),
+            KeyPointValue(index=9, value=9, name='Airspeed With Flap Including Transition 10 Max'),
             KeyPointValue(index=9, value=9, name='Airspeed With Flap Excluding Transition 10 Max'),
+            KeyPointValue(index=11, value=11, name='Airspeed With Flap Including Transition 15 Max'),
             KeyPointValue(index=11, value=11, name='Airspeed With Flap Excluding Transition 15 Max'),
+            KeyPointValue(index=13, value=13, name='Airspeed With Flap Including Transition 25 Max'),
             KeyPointValue(index=13, value=13, name='Airspeed With Flap Excluding Transition 25 Max'),
+            KeyPointValue(index=15, value=15, name='Airspeed With Flap Including Transition 30 Max'),
             KeyPointValue(index=15, value=15, name='Airspeed With Flap Excluding Transition 30 Max'),
+            KeyPointValue(index=17, value=17, name='Airspeed With Flap Including Transition 40 Max'),
             KeyPointValue(index=17, value=17, name='Airspeed With Flap Excluding Transition 40 Max'),
         ])
 
@@ -1564,8 +1566,12 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
             {'flap': (5.5, 10.1, 20.9)})
     def test_derive_fractional_settings(self):
         flap = [[0, 5.5, 10.1, 20.85]] * 5
-        flap_inc_trans = P('Flap Including Transition', np.ma.array(reduce(operator.add, zip(*flap))))
-        flap_exc_trans = P('Flap Excluding Transition', np.ma.array(reduce(operator.add, zip(*flap))))
+        flap_array = np.ma.array(reduce(operator.add, zip(*flap)))
+        values_mapping = {f: str(f) for f in set(flap_array)}
+        flap_inc_trans = P('Flap Including Transition', flap_array.copy(),
+                           values_mapping=values_mapping)
+        flap_exc_trans = P('Flap Excluding Transition', flap_array.copy(),
+                           values_mapping=values_mapping)
         air_spd = P('Airspeed', np.ma.arange(30))
         fast = buildsection('Fast', 0, 30)
         air_spd_flap_max = AirspeedWithFlapMax()

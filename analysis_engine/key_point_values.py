@@ -108,7 +108,14 @@ class FlapOrConfigurationMaxOrMin(object):
                     int(valid.slice.stop or len(scope_array)) + 1] = False
 
         kpvs = []
-        for detent in np.ma.unique(conflap.array):
+        
+        if hasattr(conflap, 'values_mapping'):
+            # Multistate
+            conflap_detents = conflap.values_mapping.keys()
+        else:
+            conflap_detents = np.ma.unique(conflap.array)
+        
+        for detent in conflap_detents:
             if np.ma.is_masked(detent):
                 continue
             if detent == 0.0 and include_zero == False:
