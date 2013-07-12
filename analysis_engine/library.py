@@ -4964,7 +4964,7 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
                 if step_at == 'move_start':
                     stepped_array[span] = stepped_array[span.stop+1]
                 else:
-                    stepped_array[span] = stepped_array[span.start-1]            
+                    stepped_array[span] = stepped_array[span.start-1]
         else:
             # We change to cover the movements of the stepped array
             #spans = np.ma.clump_unmasked(np.ma.masked_equal(np.ediff1d(stepped_array),0.0))
@@ -5029,9 +5029,9 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     plt.plot(array, '-b')
     plt.plot(stepped_array, '-k')
     plt.show()
-    '''    
+    '''
     return np.ma.array(stepped_array, mask=array.mask)
-        
+
 
 def touchdown_inertial(land, roc, alt):
     """

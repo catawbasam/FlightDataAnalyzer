@@ -4,6 +4,7 @@ import numpy as np
 import geomag
 
 from math import ceil, radians
+from scipy.interpolate import interp1d
 
 from analysis_engine.exceptions import DataFrameError
 
@@ -14,7 +15,6 @@ from flightdatautilities.model_information import (get_aileron_map,
 from flightdatautilities.velocity_speed import get_vspeed_map
 from hdfaccess.parameter import MappedArray
 
-from analysis_engine.flight_phase import scan_ils
 from analysis_engine.node import (
     A, App, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M,
     P, S)
@@ -30,7 +30,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      blend_parameters,
                                      blend_two_parameters,
                                      cas2dp,
-                                     cas_alt2mach,
                                      coreg,
                                      cycle_finder,
                                      datetime_of_index,
@@ -66,7 +65,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      offset_select,
                                      peak_curvature,
                                      rate_of_change,
-                                     rate_of_change_array,
                                      repair_mask,
                                      rms_noise,
                                      round_to_nearest,
@@ -91,7 +89,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      vstack_params_where_state)
 
 from settings import (AZ_WASHOUT_TC,
-                      BOUNCED_LANDING_THRESHOLD,
                       FEET_PER_NM,
                       HYSTERESIS_FPIAS,
                       HYSTERESIS_FPROC,
@@ -3535,12 +3532,13 @@ class FlapExcludingTransition(MultistateDerivedParameterNode):
             # no flaps mapping, round to nearest 5 degrees
             self.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
-            self.array = round_to_nearest(flap.array, 5.0)
-            self.values_mapping = {f: str(f) for f in flap_steps}
+            array = round_to_nearest(flap.array, 5.0)
+            flap_steps = {f: str(f) for f in np.ma.unique(array)}
         else:
-            self.array = step_values(flap.array, flap.frequency, flap_steps, 
-                                     step_at='excluding_transition')
-            self.values_mapping = {f: str(f) for f in flap_steps}
+            array = step_values(flap.array, flap.frequency, flap_steps, 
+                                step_at='excluding_transition')
+        self.array = array
+        self.values_mapping = {f: str(f) for f in flap_steps}
 
 
 class FlapIncludingTransition(MultistateDerivedParameterNode):
@@ -3565,10 +3563,13 @@ class FlapIncludingTransition(MultistateDerivedParameterNode):
             # no flaps mapping, round to nearest 5 degrees
             self.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
-            self.array = round_to_nearest(flap.array, 5.0)
+            array = round_to_nearest(flap.array, 5.0)
+            flap_steps = {f: str(f) for f in np.ma.unique(array)}
         else:
-            self.array = step_values(flap.array, flap.frequency, flap_steps, 
-                                     step_at='including_transition')
+            array = step_values(flap.array, flap.frequency, flap_steps, 
+                                step_at='including_transition')
+        self.array = array
+        self.values_mapping = {f: str(f) for f in flap_steps}
 
     
 class FlapAngle(DerivedParameterNode):
@@ -4592,16 +4593,27 @@ class MagneticVariation(DerivedParameterNode):
         
         lat = lat or lat_coarse
         lon = lon or lon_coarse
-        array = np.zeros_like(lat.array)
+        mag_var_frequency = 64 * self.frequency
+        mag_vars = []
         start_date = start_datetime.value.date()
+        for lat_val, lon_val, alt_aal_val in zip(lat.array[::mag_var_frequency],
+                                                 lon.array[::mag_var_frequency],
+                                                 alt_aal.array[::mag_var_frequency]):
+            mag_vars.append(geomag.declination(lat_val, lon_val, alt_aal_val,
+                                               time=start_date))
+        
+        interpolator = interp1d(
+            np.arange(0, len(lat.array), mag_var_frequency), mag_vars)
+        interpolation_length = (len(mag_vars) - 1) * mag_var_frequency
+        array = np_ma_masked_zeros_like(lat.array)
+        array[:interpolation_length] = \
+            interpolator(np.arange(interpolation_length))
+        
         # Exclude masked values.
         mask = lat.array.mask | lon.array.mask | alt_aal.array.mask
         array = np.ma.masked_where(mask, array)
-        for index in np.where(~mask)[0]:
-            array[index] = geomag.declination(
-                lat.array[index], lon.array[index],
-                alt_aal.array[index], time=start_date)
-        self.array = repair_mask(array, extrapolate=True)
+        self.array = repair_mask(array, extrapolate=True,
+                                 repair_duration=None)
 
 
 class MagneticVariationFromRunway(DerivedParameterNode):

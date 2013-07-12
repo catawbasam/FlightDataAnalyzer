@@ -888,14 +888,14 @@ class TestFlapSet(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Flap Lever',),
                                          ('Flap',),
                                          ('Flap Lever', 'Flap')]
-        self.flap_lever = P(
-            name='Flap Lever',
-            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0, 17.5]),
-        )
-        self.flap = P(
-            name='Flap',
-            array=np.ma.array([0, 0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 17.5]),
-        )
+        flap_lever_array = np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0, 17.5])
+        flap_lever_values_mapping = {f: str(f) for f in np.ma.unique(flap_lever_array)}
+        flap_array = np.ma.array([0, 0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 17.5])
+        flap_values_mapping = {f: str(f) for f in np.ma.unique(flap_array)}
+        self.flap_lever = M(name='Flap Lever', array=flap_lever_array,
+                            values_mapping=flap_lever_values_mapping)
+        self.flap = M(name='Flap', array=flap_array,
+                      values_mapping=flap_values_mapping)
 
     def test_derive(self):
         node = FlapSet()
@@ -940,14 +940,14 @@ class TestFlapExtensionWhileAirborne(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Flap Lever', 'Airborne'),
                                          ('Flap', 'Airborne'),
                                          ('Flap Lever', 'Flap', 'Airborne')]
-        self.flap_lever = P(
-            name='Flap Lever',
-            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
-        )
-        self.flap = P(
-            name='Flap',
-            array=np.ma.array([0, 0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0]),
-        )
+        flap_lever_array = np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
+        flap_lever_values_mapping = {f: str(f) for f in np.ma.unique(flap_lever_array)}
+        flap_array = np.ma.array([0, 0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0])
+        flap_values_mapping = {f: str(f) for f in np.ma.unique(flap_array)}
+        self.flap_lever = M(name='Flap Lever', array=flap_lever_array,
+                            values_mapping=flap_lever_values_mapping)
+        self.flap = M(name='Flap', array=flap_array,
+                      values_mapping=flap_values_mapping)
 
     def test_derive(self):
         airborne = buildsection('Airborne', 1, 12)
@@ -1040,14 +1040,14 @@ class TestFirstFlapExtensionWhileAirborne(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Flap Lever', 'Airborne'),
                                          ('Flap', 'Airborne'),
                                          ('Flap Lever', 'Flap', 'Airborne')]
-        self.flap_lever = P(
-            name='Flap Lever',
-            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
-        )
-        self.flap = P(
-            name='Flap',
-            array=np.ma.array([0, 0, 0, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
-        )
+        flap_lever_array = np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
+        flap_lever_values_mapping = {f: str(f) for f in np.ma.unique(flap_lever_array)}
+        flap_array = np.ma.array([0, 0, 0, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
+        flap_values_mapping = {f: str(f) for f in np.ma.unique(flap_array)}
+        self.flap_lever = M(name='Flap Lever', array=flap_lever_array,
+                            values_mapping=flap_lever_values_mapping)
+        self.flap = M(name='Flap', array=flap_array,
+                      values_mapping=flap_values_mapping)
 
     def test_derive(self):
         airborne = buildsection('Airborne', 1, 12)
@@ -1075,13 +1075,16 @@ class TestFlapRetractionWhileAirborne(unittest.TestCase, NodeTest):
         self.operational_combinations = [('Flap Lever', 'Airborne'),
                                          ('Flap', 'Airborne'),
                                          ('Flap Lever', 'Flap', 'Airborne')]
-        self.flap_lever = P(
-            name='Flap Lever',
-            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
+        flap_lever_array = np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
+        flap_lever_values_mapping = {f: str(f) for f in np.ma.unique(flap_lever_array)}
+        flap_array = np.ma.array([0, 0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0])
+        flap_values_mapping = {f: str(f) for f in np.ma.unique(flap_array)}
+        self.flap_lever = M(
+            name='Flap Lever', array=flap_lever_array,
+            values_mapping=flap_lever_values_mapping,
         )
-        self.flap = P(
-            name='Flap',
-            array=np.ma.array([0, 0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0]),
+        self.flap = M(
+            name='Flap', array=flap_array, values_mapping=flap_values_mapping,
         )
 
     def test_derive(self):
@@ -1116,13 +1119,16 @@ class TestFlapRetractionDuringGoAround(unittest.TestCase, NodeTest):
             ('Flap Lever', 'Go Around And Climbout'),
             ('Flap', 'Go Around And Climbout'),
             ('Flap Lever', 'Flap', 'Go Around And Climbout')]
-        self.flap_lever = P(
-            name='Flap Lever',
-            array=np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0]),
+        flap_lever_array = np.ma.array([0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0, 0])
+        flap_lever_values_mapping = {f: str(f) for f in np.ma.unique(flap_lever_array)}
+        flap_array = np.ma.array([0, 0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0])
+        flap_values_mapping = {f: str(f) for f in np.ma.unique(flap_array)}
+        self.flap_lever = M(
+            name='Flap Lever', array=flap_lever_array,
+            values_mapping=flap_lever_values_mapping,
         )
-        self.flap = P(
-            name='Flap',
-            array=np.ma.array([0, 0, 0, 5, 5, 10, 10, 15, 10, 10, 5, 5, 0]),
+        self.flap = M(
+            name='Flap', array=flap_array, values_mapping=flap_values_mapping,
         )
 
     def test_derive(self):

@@ -423,7 +423,7 @@ class FlapSet(KeyTimeInstanceNode):
         # Mark all flap changes, and annotate with the new flap position.
         # Could include "phase=airborne" if we want to eliminate ground flap
         # changes.
-        self.create_ktis_at_edges(flap.array, direction='all_edges',
+        self.create_ktis_at_edges(flap.array.raw, direction='all_edges',
                                   name='flap')
 
 
@@ -472,8 +472,7 @@ class FlapExtensionWhileAirborne(KeyTimeInstanceNode):
                flap_synth=P('Flap'),
                airborne=S('Airborne')):
         flap = flap_lever or flap_synth
-        self.create_ktis_at_edges(flap.array, 
-                                  phase=airborne)
+        self.create_ktis_at_edges(flap.array.raw, phase=airborne)
 
 
 class FlapLoadRelief(KeyTimeInstanceNode):
@@ -486,8 +485,8 @@ class FlapLoadRelief(KeyTimeInstanceNode):
             flr.array,
             change='entering'
             )
-        
-        
+
+
 class FlapAlternateArmed(KeyTimeInstanceNode):
     '''
     Indicates where flap alternate system has been armed.
@@ -528,7 +527,7 @@ class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
         flap = flap_lever or flap_synth
         
         self.create_ktis_at_edges(
-            flap.array,
+            flap.array.raw,
             direction='falling_edges',
             phase=airborne,
         )
@@ -550,7 +549,7 @@ class FlapRetractionDuringGoAround(KeyTimeInstanceNode):
         flap = flap_lever or flap_synth
         
         self.create_ktis_at_edges(
-            flap.array,
+            flap.array.raw,
             direction='falling_edges',
             phase=go_arounds,
         )
