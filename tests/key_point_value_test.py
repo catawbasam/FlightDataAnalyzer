@@ -284,11 +284,13 @@ from analysis_engine.key_point_values import (
     Pitch20FtToTouchdownMin,
     Pitch7FtToTouchdownMin,
     PitchAfterFlapRetractionMax,
+    PitchAlternateLawDuration,
     PitchAtLiftoff,
     PitchAtTouchdown,
     PitchAt35FtDuringClimb,
     PitchAtVNAVModeAndEngThrustModeRequired,
     PitchCyclesDuringFinalApproach,
+    PitchDirectLawDuration,
     PitchDuringGoAroundMax,
     PitchLiftoffTo35FtMax,
     PitchRate35To1000FtMax,
@@ -7038,3 +7040,53 @@ class TestLastFlapChangeToTakeoffRollEndDuration(unittest.TestCase, NodeTest):
                 name='Last Flap Change To Takeoff Roll End Duration')
         ]
         self.assertEqual(list(node), expected)
+
+
+
+class TestPitchAlternateLawDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = PitchAlternateLawDuration
+        self.operational_combinations = [('Pitch Alternate Law',)]
+
+    def test_derive(self):
+        alt_law = M(name='Pitch Alternate Law',
+                    array=np.ma.array([0,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,0,0],dtype=int),
+                    values_mapping={1:'Alternate'})
+        node = self.node_class()
+        node.derive(alt_law)
+
+        expected = [
+            KeyPointValue(
+                index=4, value=3,
+                name='Pitch Alternate Law Duration'),
+            KeyPointValue(
+                index=10, value=6,
+                name='Pitch Alternate Law Duration')
+        ]
+        self.assertEqual(node, expected)
+        
+
+
+class TestPitchDirectLawDuration(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = PitchDirectLawDuration
+        self.operational_combinations = [('Pitch Direct Law',)]
+
+    def test_derive(self):
+        dir_law = M(name='Pitch Direct Law',
+                    array=np.ma.array([0,0,0,0,1,1,1,0,0,0,1,1,1,1,1,1,0,0],dtype=int),
+                    values_mapping={1:'Direct'})
+        node = self.node_class()
+        node.derive(dir_law)
+
+        expected = [
+            KeyPointValue(
+                index=4, value=3,
+                name='Pitch Direct Law Duration'),
+            KeyPointValue(
+                index=10, value=6,
+                name='Pitch Direct Law Duration')
+        ]
+        self.assertEqual(node, expected)
