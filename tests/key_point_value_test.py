@@ -412,10 +412,15 @@ test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 class NodeTest(object):
 
     def test_can_operate(self):
-        self.assertEqual(
-            self.node_class.get_operational_combinations(),
-            self.operational_combinations,
-        )
+        if getattr(self, 'check_operational_combination_length_only', False):
+            self.assertEqual(
+                len(self.node_class.get_operational_combinations()),
+                self.operational_combination_length,
+            )
+        else:
+            combinations = map(set, self.node_class.get_operational_combinations())
+            for combination in map(set, self.operational_combinations):
+                self.assertIn(combination, combinations)
 
 
 class CreateKPVsAtKPVsTest(NodeTest):
@@ -1499,9 +1504,11 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AirspeedWithFlapMax
-        self.operational_combinations = [('Flap Including Transition',
-                                          'Flap Excluding Transition',
-                                          'Airspeed', 'Fast')]
+        self.operational_combinations = [
+            ('Airspeed', 'Fast', 'Flap Lever', 'Flap', 'Flap Including Transition', 'Flap Excluding Transition'),
+            ('Airspeed', 'Fast', 'Flap', 'Flap Including Transition', 'Flap Excluding Transition'),
+            ('Airspeed', 'Fast', 'Flap Lever'),
+        ]
 
     def test_derive(self):
         flap = [[0, 5, 10]] * 10
@@ -1515,7 +1522,7 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
         fast = buildsection('Fast', 0, 30)
         flap_inc_trans.array[19] = np.ma.masked  # mask the max value
         air_spd_flap_max = AirspeedWithFlapMax()
-        air_spd_flap_max.derive(flap_inc_trans, flap_exc_trans, air_spd, fast)
+        air_spd_flap_max.derive(None, None, flap_inc_trans, flap_exc_trans, air_spd, fast)
 
         self.assertEqual(len(air_spd_flap_max), 4)
         self.assertEqual(air_spd_flap_max[1].name, 'Airspeed With Flap Including Transition 5 Max')
@@ -1531,7 +1538,6 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
         self.assertEqual(air_spd_flap_max[2].index, 29)
         self.assertEqual(air_spd_flap_max[2].value, 29)
 
-     #TODO: Fix with correct flap params.
     def test_derive_alternative_method(self):
         # Note: This test will produce the following warning:
         #       "No flap settings - rounding to nearest 5"
@@ -1545,7 +1551,7 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
         flap_exc_trans = FlapExcludingTransition()
         flap_exc_trans.derive(flap_angle)
         air_spd_flap_max = AirspeedWithFlapMax()
-        air_spd_flap_max.derive(flap_inc_trans, flap_exc_trans, air_spd, fast)
+        air_spd_flap_max.derive(None, None, flap_inc_trans, flap_exc_trans, air_spd, fast)
 
         self.assertEqual(air_spd_flap_max.get_ordered_by_index(), [
             KeyPointValue(index=7, value=7, name='Airspeed With Flap Including Transition 5 Max'),
@@ -1568,22 +1574,45 @@ class TestAirspeedWithFlapMax(unittest.TestCase, NodeTest):
         flap = [[0, 5.5, 10.1, 20.85]] * 5
         flap_array = np.ma.array(reduce(operator.add, zip(*flap)))
         values_mapping = {f: str(f) for f in set(flap_array)}
+        flap_lever = P('Flap Lever', flap_array.copy(),
+                       values_mapping=values_mapping)
+        flap = P('Flap', flap_array.copy(),
+                 values_mapping=values_mapping)
         flap_inc_trans = P('Flap Including Transition', flap_array.copy(),
                            values_mapping=values_mapping)
         flap_exc_trans = P('Flap Excluding Transition', flap_array.copy(),
                            values_mapping=values_mapping)
         air_spd = P('Airspeed', np.ma.arange(30))
         fast = buildsection('Fast', 0, 30)
-        air_spd_flap_max = AirspeedWithFlapMax()
-        air_spd_flap_max.derive(flap_inc_trans, flap_exc_trans, air_spd, fast)
-
-        self.assertEqual(len(air_spd_flap_max), 6)
-        self.assertEqual(air_spd_flap_max[0].name, 'Airspeed With Flap Including Transition 5.5 Max')
-        self.assertEqual(air_spd_flap_max[1].name, 'Airspeed With Flap Including Transition 10.1 Max')
-        self.assertEqual(air_spd_flap_max[2].name, 'Airspeed With Flap Including Transition 20.9 Max')
-        self.assertEqual(air_spd_flap_max[3].name, 'Airspeed With Flap Excluding Transition 5.5 Max')
-        self.assertEqual(air_spd_flap_max[4].name, 'Airspeed With Flap Excluding Transition 10.1 Max')
-        self.assertEqual(air_spd_flap_max[5].name, 'Airspeed With Flap Excluding Transition 20.9 Max')
+        
+        node = self.node_class()
+        node.derive(None, None, flap_inc_trans, None, air_spd, fast)
+        self.assertEqual(len(node), 3)
+        self.assertEqual(node[0].name, 'Airspeed With Flap Including Transition 5.5 Max')
+        self.assertEqual(node[1].name, 'Airspeed With Flap Including Transition 10.1 Max')
+        self.assertEqual(node[2].name, 'Airspeed With Flap Including Transition 20.9 Max')
+        
+        node = self.node_class()
+        node.derive(None, None, None, flap_exc_trans, air_spd, fast)
+        self.assertEqual(len(node), 3)
+        self.assertEqual(node[0].name, 'Airspeed With Flap Excluding Transition 5.5 Max')
+        
+        node = self.node_class()
+        node.derive(flap_lever, None, None, None, air_spd, fast)
+        self.assertEqual(len(node), 3)
+        self.assertEqual(node[0].name, 'Airspeed With Flap 5.5 Max')
+        
+        node = self.node_class()
+        node.derive(None, flap, None, None, air_spd, fast)
+        self.assertEqual(len(node), 3)
+        self.assertEqual(node[0].name, 'Airspeed With Flap 5.5 Max')
+        
+        node = self.node_class()
+        node.derive(flap_lever, flap, flap_inc_trans, flap_exc_trans, air_spd, fast)
+        self.assertEqual(len(node), 9)
+        self.assertEqual(node[0].name, 'Airspeed With Flap 5.5 Max')
+        self.assertEqual(node[3].name, 'Airspeed With Flap Including Transition 5.5 Max')
+        self.assertEqual(node[6].name, 'Airspeed With Flap Excluding Transition 5.5 Max')
 
 
 class TestAirspeedWithFlapMin(unittest.TestCase, NodeTest):
@@ -1601,9 +1630,11 @@ class TestAirspeedWithFlapDuringClimbMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AirspeedWithFlapDuringClimbMax
-        self.operational_combinations = [('Flap Including Transition',
-                                          'Flap Excluding Transition',
-                                          'Airspeed', 'Climb')]
+        self.operational_combinations = [
+            ('Airspeed', 'Climb', 'Flap Lever', 'Flap', 'Flap Including Transition', 'Flap Excluding Transition'),
+            ('Airspeed', 'Climb', 'Flap', 'Flap Including Transition', 'Flap Excluding Transition'),
+            ('Airspeed', 'Climb', 'Flap Lever'),
+        ]
 
     def test_derive_basic(self):
         flap_inc_trans_array = np.ma.array(
@@ -1618,7 +1649,7 @@ class TestAirspeedWithFlapDuringClimbMax(unittest.TestCase, NodeTest):
         airspeed = P('Airspeed', np.ma.arange(0, 100, 10))
         climb = buildsection('Climbing', 2, 8)
         node = self.node_class()
-        node.derive(flap_inc_trans, flap_exc_trans, airspeed, climb)
+        node.derive(None, None, flap_inc_trans, flap_exc_trans, airspeed, climb)
         self.assertEqual(node.get_ordered_by_index(), [
             KeyPointValue(index=2.0, value=20.0, name='Airspeed With Flap Including Transition 5 During Climb Max'),
             KeyPointValue(index=2.0, value=20.0, name='Airspeed With Flap Excluding Transition 5 During Climb Max'),
@@ -1645,9 +1676,11 @@ class TestAirspeedWithFlapDuringDescentMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AirspeedWithFlapDuringDescentMax
-        self.operational_combinations = [('Flap Including Transition',
-                                          'Flap Excluding Transition',
-                                          'Airspeed', 'Descent')]
+        self.operational_combinations = [
+            ('Airspeed', 'Descent', 'Flap Lever', 'Flap', 'Flap Including Transition', 'Flap Excluding Transition'),
+            ('Airspeed', 'Descent', 'Flap', 'Flap Including Transition', 'Flap Excluding Transition'),
+            ('Airspeed', 'Descent', 'Flap Lever'),
+        ]
 
     def test_derive_basic(self):
         flap_inc_trans_array = np.ma.array([0, 0, 5, 10, 10, 10, 15, 15, 15, 35])
@@ -1659,7 +1692,7 @@ class TestAirspeedWithFlapDuringDescentMax(unittest.TestCase, NodeTest):
         airspeed = P('Airspeed', np.ma.arange(100, 0, -10))
         desc = buildsection('Descending', 2, 8)
         node = self.node_class()
-        node.derive(flap_inc_trans, flap_exc_trans, airspeed, desc)
+        node.derive(None, None, flap_inc_trans, flap_exc_trans, airspeed, desc)
         self.assertEqual(node.get_ordered_by_index(), [
             KeyPointValue(index=2.0, value=80.0, name='Airspeed With Flap Including Transition 5 During Descent Max'),
             KeyPointValue(index=2.0, value=80.0, name='Airspeed With Flap Excluding Transition 5 During Descent Max'),

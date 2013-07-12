@@ -1333,35 +1333,50 @@ class AirspeedRelativeFor3Sec20FtToTouchdownMin(KeyPointValueNode):
 # Airspeed: Flap
 
 
-# NOTE: It is essential that Flap is the first parameter here to prevent the
-#       flap values, which match the detent settings, from being interpolated.
-
-
 class AirspeedWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With %(flap_param)s %(flap)s Max'
+    NAME_FORMAT = 'Airspeed With %(parameter)s %(flap)s Max'
     NAME_VALUES = NAME_VALUES_FLAP.copy()
     NAME_VALUES.update({
-            'flap_param': ['Flap Including Transition',
-                           'Flap Excluding Transition'],
+        'parameter': [
+            'Flap',
+            'Flap Including Transition',
+            'Flap Excluding Transition',
+        ],
     })
     units = 'kt'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Flap Lever', 'Flap', 'Flap Including Transition',
+                       'Flap Excluding Transition'), available) and \
+               all_of(('Airspeed', 'Fast'), available)
 
     def derive(self,
-               flap_inc_trans=P('Flap Including Transition'),
-               flap_exc_trans=P('Flap Excluding Transition'),
+               flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
+               flap_inc_trans=M('Flap Including Transition'),
+               flap_exc_trans=M('Flap Excluding Transition'),
                airspeed=P('Airspeed'),
                scope=S('Fast')):
 
-        # Fast scope traps flap changes very late on the approach and raising
-        # flaps before 80kn on the landing run.
-        for param in (flap_inc_trans, flap_exc_trans):
-            kpvs = self.flap_or_conf_max_or_min(param, airspeed, max_value,
+        # We want to use flap lever detents if they are available, but we need
+        # to ensure that the parameter is called flap with the name hack below:
+        flap = flap_lever or flap_synth
+        if flap:
+            flap.name = 'Flap'
+
+        for parameter in (flap, flap_inc_trans, flap_exc_trans):
+            if not parameter:
+                continue
+            # Fast scope traps flap changes very late on the approach and
+            # raising flaps before 80 kt on the landing run.
+            data = self.flap_or_conf_max_or_min(parameter, airspeed, max_value,
                                                 scope=scope)
-            for index, value, detent in kpvs:
-                self.create_kpv(index, value, flap_param=param.name,
+            for index, value, detent in data:
+                self.create_kpv(index, value, parameter=parameter.name,
                                 flap=detent)
 
 
@@ -1376,7 +1391,7 @@ class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                airspeed=P('Airspeed'),
                scope=S('Airborne')):
 
@@ -1388,28 +1403,48 @@ class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
 class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     '''
     '''
-
+    
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With %(flap_param)s %(flap)s During Climb Max'
+    NAME_FORMAT = 'Airspeed With %(parameter)s %(flap)s During Climb Max'
     NAME_VALUES = NAME_VALUES_FLAP.copy()
     NAME_VALUES.update({
-        'flap_param': ['Flap Including Transition',
-                       'Flap Excluding Transition'],
+        'parameter': [
+            'Flap',
+            'Flap Including Transition',
+            'Flap Excluding Transition',
+        ],
     })
-
     units = 'kt'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Flap Lever', 'Flap', 'Flap Including Transition',
+                       'Flap Excluding Transition'), available) and \
+               all_of(('Airspeed', 'Climb'), available)
 
     def derive(self,
-               flap_inc_trans=P('Flap Including Transition'),
-               flap_exc_trans=P('Flap Excluding Transition'),
+               flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
+               flap_inc_trans=M('Flap Including Transition'),
+               flap_exc_trans=M('Flap Excluding Transition'),
                airspeed=P('Airspeed'),
                scope=S('Climb')):
-        
-        for param in (flap_inc_trans, flap_exc_trans):
-            kpvs = self.flap_or_conf_max_or_min(param, airspeed, max_value,
+
+        # We want to use flap lever detents if they are available, but we need
+        # to ensure that the parameter is called flap with the name hack below:
+        flap = flap_lever or flap_synth
+        if flap:
+            flap.name = 'Flap'
+
+        for parameter in (flap, flap_inc_trans, flap_exc_trans):
+            if not parameter:
+                continue
+            # Fast scope traps flap changes very late on the approach and
+            # raising flaps before 80 kt on the landing run.
+            data = self.flap_or_conf_max_or_min(parameter, airspeed, max_value,
                                                 scope=scope)
-            for index, value, detent in kpvs:
-                self.create_kpv(index, value, flap_param=param.name,
+            for index, value, detent in data:
+                self.create_kpv(index, value, parameter=parameter.name,
                                 flap=detent)
 
 
@@ -1436,25 +1471,46 @@ class AirspeedWithFlapDuringDescentMax(KeyPointValueNode, FlapOrConfigurationMax
     '''
 
     # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Airspeed With %(flap_param)s %(flap)s During Descent Max'
+    NAME_FORMAT = 'Airspeed With %(parameter)s %(flap)s During Descent Max'
     NAME_VALUES = NAME_VALUES_FLAP.copy()
     NAME_VALUES.update({
-            'flap_param': ['Flap Including Transition',
-                           'Flap Excluding Transition'],
+        'parameter': [
+            'Flap',
+            'Flap Including Transition',
+            'Flap Excluding Transition',
+        ],
     })
     units = 'kt'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Flap Lever', 'Flap', 'Flap Including Transition',
+                       'Flap Excluding Transition'), available) and \
+               all_of(('Airspeed', 'Descent'), available)
 
     def derive(self,
-               flap_inc_trans=P('Flap Including Transition'),
-               flap_exc_trans=P('Flap Excluding Transition'),
+               flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
+               flap_inc_trans=M('Flap Including Transition'),
+               flap_exc_trans=M('Flap Excluding Transition'),
                airspeed=P('Airspeed'),
                scope=S('Descent')):
-        
-        for param in (flap_inc_trans, flap_exc_trans):
-            kpvs = self.flap_or_conf_max_or_min(param, airspeed, max_value,
+
+        # We want to use flap lever detents if they are available, but we need
+        # to ensure that the parameter is called flap with the name hack below:
+        flap = flap_lever or flap_synth
+        if flap:
+            flap.name = 'Flap'
+
+        for parameter in (flap, flap_inc_trans, flap_exc_trans):
+            if not parameter:
+                continue
+            # Fast scope traps flap changes very late on the approach and
+            # raising flaps before 80 kt on the landing run.
+            data = self.flap_or_conf_max_or_min(parameter, airspeed, max_value,
                                                 scope=scope)
-            for index, value, detent in kpvs:
-                self.create_kpv(index, value, flap_param=param.name,
+            for index, value, detent in data:
+                self.create_kpv(index, value, parameter=parameter.name,
                                 flap=detent)
 
 
