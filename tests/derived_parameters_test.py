@@ -3985,27 +3985,29 @@ class TestMagneticVariation(unittest.TestCase):
         
     def test_derive(self):
         mag_var = MagneticVariation()
-        lat = P('Latitude', array=np.ma.array(
-            [10.0, 10.1, 10.2, 10.3, 10.4, 10.5],
-            mask=[False, False, False, True, False, False]))
-        lon = P('Longitude', array=np.ma.array(
-            [-10.0, -10.1, -10.2, -10.3, -10.4, -10.5],
-            mask=[False, False, True, True, False, False]))
-        alt_aal = P('Altitude AAL', array=np.ma.array(
-            [20000, 20100, 20200, 20300, 20400, 20500],
-            mask=[False, False, False, False, True, False]))
+        lat = P('Latitude', array=np.ma.arange(10, 14, 0.01))
+        lat.array[3] = np.ma.masked
+        lon = P('Longitude', array=np.ma.arange(-10, -14, -0.01))
+        lon.array[2:4] = np.ma.masked
+        alt_aal = P('Altitude AAL', array=np.ma.arange(20000, 24000, 10))
+        alt_aal.array[4] = np.ma.masked
         start_datetime = A('Start Datetime',
                            value=datetime.datetime(2013, 3, 23))
         mag_var.derive(lat, None, lon, None, alt_aal, start_datetime)
-        expected_result = np.ma.array(
-            [-6.06444546099, -6.07639239453, 0, 0, 0, -6.12614056456],
-            mask=[False, False, True, True, True, False])
-        ma_test.assert_almost_equal(mag_var.array, expected_result)
+        ma_test.assert_almost_equal(
+            mag_var.array[0:10],
+            [-6.064445460989708, -6.065693019716132, -6.066940578442557,
+             -6.068188137168981, -6.069435695895405, -6.070683254621829,
+             -6.071930813348254, -6.073178372074678, -6.074425930801103,
+             -6.075673489527527])
         # Test with Coarse parameters.
         mag_var.derive(None, lat, None, lon, alt_aal, start_datetime)
-        expected_result = np.ma.array(
-            [-6.06444546099, -6.07639239453, 0, 0, 0, -6.12614056456],
-            mask=[False, False, True, True, True, False])        
+        ma_test.assert_almost_equal(
+            mag_var.array[300:310],
+            [-6.506129083442324, -6.507848687633959, -6.509568291825593,
+             -6.511287896017228, -6.513007500208863, -6.514727104400498,
+             -6.516446708592133, -6.518166312783767, -6.519885916975402,
+             -6.521605521167037])
 
 class TestMagneticVariationFromRunway(unittest.TestCase):
     def test_can_operate(self):
