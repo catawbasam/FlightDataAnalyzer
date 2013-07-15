@@ -758,7 +758,8 @@ class TestAirspeedReferenceLookup(unittest.TestCase, NodeTest):
         ])
 
         for detent, vref in ((35, 97), ):
-            flap = P('Flap', np.ma.array([detent] * 120))
+            flap = M('Flap', np.ma.array([detent] * 120),
+                     values_mapping={detent: str(detent)})
             args = [flap, None, air_spd, None, approaches, touchdowns, series, family, None, None, None]
             node = self.node_class()
             node.get_derived(args)
@@ -1472,7 +1473,8 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         f = [0] * 4 + [8] * 4 + [14] * 4 + [22] * 2 + [32] * 2 + [14]
         a = [0] * 4 + [5] * 2 + [10] * 10 + [10]
         self.slat = P('Slat', np.tile(np.ma.array(s), 10000))
-        self.flap = P('Flap', np.tile(np.ma.array(f), 10000))
+        self.flap = M('Flap', np.tile(np.ma.array(f), 10000),
+                      values_mapping={x: str(x) for x in np.ma.unique(f)})
         self.ails = P('Flaperon', np.tile(np.ma.array(a), 10000))
 
     def test_conf_for_a330(self):
@@ -1490,7 +1492,7 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         from timeit import Timer
         timer = Timer(self.test_conf_for_a330)
         time = min(timer.repeat(1, 1))
-        self.assertLess(time, 0.2, msg='Took too long: %.3fs' % time)
+        self.assertLess(time, 0.3, msg='Took too long: %.3fs' % time)
 
 
 class TestControlColumn(unittest.TestCase):
@@ -2945,8 +2947,9 @@ class TestV2Lookup(unittest.TestCase, NodeTest):
         hdf_path = os.path.join(test_data_path, 'airspeed_reference.hdf5')
         hdf_copy = copy_file(hdf_path)
         with hdf_file(hdf_copy) as hdf:
-
-            flap = P(**hdf['Flap'].__dict__)
+            hdf_flap = hdf['Flap']
+            hdf_flap.__dict__['values_mapping'] = {f: str(f) for f in np.ma.unique(hdf_flap.array)}
+            flap = M(**hdf_flap.__dict__)
             air_spd = P(**hdf['Airspeed'].__dict__)
 
             args = [flap, None, air_spd, gw, series, family, None, None, None, None]
@@ -2970,7 +2973,8 @@ class TestV2Lookup(unittest.TestCase, NodeTest):
         liftoffs = KTI(name='Liftoff', items=[KeyTimeInstance(index=5)])
 
         for detent, v2 in ((0, 125), (17.5, 114)):
-            flap = P('Flap', np.ma.array([detent] * 20))
+            flap = M('Flap', np.ma.array([detent] * 20),
+                     values_mapping={detent: str(detent)})
             args = [flap, None, air_spd, None, series, family, None, None, None, liftoffs]
             node = self.node_class()
             node.get_derived(args)
@@ -3684,26 +3688,6 @@ class TestEng_VibN3Max(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestFlapLeverDetent(unittest.TestCase):
-
-    #def setUp(self):
-        ##self.node_class = FlapLeverDetent
-        ##self.operational_combinations = [
-            ##('Flap Lever', 'Series', 'Family'),
-            ##('Flap Angle', 'Series', 'Family'),
-        ##]
-        #self.series=A('B737-300')
-        #self.family=A('B737')
-        #self.lvr=P('Flap Lever', np.ma.array(data=[0,0,1,2,15,15]))
-        #self.surf=P('Flap Angle', np.ma.array(data=[2,2,5,10,15]))
-        
-    def basic_lever(self):
-        fld =FlapLeverDetent()
-        fld.derive(self.lvr, None, self.series, self.family)
-        result = np.ma.array([0,0,1,1,15,15])
-        ma_test.assert_array_equal(fld.array, result)
 
 
 class TestFlapAngle(unittest.TestCase, NodeTest):

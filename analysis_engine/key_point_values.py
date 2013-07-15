@@ -426,7 +426,7 @@ class AccelerationNormalWithFlapUpWhileAirborneMax(KeyPointValueNode):
 
     def derive(self,
                acc_norm=P('Acceleration Normal Offset Removed'),
-               flap=P('Flap'),
+               flap=M('Flap'),
                airborne=S('Airborne')):
 
         # Mask data where the flaps are down:
@@ -442,7 +442,7 @@ class AccelerationNormalWithFlapUpWhileAirborneMin(KeyPointValueNode):
 
     def derive(self,
                acc_norm=P('Acceleration Normal Offset Removed'),
-               flap=P('Flap'),
+               flap=M('Flap'),
                airborne=S('Airborne')):
 
         # Mask data where the flaps are down:
@@ -458,7 +458,7 @@ class AccelerationNormalWithFlapDownWhileAirborneMax(KeyPointValueNode):
 
     def derive(self,
                acc_norm=P('Acceleration Normal Offset Removed'),
-               flap=P('Flap'),
+               flap=M('Flap'),
                airborne=S('Airborne')):
 
         # Mask data where the flaps are up:
@@ -474,7 +474,7 @@ class AccelerationNormalWithFlapDownWhileAirborneMin(KeyPointValueNode):
 
     def derive(self,
                acc_norm=P('Acceleration Normal Offset Removed'),
-               flap=P('Flap'),
+               flap=M('Flap'),
                airborne=S('Airborne')):
 
         # Mask data where the flaps are up:
@@ -1459,7 +1459,7 @@ class AirspeedWithFlapDuringClimbMin(KeyPointValueNode, FlapOrConfigurationMaxOr
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                airspeed=P('Airspeed'),
                scope=S('Climb')):
 
@@ -1525,7 +1525,7 @@ class AirspeedWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigurationMax
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                airspeed=P('Airspeed'),
                scope=S('Descent To Flare')):
 
@@ -1543,7 +1543,7 @@ class AirspeedRelativeWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigur
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                airspeed=P('Airspeed Relative'),
                scope=S('Descent To Flare')):
 
@@ -1845,7 +1845,7 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     name = 'AOA With Flap Max'
     units = 'deg'
 
-    def derive(self, flap=P('Flap'), aoa=P('AOA'), scope=S('Fast')):
+    def derive(self, flap=M('Flap'), aoa=P('AOA'), scope=S('Fast')):
         '''
         '''
         # Fast scope traps flap changes very late on the approach and raising
@@ -2292,7 +2292,7 @@ class AltitudeWithFlapMax(KeyPointValueNode):
     units = 'ft'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                alt_std=P('Altitude STD Smoothed'),
                airborne=S('Airborne')):
 
@@ -2364,8 +2364,8 @@ class AltitudeAtFlapExtensionWithGearDown(KeyPointValueNode):
                 all_of(('Altitude AAL', 'Gear Extended', 'Airborne'),
                        available))
     
-    def derive(self, flap_lever=P('Flap Lever'),
-               flap_synth=P('Flap'),
+    def derive(self, flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
                alt_aal=P('Altitude AAL'),
                gear_ext=S('Gear Extended'),
                airborne=S('Airborne')):
@@ -2400,8 +2400,8 @@ class AirspeedAtFlapExtensionWithGearDown(KeyPointValueNode):
         return (all_of(('Airspeed', 'Gear Extended', 'Airborne'), available) and
                 ('Flap Lever' in available or 'Flap' in available))
     
-    def derive(self, flap_lever=P('Flap Lever'),
-               flap_synth=P('Flap'),
+    def derive(self, flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
                air_spd=P('Airspeed'),
                gear_ext=S('Gear Extended'),
                airborne=S('Airborne')):
@@ -2524,8 +2524,8 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
                 all_of(('Flap At Liftoff', 'Altitude AAL', 'Airborne'),
                        available))
 
-    def derive(self, flap_lever=P('Flap Lever'),
-               flap_synth=P('Flap'),
+    def derive(self, flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
                flap_liftoff=KPV('Flap At Liftoff'),
                alt_aal=P('Altitude AAL'),
                airborne=S('Airborne')):
@@ -2556,8 +2556,8 @@ class AltitudeAtLastFlapChangeBeforeTouchdown(KeyPointValueNode):
         return (('Flap Lever' in available or 'Flap' in available) and
                 'Altitude AAL' in available and 'Touchdown' in available)
 
-    def derive(self, flap_lever=P('Flap Lever'),
-               flap_synth=P('Flap'),
+    def derive(self, flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
                alt_aal=P('Altitude AAL'),
                touchdowns=KTI('Touchdown')):
         flap = flap_lever or flap_synth
@@ -2638,7 +2638,7 @@ class AltitudeAtGearDownSelectionWithFlapDown(KeyPointValueNode):
     def derive(self,
                alt_aal=P('Altitude AAL'),
                gear_downs=KTI('Gear Down Selection'),
-               flap=P('Flap')):
+               flap=M('Flap')):
 
         flap_dns = np.ma.clump_unmasked(np.ma.masked_equal(flap.array, 0.0))
         flap_dn_gear_downs = []
@@ -2714,7 +2714,7 @@ class AltitudeAtGearDownSelectionWithFlapUp(KeyPointValueNode):
     def derive(self,
                alt_aal=P('Altitude AAL'),
                gear_downs=KTI('Gear Down Selection'),
-               flap=P('Flap')):
+               flap=M('Flap')):
         
         flap_ups = np.ma.clump_unmasked(np.ma.masked_greater(flap.array, 0))
         flap_up_gear_downs = []
@@ -4430,7 +4430,7 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     units = 'kt'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                mach=P('Mach'),
                scope=S('Fast')):
 
@@ -5965,7 +5965,7 @@ class FlapAtLiftoff(KeyPointValueNode):
     units = 'deg'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                liftoffs=KTI('Liftoff')):
 
         self.create_kpvs_at_ktis(flap.array, liftoffs, interpolate=False)
@@ -5978,7 +5978,7 @@ class FlapAtTouchdown(KeyPointValueNode):
     units = 'deg'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                touchdowns=KTI('Touchdown')):
 
         self.create_kpvs_at_ktis(flap.array, touchdowns, interpolate=False)
@@ -5991,7 +5991,7 @@ class FlapAtGearDownSelection(KeyPointValueNode):
     units = 'deg'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                gear_dn_sel=KTI('Gear Down Selection')):
 
         self.create_kpvs_at_ktis(flap.array, gear_dn_sel, interpolate=False)
@@ -6004,7 +6004,7 @@ class FlapWithGearUpMax(KeyPointValueNode):
     units = 'deg'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                gear=M('Gear Down')):
 
         gear_up = np.ma.masked_equal(gear.array.raw, gear.array.state['Down'])
@@ -6019,7 +6019,7 @@ class FlapWithSpeedbrakeDeployedMax(KeyPointValueNode):
     units = 'deg'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                spd_brk=M('Speedbrake Selected'),
                airborne=S('Airborne'),
                landings=S('Landing')):
@@ -6277,7 +6277,7 @@ class PitchAfterFlapRetractionMax(KeyPointValueNode):
     units = 'deg'
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                pitch=P('Pitch'),
                airborne=S('Airborne')):
 
@@ -7330,7 +7330,7 @@ class SpeedbrakeDeployedWithFlapDuration(KeyPointValueNode):
 
     def derive(self,
                spd_brk=M('Speedbrake Selected'),
-               flap=P('Flap'),
+               flap=M('Flap'),
                airborne=S('Airborne')):
 
         for air in airborne:
@@ -8568,8 +8568,8 @@ class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
         return (('Flap Lever' in available or 'Flap' in available) and
                 'Takeoff Roll' in available)
 
-    def derive(self, flap_lever=P('Flap Lever'),
-               flap_synth=P('Flap'),
+    def derive(self, flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
                rolls=S('Takeoff Roll')):
         flap = flap_lever or flap_synth
         

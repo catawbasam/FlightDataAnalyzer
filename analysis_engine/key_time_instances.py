@@ -416,8 +416,8 @@ class FlapSet(KeyTimeInstanceNode):
         return 'Flap Lever' in available or 'Flap' in available
     
     def derive(self,
-               flap_lever=P('Flap Lever'),
-               flap_synth=P('Flap')):
+               flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap')):
         flap = flap_lever or flap_synth
 
         # Mark all flap changes, and annotate with the new flap position.
@@ -438,8 +438,8 @@ class FirstFlapExtensionWhileAirborne(KeyTimeInstanceNode):
                                              'Flap' in available))
     
     def derive(self,
-               flap_lever=P('Flap Lever'),
-               flap_synth=P('Flap'),
+               flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
                airborne=S('Airborne')):
         
         flap = flap_lever or flap_synth
@@ -468,8 +468,8 @@ class FlapExtensionWhileAirborne(KeyTimeInstanceNode):
                                              'Flap' in available))
     
     def derive(self,
-               flap_lever=P('Flap Lever'),
-               flap_synth=P('Flap'),
+               flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
                airborne=S('Airborne')):
         flap = flap_lever or flap_synth
         self.create_ktis_at_edges(flap.array.raw, phase=airborne)
@@ -521,8 +521,8 @@ class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
                 ('Flap Lever' in available or 'Flap' in available))
 
     def derive(self,
-               flap_lever=P('Flap Lever'),
-               flap_synth=P('Flap'),
+               flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
                airborne=S('Airborne')):
         flap = flap_lever or flap_synth
         
@@ -543,8 +543,8 @@ class FlapRetractionDuringGoAround(KeyTimeInstanceNode):
                 ('Flap Lever' in available or 'Flap' in available))
 
     def derive(self,
-               flap_lever=P('Flap Lever'),
-               flap_synth=P('Flap'),
+               flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap'),
                go_arounds=S('Go Around And Climbout')):
         flap = flap_lever or flap_synth
         

@@ -419,7 +419,7 @@ class AirspeedReferenceLookup(DerivedParameterNode):
         return airbus or boeing  # or propeller
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                conf=P('Configuration'),
                air_spd=P('Airspeed'),
                gw=P('Gross Weight Smoothed'),
@@ -3783,7 +3783,7 @@ class Configuration(MultistateDerivedParameterNode):
     def can_operate(cls, available):
         return all_of(('Slat', 'Flap', 'Series', 'Family'), available)
 
-    def derive(self, slat=P('Slat'), flap=P('Flap'), flaperon=P('Flaperon'),
+    def derive(self, slat=P('Slat'), flap=M('Flap'), flaperon=P('Flaperon'),
                series=A('Series'), family=A('Family')):
         #TODO: manu=A('Manufacturer') - we could ensure this is only done for Airbus?
 
@@ -5563,7 +5563,7 @@ class V2Lookup(DerivedParameterNode):
         return airbus or boeing  # or propeller
 
     def derive(self,
-               flap=P('Flap'),
+               flap=M('Flap'),
                conf=P('Configuration'),
                air_spd=P('Airspeed'),
                weight_liftoffs=KPV('Gross Weight At Liftoff'),
@@ -5587,8 +5587,8 @@ class V2Lookup(DerivedParameterNode):
                 return  # Ignore lookup table error as recorded/provided.
             else:
                 vspeed = None
-
-        setting_param = flap or conf
+        
+        setting_array = flap.array.raw if flap else conf.array
         vspeed_table = vspeed_class()
 
         if weight_liftoffs is not None:
@@ -5599,7 +5599,7 @@ class V2Lookup(DerivedParameterNode):
         else:
             index, weight = liftoffs.get_first().index, None
 
-        setting = setting_param.array[index]
+        setting = setting_array[index]
 
         try:
             vspeed = vspeed_table.v2(setting, weight)
