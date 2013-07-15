@@ -2492,7 +2492,10 @@ class TestAltitudeAtLastFlapChangeBeforeTouchdown(unittest.TestCase, NodeTest):
         touchdowns = KTI('Touchdown', items=[KeyTimeInstance(10)])
         node = self.node_class()
         node.derive(flap_lever, None, alt_aal, touchdowns)
-        5
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=8.0, value=200.0,
+                           name='Altitude At Last Flap Change Before Touchdown')])
 
 
 class TestAltitudeAtFirstFlapRetractionDuringGoAround(unittest.TestCase, NodeTest):
