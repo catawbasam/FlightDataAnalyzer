@@ -93,6 +93,7 @@ from analysis_engine.key_point_values import (
     AirspeedAtThrustReversersSelection,
     AirspeedTrueAtTouchdown,
     AirspeedVacatingRunway,
+    AirspeedWithConfigurationMax,
     AirspeedWithFlapDuringClimbMax,
     AirspeedWithFlapDuringClimbMin,
     AirspeedWithFlapDuringDescentMax,
@@ -1496,6 +1497,55 @@ class TestAirspeedRelativeFor3Sec20FtToTouchdownMin(unittest.TestCase, NodeTest)
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+##############################################################################
+# Airspeed: Configuration
+
+
+class TestAirspeedWithConfigurationMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.values_mapping = {
+            0 : '0',
+            1 : '1',
+            2 : '1+F',
+            3 : '1*',
+            4 : '2',
+            5 : '2*',
+            6 : '3',
+            7 : '4',
+            8 : '5',
+            9 : 'Full',
+        }
+        self.node_class = AirspeedWithConfigurationMax
+        self.operational_combinations = [
+            ('Configuration', 'Airspeed', 'Fast'),
+        ]
+
+    def test_derive(self):
+        conf_array = np.ma.array(
+            [0, 1, 1, 2, 2, 4, 6, 4, 4, 2, 1, 0, 0, 0, 0, 0])
+        conf = M('Configuration', conf_array,
+                 values_mapping=self.values_mapping)
+        air_spd = P('Airspeed', np.ma.arange(16))
+        fast = buildsection('Fast', 0, 16)
+        node = self.node_class()
+        node.derive(conf, air_spd, fast)
+
+        self.assertEqual(len(node), 4)
+        self.assertEqual(node[0].name, 'Airspeed With Configuration 1 Max')
+        self.assertEqual(node[0].index, 10)
+        self.assertEqual(node[0].value, 10)
+        self.assertEqual(node[1].name, 'Airspeed With Configuration 1+F Max')
+        self.assertEqual(node[1].index, 9)
+        self.assertEqual(node[1].value, 9)
+        self.assertEqual(node[2].name, 'Airspeed With Configuration 2 Max')
+        self.assertEqual(node[2].index, 8)
+        self.assertEqual(node[2].value, 8)
+        self.assertEqual(node[3].name, 'Airspeed With Configuration 3 Max')
+        self.assertEqual(node[3].index, 6)
+        self.assertEqual(node[3].value, 6)
 
 
 ##############################################################################

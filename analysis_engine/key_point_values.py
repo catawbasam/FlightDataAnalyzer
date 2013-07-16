@@ -14,6 +14,7 @@ from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
                                       GRAVITY_METRIC,
                                       HYSTERESIS_FPALT,
                                       KTS_TO_MPS,
+                                      NAME_VALUES_CONF,
                                       NAME_VALUES_ENGINE,
                                       NAME_VALUES_FLAP)
 
@@ -1635,6 +1636,33 @@ class AirspeedAtGearDownSelection(KeyPointValueNode):
                gear_dn_sel=KTI('Gear Down Selection')):
 
         self.create_kpvs_at_ktis(air_spd.array, gear_dn_sel)
+
+
+########################################
+# Airspeed: Conf
+
+
+class AirspeedWithConfigurationMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
+    '''
+    '''
+    NAME_FORMAT = 'Airspeed With Configuration %(conf)s Max'
+    NAME_VALUES = NAME_VALUES_CONF.copy()
+
+    units = 'kt'
+
+    def derive(self,
+               conf=M('Configuration'),
+               airspeed=P('Airspeed'),
+               scope=S('Fast')):
+
+        # Fast scope traps configuration changes very late on the approach and
+        # before 80 kt on the landing run.
+        data = self.flap_or_conf_max_or_min(conf, airspeed, max_value,
+                                            scope=scope)
+        for index, value, detent in data:
+            conf_setting = conf.values_mapping[detent]
+            self.create_kpv(index, value, parameter=conf.name,
+                            conf=conf_setting)
 
 
 ########################################
