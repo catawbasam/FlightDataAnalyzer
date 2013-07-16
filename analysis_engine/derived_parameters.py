@@ -5607,7 +5607,7 @@ class V2Lookup(DerivedParameterNode):
             if v2:
                 return  # Ignore lookup table error as recorded/provided.
             else:
-                vspeed=None
+                vspeed = None
 
         if vspeed is not None:
             self.array[0:] = vspeed

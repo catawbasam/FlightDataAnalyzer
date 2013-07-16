@@ -1397,7 +1397,11 @@ class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
 
         # Airborne scope avoids deceleration on the runway "corrupting" the
         # minimum airspeed with landing flap.
-        self.flap_or_conf_max_or_min(flap, airspeed, min_value, scope=scope)
+        data = self.flap_or_conf_max_or_min(flap, airspeed, min_value,
+                                            scope=scope)
+        for index, value, detent in data:
+            self.create_kpv(index, value, parameter=flap.name,
+                            flap=detent)
 
 
 class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
@@ -1463,7 +1467,11 @@ class AirspeedWithFlapDuringClimbMin(KeyPointValueNode, FlapOrConfigurationMaxOr
                airspeed=P('Airspeed'),
                scope=S('Climb')):
 
-        self.flap_or_conf_max_or_min(flap, airspeed, min_value, scope=scope)
+        data = self.flap_or_conf_max_or_min(flap, airspeed, min_value,
+                                            scope=scope)
+        for index, value, detent in data:
+            self.create_kpv(index, value, parameter=flap.name,
+                            flap=detent)
 
 
 class AirspeedWithFlapDuringDescentMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
@@ -1529,7 +1537,11 @@ class AirspeedWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigurationMax
                airspeed=P('Airspeed'),
                scope=S('Descent To Flare')):
 
-        self.flap_or_conf_max_or_min(flap, airspeed, min_value, scope=scope)
+        data = self.flap_or_conf_max_or_min(flap, airspeed, min_value,
+                                            scope=scope)
+        for index, value, detent in data:
+            self.create_kpv(index, value, parameter=flap.name,
+                            flap=detent)
 
 
 class AirspeedRelativeWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
@@ -1547,7 +1559,11 @@ class AirspeedRelativeWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigur
                airspeed=P('Airspeed Relative'),
                scope=S('Descent To Flare')):
 
-        self.flap_or_conf_max_or_min(flap, airspeed, min_value, scope=scope)
+        data = self.flap_or_conf_max_or_min(flap, airspeed, min_value,
+                                            scope=scope)
+        for index, value, detent in data:
+            self.create_kpv(index, value, parameter=flap.name,
+                            flap=detent)
 
 
 class AirspeedAtFirstFlapExtensionWhileAirborne(KeyPointValueNode):
@@ -1850,8 +1866,11 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
         '''
         # Fast scope traps flap changes very late on the approach and raising
         # flaps before 80 kts on the landing run.
-        self.flap_or_conf_max_or_min(flap, aoa, max_value,
+        data = self.flap_or_conf_max_or_min(flap, aoa, max_value,
                                      scope=scope, include_zero=True)
+        for index, value, detent in data:
+            self.create_kpv(index, value, parameter=flap.name,
+                            flap=detent)
 
 
 class AOADuringGoAroundMax(KeyPointValueNode):
@@ -4436,7 +4455,10 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
 
         # Fast scope traps flap changes very late on the approach and raising
         # flaps before 80kn on the landing run.
-        self.flap_or_conf_max_or_min(flap, mach, max_value, scope=scope)
+        data = self.flap_or_conf_max_or_min(flap, mach, max_value, scope=scope)
+        for index, value, detent in data:
+            self.create_kpv(index, value, parameter=flap.name,
+                            flap=detent)
 
 
 ########################################
