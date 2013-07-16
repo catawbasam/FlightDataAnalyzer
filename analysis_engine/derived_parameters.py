@@ -458,7 +458,7 @@ class AirspeedReferenceLookup(DerivedParameterNode):
                     "repaired.")
                 return
 
-        setting_param = flap or conf
+        setting_param = conf or flap # check Conf as is dependant on Flap
         vspeed_table = vspeed_class()
         for approach in approaches:
             _slice = approach.slice
@@ -5587,8 +5587,8 @@ class V2Lookup(DerivedParameterNode):
                 return  # Ignore lookup table error as recorded/provided.
             else:
                 vspeed = None
-        
-        setting_array = flap.array.raw if flap else conf.array
+        # check Conf as is dependant on Flap
+        setting_array = conf.array if conf else flap.array.raw
         vspeed_table = vspeed_class()
 
         if weight_liftoffs is not None:
