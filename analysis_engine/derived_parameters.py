@@ -4596,12 +4596,19 @@ class MagneticVariation(DerivedParameterNode):
         mag_var_frequency = 64 * self.frequency
         mag_vars = []
         start_date = start_datetime.value.date()
+        # TODO: Optimize.
         for lat_val, lon_val, alt_aal_val in zip(lat.array[::mag_var_frequency],
                                                  lon.array[::mag_var_frequency],
                                                  alt_aal.array[::mag_var_frequency]):
-            mag_vars.append(geomag.declination(lat_val, lon_val, alt_aal_val,
-                                               time=start_date))
+            if np.ma.masked in (lat_val, lon_val, alt_aal_val):
+                mag_vars.append(np.ma.masked)
+            else:
+                mag_vars.append(geomag.declination(lat_val, lon_val,
+                                                   alt_aal_val,
+                                                   time=start_date))
         
+        # Repair mask to avoid interpolating between masked values.
+        mag_vars = repair_mask(np.ma.array(mag_vars), extrapolate=True)
         interpolator = interp1d(
             np.arange(0, len(lat.array), mag_var_frequency), mag_vars)
         interpolation_length = (len(mag_vars) - 1) * mag_var_frequency
