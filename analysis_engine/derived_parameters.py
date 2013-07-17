@@ -438,13 +438,14 @@ class AirspeedReferenceLookup(DerivedParameterNode):
         self.array = np_ma_masked_zeros_like(air_spd.array)
 
         x = map(lambda x: x.value if x else None, (series, family, engine, engine_type))
-
         try:
             vspeed_class = get_vspeed_map(*x)
-        except KeyError:
+        except KeyError as err:
             if spd_ref:
-                return  # Ignore lookup table error as recorded/provided.
-            raise
+                self.info("Error in '%s': %s", self.name, err)
+            else:
+                self.warning("Error in '%s': %s", self.name, err)
+            return
 
         if gw is not None:  # and you must have eng_np
             try:
@@ -487,10 +488,15 @@ class AirspeedReferenceLookup(DerivedParameterNode):
 
             try:
                 vspeed = vspeed_table.vref(setting, weight)
-            except KeyError:
+            except  (KeyError, ValueError) as err:
                 if spd_ref:
-                    return  # Ignore lookup table error as recorded/provided.
-                raise
+                    self.info("Error in '%s': %s", self.name, err)
+                else:
+                    self.warning("Error in '%s': %s", self.name, err)
+                # Where the aircraft takes off with flap settings outside the
+                # documented vref range, we need the program to continue without
+                # raising an exception, so that the incorrect flap at landing
+                # can be detected.
             else:
                 if vspeed is not None:
                     self.array[_slice] = vspeed
@@ -5582,11 +5588,13 @@ class V2Lookup(DerivedParameterNode):
 
         try:
             vspeed_class = get_vspeed_map(*x)
-        except KeyError:
+        except KeyError as err:
             if v2:
-                return  # Ignore lookup table error as recorded/provided.
+                self.info("Error in '%s': %s", self.name, err)
             else:
-                vspeed = None
+                self.warning("Error in '%s': %s", self.name, err)
+            return
+
         # check Conf as is dependant on Flap
         setting_array = conf.array if conf else flap.array.raw
         vspeed_table = vspeed_class()
@@ -5603,11 +5611,16 @@ class V2Lookup(DerivedParameterNode):
 
         try:
             vspeed = vspeed_table.v2(setting, weight)
-        except:
+        except (KeyError, ValueError) as err:
             if v2:
-                return  # Ignore lookup table error as recorded/provided.
+                self.info("Error in '%s': %s", self.name, err)
             else:
-                vspeed = None
+                self.warning("Error in '%s': %s", self.name, err)
+            # Where the aircraft takes off with flap settings outside the
+            # documented V2 range, we need the program to continue without
+            # raising an exception, so that the incorrect flap at takeoff
+            # can be detected.
+            return
 
         if vspeed is not None:
             self.array[0:] = vspeed
