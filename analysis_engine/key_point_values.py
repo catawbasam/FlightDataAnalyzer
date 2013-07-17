@@ -1681,6 +1681,26 @@ class AirspeedWithConfigurationMax(KeyPointValueNode, FlapOrConfigurationMaxOrMi
                             conf=conf_setting)
 
 
+class AirspeedRelativeWithConfigurationDuringDescentMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
+    '''
+    '''
+
+    NAME_FORMAT = 'Airspeed Relative With Configuration %(conf)s During Descent Min'
+    NAME_VALUES = NAME_VALUES_CONF.copy()
+
+    units = 'kt'
+
+    def derive(self,
+               conf=M('Configuration'),
+               airspeed=P('Airspeed Relative'),
+               scope=S('Descent To Flare')):
+
+        data = self.flap_or_conf_max_or_min(conf, airspeed, min_value, scope=scope)
+        for index, value, detent in data:
+            conf_setting = conf.values_mapping[detent]
+            self.create_kpv(index, value, conf=conf_setting)
+
+
 ########################################
 # Airspeed: Spoilers
 

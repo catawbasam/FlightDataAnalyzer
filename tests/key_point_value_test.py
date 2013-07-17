@@ -86,6 +86,7 @@ from analysis_engine.key_point_values import (
     AirspeedRelativeFor3Sec20FtToTouchdownMin,
     AirspeedRelativeFor3Sec500To20FtMax,
     AirspeedRelativeFor3Sec500To20FtMin,
+    AirspeedRelativeWithConfigurationDuringDescentMin,
     AirspeedRelativeWithFlapDuringDescentMin,
     AirspeedTopOfDescentTo10000FtMax,
     AirspeedV2Plus20DifferenceAtVNAVModeAndEngThrustModeRequired,
@@ -1546,6 +1547,56 @@ class TestAirspeedWithConfigurationMax(unittest.TestCase, NodeTest):
         self.assertEqual(node[3].name, 'Airspeed With Configuration 3 Max')
         self.assertEqual(node[3].index, 6)
         self.assertEqual(node[3].value, 6)
+
+
+
+
+class TestAirspeedRelativeWithConfigurationDuringDescentMin(unittest.TestCase, NodeTest):
+
+
+    def setUp(self):
+        self.values_mapping = {
+            0 : '0',
+            1 : '1',
+            2 : '1+F',
+            3 : '1*',
+            4 : '2',
+            5 : '2*',
+            6 : '3',
+            7 : '4',
+            8 : '5',
+            9 : 'Full',
+        }
+        self.node_class = AirspeedRelativeWithConfigurationDuringDescentMin
+        self.operational_combinations = [
+            ('Configuration', 'Airspeed Relative', 'Descent To Flare'),
+        ]
+
+    def test_derive(self):
+        conf_array = np.ma.array(
+            [0, 1, 1, 2, 2, 4, 6, 4, 4, 2, 1, 0, 0, 0, 0, 0])
+        conf_array = np.ma.concatenate((conf_array, conf_array[::-1]))
+        conf = M('Configuration', conf_array,
+                 values_mapping=self.values_mapping)
+        air_spd_array = np.ma.concatenate((np.ma.arange(16), np.ma.arange(16, -1, -1)))
+        air_spd = P('Airspeed Relative', air_spd_array)
+        fast = buildsection('Descent To Flare', 16, 30)
+        node = self.node_class()
+        node.derive(conf, air_spd, fast)
+
+        self.assertEqual(len(node), 4)
+        self.assertEqual(node[0].name, 'Airspeed Relative With Configuration 1 During Descent Min')
+        self.assertEqual(node[0].index, 30)
+        self.assertEqual(node[0].value, 2)
+        self.assertEqual(node[1].name, 'Airspeed Relative With Configuration 1+F During Descent Min')
+        self.assertEqual(node[1].index, 28)
+        self.assertEqual(node[1].value, 4)
+        self.assertEqual(node[2].name, 'Airspeed Relative With Configuration 2 During Descent Min')
+        self.assertEqual(node[2].index, 26)
+        self.assertEqual(node[2].value, 6)
+        self.assertEqual(node[3].name, 'Airspeed Relative With Configuration 3 During Descent Min')
+        self.assertEqual(node[3].index, 25)
+        self.assertEqual(node[3].value, 7)
 
 
 ##############################################################################
