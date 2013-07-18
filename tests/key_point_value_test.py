@@ -164,6 +164,7 @@ from analysis_engine.key_point_values import (
     EngN1DuringTaxiMax,
     EngN1DuringApproachMax,
     EngN1DuringTakeoff5MinRatingMax,
+    EngN1DuringTakeoff5MinRatingMin,
     EngN1DuringGoAround5MinRatingMax,
     EngN1DuringMaximumContinuousPowerMax,
     EngN1CyclesDuringFinalApproach,
@@ -3890,6 +3891,18 @@ class TestEngN1DuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSli
         self.node_class = EngN1DuringTakeoff5MinRatingMax
         self.operational_combinations = [('Eng (*) N1 Max', 'Takeoff 5 Min Rating')]
         self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngN1DuringTakeoff5MinRatingMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN1DuringTakeoff5MinRatingMin
+        self.operational_combinations = [('Eng (*) N1 Min', 'Takeoff 5 Min Rating')]
+        self.function = min_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
