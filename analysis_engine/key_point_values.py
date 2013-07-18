@@ -4629,6 +4629,34 @@ class EngBleedValvesAtLiftoff(KeyPointValueNode):
 # Engine EPR
 
 
+class EngEPRDuringApproachMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng EPR During Approach Max'
+    units = '%'
+
+    def derive(self,
+               eng_epr_max=P('Eng (*) EPR Max'),
+               approaches=S('Approach')):
+
+        self.create_kpv_from_slices(eng_epr_max.array, approaches, max_value)
+
+
+class EngEPRDuringApproachMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng EPR During Approach Min'
+    units = '%'
+
+    def derive(self,
+               eng_epr_min=P('Eng (*) EPR Min'),
+               approaches=S('Approach')):
+
+        self.create_kpv_from_slices(eng_epr_min.array, approaches, min_value)
+
+
 class EngEPRDuringTaxiMax(KeyPointValueNode):
     '''
     '''

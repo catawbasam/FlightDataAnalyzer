@@ -144,8 +144,11 @@ from analysis_engine.key_point_values import (
     DecelerationFromTouchdownToStopOnRunway,
     DelayedBrakingAfterTouchdown,
     EngBleedValvesAtLiftoff,
+    EngEPRDuringApproachMax,
+    EngEPRDuringApproachMin,
     EngEPRDuringTaxiMax,
     EngEPRDuringTakeoff5MinRatingMax,
+    EngEPRDuringTakeoff5MinRatingMin,
     EngEPRDuringGoAround5MinRatingMax,
     EngEPRDuringMaximumContinuousPowerMax,
     EngEPR500To50FtMax,
@@ -3635,6 +3638,53 @@ class TestEngBleedValvesAtLiftoff(unittest.TestCase, NodeTest):
 
 ##############################################################################
 # Engine EPR
+
+
+class TestEngEPRDuringApproachMax(unittest.TestCase):
+
+    def setUp(self):
+        self.node_class = EngEPRDuringApproachMax
+
+    def test_can_operate(self):
+        ops = self.node_class.get_operational_combinations()
+        expected = [('Eng (*) EPR Max', 'Approach')]
+        self.assertEqual(ops, expected)
+
+    def test_derive(self):
+        approaches = buildsection('Approach', 70, 120)
+        epr_array = np.round(10 + np.ma.array(10 * np.sin(np.arange(0, 12.6, 0.1))))
+        epr = P(name='Eng (*) EPR Max', array=epr_array)
+        node = self.node_class()
+        node.derive(epr, approaches)
+
+        self.assertEqual(len(node), 1)
+        self.assertEqual(node[0].index, 76)
+        self.assertEqual(node[0].value, 20)
+        self.assertEqual(node[0].name, 'Eng EPR During Approach Max')
+
+
+class TestEngEPRDuringApproachMin(unittest.TestCase):
+
+    def setUp(self):
+        self.node_class = EngEPRDuringApproachMin
+
+    def test_can_operate(self):
+        ops = self.node_class.get_operational_combinations()
+        expected = [('Eng (*) EPR Min', 'Approach')]
+        self.assertEqual(ops, expected)
+
+
+    def test_derive(self):
+        approaches = buildsection('Approach', 70, 120)
+        epr_array = np.round(10 + np.ma.array(10 * np.sin(np.arange(0, 12.6, 0.1))))
+        epr = P(name='Eng (*) EPR Max', array=epr_array)
+        node = self.node_class()
+        node.derive(epr, approaches)
+
+        self.assertEqual(len(node), 1)
+        self.assertEqual(node[0].index, 107)
+        self.assertEqual(node[0].value, 0)
+        self.assertEqual(node[0].name, 'Eng EPR During Approach Min')
 
 
 class TestEngEPRDuringTaxiMax(unittest.TestCase, CreateKPVFromSlicesTest):
