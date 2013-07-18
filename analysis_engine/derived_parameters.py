@@ -3787,11 +3787,16 @@ class Configuration(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
+        # TODO: Implement check for the value of Family for Airbus
         return all_of(('Slat', 'Flap', 'Series', 'Family'), available)
 
     def derive(self, slat=P('Slat'), flap=M('Flap'), flaperon=P('Flaperon'),
-               series=A('Series'), family=A('Family')):
-        #TODO: manu=A('Manufacturer') - we could ensure this is only done for Airbus?
+               series=A('Series'), family=A('Family'), manu=A('Manufacturer')):
+
+        if manu and manu.value != 'Airbus':
+            # TODO: remove check once we can check attributes in can_operate
+            self.array = np_ma_masked_zeros_like(flap.array)
+            return
 
         mapping = get_conf_map(series.value, family.value)
         qty_param = len(mapping.itervalues().next())
