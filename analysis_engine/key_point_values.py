@@ -4657,6 +4657,20 @@ class EngEPRDuringTakeoff5MinRatingMax(KeyPointValueNode):
         self.create_kpvs_within_slices(eng_epr_max.array, ratings, max_value)
 
 
+class EngEPRDuringTakeoff5MinRatingMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng EPR During Takeoff 5 Min Rating Min'
+    units = '%'
+
+    def derive(self,
+               eng_epr_min=P('Eng (*) EPR Min'),
+               ratings=S('Takeoff 5 Min Rating')):
+
+        self.create_kpvs_within_slices(eng_epr_min.array, ratings, min_value)
+
+
 class EngEPRDuringGoAround5MinRatingMax(KeyPointValueNode):
     '''
     '''
