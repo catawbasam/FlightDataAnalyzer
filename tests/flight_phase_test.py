@@ -940,6 +940,27 @@ class TestGearRetracting(unittest.TestCase):
         self.assertEqual(list(gr), list(expected))
 
 
+    def test_derive_with_mask(self):
+        gear_down = M('Gear Down', np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1]),
+                      values_mapping={0:'Up', 1:'Down'})
+        gear_warn_l = M('Gear (L) Red Warning',
+                        np.ma.array([0,0,0,1,0,0,0,0,0,1,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        gear_warn_l.array[0] = np.ma.masked
+        gear_warn_n = M('Gear (N) Red Warning',
+                        np.ma.array([0,0,0,0,1,0,0,0,1,0,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        gear_warn_r = M('Gear (R) Red Warning',
+                        np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        frame = A('Frame', value='737-3C')
+        airs=buildsection('Airborne', 1, 11)
+        gr = GearRetracting()
+        gr.derive(gear_down, gear_warn_l, gear_warn_n, gear_warn_r, frame, airs)
+        expected=buildsection('Gear Retracting', 3, 6)
+        self.assertEqual(list(gr), list(expected))
+
+
 class TestGoAroundAndClimbout(unittest.TestCase):
 
     def test_can_operate(self):

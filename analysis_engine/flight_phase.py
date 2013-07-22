@@ -603,7 +603,7 @@ class GearExtending(FlightPhaseNode):
             gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
             gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
             slices = _ezclump(gear_warn)
-            if gear_warn[0] == 0:
+            if first_valid_sample(gear_warn).value == False:
                 gear_moving = slices[1::2]
             else:
                 gear_moving = slices[::2]
@@ -666,7 +666,7 @@ class GearRetracting(FlightPhaseNode):
                          (gear_warn_n.array == 'Warning'))
             ##gear_warn = gear_warn == 'Warning' | gear_warn_n == 'Warning'
             slices = _ezclump(gear_warn)
-            if gear_warn[0] == 0:
+            if first_valid_sample(gear_warn).value == False:
                 gear_moving = slices[1::2]
             else:
                 gear_moving = slices[::2]
