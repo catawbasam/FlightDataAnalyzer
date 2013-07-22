@@ -16,26 +16,25 @@ from flightdatautilities import masked_array_testutils as ma_test
 from flightdatautilities.filesystem_tools import copy_file
 
 from analysis_engine.flight_phase import Fast, Mobile
-from analysis_engine.library import (align, 
-                                     max_value, 
-                                     np_ma_masked_zeros, 
-                                     np_ma_masked_zeros_like, 
-                                     np_ma_ones_like,
-                                     rate_of_change_array)
+from analysis_engine.library import (align,
+                                     max_value,
+                                     np_ma_masked_zeros,
+                                     np_ma_masked_zeros_like,
+                                     np_ma_ones_like)
 
-from analysis_engine.node import (Attribute, 
-                                  A, 
-                                  App, 
-                                  ApproachItem, 
-                                  KeyPointValue, 
-                                  KPV, 
-                                  KeyTimeInstance, 
-                                  KTI, 
-                                  load, 
+from analysis_engine.node import (Attribute,
+                                  A,
+                                  App,
+                                  ApproachItem,
+                                  KeyPointValue,
+                                  KPV,
+                                  KeyTimeInstance,
+                                  KTI,
+                                  load,
                                   M,
-                                  Parameter, 
-                                  P, 
-                                  Section, 
+                                  Parameter,
+                                  P,
+                                  Section,
                                   S)
 from analysis_engine.process_flight import process_flight
 from analysis_engine.settings import GRAVITY_IMPERIAL, METRES_TO_FEET
@@ -299,8 +298,7 @@ class TestAutoland(unittest.TestCase, NodeTest):
         
         ma_test.assert_array_equal(expected.array, eng.array)
 
-        
-        
+
 class TestAPEngaged(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -372,7 +370,6 @@ class TestAPEngaged(unittest.TestCase, NodeTest):
         
         ma_test.assert_array_equal(expected.array, eng.array)
 
-        
 
 ##### FIXME: Re-enable when 'AT Engaged' has been implemented.
 ####class TestATEngaged(unittest.TestCase, NodeTest):
@@ -3333,14 +3330,23 @@ class TestElevatorRight(unittest.TestCase):
         elevator=ElevatorRight()
         elevator.derive(pot, syn)
         ma_test.assert_array_equal(elevator.array, syn.array)
-              
-                 
-              
-class TestEng_Fire(unittest.TestCase):
 
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
+
+class TestEng_Fire(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_Fire
+        self.operational_combinations = [
+            ('Eng (1) Fire',), ('Eng (2) Fire',), ('Eng (3) Fire',), ('Eng (4) Fire',),
+            ('Eng (1) Fire', 'Eng (2) Fire'), ('Eng (1) Fire', 'Eng (3) Fire'),
+            ('Eng (1) Fire', 'Eng (4) Fire'), ('Eng (2) Fire', 'Eng (3) Fire'),
+            ('Eng (2) Fire', 'Eng (4) Fire'), ('Eng (3) Fire', 'Eng (4) Fire'),
+            ('Eng (1) Fire', 'Eng (2) Fire', 'Eng (3) Fire'),
+            ('Eng (1) Fire', 'Eng (2) Fire', 'Eng (4) Fire'),
+            ('Eng (1) Fire', 'Eng (3) Fire', 'Eng (4) Fire'),
+            ('Eng (2) Fire', 'Eng (3) Fire', 'Eng (4) Fire'),
+            ('Eng (1) Fire', 'Eng (2) Fire', 'Eng (3) Fire', 'Eng (4) Fire'),
+        ]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -3716,6 +3722,19 @@ class TestFlapAngle(unittest.TestCase, NodeTest):
             ('Flap Angle (L)', 'Flap Angle (R)', 'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard', 'Frame'),
         ]
 
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestFlapLever(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = FlapLever
+        self.operational_combinations = [
+            ('Flap Lever Angle', 'Series', 'Family'),
+        ]
+    
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
