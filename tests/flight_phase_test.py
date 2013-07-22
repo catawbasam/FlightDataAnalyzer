@@ -1421,7 +1421,7 @@ class TestGearExtended(unittest.TestCase):
 
 class TestGearRetracted(unittest.TestCase):
     def test_can_operate(self):
-        self.assertEqual(GearExtended.get_operational_combinations(),
+        self.assertEqual(GearRetracted.get_operational_combinations(),
                          [('Gear Down',)])
         
     def test_basic(self):
