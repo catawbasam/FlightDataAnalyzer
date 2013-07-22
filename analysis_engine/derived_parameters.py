@@ -3493,7 +3493,7 @@ class FlapLever(MultistateDerivedParameterNode):
             ##and all_of(('Series', 'Family'), available)
 
     def derive(self,
-               flap_surf=P('Flap Angle'),
+               flap_surf=P('Flap Lever Angle'),
                series=A('Series'),
                family=A('Family')):
 
