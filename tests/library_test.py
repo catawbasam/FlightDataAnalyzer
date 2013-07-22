@@ -909,6 +909,20 @@ class TestBump(unittest.TestCase):
 
 
 class TestCalculateTimebase(unittest.TestCase):
+    def test_calculate_timebase_zero_year(self):
+        # 6th second is the first valid datetime(2020,12,25,23,59,0)
+        years = [None] * 6 + [0] * 19  # 6 sec offset
+        months = [None] * 5 + [12] * 20
+        days = [None] * 4 + [24] * 5 + [25] * 16
+        hours = [None] * 3 + [23] * 7 + [00] * 15
+        mins = [None] * 2 + [59] * 10 + [01] * 13
+        secs = [None] * 1 + range(55, 60) + range(19)  # 6th second in next hr
+        start_dt = calculate_timebase(years, months, days, hours, mins, secs)
+
+        #>>> datetime(2020,12,25,00,01,19) - timedelta(seconds=25)
+        #datetime.datetime(2020, 12, 25, 0, 0, 50)
+        self.assertEqual(start_dt, datetime(2000, 12, 25, 0, 0, 54))
+
     def test_calculate_timebase(self):
         # 6th second is the first valid datetime(2020,12,25,23,59,0)
         years = [None] * 6 + [2020] * 19  # 6 sec offset

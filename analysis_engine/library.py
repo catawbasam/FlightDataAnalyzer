@@ -560,7 +560,7 @@ def calculate_timebase(years, months, days, hours, mins, secs):
             #continue
         # same for time?
 
-        if yr and yr < 100:
+        if yr is not None and yr is not np.ma.masked and yr < 100:
             yr = convert_two_digit_to_four_digit_year(yr)
 
         try:
