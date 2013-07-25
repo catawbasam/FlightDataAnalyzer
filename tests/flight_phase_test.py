@@ -1154,7 +1154,28 @@ class TestLanding(unittest.TestCase):
                        phase_fast)
         expected = buildsection('Landing', 0.75, 24)
         self.assertEqual(landing, expected)
+        
+    def test_landing_with_multiple_fast(self):
+        # ensure that the result is a single phase!
+        head = np.ma.array([20]*15+range(20,0,-2))
+        alt_aal = np.ma.array(range(140,0,-10)+[0]*26)
+        # first test the first section that is not within the landing heights
+        phase_fast = buildsections('Fast', [2, 5], [7, 10])
+        landing = Landing()
+        landing.derive(P('Heading Continuous',head),
+                       P('Altitude AAL For Flight Phases',alt_aal),
+                       phase_fast)
+        expected = buildsection('Landing', 9, 24)
+        self.assertEqual(list(landing), list(expected))
 
+        # second, test both sections are within the landing section of data
+        phase_fast = buildsections('Fast', [0, 12], [14, 15])
+        landing = Landing()
+        landing.derive(P('Heading Continuous',head),
+                       P('Altitude AAL For Flight Phases',alt_aal),
+                       phase_fast)
+        expected = buildsection('Landing', 9, 24)
+        self.assertEqual(list(landing), list(expected))
 
 class TestMobile(unittest.TestCase, NodeTest):
 
