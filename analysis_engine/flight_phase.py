@@ -716,8 +716,11 @@ def scan_ils(beam, ils_dots, height, scan_slice):
     if beam not in ['localizer', 'glideslope']:
         raise ValueError('Unrecognised beam type in scan_ils')
 
+    # Find the range of valid ils dots withing scan slice
+    valid_ends = np.ma.flatnotmasked_edges(ils_dots[scan_slice])
+    valid_slice = slice(*(valid_ends+scan_slice.start))
     if np.ma.count(ils_dots[scan_slice]) < 5 or \
-       np.ma.count(ils_dots[scan_slice])/float(len(ils_dots[scan_slice])) < 0.4:
+       np.ma.count(ils_dots[valid_slice])/float(len(ils_dots[valid_slice])) < 0.4:
         return None
 
     # get abs of ils dots as its used everywhere

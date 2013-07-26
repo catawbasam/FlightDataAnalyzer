@@ -345,6 +345,24 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertAlmostEqual(establish.get_first().start_edge,
                                expected.get_first().start_edge)
 
+    def test_ils_localizer_established_masked_preamble(self):
+        '''
+        Same data as basic test but has masked ils data before and after
+        '''
+        ils_array = np.ma.zeros(50)
+        ils_array.mask = True
+        ils_array[20:30] = np.ma.arange(-3, 0, 0.3)
+        ils = P('ILS Localizer', ils_array)
+        alt_aal = P('Alttiude AAL For Flight Phases',
+                    np.ma.arange(1000, 0, -100))
+        app = S(items=[Section('Approach', slice(0, 50), 0, 50)])
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils, alt_aal, app, None)
+        expected = buildsection('ILS Localizer Established', 20+(10*2.0/3.0), 30)
+        # Slightly daft choice of ils array makes exact equality impossible!
+        self.assertAlmostEqual(establish.get_first().start_edge,
+                               expected.get_first().start_edge)
+
     def test_ils_localizer_established_never_on_loc(self):
         ils = P('ILS Localizer',np.ma.array([3]*10))
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
