@@ -5697,8 +5697,8 @@ class EngOilQtyDuringTaxiInMax(KeyPointValueNode):
     '''
     '''
 
-    NAME_FORMAT = "Eng (%(engine)s) Oil Qty During Taxi In Max"
-    NAME_VALUES = {'engine': [1, 2, 3, 4]}
+    NAME_FORMAT = "Eng (%(number)s) Oil Qty During Taxi In Max"
+    NAME_VALUES = NAME_VALUES_ENGINE
 
     units = 'kg'
 
@@ -5718,26 +5718,27 @@ class EngOilQtyDuringTaxiInMax(KeyPointValueNode):
 
         if oil_qty1:
             self.create_kpvs_within_slices(oil_qty1.array, taxi_in, max_value,
-                                           engine=1)
+                                           number=1)
 
         if oil_qty2:
             self.create_kpvs_within_slices(oil_qty2.array, taxi_in, max_value,
-                                           engine=2)
+                                           number=2)
 
         if oil_qty3:
             self.create_kpvs_within_slices(oil_qty3.array, taxi_in, max_value,
-                                           engine=3)
+                                           number=3)
+
         if oil_qty4:
             self.create_kpvs_within_slices(oil_qty4.array, taxi_in, max_value,
-                                           engine=4)
+                                           number=4)
 
 
 class EngOilQtyDuringTaxiOutMax(KeyPointValueNode):
     '''
     '''
 
-    NAME_FORMAT = "Eng (%(engine)s) Oil Qty During Taxi Out Max"
-    NAME_VALUES = {'engine': [1, 2, 3, 4]}
+    NAME_FORMAT = "Eng (%(number)s) Oil Qty During Taxi Out Max"
+    NAME_VALUES = NAME_VALUES_ENGINE
 
     units = 'kg'
 
@@ -5757,18 +5758,19 @@ class EngOilQtyDuringTaxiOutMax(KeyPointValueNode):
 
         if oil_qty1:
             self.create_kpvs_within_slices(oil_qty1.array, taxi_out, max_value,
-                                           engine=1)
+                                           number=1)
 
         if oil_qty2:
             self.create_kpvs_within_slices(oil_qty2.array, taxi_out, max_value,
-                                           engine=2)
+                                           number=2)
 
         if oil_qty3:
             self.create_kpvs_within_slices(oil_qty3.array, taxi_out, max_value,
-                                           engine=3)
+                                           number=3)
+
         if oil_qty4:
             self.create_kpvs_within_slices(oil_qty4.array, taxi_out, max_value,
-                                           engine=4)
+                                           number=4)
 
 
 ##############################################################################
