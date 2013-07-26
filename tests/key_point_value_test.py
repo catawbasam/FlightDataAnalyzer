@@ -2218,6 +2218,39 @@ class TestLiftoffToClimbPitchDuration(unittest.TestCase):
 # Landing Gear
 
 
+class TestMainGearOnGroundToNoseGearOnGroundDuration(unittest.TestCase,
+                                                     NodeTest):
+
+    def test_derive(self):
+        from analysis_engine.key_point_values import \
+            MainGearOnGroundToNoseGearOnGroundDuration
+
+        self.node_class = MainGearOnGroundToNoseGearOnGroundDuration
+        self.operational_combinations = [('Brake Pressure', 'Takeoff Roll',)]
+        self.function = max_value
+
+        gog_array = np.ma.array([0] * 20 + [1] * 15)
+        gog = M(
+            name='Gear On Ground',
+            array=gog_array,
+            values_mapping={0: 'Air', 1: 'Ground'},
+        )
+        gogn_array = np.ma.array([0] * 25 + [1] * 10)
+        gogn = M(
+            name='Gear (N) On Ground',
+            array=gogn_array,
+            values_mapping={0: 'Air', 1: 'Ground'},
+        )
+        landing = buildsection('Landing', 10, 30)
+        node = self.node_class()
+        node.derive(gog, gogn, landing)
+        self.assertEqual(node, [
+            KeyPointValue(
+                19.5, 5.0,
+                'Main Gear On Ground To Nose Gear On Ground Duration'),
+        ])
+
+
 ##################################
 # Braking
 
@@ -2242,6 +2275,20 @@ class TestDelayedBrakingAfterTouchdown(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAutobrakeRejectedTakeoffNotSetDuringTakeoff(unittest.TestCase,
+                                                      CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            AutobrakeRejectedTakeoffNotSetDuringTakeoff
+
+        self.param_name = 'Autobrake Selected RTO'
+        self.phase_name = 'Takeoff'
+        self.node_class = AutobrakeRejectedTakeoffNotSetDuringTakeoff
+        self.values_mapping = {0: '-', 1: 'Selected'}
+
+        self.basic_setup()
 
 
 ##############################################################################
@@ -2432,6 +2479,20 @@ class TestAltitudeAtVNAVModeAndEngThrustModeRequired(unittest.TestCase, CreateKP
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestAltitudeAtCabinPressureLowWarningDuration(unittest.TestCase,
+                                                    CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            AltitudeAtCabinPressureLowWarningDuration
+
+        self.param_name = 'Cabin Altitude'
+        self.phase_name = 'Airborne'
+        self.node_class = AltitudeAtCabinPressureLowWarningDuration
+        self.values_mapping = {0: '-', 1: 'Warning'}
+
+        self.basic_setup()
 
 
 ########################################
@@ -2960,6 +3021,52 @@ class TestControlColumnStiffness(unittest.TestCase, NodeTest):
         stiff.derive(cc_force,cc_disp,phase_fast)
         self.assertEqual(stiff.get_first().index, 31)
         self.assertAlmostEqual(stiff.get_first().value, 2.7) # lb/deg
+
+
+class TestControlColumnForceMax(unittest.TestCase, NodeTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import ControlColumnForceMax
+
+        self.node_class = ControlColumnForceMax
+        self.operational_combinations = [('Control Column Force', 'Fast')]
+
+    def test_derive(self):
+        ccf = P(
+            name='Control Column Force',
+            array=np.ma.array(data=range(50, 30, -1), dtype=float),
+        )
+        phase_fast = buildsection('Fast', 3, 9)
+        node = self.node_class()
+        node.derive(ccf, phase_fast)
+        self.assertEqual(
+            node,
+            KPV('Control Column Force Max',
+                items=[KeyPointValue(
+                    index=3.0, value=47.0,
+                    name='Control Column Force Max')]))
+
+
+class TestControlWheelForceMax(unittest.TestCase, NodeTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import ControlWheelForceMax
+
+        self.node_class = ControlWheelForceMax
+        self.operational_combinations = [('Control Wheel Force', 'Fast')]
+
+    def test_derive(self):
+        cwf = P(
+            name='Control Wheel Force',
+            array=np.ma.array(data=range(50, 30, -1), dtype=float),
+        )
+        phase_fast = buildsection('Fast', 3, 9)
+        node = self.node_class()
+        node.derive(cwf, phase_fast)
+        self.assertEqual(
+            node,
+            KPV('Control Wheel Force Max',
+                items=[KeyPointValue(
+                    index=3.0, value=47.0,
+                    name='Control Wheel Force Max')]))
 
 
 ##############################################################################
@@ -4405,6 +4512,53 @@ class TestEngOilQtyMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestEngOilQtyDuringTaxiInMax(unittest.TestCase, NodeTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import EngOilQtyDuringTaxiInMax
+
+        self.node_class = EngOilQtyDuringTaxiInMax
+        self.operational_combinations = [('Eng (1) Oil Qty', 'Taxi In')]
+        self.function = max_value
+
+    def test_derive(self):
+        oil_qty = P(
+            name='Eng (1) Oil Qty',
+            array=np.ma.array(data=range(50, 30, -1), dtype=float),
+        )
+        taxi_in = S(items=[Section('Taxi In', slice(3, 9), 3, 9)])
+        node = self.node_class()
+        node.derive(oil_qty, None, None, None, taxi_in)
+        self.assertEqual(
+            node,
+            KPV('Eng (1) Oil Qty During Taxi In Max',
+                items=[KeyPointValue(
+                    index=3.0, value=47.0,
+                    name='Eng (1) Oil Qty During Taxi In Max')]))
+
+
+class TestEngOilQtyDuringTaxiOutMax(unittest.TestCase, NodeTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import EngOilQtyDuringTaxiOutMax
+
+        self.node_class = EngOilQtyDuringTaxiOutMax
+        self.operational_combinations = [('Eng (1) Oil Qty', 'Taxi Out')]
+        self.function = max_value
+
+    def test_derive(self):
+        oil_qty = P(
+            name='Eng (1) Oil Qty',
+            array=np.ma.array(data=range(50, 30, -1), dtype=float),
+        )
+        taxi_out = S(items=[Section('Taxi Out', slice(3, 9), 3, 9)])
+        node = self.node_class()
+        node.derive(oil_qty, None, None, None, taxi_out)
+        self.assertEqual(
+            node,
+            KPV('Eng (1) Oil Qty During Taxi Out Max',
+                items=[KeyPointValue(
+                    index=3.0, value=47.0,
+                    name='Eng (1) Oil Qty During Taxi Out Max')]))
+
 ##############################################################################
 # Engine Oil Temperature
 
@@ -5219,6 +5373,32 @@ class TestHeadingAtLowestAltitudeDuringApproach(unittest.TestCase, CreateKPVsAtK
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestElevatorDuringLandingMin(unittest.TestCase,
+                                   CreateKPVsWithinSlicesTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import ElevatorDuringLandingMin
+
+        self.node_class = ElevatorDuringLandingMin
+        self.operational_combinations = [('Elevator During Landing',
+                                          'Landing')]
+        self.function = min_value
+
+    def test_derive(self):
+        ccf = P(
+            name='Elevator During Landing',
+            array=np.ma.array(data=range(50, 30, -1), dtype=float),
+        )
+        phase_fast = buildsection('Landing', 3, 9)
+        node = self.node_class()
+        node.derive(ccf, phase_fast)
+        self.assertEqual(
+            node,
+            KPV('Elevator During Landing Min',
+                items=[KeyPointValue(
+                    index=8.0, value=42.0,
+                    name='Elevator During Landing Min')]))
+
+
 class TestHeadingDeviationFromRunwayAbove80KtsAirspeedDuringTakeoff(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -5537,6 +5717,18 @@ class TestFuelQtyAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestFuelJettisonDuration(unittest.TestCase, CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import FuelJettisonDuration
+
+        self.param_name = 'Jettison Nozzle'
+        self.phase_name = 'Airborne'
+        self.node_class = FuelJettisonDuration
+        self.values_mapping = {0: '-', 1: 'Jettison'}
+
+        self.basic_setup()
 
 
 ##############################################################################
@@ -6397,6 +6589,29 @@ class TestRudderReversalAbove50Ft(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestRudderPedalForceMax(unittest.TestCase, NodeTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import RudderPedalForceMax
+
+        self.node_class = RudderPedalForceMax
+        self.operational_combinations = [('Rudder Pedal Force', 'Fast')]
+
+    def test_derive(self):
+        ccf = P(
+            name='Rudder Pedal Force',
+            array=np.ma.array(data=range(50, 30, -1), dtype=float),
+        )
+        phase_fast = buildsection('Fast', 3, 9)
+        node = self.node_class()
+        node.derive(ccf, phase_fast)
+        self.assertEqual(
+            node,
+            KPV('Rudder Pedal Force Max',
+                items=[KeyPointValue(
+                    index=3.0, value=47.0,
+                    name='Rudder Pedal Force Max')]))
+
+
 ##############################################################################
 # Speedbrake
 
@@ -6531,6 +6746,17 @@ class TestStickShakerActivatedDuration(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+class TestOverspeedDuration(unittest.TestCase, CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import OverspeedDuration
+
+        self.param_name = 'Overspeed Warning'
+        self.phase_name = None
+        self.node_class = OverspeedDuration
+        self.values_mapping = {0: '-', 1: 'Overspeed'}
+
+        self.basic_setup()
 
 
 ##############################################################################
@@ -6707,6 +6933,20 @@ class TestLandingConfigurationGearWarningDuration(unittest.TestCase):
         self.assertEqual(node[0].index, 5)
 
 
+class TestLandingConfigurationSpeedbrakeCautionDuration(unittest.TestCase,
+                                                        CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            LandingConfigurationSpeedbrakeCautionDuration
+
+        self.param_name = 'Landing Configuration Speedbrake Caution'
+        self.phase_name = 'Airborne'
+        self.node_class = LandingConfigurationSpeedbrakeCautionDuration
+        self.values_mapping = {0: '-', 1: 'Caution'}
+
+        self.basic_setup()
+
+
 ##############################################################################
 # Warnings: Terrain Awareness & Warning System (TAWS)
 
@@ -6720,6 +6960,18 @@ class TestTAWSAlertDuration(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTAWSWarningDuration(unittest.TestCase, CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import TAWSWarningDuration
+
+        self.param_name = 'TAWS Warning'
+        self.phase_name = 'Airborne'
+        self.node_class = TAWSWarningDuration
+        self.values_mapping = {0: '-', 1: 'Warning'}
+
+        self.basic_setup()
 
 
 class TestTAWSGeneralWarningDuration(unittest.TestCase, NodeTest):
@@ -6853,6 +7105,158 @@ class TestTAWSDontSinkWarningDuration(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+        self.basic_setup()
+
+
+class TestTAWSCautionObstacleDuration(unittest.TestCase, CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            TAWSCautionObstacleDuration
+
+        self.param_name = 'TAWS Caution Obstacle'
+        self.phase_name = 'Airborne'
+        self.node_class = TAWSCautionObstacleDuration
+        self.values_mapping = {0: '-', 1: 'Caution'}
+
+        self.basic_setup()
+
+
+class TestTAWSCautionTerrainDuration(unittest.TestCase, CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import TAWSCautionTerrainDuration
+
+        self.param_name = 'TAWS Caution Terrain'
+        self.phase_name = 'Airborne'
+        self.node_class = TAWSCautionTerrainDuration
+        self.values_mapping = {0: '-', 1: 'Caution'}
+
+        self.basic_setup()
+
+
+class TestTAWSTerrainCautionDuration(unittest.TestCase, CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import TAWSTerrainCautionDuration
+
+        self.param_name = 'TAWS Terrain Caution'
+        self.phase_name = 'Airborne'
+        self.node_class = TAWSTerrainCautionDuration
+        self.values_mapping = {0: '-', 1: 'Caution'}
+
+        self.basic_setup()
+
+
+class TestTAWSFailureDuration(unittest.TestCase, CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import TAWSFailureDuration
+
+        self.param_name = 'TAWS Failure'
+        self.phase_name = 'Airborne'
+        self.node_class = TAWSFailureDuration
+        self.values_mapping = {0: '-', 1: 'Failed'}
+
+        self.basic_setup()
+
+
+class TestTAWSObstacleWarningDuration(unittest.TestCase, CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            TAWSObstacleWarningDuration
+
+        self.param_name = 'TAWS Obstacle Warning'
+        self.phase_name = 'Airborne'
+        self.node_class = TAWSObstacleWarningDuration
+        self.values_mapping = {0: '-', 1: 'Warning'}
+
+        self.basic_setup()
+
+
+class TestTAWSPredictiveWindshearDuration(unittest.TestCase,
+                                          CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            TAWSPredictiveWindshearDuration
+
+        self.param_name = 'TAWS Predictive Windshear'
+        self.phase_name = 'Airborne'
+        self.node_class = TAWSPredictiveWindshearDuration
+        self.values_mapping = {0: '-', 1: 'Warning'}
+
+        self.basic_setup()
+
+
+class TestTAWSTerrainAheadDuration(unittest.TestCase, CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            TAWSTerrainAheadDuration
+
+        self.param_name = 'TAWS Terrain Ahead'
+        self.phase_name = 'Airborne'
+        self.node_class = TAWSTerrainAheadDuration
+        self.values_mapping = {0: '-', 1: 'Warning'}
+
+        self.basic_setup()
+
+
+class TestTAWSTerrainAheadPullUpDuration(unittest.TestCase,
+                                         CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            TAWSTerrainAheadPullUpDuration
+
+        self.param_name = 'TAWS Terrain Pull Up Ahead'
+        self.phase_name = 'Airborne'
+        self.node_class = TAWSTerrainAheadPullUpDuration
+        self.values_mapping = {0: '-', 1: 'Warning'}
+
+        self.basic_setup()
+
+
+class TestTAWSWindshearCautionBelow1500FtDuration(unittest.TestCase,
+                                                  CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            TAWSWindshearCautionBelow1500FtDuration
+
+        self.param_name = 'TAWS Windshear Caution'
+        self.phase_name = None
+        self.node_class = TAWSWindshearCautionBelow1500FtDuration
+        self.values_mapping = {0: '-', 1: 'Caution'}
+
+        self.additional_params = [
+            P(
+                'Altitude AAL For Flight Phases',
+                array=np.ma.array([
+                    1501, 1502, 1501, 1499, 1498, 1499, 1499, 1499, 1499, 1501,
+                    1502, 1501
+                ]),
+            )
+        ]
+
+        self.basic_setup()
+
+
+class TestTAWSWindshearSirenBelow1500FtDuration(unittest.TestCase,
+                                                CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            TAWSWindshearSirenBelow1500FtDuration
+
+        self.param_name = 'TAWS Windshear Siren'
+        self.phase_name = None
+        self.node_class = TAWSWindshearSirenBelow1500FtDuration
+        self.values_mapping = {0: '-', 1: 'Warning'}
+
+        self.additional_params = [
+            P(
+                'Altitude AAL For Flight Phases',
+                array=np.ma.array([
+                    1501, 1502, 1501, 1499, 1498, 1499, 1499, 1499, 1499, 1501,
+                    1502, 1501
+                ]),
+            )
+        ]
+
+        self.basic_setup()
 
 
 class TestTAWSWindshearWarningBelow1500FtDuration(unittest.TestCase, NodeTest):
@@ -6974,6 +7378,18 @@ class TestTCASRAToAPDisengagedDuration(unittest.TestCase, NodeTest):
                          node)
 
 
+class TestTCASFailureDuration(unittest.TestCase, CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import TCASFailureDuration
+
+        self.param_name = 'TCAS Failure'
+        self.phase_name = 'Airborne'
+        self.node_class = TCASFailureDuration
+        self.values_mapping = {0: '-', 1: 'Failed'}
+
+        self.basic_setup()
+
+
 ##############################################################################
 # Warnings: Takeoff Configuration
 
@@ -7024,6 +7440,20 @@ class TestTakeoffConfigurationSpoilerWarningDuration(unittest.TestCase, NodeTest
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestTakeoffConfigurationSpoilerWarningDuration(unittest.TestCase,
+                                                     CreateKPVsWhereTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            TakeoffConfigurationSpoilerWarningDuration
+
+        self.param_name = 'Takeoff Configuration Warning'
+        self.phase_name = 'Airborne'
+        self.node_class = TakeoffConfigurationSpoilerWarningDuration
+        self.values_mapping = {0: '-', 1: 'Warning'}
+
+        self.basic_setup()
 
 
 # TODO: Need a CreateKPVsWhereStateTest super class!
