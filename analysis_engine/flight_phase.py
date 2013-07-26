@@ -717,6 +717,8 @@ def scan_ils(beam, ils_dots, height, scan_slice):
 
     # Find the range of valid ils dots withing scan slice
     valid_ends = np.ma.flatnotmasked_edges(ils_dots[scan_slice])
+    if valid_ends is None:
+        return None
     valid_slice = slice(*(valid_ends+scan_slice.start))
     if np.ma.count(ils_dots[scan_slice]) < 5 or \
        np.ma.count(ils_dots[valid_slice])/float(len(ils_dots[valid_slice])) < 0.4:

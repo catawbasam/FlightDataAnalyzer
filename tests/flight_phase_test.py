@@ -424,6 +424,16 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         establish = ILSLocalizerEstablished()
         establish.derive(ils, alt_aal, app, None)
         self.assertEqual(establish, [])
+ 
+    def test_ils_localizer_all_masked(self):
+        app = S(items=[Section('Approach', slice(2, 9), 2, 9)])
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
+        ils = P('ILS Localizer',np.ma.array(data=[0.0]*5,
+                                            mask=[1]*5))
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils, alt_aal, app, None)
+        self.assertEqual(establish, [])
+
 
     def test_ils_localizer_multiple_frequencies(self):
         ils_loc = load(os.path.join(test_data_path, 'ILS_localizer_established_ILS_localizer.nod'))
