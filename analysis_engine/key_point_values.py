@@ -1654,6 +1654,23 @@ class AirspeedAtGearDownSelection(KeyPointValueNode):
         self.create_kpvs_at_ktis(air_spd.array, gear_dn_sel)
 
 
+class MainGearOnGroundToNoseGearOnGroundDuration(KeyPointValueNode):
+    units = 's'
+
+    def derive(self,
+               gog=P('Gear On Ground'),
+               gogn=P('Gear (N) On Ground'),
+               landings=S('Landing')):
+
+        for landing in landings:
+            gog_index = index_of_first_start(gog.array == 'Ground',
+                                             landing.slice)
+            gogn_index = index_of_first_start(gogn.array == 'Ground',
+                                              landing.slice)
+            self.create_kpv(gog_index,
+                            (gogn_index - gog_index) / self.frequency)
+
+
 ########################################
 # Airspeed: Conf
 
@@ -2185,6 +2202,18 @@ class DelayedBrakingAfterTouchdown(KeyPointValueNode):
                 self.create_kpv((minus_10 + minus_60) / 2.0, dt)
 
 
+class AutobrakeRejectedTakeoffNotSetDuringTakeoff(KeyPointValueNode):
+    '''
+    '''
+    units = 's'
+
+    def derive(self,
+               ab_rto=P('Autobrake Selected RTO'),
+               takeoff=S('Takeoff')):
+
+        self.create_kpvs_where(ab_rto.array == 'Selected',
+                               ab_rto.hz, phase=takeoff)
+
 ##############################################################################
 # Altitude
 
@@ -2343,6 +2372,18 @@ class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
                         undershoot = max(b - a, b - alt_a, b - alt_c, b - c)
                         self.create_kpv(idx, undershoot)
 
+
+class AltitudeAtCabinPressureLowWarningDuration(KeyPointValueNode):
+    '''
+    '''
+    units = 's'
+
+    def derive(self,
+               cab_alt=P('Cabin Altitude'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_where(cab_alt.array == 'Warning',
+                               cab_alt.hz, phase=airborne)
 
 ########################################
 # Altitude: Flap
@@ -3140,6 +3181,29 @@ class ControlColumnStiffness(KeyPointValueNode):
                     self.create_kpv(
                         (speedy.slice.start or 0) + move.start + when, slope)
 
+
+class ControlColumnForceMax(KeyPointValueNode):
+    units = 'lbf'
+
+    def derive(self,
+               force=P('Control Column Force'),
+               fast=S('Fast')):
+        self.create_kpvs_within_slices(
+            force.array, fast.get_slices(),
+            max_value)
+
+
+class ControlWheelForceMax(KeyPointValueNode):
+    units = 'lbf'
+
+    def derive(self,
+               force=P('Control Wheel Force'),
+               fast=S('Fast')):
+        self.create_kpvs_within_slices(
+            force.array, fast.get_slices(),
+            max_value)
+
+
 ##############################################################################
 # Runway Distances at Takeoff
 
@@ -3592,6 +3656,15 @@ class HeadingAtLowestAltitudeDuringApproach(KeyPointValueNode):
                low_points=KTI('Lowest Altitude During Approach')):
 
         self.create_kpvs_at_ktis(hdg.array % 360.0, low_points)
+
+
+class ElevatorDuringLandingMin(KeyPointValueNode):
+    units = 'deg'
+
+    def derive(self,
+               elev=P('Elevator During Landing'),
+               landing=S('Landing')):
+        self.create_kpvs_within_slices(elev.array, landing, min_value)
 
 
 ##############################################################################
@@ -5620,6 +5693,84 @@ class EngOilQtyMin(KeyPointValueNode):
         self.create_kpvs_within_slices(oil_qty.array, airborne, min_value)
 
 
+class EngOilQtyDuringTaxiInMax(KeyPointValueNode):
+    '''
+    '''
+
+    NAME_FORMAT = "Eng (%(engine)s) Oil Qty During Taxi In Max"
+    NAME_VALUES = {'engine': [1, 2, 3, 4]}
+
+    units = 'kg'
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(
+            ('Eng (1) Oil Qty', 'Eng (2) Oil Qty', 'Eng (3) Oil Qty',
+             'Eng (4) Oil Qty'), available
+        ) and 'Taxi In' in available
+
+    def derive(self,
+               oil_qty1=P('Eng (1) Oil Qty'),
+               oil_qty2=P('Eng (2) Oil Qty'),
+               oil_qty3=P('Eng (3) Oil Qty'),
+               oil_qty4=P('Eng (4) Oil Qty'),
+               taxi_in=S('Taxi In')):
+
+        if oil_qty1:
+            self.create_kpvs_within_slices(oil_qty1.array, taxi_in, max_value,
+                                           engine=1)
+
+        if oil_qty2:
+            self.create_kpvs_within_slices(oil_qty2.array, taxi_in, max_value,
+                                           engine=2)
+
+        if oil_qty3:
+            self.create_kpvs_within_slices(oil_qty3.array, taxi_in, max_value,
+                                           engine=3)
+        if oil_qty4:
+            self.create_kpvs_within_slices(oil_qty4.array, taxi_in, max_value,
+                                           engine=4)
+
+
+class EngOilQtyDuringTaxiOutMax(KeyPointValueNode):
+    '''
+    '''
+
+    NAME_FORMAT = "Eng (%(engine)s) Oil Qty During Taxi Out Max"
+    NAME_VALUES = {'engine': [1, 2, 3, 4]}
+
+    units = 'kg'
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(
+            ('Eng (1) Oil Qty', 'Eng (2) Oil Qty', 'Eng (3) Oil Qty',
+             'Eng (4) Oil Qty'), available
+        ) and 'Taxi Out' in available
+
+    def derive(self,
+               oil_qty1=P('Eng (1) Oil Qty'),
+               oil_qty2=P('Eng (2) Oil Qty'),
+               oil_qty3=P('Eng (3) Oil Qty'),
+               oil_qty4=P('Eng (4) Oil Qty'),
+               taxi_out=S('Taxi Out')):
+
+        if oil_qty1:
+            self.create_kpvs_within_slices(oil_qty1.array, taxi_out, max_value,
+                                           engine=1)
+
+        if oil_qty2:
+            self.create_kpvs_within_slices(oil_qty2.array, taxi_out, max_value,
+                                           engine=2)
+
+        if oil_qty3:
+            self.create_kpvs_within_slices(oil_qty3.array, taxi_out, max_value,
+                                           engine=3)
+        if oil_qty4:
+            self.create_kpvs_within_slices(oil_qty4.array, taxi_out, max_value,
+                                           engine=4)
+
+
 ##############################################################################
 # Engine Oil Temperature
 
@@ -6250,6 +6401,17 @@ class FuelQtyLowWarningDuration(KeyPointValueNode):
     def derive(self, warning=M('Fuel Qty (*) Low')):
         self.create_kpvs_where(warning.array == 'Warning', warning.hz)
 
+
+class FuelJettisonDuration(KeyPointValueNode):
+    '''
+    '''
+    units = 's'
+
+    def derive(self,
+               jet=P('Jettison Nozzle'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_where(jet.array == 'Jettison', jet.hz, phase=airborne)
 
 ##############################################################################
 # Groundspeed
@@ -7404,6 +7566,17 @@ class RudderReversalAbove50Ft(KeyPointValueNode):
             ))
 
 
+class RudderPedalForceMax(KeyPointValueNode):
+    units = 'lbf'
+
+    def derive(self,
+               force=P('Rudder Pedal Force'),
+               fast=S('Fast')):
+        self.create_kpvs_within_slices(
+            force.array, fast.get_slices(),
+            max_value)
+
+
 ##############################################################################
 # Speedbrake
 
@@ -7538,6 +7711,15 @@ class StickShakerActivatedDuration(KeyPointValueNode):
     def derive(self, stick_shaker=M('Stick Shaker'), airs=S('Airborne')):
         self.create_kpvs_where(stick_shaker.array == 'Shake',
                                stick_shaker.hz, phase=airs)
+
+
+class OverspeedDuration(KeyPointValueNode):
+    '''
+    '''
+    units = 's'
+
+    def derive(self, overspeed=M('Overspeed Warning')):
+        self.create_kpvs_where(overspeed.array == 'Overspeed', self.frequency)
 
 
 ##############################################################################
@@ -7761,6 +7943,20 @@ class TAWSAlertDuration(KeyPointValueNode):
                                taws_alert.hz, phase=airborne)
 
 
+class TAWSWarningDuration(KeyPointValueNode):
+    '''
+    The Duration to which the unspecified TAWS Warning is available.
+    '''
+
+    name = 'TAWS Warning Duration'
+    units = 's'
+
+    def derive(self, taws_warning=M('TAWS Warning'),
+               airborne=S('Airborne')):
+        self.create_kpvs_where(taws_warning.array == 'Warning',
+                               taws_warning.hz, phase=airborne)
+
+
 class TAWSGeneralWarningDuration(KeyPointValueNode):
     '''
     '''
@@ -7920,6 +8116,110 @@ class TAWSDontSinkWarningDuration(KeyPointValueNode):
                                taws_dont_sink.hz, phase=airborne)
 
 
+class TAWSCautionObstacleDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Caution Obstacle Duration'
+    units = 's'
+
+    def derive(self, taws_caution_obstacle=M('TAWS Caution Obstacle'),
+               airborne=S('Airborne')):
+        self.create_kpvs_where(taws_caution_obstacle.array == 'Caution',
+                               taws_caution_obstacle.hz, phase=airborne)
+
+
+class TAWSCautionTerrainDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Caution Terrain Duration'
+    units = 's'
+
+    def derive(self, taws_caution_terrain=M('TAWS Caution Terrain'),
+               airborne=S('Airborne')):
+        self.create_kpvs_where(taws_caution_terrain.array == 'Caution',
+                               taws_caution_terrain.hz, phase=airborne)
+
+
+class TAWSTerrainCautionDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Terrain Caution Duration'
+    units = 's'
+
+    def derive(self, taws_terrain_caution=M('TAWS Terrain Caution'),
+               airborne=S('Airborne')):
+        self.create_kpvs_where(taws_terrain_caution.array == 'Caution',
+                               taws_terrain_caution.hz, phase=airborne)
+
+
+class TAWSFailureDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Failure Duration'
+    units = 's'
+
+    def derive(self, taws_failure=M('TAWS Failure'),
+               airborne=S('Airborne')):
+        self.create_kpvs_where(taws_failure.array == 'Failed',
+                               taws_failure.hz, phase=airborne)
+
+
+class TAWSObstacleWarningDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Obstacle Warning Duration'
+    units = 's'
+
+    def derive(self, taws_obstacle_warning=M('TAWS Obstacle Warning'),
+               airborne=S('Airborne')):
+        self.create_kpvs_where(taws_obstacle_warning.array == 'Warning',
+                               taws_obstacle_warning.hz, phase=airborne)
+
+
+class TAWSPredictiveWindshearDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Predictive Windshear Duration'
+    units = 's'
+
+    def derive(self, taws_pw=M('TAWS Predictive Windshear'),
+               airborne=S('Airborne')):
+        self.create_kpvs_where(taws_pw.array == 'Warning',
+                               taws_pw.hz, phase=airborne)
+
+
+class TAWSTerrainAheadDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Terrain Ahead Duration'
+    units = 's'
+
+    def derive(self, taws_terrain_ahead=M('TAWS Terrain Ahead'),
+               airborne=S('Airborne')):
+        self.create_kpvs_where(taws_terrain_ahead.array == 'Warning',
+                               taws_terrain_ahead.hz, phase=airborne)
+
+
+class TAWSTerrainAheadPullUpDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Terrain Ahead Pull Up Duration'
+    units = 's'
+
+    def derive(self, taws_terrain_ahead_pu=M('TAWS Terrain Pull Up Ahead'),
+               airborne=S('Airborne')):
+        self.create_kpvs_where(taws_terrain_ahead_pu.array == 'Warning',
+                               taws_terrain_ahead_pu.hz, phase=airborne)
+
+
 class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
     '''
     '''
@@ -7928,6 +8228,34 @@ class TAWSWindshearWarningBelow1500FtDuration(KeyPointValueNode):
     units = 's'
 
     def derive(self, taws_windshear=M('TAWS Windshear Warning'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        self.create_kpvs_where(taws_windshear.array == 'Warning',
+                               taws_windshear.hz,
+                               alt_aal.slices_from_to(1500, 0))
+
+
+class TAWSWindshearCautionBelow1500FtDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Windshear Caution Below 1500 Ft Duration'
+    units = 's'
+
+    def derive(self, taws_windshear=M('TAWS Windshear Caution'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+        self.create_kpvs_where(taws_windshear.array == 'Caution',
+                               taws_windshear.hz,
+                               alt_aal.slices_from_to(1500, 0))
+
+
+class TAWSWindshearSirenBelow1500FtDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TAWS Windshear Siren Below 1500 Ft Duration'
+    units = 's'
+
+    def derive(self, taws_windshear=M('TAWS Windshear Siren'),
                alt_aal=P('Altitude AAL For Flight Phases')):
         self.create_kpvs_where(taws_windshear.array == 'Warning',
                                taws_windshear.hz,
@@ -8105,6 +8433,19 @@ class TCASRAToAPDisengagedDuration(KeyPointValueNode):
                 self.create_kpv(index, duration)
 
 
+class TCASFailureDuration(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'TCAS Failure Duration'
+    units = 's'
+
+    def derive(self, tcas_failure=M('TCAS Failure'),
+               airborne=S('Airborne')):
+        self.create_kpvs_where(tcas_failure.array == 'Failed',
+                               tcas_failure.hz, phase=airborne)
+
+
 ##############################################################################
 # Warnings: Takeoff Configuration
 
@@ -8190,6 +8531,20 @@ class LandingConfigurationGearWarningDuration(KeyPointValueNode):
                airs=S('Airborne')):
         self.create_kpvs_where(landing_cfg_warn.array == 'Warning',
                                landing_cfg_warn.hz, phase=airs)
+
+
+class LandingConfigurationSpeedbrakeCautionDuration(KeyPointValueNode):
+    '''
+    '''
+
+    units = 's'
+
+    def derive(self,
+               landing_cfg_caution=M(
+                   'Landing Configuration Speedbrake Caution'),
+               airs=S('Airborne')):
+        self.create_kpvs_where(landing_cfg_caution.array == 'Caution',
+                               landing_cfg_caution.hz, phase=airs)
 
 
 ##############################################################################
