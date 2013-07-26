@@ -420,6 +420,9 @@ test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 class NodeTest(object):
 
     def test_can_operate(self):
+        if not hasattr(self, 'node_class'):
+            return
+
         if getattr(self, 'check_operational_combination_length_only', False):
             self.assertEqual(
                 len(self.node_class.get_operational_combinations()),
@@ -440,7 +443,7 @@ class CreateKPVsAtKPVsTest(NodeTest):
                 self.node_class = AltitudeAtLiftoff
                 self.operational_combinations = [('Altitude STD', 'Liftoff')]
     '''
-    def test_derive(self):
+    def test_derive_mocked(self):
         mock1, mock2 = Mock(), Mock()
         mock1.array = Mock()
         node = self.node_class()
