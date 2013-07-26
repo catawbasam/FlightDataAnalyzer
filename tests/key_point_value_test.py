@@ -155,7 +155,6 @@ from analysis_engine.key_point_values import (
     EngEPR500To50FtMin,
     EngEPRFor5Sec1000To500FtMin,
     EngEPRFor5Sec500To50FtMin,
-    EngFireWarningDuration,
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
     EngGasTempDuringMaximumContinuousPowerMax,
@@ -337,8 +336,6 @@ from analysis_engine.key_point_values import (
     SpeedbrakeDeployedWithPowerOnDuration,
     SpeedbrakeDeployedWithConfDuration,
     SpeedbrakeDeployedWithFlapDuration,
-    StickPusherActivatedDuration,
-    StickShakerActivatedDuration,
     TailClearanceDuringApproachMin,
     TailClearanceDuringLandingMin,
     TailClearanceDuringTakeoffMin,
@@ -375,11 +372,6 @@ from analysis_engine.key_point_values import (
     MasterWarningDuration,
     MasterWarningDuringTakeoffDuration,
     MasterCautionDuringTakeoffDuration,
-    TakeoffConfigurationWarningDuration,
-    TakeoffConfigurationFlapWarningDuration,
-    TakeoffConfigurationParkingBrakeWarningDuration,
-    TakeoffConfigurationSpoilerWarningDuration,
-    TakeoffConfigurationStabilizerWarningDuration,
     TAWSAlertDuration,
     TAWSGeneralWarningDuration,
     TAWSSinkRateWarningDuration,
@@ -392,7 +384,6 @@ from analysis_engine.key_point_values import (
     TAWSTooLowTerrainWarningDuration,
     TAWSTooLowGearWarningDuration,
     TAWSPullUpWarningDuration,
-    TAWSDontSinkWarningDuration,
     TAWSWindshearWarningBelow1500FtDuration,
     ThrustReversersDeployedDuration,
     PackValvesOpenAtLiftoff,
@@ -3966,18 +3957,18 @@ class TestEngEPRFor5Sec500To50FtMin(unittest.TestCase, NodeTest):
 # Engine Fire
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
-class TestEngFireWarningDuration(unittest.TestCase, NodeTest):
-
+class TestEngFireWarningDuration(unittest.TestCase, CreateKPVsWhereTest):
     def setUp(self):
-        self.node_class = EngFireWarningDuration
-        self.operational_combinations = [('Eng (*) Fire', 'Airborne')]
+        from analysis_engine.key_point_values import EngFireWarningDuration
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-        
+        self.param_name = 'Eng (*) Fire'
+        self.phase_name = 'Airborne'
+        self.node_class = EngFireWarningDuration
+        self.values_mapping = {0: '-', 1: 'Fire'}
+
+        self.basic_setup()
+
+
 ##############################################################################
 # Engine Shutdown
 
@@ -6724,28 +6715,31 @@ class TestSpeedbrakeDeployedDuringGoAroundDuration(unittest.TestCase, NodeTest):
 # Warnings: Stick Pusher/Shaker
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
-class TestStickPusherActivatedDuration(unittest.TestCase, NodeTest):
-
+class TestStickPusherActivatedDuration(unittest.TestCase, CreateKPVsWhereTest):
     def setUp(self):
+        from analysis_engine.key_point_values import \
+            StickPusherActivatedDuration
+
+        self.param_name = 'Stick Pusher'
+        self.phase_name = 'Airborne'
         self.node_class = StickPusherActivatedDuration
-        self.operational_combinations = [('Stick Pusher', 'Airborne')]
+        self.values_mapping = {0: '-', 1: 'Push'}
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.basic_setup()
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
-class TestStickShakerActivatedDuration(unittest.TestCase, NodeTest):
-
+class TestStickShakerActivatedDuration(unittest.TestCase, CreateKPVsWhereTest):
     def setUp(self):
-        self.node_class = StickShakerActivatedDuration
-        self.operational_combinations = [('Stick Shaker', 'Airborne')]
+        from analysis_engine.key_point_values import \
+            StickShakerActivatedDuration
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.param_name = 'Stick Shaker'
+        self.phase_name = 'Airborne'
+        self.node_class = StickShakerActivatedDuration
+        self.values_mapping = {0: '-', 1: 'Shake'}
+
+        self.basic_setup()
+
 
 class TestOverspeedDuration(unittest.TestCase, CreateKPVsWhereTest):
     def setUp(self):
@@ -7095,16 +7089,16 @@ class TestTAWSPullUpWarningDuration(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
-class TestTAWSDontSinkWarningDuration(unittest.TestCase, NodeTest):
-
+class TestTAWSDontSinkWarningDuration(unittest.TestCase, CreateKPVsWhereTest):
     def setUp(self):
-        self.node_class = TAWSDontSinkWarningDuration
-        self.operational_combinations = [('TAWS Dont Sink', 'Airborne')]
+        from analysis_engine.key_point_values import \
+            TAWSDontSinkWarningDuration
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.param_name = 'TAWS Dont Sink'
+        self.phase_name = 'Airborne'
+        self.node_class = TAWSDontSinkWarningDuration
+        self.values_mapping = {0: '-', 1: 'Warning'}
+
         self.basic_setup()
 
 
@@ -7394,52 +7388,46 @@ class TestTCASFailureDuration(unittest.TestCase, CreateKPVsWhereTest):
 # Warnings: Takeoff Configuration
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
-class TestTakeoffConfigurationWarningDuration(unittest.TestCase, NodeTest):
-
+class TestTakeoffConfigurationWarningDuration(unittest.TestCase,
+                                              CreateKPVsWhereTest):
     def setUp(self):
+        from analysis_engine.key_point_values import \
+            TakeoffConfigurationWarningDuration
+
+        self.param_name = 'Takeoff Configuration Warning'
+        self.phase_name = 'Takeoff Roll'
         self.node_class = TakeoffConfigurationWarningDuration
-        self.operational_combinations = [('Takeoff Configuration Warning', 'Takeoff Roll')]
+        self.values_mapping = {0: '-', 1: 'Warning'}
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.basic_setup()
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
-class TestTakeoffConfigurationFlapWarningDuration(unittest.TestCase, NodeTest):
-
+class TestTakeoffConfigurationFlapWarningDuration(unittest.TestCase,
+                                                  CreateKPVsWhereTest):
     def setUp(self):
+        from analysis_engine.key_point_values import \
+            TakeoffConfigurationFlapWarningDuration
+
+        self.param_name = 'Takeoff Configuration Flap Warning'
+        self.phase_name = 'Takeoff Roll'
         self.node_class = TakeoffConfigurationFlapWarningDuration
-        self.operational_combinations = [('Takeoff Configuration Flap Warning', 'Takeoff Roll')]
+        self.values_mapping = {0: '-', 1: 'Warning'}
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.basic_setup()
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
-class TestTakeoffConfigurationParkingBrakeWarningDuration(unittest.TestCase, NodeTest):
-
+class TestTakeoffConfigurationParkingBrakeWarningDuration(unittest.TestCase,
+                                                          CreateKPVsWhereTest):
     def setUp(self):
+        from analysis_engine.key_point_values import \
+            TakeoffConfigurationParkingBrakeWarningDuration
+
+        self.param_name = 'Takeoff Configuration Parking Brake Warning'
+        self.phase_name = 'Takeoff Roll'
         self.node_class = TakeoffConfigurationParkingBrakeWarningDuration
-        self.operational_combinations = [('Takeoff Configuration Parking Brake Warning', 'Takeoff Roll')]
+        self.values_mapping = {0: '-', 1: 'Warning'}
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-# TODO: Need a CreateKPVsWhereStateTest super class!
-class TestTakeoffConfigurationSpoilerWarningDuration(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = TakeoffConfigurationSpoilerWarningDuration
-        self.operational_combinations = [('Takeoff Configuration Spoiler Warning', 'Takeoff Roll')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.basic_setup()
 
 
 class TestTakeoffConfigurationSpoilerWarningDuration(unittest.TestCase,
@@ -7448,24 +7436,26 @@ class TestTakeoffConfigurationSpoilerWarningDuration(unittest.TestCase,
         from analysis_engine.key_point_values import \
             TakeoffConfigurationSpoilerWarningDuration
 
-        self.param_name = 'Takeoff Configuration Warning'
-        self.phase_name = 'Airborne'
+        self.param_name = 'Takeoff Configuration Spoiler Warning'
+        self.phase_name = 'Takeoff Roll'
         self.node_class = TakeoffConfigurationSpoilerWarningDuration
         self.values_mapping = {0: '-', 1: 'Warning'}
 
         self.basic_setup()
 
 
-# TODO: Need a CreateKPVsWhereStateTest super class!
-class TestTakeoffConfigurationStabilizerWarningDuration(unittest.TestCase, NodeTest):
-
+class TestTakeoffConfigurationStabilizerWarningDuration(unittest.TestCase,
+                                                        CreateKPVsWhereTest):
     def setUp(self):
-        self.node_class = TakeoffConfigurationStabilizerWarningDuration
-        self.operational_combinations = [('Takeoff Configuration Stabilizer Warning', 'Takeoff Roll')]
+        from analysis_engine.key_point_values import \
+            TakeoffConfigurationStabilizerWarningDuration
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        self.param_name = 'Takeoff Configuration Stabilizer Warning'
+        self.phase_name = 'Takeoff Roll'
+        self.node_class = TakeoffConfigurationStabilizerWarningDuration
+        self.values_mapping = {0: '-', 1: 'Warning'}
+
+        self.basic_setup()
 
 
 ##############################################################################
