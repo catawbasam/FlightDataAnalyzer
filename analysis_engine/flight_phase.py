@@ -532,7 +532,6 @@ class DescentLowClimb(FlightPhaseNode):
 
 
 class Fast(FlightPhaseNode):
-
     '''
     Data will have been sliced into single flights before entering the
     analysis engine, so we can be sure that there will be only one fast
@@ -716,8 +715,11 @@ def scan_ils(beam, ils_dots, height, scan_slice):
     if beam not in ['localizer', 'glideslope']:
         raise ValueError('Unrecognised beam type in scan_ils')
 
+    # Find the range of valid ils dots withing scan slice
+    valid_ends = np.ma.flatnotmasked_edges(ils_dots[scan_slice])
+    valid_slice = slice(*(valid_ends+scan_slice.start))
     if np.ma.count(ils_dots[scan_slice]) < 5 or \
-       np.ma.count(ils_dots[scan_slice])/float(len(ils_dots[scan_slice])) < 0.4:
+       np.ma.count(ils_dots[valid_slice])/float(len(ils_dots[valid_slice])) < 0.4:
         return None
 
     # get abs of ils dots as its used everywhere
@@ -1034,13 +1036,18 @@ class Landing(FlightPhaseNode):
     '''
     def derive(self, head=P('Heading Continuous'),
                alt_aal=P('Altitude AAL For Flight Phases'), fast=S('Fast')):
-
+        phases = []
         for speedy in fast:
             # See takeoff phase for comments on how the algorithm works.
 
             # AARRGG - How can we check if this is at the end of the data
             # without having to go back and test against the airspeed array?
             # TODO: Improve endpoint checks. DJ
+            # Answer: 
+            #  duration=A('HDF Duration')
+            #  array_len = duration.value * self.frequency
+            #  if speedy.slice.stop >= array_len: continue
+        
             if (speedy.slice.stop is None or \
                 speedy.slice.stop >= len(alt_aal.array)):
                 break
@@ -1052,6 +1059,10 @@ class Landing(FlightPhaseNode):
             landing_begin = index_at_value(alt_aal.array,
                                            LANDING_THRESHOLD_HEIGHT,
                                            slice(first, landing_run))
+            if landing_begin is None:
+                # we are not able to detect a landing threshold height,
+                # therefore invalid section
+                continue
 
             # The turn off the runway must lie within eight minutes of the
             # landing. (We did use 5 mins, but found some landings on long
@@ -1068,7 +1079,12 @@ class Landing(FlightPhaseNode):
                 # all we have.
                 landing_end = len(head.array)-1
 
-            self.create_phases([slice(landing_begin, landing_end)])
+            # ensure any overlap with phases are ignored (possibly due to
+            # data corruption returning multiple fast segments)
+            new_phase = [slice(landing_begin, landing_end)]
+            phases = slices_or(phases, new_phase)
+        self.create_phases(phases)
+        
 
 
 class LandingRoll(FlightPhaseNode):
