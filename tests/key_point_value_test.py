@@ -11,8 +11,8 @@ from flightdatautilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, App, ApproachItem, KPV, KTI, load, M, P, KeyPointValue,
-    KeyTimeInstance, Section, S
+    A, App, ApproachItem, KPV, KTI, load, M, MultistateDerivedParameterNode,
+    P, KeyPointValue, KeyTimeInstance, Section, S
 )
 
 from analysis_engine.derived_parameters import (
@@ -432,6 +432,63 @@ class NodeTest(object):
             combinations = map(set, self.node_class.get_operational_combinations())
             for combination in map(set, self.operational_combinations):
                 self.assertIn(combination, combinations)
+
+
+class CreateKPVsWhereTest(NodeTest):
+    '''
+    '''
+    def basic_setup(self):
+        '''
+        Setup for test_derive_basic.
+
+        This allows us to use a very basic template of unit tests for "multi
+        state parameter duration in given flight phase' scenario.
+
+        You need to declare:
+            self.param_name
+            self.phase_name or None
+            self.node_class
+            self.values_mapping
+        '''
+        self.params = [
+            MultistateDerivedParameterNode(
+                self.param_name,
+                array=np.ma.array([0] * 3 + [1] * 6 + [0] * 3),
+                values_mapping=self.values_mapping
+            )
+        ]
+
+        combinations = [self.param_name]
+
+        if hasattr(self, 'additional_params'):
+            self.params += self.additional_params
+            combinations += [p.name for p in self.additional_params]
+
+        if self.phase_name:
+            self.phases = [buildsection(self.phase_name, 2, 7)]
+            combinations.append(self.phase_name)
+        else:
+            self.phases = []
+
+        self.operational_combinations = [combinations]
+
+        self.expected = [
+            KeyPointValue(
+                name=self.node_class().get_name(),
+                index=3,
+                value=4.0 if self.phases else 6.0)
+        ]
+
+    def test_derive_basic(self):
+        '''
+        Basic test of state duration in given phase.
+
+        self.node_class: the class of the tested node
+        '''
+        if hasattr(self, 'node_class'):
+            node = self.node_class()
+            node.derive(*(self.params + self.phases))
+            self.assertEqual(node, self.expected)
 
 
 class CreateKPVsAtKPVsTest(NodeTest):
