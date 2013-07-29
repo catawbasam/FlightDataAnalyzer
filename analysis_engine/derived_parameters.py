@@ -737,8 +737,8 @@ class AltitudeAAL(DerivedParameterNode):
         alt_rad_aal = np.ma.maximum(alt_rad, 0.0)
         #x = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
         #ralt_sections = [y for y in x if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
-        ralt_sections = np.ma.clump_unmasked(np.ma.masked_greater(alt_rad_aal, 100.0))
-        #ralt_sections = [y for y in x if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
+        ## ralt_sections = np.ma.clump_unmasked(np.ma.masked_greater(alt_rad_aal, 100.0))
+        ralt_sections = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
 
         if len(ralt_sections)==0:
             # Either Altitude Radio did not drop below 100, or did not get
@@ -956,6 +956,14 @@ class AltitudeAAL(DerivedParameterNode):
         # Reset end sections
         alt_aal[quick.start:alt_idxs[0]+1] = 0.0
         alt_aal[alt_idxs[-1]+1:quick.stop] = 0.0
+        
+        '''
+        # Quick visual check of the altitude aal.
+        import matplotlib.pyplot as plt
+        plt.plot(alt_aal)
+        plt.show()
+        '''
+        
         self.array = alt_aal
         
 
