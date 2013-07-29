@@ -3643,12 +3643,9 @@ class Flap(MultistateDerivedParameterNode):
                 # no flaps mapping, round to nearest 5 degrees
                 self.warning("No flap settings - rounding to nearest 5")
                 # round to nearest 5 degrees
-                self.array = round_to_nearest(flap.array, 5.0)
-                self.values_mapping = {f: str(f) for f in 
-                                       np.ma.unique(self.array.raw)}
-                if np.ma.masked in self.values_mapping:
-                    del self.values_mapping[np.ma.masked]
-            else:
+                array = round_to_nearest(flap.array, 5.0)
+                flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
+            finally:
                 self.values_mapping = {f: str(f) for f in flap_steps}
                 self.array = step_values(flap.array, flap.frequency, flap_steps)
         else:
