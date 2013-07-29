@@ -4399,14 +4399,17 @@ class CoordinatesSmoothed(object):
                             scan_back = slice(join_idx, this_app_slice.start, -1)
                             lat_join = first_valid_sample(lat_adj[scan_back])
                             lon_join = first_valid_sample(lon_adj[scan_back])
-                            join_idx -= max(lat_join.index, lon_join.index) # step back to make sure the join location is not masked.
-                            lat_in, lon_in = self.taxi_in_track(
-                                lat_adj[join_idx:end],
-                                lon_adj[join_idx:end],
-                                speed[join_idx:end],
-                                hdg.array[join_idx:end],
-                                freq,
-                            )
+                            if lat_join.index and lon_join.index:
+                                join_idx -= max(lat_join.index, lon_join.index) # step back to make sure the join location is not masked.
+                                lat_in, lon_in = self.taxi_in_track(
+                                    lat_adj[join_idx:end],
+                                    lon_adj[join_idx:end],
+                                    speed[join_idx:end],
+                                    hdg.array[join_idx:end],
+                                    freq,
+                                )
+                            else:
+                                lat_in = lon_in = None
 
                     # If we have an array of taxi in track values, we use
                     # this, otherwise we hold at the end of the landing.
