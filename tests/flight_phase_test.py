@@ -345,6 +345,24 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertAlmostEqual(establish.get_first().start_edge,
                                expected.get_first().start_edge)
 
+    def test_ils_localizer_established_masked_preamble(self):
+        '''
+        Same data as basic test but has masked ils data before and after
+        '''
+        ils_array = np.ma.zeros(50)
+        ils_array.mask = True
+        ils_array[20:30] = np.ma.arange(-3, 0, 0.3)
+        ils = P('ILS Localizer', ils_array)
+        alt_aal = P('Alttiude AAL For Flight Phases',
+                    np.ma.arange(1000, 0, -100))
+        app = S(items=[Section('Approach', slice(0, 50), 0, 50)])
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils, alt_aal, app, None)
+        expected = buildsection('ILS Localizer Established', 20+(10*2.0/3.0), 30)
+        # Slightly daft choice of ils array makes exact equality impossible!
+        self.assertAlmostEqual(establish.get_first().start_edge,
+                               expected.get_first().start_edge)
+
     def test_ils_localizer_established_never_on_loc(self):
         ils = P('ILS Localizer',np.ma.array([3]*10))
         alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
@@ -406,6 +424,16 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         establish = ILSLocalizerEstablished()
         establish.derive(ils, alt_aal, app, None)
         self.assertEqual(establish, [])
+ 
+    def test_ils_localizer_all_masked(self):
+        app = S(items=[Section('Approach', slice(2, 9), 2, 9)])
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
+        ils = P('ILS Localizer',np.ma.array(data=[0.0]*5,
+                                            mask=[1]*5))
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils, alt_aal, app, None)
+        self.assertEqual(establish, [])
+
 
     def test_ils_localizer_multiple_frequencies(self):
         ils_loc = load(os.path.join(test_data_path, 'ILS_localizer_established_ILS_localizer.nod'))
@@ -1154,7 +1182,28 @@ class TestLanding(unittest.TestCase):
                        phase_fast)
         expected = buildsection('Landing', 0.75, 24)
         self.assertEqual(landing, expected)
+        
+    def test_landing_with_multiple_fast(self):
+        # ensure that the result is a single phase!
+        head = np.ma.array([20]*15+range(20,0,-2))
+        alt_aal = np.ma.array(range(140,0,-10)+[0]*26)
+        # first test the first section that is not within the landing heights
+        phase_fast = buildsections('Fast', [2, 5], [7, 10])
+        landing = Landing()
+        landing.derive(P('Heading Continuous',head),
+                       P('Altitude AAL For Flight Phases',alt_aal),
+                       phase_fast)
+        expected = buildsection('Landing', 9, 24)
+        self.assertEqual(list(landing), list(expected))
 
+        # second, test both sections are within the landing section of data
+        phase_fast = buildsections('Fast', [0, 12], [14, 15])
+        landing = Landing()
+        landing.derive(P('Heading Continuous',head),
+                       P('Altitude AAL For Flight Phases',alt_aal),
+                       phase_fast)
+        expected = buildsection('Landing', 9, 24)
+        self.assertEqual(list(landing), list(expected))
 
 class TestMobile(unittest.TestCase, NodeTest):
 

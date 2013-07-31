@@ -2063,7 +2063,7 @@ class NodeManager(object):
         non_empty = lambda x: {k: v for k, v in x.items() if v is not None}
 
         self.start_datetime = start_datetime
-        self.hdf_duration = hdf_duration
+        self.hdf_duration = hdf_duration  # secs
         self.hdf_keys = hdf_keys
         self.requested = requested
         self.derived_nodes = derived_nodes
@@ -2096,7 +2096,7 @@ class NodeManager(object):
         if name == 'Start Datetime':
             return Attribute(name, value=self.start_datetime)
         elif name == 'HDF Duration':
-            return Attribute(name, value=self.hdf_duration)
+            return Attribute(name, value=self.hdf_duration)  # secs
         elif name in self.aircraft_info:
             return Attribute(name, value=self.aircraft_info[name])
         elif name in self.achieved_flight_record:
