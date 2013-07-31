@@ -425,19 +425,73 @@ class NodeTest(object):
 
 class CreateKPVsWhereTest(NodeTest):
     '''
+    Basic test for KPVs created with `create_kpvs_where()` method.
+
+    The rationale for this class is to be able to use very simple test case
+    boilerplate for the "multi state parameter duration in given flight phase"
+    scenario.
+
+    This test checks basic mechanics of specific type of KPV: duration of a
+    given state in multistate parameter.
+
+    The test supports multiple parameters and optionally a phase name
+    within which the duration is measured.
+
+    What is tested this class:
+        * kpv.can_operate() results
+        * parameter and KPV names
+        * state names
+        * basic logic to measure the time of a state duration within a phase
+          (slice)
+
+    What isn't tested:
+        * potential edge cases of specific parameters
     '''
     def basic_setup(self):
         '''
         Setup for test_derive_basic.
 
-        This allows us to use a very basic template of unit tests for "multi
-        state parameter duration in given flight phase' scenario.
+        In the most basic use case the test which derives from this class
+        should declare the attributes used to build the test case and then call
+        self.basic_setup().
 
         You need to declare:
-            self.param_name
-            self.phase_name or None
-            self.node_class
-            self.values_mapping
+
+        self.node_class::
+            class of the KPV node to be used to derive
+
+        self.param_name::
+            name of the parameter to be passed to the KPVs `derive()` method
+
+        self.phase_name::
+            name of the flight phase to be passed to the `derive()` or None if
+            the KPV does not use phases
+
+        self.values_mapping::
+            "state to state name" mapping for multistate parameter
+
+        Optionally:
+
+        self.additional_params::
+            list of additional parameters to be passed to the `derive()` after
+            the main parameter. If unset, only one parameter will be used.
+
+
+        The method performs the following operations:
+
+            1. Builds the main parameter using self.param_name,
+               self.values_array and self.values_mapping
+
+            2. Builds self.params list from the main parameter and
+               self.additional_params, if given
+            3. Optionally builds self.phases with self.phase_name if given
+            4. Builds self.operational_combinations from self.params and
+               self.phases
+            5. Builds self.expected list of expected values using
+               self.node_class and self.phases
+
+        Any of the built attributes can be overridden in the derived class to
+        alter the expected test results.
         '''
         self.params = [
             MultistateDerivedParameterNode(
