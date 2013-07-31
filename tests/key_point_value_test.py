@@ -547,6 +547,21 @@ class CreateKPVsWhereTest(NodeTest):
                         )
                     )
 
+    def test_can_operate(self):
+        '''
+        Test the operational combinations.
+        '''
+        # sets of sorted tuples of node combinations must match exactly
+        kpv_operational_combinations = \
+            self.node_class.get_operational_combinations()
+
+        kpv_combinations = set(
+            tuple(sorted(c)) for c in kpv_operational_combinations)
+
+        expected_combinations = set(
+            tuple(sorted(c)) for c in self.operational_combinations)
+
+        self.assertSetEqual(kpv_combinations, expected_combinations)
 
     def test_derive_basic(self):
         '''
