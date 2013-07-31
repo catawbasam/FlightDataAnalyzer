@@ -493,34 +493,60 @@ class CreateKPVsWhereTest(NodeTest):
         Any of the built attributes can be overridden in the derived class to
         alter the expected test results.
         '''
-        self.params = [
-            MultistateDerivedParameterNode(
-                self.param_name,
-                array=np.ma.array([0] * 3 + [1] * 6 + [0] * 3),
-                values_mapping=self.values_mapping
-            )
-        ]
+        if not hasattr(self, 'values_array'):
+            self.values_array = np.ma.array([0] * 3 + [1] * 6 + [0] * 3)
 
-        combinations = [self.param_name]
+        if not hasattr(self, 'phase_slice'):
+            self.phase_slice = slice(2, 7)
 
-        if hasattr(self, 'additional_params'):
-            self.params += self.additional_params
-            combinations += [p.name for p in self.additional_params]
+        if not hasattr(self, 'expected_index'):
+            self.expected_index = 3
 
-        if self.phase_name:
-            self.phases = [buildsection(self.phase_name, 2, 7)]
-            combinations.append(self.phase_name)
+        if not hasattr(self, 'params'):
+            self.params = [
+                MultistateDerivedParameterNode(
+                    self.param_name,
+                    array=self.values_array,
+                    values_mapping=self.values_mapping
+                )
+            ]
+
+            if hasattr(self, 'additional_params'):
+                self.params += self.additional_params
+
+        if hasattr(self, 'phase_name') and self.phase_name:
+            self.phases = buildsection(self.phase_name,
+                                       self.phase_slice.start,
+                                       self.phase_slice.stop)
         else:
             self.phases = []
 
-        self.operational_combinations = [combinations]
+        if not hasattr(self, 'operational_combinations'):
+            combinations = [p.name for p in self.params]
 
-        self.expected = [
-            KeyPointValue(
-                name=self.node_class().get_name(),
-                index=3,
-                value=4.0 if self.phases else 6.0)
-        ]
+            self.operational_combinations = [combinations]
+            if self.phases:
+                combinations.append(self.phases.name)
+
+        if not hasattr(self, 'expected'):
+            self.expected = []
+            if self.phases:
+                slices = [p.slice for p in self.phases]
+            else:
+                slices = [slice(None)]
+
+            for sl in slices:
+                expected_value = np.count_nonzero(
+                    self.values_array[sl])
+                if expected_value:
+                    self.expected.append(
+                        KeyPointValue(
+                            name=self.node_class().get_name(),
+                            index=self.expected_index,
+                            value=expected_value
+                        )
+                    )
+
 
     def test_derive_basic(self):
         '''
