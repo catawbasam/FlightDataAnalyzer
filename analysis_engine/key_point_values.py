@@ -3662,7 +3662,7 @@ class ElevatorDuringLandingMin(KeyPointValueNode):
     units = 'deg'
 
     def derive(self,
-               elev=P('Elevator During Landing'),
+               elev=P('Elevator'),
                landing=S('Landing')):
         self.create_kpvs_within_slices(elev.array, landing, min_value)
 
