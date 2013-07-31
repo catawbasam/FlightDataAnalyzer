@@ -100,6 +100,7 @@ from analysis_engine.derived_parameters import (
     Eng_NpAvg,
     Eng_NpMax,
     Eng_NpMin,
+    Eng_VibBroadbandMax,
     Eng_VibN1Max,
     Eng_VibN2Max,
     Eng_VibN3Max,
@@ -3672,6 +3673,24 @@ class TestEng_TorqueMin(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestEng_VibBroadbandMax(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = Eng_VibBroadbandMax
+        self.operational_combinations = [
+            ('Eng (1) Vib Broadband',),
+            ('Eng (1) Vib Broadband Accel A',),
+            ('Eng (1) Vib Broadband Accel B',),
+            ('Eng (1) Vib Broadband', 'Eng (2) Vib Broadband', 'Eng (3) Vib Broadband', 'Eng (4) Vib Broadband'),
+            ('Eng (1) Vib Broadband Accel A', 'Eng (2) Vib Broadband Accel A', 'Eng (3) Vib Broadband Accel A', 'Eng (4) Vib Broadband Accel A'),
+            ('Eng (1) Vib Broadband Accel B', 'Eng (2) Vib Broadband Accel B', 'Eng (3) Vib Broadband Accel B', 'Eng (4) Vib Broadband Accel B',),
+        ]
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestEng_VibN1Max(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -3740,15 +3759,17 @@ class TestFlapLever(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestGearDown(unittest.TestCase):
-    def test_can_operate(self):
-        opts = GearDown.get_operational_combinations()
-        self.assertIn(('Gear (L) Down',), opts)
-        self.assertIn(('Gear (N) Down',), opts)
-        self.assertIn(('Gear (R) Down',), opts)
-        self.assertIn(('Gear (L) Down', 'Gear (R) Down'), opts)
-        self.assertIn(('Gear (L) Down', 'Gear (N) Down', 'Gear (R) Down'), opts)
-        self.assertIn(('Gear Down Selected',), opts)
+class TestGearDown(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = GearDown
+        self.operational_combinations = [
+            ('Gear (L) Down',),
+            ('Gear (R) Down',),
+            ('Gear (L) Down', 'Gear (R) Down'),
+            ('Gear (L) Down', 'Gear (N) Down', 'Gear (R) Down'),
+            ('Gear Down Selected',),
+        ]
         
     def test_derive_from_select_down(self):
         sel_down = M(array=np.ma.array([1,0,0,1,1]), values_mapping={
@@ -4172,6 +4193,7 @@ class TestSpeedbrake(unittest.TestCase):
     def test_can_operate(self):
         opts = Speedbrake.get_operational_combinations()
         self.assertTrue(('Spoiler (2)', 'Spoiler (7)', 'Frame') in opts)
+        self.assertTrue(('Spoiler (7)', 'Spoiler (1)', 'Frame') in opts)
         self.assertTrue(('Spoiler (4)', 'Spoiler (9)', 'Frame') in opts)
         
     @unittest.skip('Test Not Implemented')

@@ -155,6 +155,7 @@ from analysis_engine.key_point_values import (
     EngEPR500To50FtMin,
     EngEPRFor5Sec1000To500FtMin,
     EngEPRFor5Sec500To50FtMin,
+    EngEPRAtTOGADuringTakeoffMax,
     EngFireWarningDuration,
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
@@ -203,6 +204,7 @@ from analysis_engine.key_point_values import (
     EngTorqueDuringMaximumContinuousPowerMax,
     EngTorque500To50FtMax,
     EngTorque500To50FtMin,
+    EngVibBroadbandMax,
     EngVibN1Max,
     EngVibN2Max,
     EngVibN3Max,
@@ -3735,7 +3737,7 @@ class TestEngEPRDuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinS
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngEPRMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
+class TestEngEPRDuringMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = EngEPRDuringMaximumContinuousPowerMax
@@ -3795,6 +3797,17 @@ class TestEngEPRFor5Sec500To50FtMin(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
+class TestEngEPRAtTOGADuringTakeoffMax(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = EngEPRAtTOGADuringTakeoffMax
+        self.operational_combinations = [('Eng (*) EPR Max', 'Takeoff And Go Around', 'Takeoff')]
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
 ##############################################################################
 # Engine Fire
 
@@ -3809,8 +3822,8 @@ class TestEngFireWarningDuration(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
-        
-        
+
+
 ##############################################################################
 # Engine Shutdown
 
@@ -4475,7 +4488,7 @@ class TestEngTorque500To50FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-##############################################################################
+################################################################################
 # Engine Vibration
 
 
@@ -4510,6 +4523,18 @@ class TestEngVibN3Max(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.operational_combinations = [('Eng (*) Vib N3 Max', 'Airborne')]
         self.function = max_value
 
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngVibBroadbandMax(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = EngVibBroadbandMax
+        self.operational_combinations = [('Eng (*) Vib Broadband Max',)]
+        self.function = max_value
+    
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
