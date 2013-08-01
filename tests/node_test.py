@@ -542,6 +542,18 @@ class TestSectionNode(unittest.TestCase):
                           Section(name='Example Section Node',
                                   slice=slice(3, None, None),start_edge=2.7,stop_edge=None)])
 
+    def test_get_aligned_negative_start(self):
+        '''
+        Ensure we dont return a negative start edge
+        '''
+        section_node = self.section_node_class(frequency=1, offset=0)
+        section_node.create_section(slice(1,434))
+        param = Parameter('p', frequency=0.125, offset=5.4609375)
+        aligned_node = section_node.get_aligned(param)
+        self.assertEqual(list(aligned_node),
+                         [Section(name='Example Section Node',
+                                  slice=slice(0, 54, None),start_edge=0,stop_edge=53.5673828125)])
+
     def test_items(self):
         items = [Section('a', slice(0,10), start_edge=0, stop_edge=10)]
         section_node = self.section_node_class(frequency=1, offset=0.5,
