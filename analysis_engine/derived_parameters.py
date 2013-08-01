@@ -6,15 +6,14 @@ import geomag
 from math import ceil, radians
 from scipy.interpolate import interp1d
 
-from analysis_engine.exceptions import DataFrameError
-
 from flightdatautilities.model_information import (get_aileron_map,
                                                    get_conf_map,
-                                                   get_flap_map,
+                                                   get_flap_values_mapping,
                                                    get_slat_map)
 from flightdatautilities.velocity_speed import get_vspeed_map
 from hdfaccess.parameter import MappedArray
 
+from analysis_engine.exceptions import DataFrameError
 from analysis_engine.node import (
     A, App, DerivedParameterNode, MultistateDerivedParameterNode, KPV, KTI, M,
     P, S)
@@ -3637,71 +3636,49 @@ class FlapAngle(DerivedParameterNode):
                 flap_A, flap_B)
 
 
-class Flap(MultistateDerivedParameterNode):
+class FlapAngleHercules(MultistateDerivedParameterNode):
     '''
-    Steps raw Flap angle from surface into detents.
+    The Hercules we have does not record flap, we ensure this....
+    
+    ...REAL DATA TEST CASE!!!
     '''
-
-    units = 'deg'
-
+    
+    name = 'Flap Angle'  # Q: Will this break the key: value dict?
+    
     @classmethod
     def can_operate(cls, available):
-        '''
-        can operate with Frame and Alt aal if herc or Flap surface
-        '''
-        if 'Flap Angle' in available:
-            # normal use, we require series / family to lookup the detents
-            return all_of(('Series', 'Family'), available)
-        else:
-            # Hercules has no Flap Surface recorded so determines it from AAL
-            # TODO: Implement check for the value of Frame for herc
-            return all_of(('Frame', 'Altitude AAL'), available)
+        #cls.frame == 'Hercules'  # wishful thinking...!
+        return 'Altitude AAL' in available and 'Flap Angle' not in available
+    
+    def derive(self, alt_aal=P('Altitude AAL'), flap_angle=P('Flap Angle')):
+        # Double check Flap Angle isn't recorded!
+        assert flap_angle is None, "Flap cannot be available"
+        # Flap is not recorded, so invent one of the correct length.
+        flap_herc = np_ma_zeros_like(alt_aal.array)
 
-    def derive(self,
-               flap=P('Flap Angle'),
-               series=A('Series'),
-               family=A('Family'),
-               frame=A('Frame'),
-               alt_aal=P('Altitude AAL')):
+        # Takeoff is normally with 50% flap382
+        _, toffs = slices_from_to(alt_aal.array, 0.0, 1000.0)
+        flap_herc[:toffs[0].stop] = 50.0
 
-        frame_name = frame.value if frame else None
+        # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
+        _, apps = slices_from_to(alt_aal.array, 2000.0, 0.0)
+        flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
 
-        if frame_name == 'L382-Hercules':
-            self.values_mapping = {0: '0', 50: '50', 100: '100'}
-            
-            # Flap is not recorded, so invent one of the correct length.
-            flap_herc = np_ma_zeros_like(alt_aal.array)
+        self.array = np.ma.array(flap_herc)
 
-            # Takeoff is normally with 50% flap382
-            _, toffs = slices_from_to(alt_aal.array, 0.0,1000.0)
-            flap_herc[:toffs[0].stop] = 50.0
 
-            # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
-            _, apps = slices_from_to(alt_aal.array, 2000.0,0.0)
-            flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
+class Flap(MultistateDerivedParameterNode):
+    '''
+    Steps raw Flap Angle surface measurements into detents rounding to the
+    midpoint of the Flap Angle transition.
+    '''
+    units = 'deg'
 
-            self.array = np.ma.array(flap_herc)
-            self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
-
-        elif flap:
-            try:
-                flap_steps = get_flap_map(series.value, family.value)
-            except KeyError:
-                # no flaps mapping, round to nearest 5 degrees
-                self.warning("No flap settings - rounding to nearest 5")
-                # round to nearest 5 degrees
-                array = round_to_nearest(flap.array, 5.0)
-                flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
-            finally:
-                self.values_mapping = {f: str(f) for f in flap_steps}
-                self.array = step_values(flap.array, flap.frequency, flap_steps)
-        else:
-            self.array = None
-            self.values_mapping = {}
-            self.warning("No Flap, assigning a masked array")
-            # We don't want to fail, because some aircraft might not have Flap
-            # recorded correctly
-            # raise DataFrameError(self.name, frame_name)
+    def derive(self, flap=P('Flap Angle'), series=A('Series'), family=A('Family')):
+        self.values_mapping = get_flap_values_mapping(series, family, flap)
+        self.array = step_values(flap.array, flap.frequency, 
+                                 self.values_mapping.keys(),
+                                 step_at='midpoint')
 
 
 '''

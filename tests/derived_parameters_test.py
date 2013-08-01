@@ -2104,15 +2104,17 @@ class TestEngThrustModeRequired(unittest.TestCase):
                         values_mapping=EngThrustModeRequired.values_mapping).tolist())
 
 
-class TestFlap(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = Flap
-        self.operational_combinations = [('Flap Angle', 'Series', 'Family')]
+class TestFlap(unittest.TestCase):
+        
+    def test_can_operate(self):
+        opts = Flap.get_operational_combinations()
+        self.assertEqual(opts, [
+            ('Flap Angle', 'Series', 'Family'), # normal
+        ])
 
     def test_flap_stepped_nearest_5(self):
         flap = P('Flap Angle', np.ma.arange(50))
-        node = self.node_class()
+        node = Flap()
         node.derive(flap, A('Series', None), A('Family', None))
         expected = [0] * 3 + [5] * 5 + [10] * 5 + [15] * 2
         self.assertEqual(node.array[:15].tolist(), expected)
@@ -2174,7 +2176,36 @@ class TestFlap(unittest.TestCase, NodeTest):
         timer = Timer(self.test_flap_using_md82_settings)
         time = min(timer.repeat(2, 100))
         self.assertLess(time, 1.5, msg='Took too long: %.3fs' % time)
-
+        
+    def test_decimal_flap_settings(self):
+        # Beechcraft has a flap 17.5
+        flap_param = Parameter('Flap Angle', array=np.ma.array(
+            [0, 5, 7.2, 
+             17, 17.4, 17.9, 20, 
+             30]))
+        flap = Flap()
+        flap.derive(flap_param, A('Series', '1900D'), A('Family', 'Beechcraft'))
+        self.assertEqual(flap.values_mapping,
+                         {0: '0', 17: '17.5', 35: '35'})
+        ma_test.assert_array_equal(
+            flap.array, ['0', '0', '0',
+                         '17.5', '17.5', '17.5', '17.5',
+                         '35'])
+        
+    def test_flap_settings_for_hercules(self):
+        # No flap recorded; ensure it converts exactly the same
+        flap_param = Parameter('Altitude AAL', array=np.ma.array(
+            [0, 0, 0, 
+             50, 50, 50,
+             100]))
+        flap = Flap()
+        flap.derive(flap_param, A('Series', 'L1011-100'), A('Family', 'L1011'))
+        self.assertEqual(flap.values_mapping,
+                         {0: '0', 50: '50', 100: '100'})
+        ma_test.assert_array_equal(
+            flap.array, ['0', '0', '0',
+                         '50', '50', '50',
+                         '100'])
 
 class TestFuelQty(unittest.TestCase):
     def test_can_operate(self):
