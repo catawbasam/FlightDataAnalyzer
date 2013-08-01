@@ -3662,7 +3662,7 @@ class ElevatorDuringLandingMin(KeyPointValueNode):
     units = 'deg'
 
     def derive(self,
-               elev=P('Elevator During Landing'),
+               elev=P('Elevator'),
                landing=S('Landing')):
         self.create_kpvs_within_slices(elev.array, landing, min_value)
 
@@ -4865,6 +4865,24 @@ class EngEPRFor5Sec1000To500FtMin(KeyPointValueNode):
         )
 
 
+class EngEPRAtTOGADuringTakeoffMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng EPR At TOGA During Takeoff Max'
+
+    def derive(self,
+               eng_epr_max=P('Eng (*) EPR Max'),
+               toga=M('Takeoff And Go Around'),
+               takeoff=S('Takeoff')):
+
+        indexes = find_edges_on_state_change('TOGA', toga.array,
+                                             change='entering', phase=takeoff)
+        for index in indexes:
+            value = value_at_index(eng_epr_max.array, index)
+            self.create_kpv(index, value)
+
+
 ##############################################################################
 # Engine Fire
 
@@ -5603,6 +5621,18 @@ class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
                 if reduce_idx:
                     value = (reduce_idx - touchdown.index) / tla.hz
                     self.create_kpv(reduce_idx, value)
+
+
+################################################################################
+# Engine TPR
+
+
+class EngVibBroadbandMax(KeyPointValueNode):
+    '''
+    '''
+    
+    def derive(self, eng_vib_max=P('Eng (*) Vib Broadband Max')):
+        self.create_kpv(*max_value(eng_vib_max.array))
 
 
 ##############################################################################

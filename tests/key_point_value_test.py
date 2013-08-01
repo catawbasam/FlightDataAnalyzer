@@ -11,8 +11,8 @@ from flightdatautilities.geometry import midpoint
 from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align
 from analysis_engine.node import (
-    A, App, ApproachItem, KPV, KTI, load, M, MultistateDerivedParameterNode,
-    P, KeyPointValue, KeyTimeInstance, Section, S
+    A, App, ApproachItem, KPV, KTI, load, M, P, KeyPointValue, MultistateDerivedParameterNode,
+    KeyTimeInstance, Section, S
 )
 
 from analysis_engine.derived_parameters import (
@@ -148,12 +148,15 @@ from analysis_engine.key_point_values import (
     EngEPRDuringApproachMin,
     EngEPRDuringTaxiMax,
     EngEPRDuringTakeoff5MinRatingMax,
+    EngEPRDuringTakeoff5MinRatingMin,
     EngEPRDuringGoAround5MinRatingMax,
     EngEPRDuringMaximumContinuousPowerMax,
     EngEPR500To50FtMax,
     EngEPR500To50FtMin,
     EngEPRFor5Sec1000To500FtMin,
     EngEPRFor5Sec500To50FtMin,
+    EngEPRAtTOGADuringTakeoffMax,
+    EngFireWarningDuration,
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
     EngGasTempDuringMaximumContinuousPowerMax,
@@ -165,6 +168,7 @@ from analysis_engine.key_point_values import (
     EngN1DuringTaxiMax,
     EngN1DuringApproachMax,
     EngN1DuringTakeoff5MinRatingMax,
+    EngN1DuringTakeoff5MinRatingMin,
     EngN1DuringGoAround5MinRatingMax,
     EngN1DuringMaximumContinuousPowerMax,
     EngN1CyclesDuringFinalApproach,
@@ -200,6 +204,7 @@ from analysis_engine.key_point_values import (
     EngTorqueDuringMaximumContinuousPowerMax,
     EngTorque500To50FtMax,
     EngTorque500To50FtMin,
+    EngVibBroadbandMax,
     EngVibN1Max,
     EngVibN2Max,
     EngVibN3Max,
@@ -334,6 +339,8 @@ from analysis_engine.key_point_values import (
     SpeedbrakeDeployedWithPowerOnDuration,
     SpeedbrakeDeployedWithConfDuration,
     SpeedbrakeDeployedWithFlapDuration,
+    StickPusherActivatedDuration,
+    StickShakerActivatedDuration,
     TailClearanceDuringApproachMin,
     TailClearanceDuringLandingMin,
     TailClearanceDuringTakeoffMin,
@@ -370,6 +377,11 @@ from analysis_engine.key_point_values import (
     MasterWarningDuration,
     MasterWarningDuringTakeoffDuration,
     MasterCautionDuringTakeoffDuration,
+    TakeoffConfigurationWarningDuration,
+    TakeoffConfigurationFlapWarningDuration,
+    TakeoffConfigurationParkingBrakeWarningDuration,
+    TakeoffConfigurationSpoilerWarningDuration,
+    TakeoffConfigurationStabilizerWarningDuration,
     TAWSAlertDuration,
     TAWSGeneralWarningDuration,
     TAWSSinkRateWarningDuration,
@@ -382,6 +394,7 @@ from analysis_engine.key_point_values import (
     TAWSTooLowTerrainWarningDuration,
     TAWSTooLowGearWarningDuration,
     TAWSPullUpWarningDuration,
+    TAWSDontSinkWarningDuration,
     TAWSWindshearWarningBelow1500FtDuration,
     ThrustReversersDeployedDuration,
     PackValvesOpenAtLiftoff,
@@ -425,48 +438,143 @@ class NodeTest(object):
 
 class CreateKPVsWhereTest(NodeTest):
     '''
+    Basic test for KPVs created with `create_kpvs_where()` method.
+
+    The rationale for this class is to be able to use very simple test case
+    boilerplate for the "multi state parameter duration in given flight phase"
+    scenario.
+
+    This test checks basic mechanics of specific type of KPV: duration of a
+    given state in multistate parameter.
+
+    The test supports multiple parameters and optionally a phase name
+    within which the duration is measured.
+
+    What is tested this class:
+        * kpv.can_operate() results
+        * parameter and KPV names
+        * state names
+        * basic logic to measure the time of a state duration within a phase
+          (slice)
+
+    What isn't tested:
+        * potential edge cases of specific parameters
     '''
     def basic_setup(self):
         '''
         Setup for test_derive_basic.
 
-        This allows us to use a very basic template of unit tests for "multi
-        state parameter duration in given flight phase' scenario.
+        In the most basic use case the test which derives from this class
+        should declare the attributes used to build the test case and then call
+        self.basic_setup().
 
         You need to declare:
-            self.param_name
-            self.phase_name or None
-            self.node_class
-            self.values_mapping
+
+        self.node_class::
+            class of the KPV node to be used to derive
+
+        self.param_name::
+            name of the parameter to be passed to the KPVs `derive()` method
+
+        self.phase_name::
+            name of the flight phase to be passed to the `derive()` or None if
+            the KPV does not use phases
+
+        self.values_mapping::
+            "state to state name" mapping for multistate parameter
+
+        Optionally:
+
+        self.additional_params::
+            list of additional parameters to be passed to the `derive()` after
+            the main parameter. If unset, only one parameter will be used.
+
+
+        The method performs the following operations:
+
+            1. Builds the main parameter using self.param_name,
+               self.values_array and self.values_mapping
+
+            2. Builds self.params list from the main parameter and
+               self.additional_params, if given
+            3. Optionally builds self.phases with self.phase_name if given
+            4. Builds self.operational_combinations from self.params and
+               self.phases
+            5. Builds self.expected list of expected values using
+               self.node_class and self.phases
+
+        Any of the built attributes can be overridden in the derived class to
+        alter the expected test results.
         '''
-        self.params = [
-            MultistateDerivedParameterNode(
-                self.param_name,
-                array=np.ma.array([0] * 3 + [1] * 6 + [0] * 3),
-                values_mapping=self.values_mapping
-            )
-        ]
+        if not hasattr(self, 'values_array'):
+            self.values_array = np.ma.array([0] * 3 + [1] * 6 + [0] * 3)
 
-        combinations = [self.param_name]
+        if not hasattr(self, 'phase_slice'):
+            self.phase_slice = slice(2, 7)
 
-        if hasattr(self, 'additional_params'):
-            self.params += self.additional_params
-            combinations += [p.name for p in self.additional_params]
+        if not hasattr(self, 'expected_index'):
+            self.expected_index = 3
 
-        if self.phase_name:
-            self.phases = [buildsection(self.phase_name, 2, 7)]
-            combinations.append(self.phase_name)
+        if not hasattr(self, 'params'):
+            self.params = [
+                MultistateDerivedParameterNode(
+                    self.param_name,
+                    array=self.values_array,
+                    values_mapping=self.values_mapping
+                )
+            ]
+
+            if hasattr(self, 'additional_params'):
+                self.params += self.additional_params
+
+        if hasattr(self, 'phase_name') and self.phase_name:
+            self.phases = buildsection(self.phase_name,
+                                       self.phase_slice.start,
+                                       self.phase_slice.stop)
         else:
             self.phases = []
 
-        self.operational_combinations = [combinations]
+        if not hasattr(self, 'operational_combinations'):
+            combinations = [p.name for p in self.params]
 
-        self.expected = [
-            KeyPointValue(
-                name=self.node_class().get_name(),
-                index=3,
-                value=4.0 if self.phases else 6.0)
-        ]
+            self.operational_combinations = [combinations]
+            if self.phases:
+                combinations.append(self.phases.name)
+
+        if not hasattr(self, 'expected'):
+            self.expected = []
+            if self.phases:
+                slices = [p.slice for p in self.phases]
+            else:
+                slices = [slice(None)]
+
+            for sl in slices:
+                expected_value = np.count_nonzero(
+                    self.values_array[sl])
+                if expected_value:
+                    self.expected.append(
+                        KeyPointValue(
+                            name=self.node_class().get_name(),
+                            index=self.expected_index,
+                            value=expected_value
+                        )
+                    )
+
+    def test_can_operate(self):
+        '''
+        Test the operational combinations.
+        '''
+        # sets of sorted tuples of node combinations must match exactly
+        kpv_operational_combinations = \
+            self.node_class.get_operational_combinations()
+
+        kpv_combinations = set(
+            tuple(sorted(c)) for c in kpv_operational_combinations)
+
+        expected_combinations = set(
+            tuple(sorted(c)) for c in self.operational_combinations)
+
+        self.assertSetEqual(kpv_combinations, expected_combinations)
 
     def test_derive_basic(self):
         '''
@@ -3867,6 +3975,18 @@ class TestEngEPRDuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSl
         self.assertTrue(False, msg='Test Not Implemented')
 
 
+class TestEngEPRDuringTakeoff5MinRatingMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngEPRDuringTakeoff5MinRatingMin
+        self.operational_combinations = [('Eng (*) EPR Min', 'Takeoff 5 Min Rating')]
+        self.function = min_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
 class TestEngEPRDuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
@@ -3879,7 +3999,7 @@ class TestEngEPRDuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinS
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestEngEPRMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
+class TestEngEPRDuringMaximumContinuousPowerMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = EngEPRDuringMaximumContinuousPowerMax
@@ -3934,6 +4054,17 @@ class TestEngEPRFor5Sec500To50FtMin(unittest.TestCase, NodeTest):
         self.node_class = EngEPRFor5Sec500To50FtMin
         self.operational_combinations = [('Eng (*) EPR Min For 5 Sec', 'Altitude AAL For Flight Phases', 'HDF Duration')]
 
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngEPRAtTOGADuringTakeoffMax(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = EngEPRAtTOGADuringTakeoffMax
+        self.operational_combinations = [('Eng (*) EPR Max', 'Takeoff And Go Around', 'Takeoff')]
+    
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
@@ -4097,6 +4228,18 @@ class TestEngN1DuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSli
         self.node_class = EngN1DuringTakeoff5MinRatingMax
         self.operational_combinations = [('Eng (*) N1 Max', 'Takeoff 5 Min Rating')]
         self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngN1DuringTakeoff5MinRatingMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngN1DuringTakeoff5MinRatingMin
+        self.operational_combinations = [('Eng (*) N1 Min', 'Takeoff 5 Min Rating')]
+        self.function = min_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -4689,6 +4832,18 @@ class TestEngVibN3Max(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.operational_combinations = [('Eng (*) Vib N3 Max', 'Airborne')]
         self.function = max_value
 
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngVibBroadbandMax(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = EngVibBroadbandMax
+        self.operational_combinations = [('Eng (*) Vib Broadband Max',)]
+        self.function = max_value
+    
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
