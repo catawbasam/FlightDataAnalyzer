@@ -862,12 +862,16 @@ class SectionNode(Node, list):
             else:
                 converted_start = (section.start_edge * multiplier) + offset
                 inner_slice_start = int(math.ceil(converted_start))
+                # dont allow minus start edges.
+                if converted_start < 0.0:
+                    converted_start = 0.0
 
             if section.stop_edge is None:
                 converted_stop = inner_slice_stop = None
             else:
                 converted_stop = (section.stop_edge * multiplier) + offset
                 inner_slice_stop = int(math.ceil(converted_stop))
+                # TODO: What if we have an end exceeding the length of data?
 
             inner_slice = slice(inner_slice_start, inner_slice_stop)
             aligned_node.create_section(inner_slice, section.name,
@@ -1468,6 +1472,8 @@ class KeyTimeInstanceNode(FormattedNameNode):
         for kti in self:
             aligned_kti = copy.copy(kti)
             index_aligned = (kti.index * multiplier) + offset
+            # TODO: check for negative index following downsampling if use
+            # case arrises
             aligned_kti.index = index_aligned
             aligned_node.append(aligned_kti)
         return aligned_node
@@ -1563,6 +1569,8 @@ class KeyPointValueNode(FormattedNameNode):
         for kpv in self:
             aligned_kpv = copy.copy(kpv)
             aligned_kpv.index = (aligned_kpv.index * multiplier) + offset
+            # TODO: check for negative index following downsampling if use
+            # case arrises
             ##if aligned_kpv.slice:
                 ##aligned_kpv.slice = align_slice(param, self, aligned_kpv.slice)
             aligned_node.append(aligned_kpv)
