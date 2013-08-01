@@ -3237,6 +3237,11 @@ class TestFlapAngle(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+        
+    def test_hercules(self):
+        f = FlapAngle()
+        f.derive(None, None, None, None, A('Frame', 'L382-Hercules'), 
+                 P(array=np.ma.array(range(0, 5000, 100) + range(5000, 0, -200))))
 
 
 class TestHeadingTrueContinuous(unittest.TestCase):

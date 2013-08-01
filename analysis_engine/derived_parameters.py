@@ -2963,17 +2963,22 @@ class FlapAngle(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return any_of((
+        flap_angles = (
             'Flap Angle (L)', 'Flap Angle (R)',
             'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard',
-        ), available)
+        )
+        flap_combo = any_of(flap_angles, available)
+        herc_flap = 'Altitude AAL' in available and \
+            not [p for p in flap_angles if p in available]
+        return flap_combo or herc_flap
 
     def derive(self,
                flap_A=P('Flap Angle (L)'),
                flap_B=P('Flap Angle (R)'),
                flap_A_inboard=P('Flap Angle (L) Inboard'),
                flap_B_inboard=P('Flap Angle (R) Inboard'),
-               frame=A('Frame')):
+               frame=A('Frame'),
+               alt_aal=P('Altitude AAL')):
 
         frame_name = frame.value if frame else ''
         flap_A = flap_A or flap_A_inboard
@@ -2982,42 +2987,25 @@ class FlapAngle(DerivedParameterNode):
         if frame_name in ['747-200-GE', '747-200-PW', '747-200-AP-BIB']:
             # Only the right inboard flap is instrumented.
             self.array = flap_B.array
-        else:
+        elif flap_A or flap_B:
             # By default, blend the two parameters.
             self.array, self.frequency, self.offset = blend_two_parameters(
                 flap_A, flap_B)
-
-
-class FlapAngleHercules(DerivedParameterNode):
-    '''
-    The Hercules we have does not record flap, we ensure this....
+        else:
+            assert frame_name == 'L382-Hercules'
+            # HERCULES ONLY!
+            # Flap is not recorded, so invent one of the correct length.
+            flap_herc = np_ma_zeros_like(alt_aal.array)
     
-    ...REAL DATA TEST CASE!!!
-    '''
+            # Takeoff is normally with 50% flap382
+            _, toffs = slices_from_to(alt_aal.array, 0.0, 1000.0)
+            flap_herc[:toffs[0].stop] = 50.0
     
-    name = 'Flap Angle'  # Q: Will this break the key: value dict?
+            # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
+            _, apps = slices_from_to(alt_aal.array, 2000.0, 0.0)
+            flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
     
-    @classmethod
-    def can_operate(cls, available):
-        #cls.frame == 'Hercules'  # wishful thinking...!
-        return 'Altitude AAL' in available and 'Flap Angle' not in available
-    
-    def derive(self, alt_aal=P('Altitude AAL'), flap_angle=P('Flap Angle')):
-        # Double check Flap Angle isn't recorded!
-        assert flap_angle is None, "Flap cannot be available"
-        # Flap is not recorded, so invent one of the correct length.
-        flap_herc = np_ma_zeros_like(alt_aal.array)
-
-        # Takeoff is normally with 50% flap382
-        _, toffs = slices_from_to(alt_aal.array, 0.0, 1000.0)
-        flap_herc[:toffs[0].stop] = 50.0
-
-        # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
-        _, apps = slices_from_to(alt_aal.array, 2000.0, 0.0)
-        flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
-
-        self.array = np.ma.array(flap_herc)
-
+            self.array = np.ma.array(flap_herc)
 
 
 '''
