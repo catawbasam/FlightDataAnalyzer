@@ -148,7 +148,6 @@ from analysis_engine.key_point_values import (
     EngEPRDuringApproachMin,
     EngEPRDuringTaxiMax,
     EngEPRDuringTakeoff5MinRatingMax,
-    EngEPRDuringTakeoff5MinRatingMin,
     EngEPRDuringGoAround5MinRatingMax,
     EngEPRDuringMaximumContinuousPowerMax,
     EngEPR500To50FtMax,
@@ -168,7 +167,6 @@ from analysis_engine.key_point_values import (
     EngN1DuringTaxiMax,
     EngN1DuringApproachMax,
     EngN1DuringTakeoff5MinRatingMax,
-    EngN1DuringTakeoff5MinRatingMin,
     EngN1DuringGoAround5MinRatingMax,
     EngN1DuringMaximumContinuousPowerMax,
     EngN1CyclesDuringFinalApproach,
@@ -178,6 +176,7 @@ from analysis_engine.key_point_values import (
     EngN1For5Sec500To50FtMin,
     EngN1WithThrustReversersInTransitMax,
     EngN1Below60PercentAfterTouchdownDuration,
+    EngN154to72PercentWithThrustReversersDeployedDurationMax,
     EngN2DuringTaxiMax,
     EngN2DuringTakeoff5MinRatingMax,
     EngN2DuringGoAround5MinRatingMax,
@@ -4385,6 +4384,51 @@ class TestEngN1AtTOGADuringTakeoff(unittest.TestCase):
         self.assertEqual(n1_toga[0].value, 12.5)
         self.assertEqual(n1_toga[0].index, 2.5)
 
+
+class TestEngN154to72PercentWithThrustReversersDeployedDurationMax(unittest.TestCase):
+
+    def setUp(self):
+        self.node_class = EngN154to72PercentWithThrustReversersDeployedDurationMax
+
+    def test_can_operate(self):
+        opts = self.node_class.get_operational_combinations()
+        expected = [('Eng (1) N1', 'Thrust Reversers'),
+                    ('Eng (2) N1', 'Thrust Reversers'),
+                    ('Eng (3) N1', 'Thrust Reversers'),
+                    ('Eng (4) N1', 'Thrust Reversers'),
+                    ('Eng (1) N1', 'Eng (2) N1', 'Thrust Reversers'),
+                    ('Eng (1) N1', 'Eng (3) N1', 'Thrust Reversers'),
+                    ('Eng (1) N1', 'Eng (4) N1', 'Thrust Reversers'),
+                    ('Eng (2) N1', 'Eng (3) N1', 'Thrust Reversers'),
+                    ('Eng (2) N1', 'Eng (4) N1', 'Thrust Reversers'),
+                    ('Eng (3) N1', 'Eng (4) N1', 'Thrust Reversers'),
+                    ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Thrust Reversers'),
+                    ('Eng (1) N1', 'Eng (2) N1', 'Eng (4) N1', 'Thrust Reversers'),
+                    ('Eng (1) N1', 'Eng (3) N1', 'Eng (4) N1', 'Thrust Reversers'),
+                    ('Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1', 'Thrust Reversers'),
+                    ('Eng (1) N1', 'Eng (2) N1', 'Eng (3) N1', 'Eng (4) N1', 'Thrust Reversers')]
+
+        self.assertEqual(expected, opts)
+
+    def test_derive(self):
+        values_mapping = {
+            0: 'Stowed',
+            1: 'In Transit',
+            2: 'Deployed',
+        }
+        n1_array = 30*(2+np.sin(np.arange(0, 12.6, 0.1)))
+        eng_1 = P(name='Eng (1) N1', array=np.ma.array(n1_array))
+        thrust_reversers_array = np.ma.zeros(126)
+        thrust_reversers_array[55:94] = 2
+        thrust_reversers = M('Thrust Reversers', array=thrust_reversers_array, values_mapping=values_mapping)
+
+        node = self.node_class()
+        node.derive(eng_1, None, None, None, thrust_reversers)
+
+        self.assertEqual(node[0].name, 'Eng (1) N1 54 To 72 Percent With Thrust Reversers Deployed Duration Max')
+        self.assertEqual(node[0].index, 64)
+        self.assertEqual(node[0].value, 6)
+        self.assertEqual(len(node), 1)
 
 ##############################################################################
 # Engine N2

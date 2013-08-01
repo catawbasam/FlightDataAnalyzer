@@ -5371,6 +5371,41 @@ class EngN1AtTOGADuringTakeoff(KeyPointValueNode):
             self.create_kpv(index, value)
 
 
+class EngN154to72PercentWithThrustReversersDeployedDurationMax(KeyPointValueNode):
+    '''
+    KPV created at customer request following Service Bullitin from Rolls Royce
+    (TAY-72-A1771)
+    '''
+
+    NAME_FORMAT = 'Eng (%(number)d) N1 54 To 72 Percent With Thrust Reversers Deployed Duration Max'
+    NAME_VALUES = NAME_VALUES_ENGINE
+
+    units = 's'
+
+    @classmethod
+    def can_operate(cls, available):
+        return all((
+            any_of(('Eng (%d) N1' % n for n in cls.NAME_VALUES['number']), available),
+            'Thrust Reversers' in available,
+        ))
+
+    def derive(self, eng1_n1=P('Eng (1) N1'), eng2_n1=P('Eng (2) N1'),
+               eng3_n1=P('Eng (3) N1'), eng4_n1=P('Eng (4) N1'),
+               tr=M('Thrust Reversers'),):
+
+        eng_n1_list = (eng1_n1, eng2_n1, eng3_n1, eng4_n1)
+        reverser_deployed = np.ma.where(tr.array == 'Deployed', tr.array, np.ma.masked)
+        for eng_num, eng_n1 in enumerate(eng_n1_list, 1):
+            if not eng_n1:
+                continue
+            n1_range = np.ma.masked_outside(eng_n1.array, 54, 72)
+            n1_range.mask = n1_range.mask | reverser_deployed.mask
+            max_slice = max_continuous_unmasked(n1_range)
+            self.create_kpvs_from_slice_durations((max_slice,),
+                                                  eng_n1.frequency,
+                                                  number=eng_num)
+
+
 ##############################################################################
 # Engine N2
 
