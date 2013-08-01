@@ -737,8 +737,8 @@ class AltitudeAAL(DerivedParameterNode):
         alt_rad_aal = np.ma.maximum(alt_rad, 0.0)
         #x = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
         #ralt_sections = [y for y in x if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
-        ralt_sections = np.ma.clump_unmasked(np.ma.masked_greater(alt_rad_aal, 100.0))
-        #ralt_sections = [y for y in x if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
+        ## ralt_sections = np.ma.clump_unmasked(np.ma.masked_greater(alt_rad_aal, 100.0))
+        ralt_sections = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
 
         if len(ralt_sections)==0:
             # Either Altitude Radio did not drop below 100, or did not get
@@ -753,9 +753,27 @@ class AltitudeAAL(DerivedParameterNode):
             alt_result[ralt_section] = alt_rad_aal[ralt_section]
 
             for baro_section in baro_sections:
-                # I know there must be a better way to code these symmetrical processes, but this works :o)
-                link_baro_rad_fwd(baro_section, ralt_section, alt_rad, alt_std, alt_result)
-                link_baro_rad_rev(baro_section, ralt_section, alt_rad, alt_std, alt_result)
+                begin_index = baro_section.start
+            
+                if ralt_section.stop == baro_section.start:
+                    # Avoid indexing beyond the end of the data.
+                    ending = min(begin_index + 60, len(alt_std), len(alt_rad)) 
+                    alt_diff = (alt_std[begin_index:ending] -
+                                alt_rad[begin_index:ending])
+                    slip, up_diff = first_valid_sample(alt_diff)
+                    if slip is None:
+                        up_diff = 0.0
+                    else:
+                        # alt_std is invalid at the point of handover
+                        # so stretch the radio signal until we can
+                        # handover.
+                        fix_slice = slice(begin_index,
+                                          begin_index + slip)
+                        alt_result[fix_slice] = alt_rad[fix_slice]
+                        begin_index += slip
+            
+                    alt_result[begin_index:] = \
+                        alt_std[begin_index:] - up_diff
                 
         return alt_result
 
@@ -934,53 +952,20 @@ class AltitudeAAL(DerivedParameterNode):
                         self.compute_aal(dip['type'],
                                          alt_std.array[dip['slice']],
                                          dip['alt_std'], dip['highest_ground'])
+                      
         # Reset end sections
-        alt_aal[quick.start:alt_idxs[0]] = 0.0
+        alt_aal[quick.start:alt_idxs[0]+1] = 0.0
         alt_aal[alt_idxs[-1]+1:quick.stop] = 0.0
+        
+        '''
+        # Quick visual check of the altitude aal.
+        import matplotlib.pyplot as plt
+        plt.plot(alt_aal)
+        plt.show()
+        '''
+        
         self.array = alt_aal
-
-def link_baro_rad_fwd(baro_section, ralt_section, alt_rad, alt_std, alt_result):
-    begin_index = baro_section.start
-
-    if ralt_section.stop == baro_section.start:
-        alt_diff = (alt_std[begin_index:begin_index + 60] -
-                    alt_rad[begin_index:begin_index + 60])
-        slip, up_diff = first_valid_sample(alt_diff)
-        if slip is None:
-            up_diff = 0.0
-        else:
-            # alt_std is invalid at the point of handover
-            # so stretch the radio signal until we can
-            # handover.
-            fix_slice = slice(begin_index,
-                              begin_index + slip)
-            alt_result[fix_slice] = alt_rad[fix_slice]
-            begin_index += slip
-
-        alt_result[begin_index:] = \
-            alt_std[begin_index:] - up_diff
-
-def link_baro_rad_rev(baro_section, ralt_section, alt_rad, alt_std, alt_result):
-    end_index = baro_section.stop
-
-    if ralt_section.start == baro_section.stop:
-        alt_diff = (alt_std[end_index-60:end_index] -
-                    alt_rad[end_index-60:end_index])
-        slip, up_diff = first_valid_sample(alt_diff[::-1])
-        if slip is None:
-            up_diff = 0.0
-        else:
-            # alt_std is invalid at the point of handover
-            # so stretch the radio signal until we can
-            # handover.
-            fix_slice = slice(end_index-slip,
-                              end_index)
-            alt_result[fix_slice] = alt_rad[fix_slice]
-            end_index -= slip
-
-        alt_result[:end_index] = \
-            alt_std[:end_index] - up_diff
-
+        
 
 class AltitudeAALForFlightPhases(DerivedParameterNode):
     name = 'Altitude AAL For Flight Phases'
@@ -3048,6 +3033,47 @@ class Eng_VibN3Max(DerivedParameterNode):
 
 
 ################################################################################
+# Engine Vibration (Broadband)
+
+
+class Eng_VibBroadbandMax(DerivedParameterNode):
+    '''
+    This derived parameter condenses all the available third shaft order
+    vibration measurements into a single consolidated value.
+    '''
+
+    name = 'Eng (*) Vib Broadband Max'
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+        
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) Vib Broadband'),
+               eng2=P('Eng (2) Vib Broadband'),
+               eng3=P('Eng (3) Vib Broadband'),
+               eng4=P('Eng (4) Vib Broadband'),
+               eng1_accel_a=P('Eng (1) Vib Broadband Accel A'),
+               eng2_accel_a=P('Eng (2) Vib Broadband Accel A'),
+               eng3_accel_a=P('Eng (3) Vib Broadband Accel A'),
+               eng4_accel_a=P('Eng (4) Vib Broadband Accel A'),
+               eng1_accel_b=P('Eng (1) Vib Broadband Accel B'),
+               eng2_accel_b=P('Eng (2) Vib Broadband Accel B'),
+               eng3_accel_b=P('Eng (3) Vib Broadband Accel B'),
+               eng4_accel_b=P('Eng (4) Vib Broadband Accel B')):
+        
+        params = (eng1, eng2, eng3, eng4,
+                  eng1_accel_a, eng2_accel_a, eng3_accel_a, eng4_accel_a,
+                  eng1_accel_b, eng2_accel_b, eng3_accel_b, eng4_accel_b)
+
+        engines = vstack_params(*params)
+        self.array = np.ma.max(engines, axis=0)
+        self.offset = offset_select('mean', params)
+
+
+################################################################################
 # Eng Thrust
 
 class EngThrustModeRequired(MultistateDerivedParameterNode):
@@ -3493,7 +3519,7 @@ class FlapLever(MultistateDerivedParameterNode):
             ##and all_of(('Series', 'Family'), available)
 
     def derive(self,
-               flap_surf=P('Flap Angle'),
+               flap_surf=P('Flap Lever Angle'),
                series=A('Series'),
                family=A('Family')):
 
@@ -3539,12 +3565,11 @@ class FlapExcludingTransition(MultistateDerivedParameterNode):
             self.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
             array = round_to_nearest(flap.array, 5.0)
-            flap_steps = {f: str(f) for f in np.ma.unique(array)}
-        else:
-            array = step_values(flap.array, flap.frequency, flap_steps, 
+            flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
+        finally:
+            self.values_mapping = {f: str(f) for f in flap_steps}
+            self.array = step_values(flap.array, flap.frequency, flap_steps,
                                 step_at='excluding_transition')
-        self.array = array
-        self.values_mapping = {f: str(f) for f in flap_steps}
 
 
 class FlapIncludingTransition(MultistateDerivedParameterNode):
@@ -3570,12 +3595,11 @@ class FlapIncludingTransition(MultistateDerivedParameterNode):
             self.warning("No flap settings - rounding to nearest 5")
             # round to nearest 5 degrees
             array = round_to_nearest(flap.array, 5.0)
-            flap_steps = {f: str(f) for f in np.ma.unique(array)}
-        else:
-            array = step_values(flap.array, flap.frequency, flap_steps, 
-                                step_at='including_transition')
-        self.array = array
-        self.values_mapping = {f: str(f) for f in flap_steps}
+            flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
+        finally:
+            self.values_mapping = {f: str(f) for f in flap_steps}
+            self.array = step_values(flap.array, flap.frequency, flap_steps,
+                                     step_at='including_transition')
 
     
 class FlapAngle(DerivedParameterNode):
@@ -3666,12 +3690,9 @@ class Flap(MultistateDerivedParameterNode):
                 # no flaps mapping, round to nearest 5 degrees
                 self.warning("No flap settings - rounding to nearest 5")
                 # round to nearest 5 degrees
-                self.array = round_to_nearest(flap.array, 5.0)
-                self.values_mapping = {f: str(f) for f in 
-                                       np.ma.unique(self.array.raw)}
-                if np.ma.masked in self.values_mapping:
-                    del self.values_mapping[np.ma.masked]
-            else:
+                array = round_to_nearest(flap.array, 5.0)
+                flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
+            finally:
                 self.values_mapping = {f: str(f) for f in flap_steps}
                 self.array = step_values(flap.array, flap.frequency, flap_steps)
         else:
@@ -4419,14 +4440,17 @@ class CoordinatesSmoothed(object):
                             scan_back = slice(join_idx, this_app_slice.start, -1)
                             lat_join = first_valid_sample(lat_adj[scan_back])
                             lon_join = first_valid_sample(lon_adj[scan_back])
-                            join_idx -= max(lat_join.index, lon_join.index) # step back to make sure the join location is not masked.
-                            lat_in, lon_in = self.taxi_in_track(
-                                lat_adj[join_idx:end],
-                                lon_adj[join_idx:end],
-                                speed[join_idx:end],
-                                hdg.array[join_idx:end],
-                                freq,
-                            )
+                            if lat_join.index and lon_join.index:
+                                join_idx -= max(lat_join.index, lon_join.index) # step back to make sure the join location is not masked.
+                                lat_in, lon_in = self.taxi_in_track(
+                                    lat_adj[join_idx:end],
+                                    lon_adj[join_idx:end],
+                                    speed[join_idx:end],
+                                    hdg.array[join_idx:end],
+                                    freq,
+                                )
+                            else:
+                                lat_in = lon_in = None
 
                     # If we have an array of taxi in track values, we use
                     # this, otherwise we hold at the end of the landing.
@@ -5910,6 +5934,7 @@ class Speedbrake(DerivedParameterNode):
         '''
         return 'Frame' in available and (
             all_of(('Spoiler (2)', 'Spoiler (7)'), available) or
+            all_of(('Spoiler (1)', 'Spoiler (7)'), available) or
             all_of(('Spoiler (4)', 'Spoiler (9)'), available))
     
     def merge_spoiler(self, spoiler_a, spoiler_b):
@@ -5929,7 +5954,7 @@ class Speedbrake(DerivedParameterNode):
     def derive(self,
             spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
             spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
-            frame=A('Frame')):
+            spoiler_1=P('Spoiler (1)'), frame=A('Frame')):
         '''
         '''
         frame_name = frame.value if frame else ''
@@ -5941,6 +5966,9 @@ class Speedbrake(DerivedParameterNode):
                             '737-6_NON-EIS', '737-2227000-335A',
                             'A320_SFIM_ED45_CFM']:
             self.array, self.offset = self.merge_spoiler(spoiler_2, spoiler_7)
+        
+        elif frame_name == '787-RR-BCG49-ACMF-RR17':
+            self.array, self.offset = self.merge_spoiler(spoiler_1, spoiler_7)
 
         else:
             raise DataFrameError(self.name, frame_name)
