@@ -23,6 +23,7 @@ from flightdatautilities import model_information
 # e.g. MY_EXTRA_MODULES = ['my_package.extra_attributes', 'my_package.extra_params']
 NODE_MODULES = ['analysis_engine.approaches',
                 'analysis_engine.derived_parameters',
+                'analysis_engine.multistate_parameters',
                 'analysis_engine.key_point_values',
                 'analysis_engine.key_time_instances',
                 'analysis_engine.flight_attribute',
