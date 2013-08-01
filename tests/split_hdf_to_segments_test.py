@@ -492,7 +492,6 @@ class TestSegmentInfo(unittest.TestCase):
         hdf['Year'].array[2] = 50
         hdf['Year'].array[2] = np.ma.masked
         res = _calculate_start_datetime(hdf, dt)
-        # 9th second as the first sample (10th second) was masked
         self.assertEqual(res, datetime(2012,11,11,11,11,9))
         
         
