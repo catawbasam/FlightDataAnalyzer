@@ -15,7 +15,7 @@ from analysis_engine.node import (
     #KeyTimeInstance,
     #KTI,
     #load,
-    #M,
+    M,
     Parameter,
     P,
     #Section,
@@ -26,6 +26,19 @@ from analysis_engine.multistate_parameters import (
     Flap,
     FlapLever,
     )
+
+
+class NodeTest(object):
+    def test_can_operate(self):
+        if getattr(self, 'check_operational_combination_length_only', False):
+            self.assertEqual(
+                len(self.node_class.get_operational_combinations()),
+                self.operational_combination_length,
+            )
+        else:
+            combinations = map(set, self.node_class.get_operational_combinations())
+            for combination in map(set, self.operational_combinations):
+                self.assertIn(combination, combinations)
 
 
 class TestConfiguration(unittest.TestCase, NodeTest):
@@ -114,7 +127,7 @@ class TestFlap(unittest.TestCase):
         for index in indexes:
             flap.array[index] = np.ma.masked
 
-        node = self.node_class()
+        node = Flap()
         node.derive(flap, A('Series', None), A('Family', 'DC-9'))
 
         expected = reduce(operator.add, [
@@ -170,7 +183,7 @@ class TestFlap(unittest.TestCase):
              50, 50, 50,
              100]))
         flap = Flap()
-        flap.derive(flap_param, A('Series', 'L1011-100'), A('Family', 'L1011'))
+        flap.derive(flap_param, A('Series', ''), A('Family', 'C-130'))
         self.assertEqual(flap.values_mapping,
                          {0: '0', 50: '50', 100: '100'})
         ma_test.assert_array_equal(
