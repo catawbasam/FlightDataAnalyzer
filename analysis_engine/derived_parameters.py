@@ -6107,7 +6107,11 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
 
         elif family_name == 'A320':
             self.array = self.a320_speedbrake(armed, spdbrk)
-
+        
+        elif family_name == 'B787':
+            # TODO: Is this correct?
+            self.array = self.b757_767_speedbrake(handle)
+        
         else:
             raise NotImplementedError
 
