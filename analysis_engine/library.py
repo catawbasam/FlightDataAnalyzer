@@ -4939,6 +4939,7 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     :returns: Stepped masked array
     :rtype: np.ma.array
     """
+    steps = sorted(steps)  # ensure steps are in ascending order
     stepping_points = np.ediff1d(steps, to_end=[0])/2.0 + steps
     stepped_array = np_ma_zeros_like(array)
     low = None

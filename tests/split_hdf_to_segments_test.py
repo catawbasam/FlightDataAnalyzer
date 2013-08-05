@@ -475,6 +475,24 @@ class TestSegmentInfo(unittest.TestCase):
         res = _calculate_start_datetime(hdf, dt)
         # 9th second as the first sample (10th second) was masked
         self.assertEqual(res, datetime(2012,11,12,11,11,9))
+
+    def test_year_00_uses_fallback_year(self):
+        # Ensure that a timebase error is not raised due to old date!
+        #Other than the year 2000 or possibly 2100, no date values
+        # can be all 0's        
+        dt = datetime(2012,12,12,12,12,10)
+        # Test only without second and empty year
+        hdf = {'Year':  P('Year',np.ma.array([0, 0, 0, 0])),
+               'Month': P('Month',np.ma.array([11, 11, 11,11])),
+               'Day':   P('Day',np.ma.array([11, 11, 11,11])),
+               'Hour':  P('Hour',np.ma.array([11,11,11,11], mask=[True, False, False, False])),
+               'Minute':P('Minute',np.ma.array([11,11]), frequency=0.5),
+               }
+        # add a masked invalid value
+        hdf['Year'].array[2] = 50
+        hdf['Year'].array[2] = np.ma.masked
+        res = _calculate_start_datetime(hdf, dt)
+        self.assertEqual(res, datetime(2012,11,11,11,11,9))
         
         
     def test_no_year_with_a_very_recent_fallback(self):

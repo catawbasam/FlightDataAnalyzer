@@ -451,7 +451,9 @@ def _calculate_start_datetime(hdf, fallback_dt=None):
         if param:
             # do not interpolate date/time parameters to avoid rollover issues
             array = align(param, onehz, interpolate=False)
-            if len(array) == 0 or np.ma.count(array) == 0:
+            if len(array) == 0 or np.ma.count(array) == 0 or np.ma.all(array == 0):
+                # Other than the year 2000 or possibly 2100, no date values
+                # can be all 0's
                 logger.warning("No valid values returned for %s", name)
             else:
                 # values returned, continue
