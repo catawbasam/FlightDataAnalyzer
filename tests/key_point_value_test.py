@@ -8,16 +8,17 @@ from mock import Mock, call, patch
 
 from flightdatautilities.geometry import midpoint
 
-from analysis_engine.derived_parameters import Flap, StableApproach
 from analysis_engine.library import align
 from analysis_engine.node import (
     A, App, ApproachItem, KPV, KTI, load, M, P, KeyPointValue, MultistateDerivedParameterNode,
     KeyTimeInstance, Section, S
 )
 
-from analysis_engine.derived_parameters import (
+from analysis_engine.multistate_parameters import (
+    Flap,
     FlapExcludingTransition,
     FlapIncludingTransition,
+    StableApproach,
 )
 from analysis_engine.key_point_values import (
     AccelerationLateralAtTouchdown,
