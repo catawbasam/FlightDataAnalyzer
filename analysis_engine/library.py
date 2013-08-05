@@ -301,7 +301,8 @@ def align(slave, master, interpolate=True):
     # Where offsets are equal, the slave_array recorded values remain
     # unchanged and interpolation is performed between these values.
     # - and we do not interpolate mapped arrays!
-    if not delta and interpolate:
+    if not delta and interpolate and (is_power2(slave.frequency) and
+                                      is_power2(master.frequency)):
         slave_aligned.mask = True
         if master.frequency > slave.frequency:
             # populate values and interpolate
@@ -3395,6 +3396,7 @@ def merge_two_parameters(param_one, param_two):
         raise ValueError("merge_two_parameters called with offsets too similar. %s : %.4f and %s : %.4f" \
                          % (param_one.name, param_one.offset, param_two.name, param_two.offset))
 
+
 def merge_sources(*arrays):
     '''
     This simple process merges the data from multiple sensors where they are
@@ -3601,6 +3603,7 @@ def blend_two_parameters(param_one, param_two):
                 array = blend_nonequispaced_sensors(param_two.array, param_one.array, padding)
 
         return array, frequency, offset
+
 
 def blend_parameters_weighting(array, wt):
     '''

@@ -5401,9 +5401,10 @@ class EngN154to72PercentWithThrustReversersDeployedDurationMax(KeyPointValueNode
             n1_range = np.ma.masked_outside(eng_n1.array, 54, 72)
             n1_range.mask = n1_range.mask | reverser_deployed.mask
             max_slice = max_continuous_unmasked(n1_range)
-            self.create_kpvs_from_slice_durations((max_slice,),
-                                                  eng_n1.frequency,
-                                                  number=eng_num)
+            if max_slice:
+                self.create_kpvs_from_slice_durations((max_slice,),
+                                                      eng_n1.frequency,
+                                                      number=eng_num)
 
 
 ##############################################################################
