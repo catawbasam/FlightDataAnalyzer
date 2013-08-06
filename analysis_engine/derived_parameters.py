@@ -415,7 +415,10 @@ class AirspeedReferenceLookup(DerivedParameterNode):
         # FIXME: Replace the flaky logic for small propeller aircraft which do
         #        not record gross weight, cannot provide achieved flight
         #        records and will be using a fixed value for processing.
-        return airbus or boeing  # or propeller
+        
+        # Paradoxically, we don't want to run this if we have a recorded Airspeed Reference
+        have_reference = 'Airspeed Reference' in available
+        return (airbus or boeing) and not have_reference  # or propeller
 
     def derive(self,
                flap=M('Flap'),
@@ -528,7 +531,7 @@ class AirspeedRelative(DerivedParameterNode):
 
 class AirspeedRelativeFor3Sec(DerivedParameterNode):
     '''
-    Airspeed on approach relative to Vapp/Vref over a 3 second window.
+    Airspeed relative to Vapp/Vref over a 3 second window.
 
     See the derived parameter 'Airspeed Relative'.
     '''
