@@ -5497,7 +5497,7 @@ def _value(array, _slice, operator):
     if np.ma.count(array[_slice]):
         # floor the start position as it will have been floored during the slice
         index = operator(array[_slice]) + floor(_slice.start or 0) * (_slice.step or 1)
-        value = array[index]
+        value = float(array[index]) # To convert multistate strings to float.
         return Value(index, value)
     else:
         return Value(None, None)
@@ -5584,7 +5584,7 @@ def value_at_index(array, index, interpolate=True):
         r = index - low
         low_value = array.data[low]
         high_value = array.data[high]
-        # Crude handling of masked values. Must be a better way !
+        # Crude handling of masked values. TODO: Must be a better way !
         if array.mask.any(): # An element is masked
             if array.mask[low] == True:
                 if array.mask[high] == True:
