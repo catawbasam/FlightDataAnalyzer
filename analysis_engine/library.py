@@ -301,7 +301,8 @@ def align(slave, master, interpolate=True):
     # Where offsets are equal, the slave_array recorded values remain
     # unchanged and interpolation is performed between these values.
     # - and we do not interpolate mapped arrays!
-    if not delta and interpolate:
+    if not delta and interpolate and (is_power2(slave.frequency) and
+                                      is_power2(master.frequency)):
         slave_aligned.mask = True
         if master.frequency > slave.frequency:
             # populate values and interpolate
@@ -3395,6 +3396,7 @@ def merge_two_parameters(param_one, param_two):
         raise ValueError("merge_two_parameters called with offsets too similar. %s : %.4f and %s : %.4f" \
                          % (param_one.name, param_one.offset, param_two.name, param_two.offset))
 
+
 def merge_sources(*arrays):
     '''
     This simple process merges the data from multiple sensors where they are
@@ -3601,6 +3603,7 @@ def blend_two_parameters(param_one, param_two):
                 array = blend_nonequispaced_sensors(param_two.array, param_one.array, padding)
 
         return array, frequency, offset
+
 
 def blend_parameters_weighting(array, wt):
     '''
@@ -5494,7 +5497,7 @@ def _value(array, _slice, operator):
     if np.ma.count(array[_slice]):
         # floor the start position as it will have been floored during the slice
         index = operator(array[_slice]) + floor(_slice.start or 0) * (_slice.step or 1)
-        value = array[index]
+        value = float(array[index]) # To convert multistate strings to float.
         return Value(index, value)
     else:
         return Value(None, None)
@@ -5581,7 +5584,7 @@ def value_at_index(array, index, interpolate=True):
         r = index - low
         low_value = array.data[low]
         high_value = array.data[high]
-        # Crude handling of masked values. Must be a better way !
+        # Crude handling of masked values. TODO: Must be a better way !
         if array.mask.any(): # An element is masked
             if array.mask[low] == True:
                 if array.mask[high] == True:

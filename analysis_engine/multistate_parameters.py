@@ -391,11 +391,18 @@ class Eng_Fire(MultistateDerivedParameterNode):
                eng1=M('Eng (1) Fire'),
                eng2=M('Eng (2) Fire'),
                eng3=M('Eng (3) Fire'),
-               eng4=M('Eng (4) Fire')):
+               eng4=M('Eng (4) Fire'),
+               eng1_1l=M('Eng (1) Fire (1L)'),
+               eng1_1r=M('Eng (1) Fire (1R)'),
+               eng1_2l=M('Eng (1) Fire (2L)'),
+               eng1_2r=M('Eng (1) Fire (2R)'),
+               ):
 
         self.array = vstack_params_where_state(
             (eng1, 'Fire'), (eng2, 'Fire'),
             (eng3, 'Fire'), (eng4, 'Fire'),
+            (eng1_1l, 'Fire'), (eng1_1r, 'Fire'),
+            (eng1_2l, 'Fire'), (eng1_2r, 'Fire'),
         ).any(axis=0)
 
 
@@ -971,7 +978,7 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         elif 'B737' in family_name:
             self.array = self.b737_speedbrake(spdbrk, handle)
 
-        elif family_name in ['B757', 'B767']:
+        elif family_name in ['B757', 'B767', 'B787']:
             self.array = self.b757_767_speedbrake(handle)
 
         elif family_name == 'A320':
@@ -1329,7 +1336,8 @@ class ThrustReversers(MultistateDerivedParameterNode):
         mask = np.ma.where(mask_stack.mask.sum(axis=0).astype(float)/len(mask_stack)*100 > 50, 1, 0)
         self.array = array
         self.array.mask = mask
-        
+
+
 class TAWSAlert(MultistateDerivedParameterNode):
     '''
     Merging all available TAWS alert signals into a single parameter for

@@ -15,8 +15,8 @@ from hdfaccess.parameter import MappedArray
 
 from analysis_engine.exceptions import DataFrameError
 from analysis_engine.node import (
-    A, App, DerivedParameterNode, KPV, KTI, M,
-    P, S)
+    A, App, DerivedParameterNode, KPV, KTI, M, P, S,
+)
 from analysis_engine.library import (actuator_mismatch,
                                      air_track,
                                      align,
@@ -415,7 +415,10 @@ class AirspeedReferenceLookup(DerivedParameterNode):
         # FIXME: Replace the flaky logic for small propeller aircraft which do
         #        not record gross weight, cannot provide achieved flight
         #        records and will be using a fixed value for processing.
-        return airbus or boeing  # or propeller
+        
+        # Paradoxically, we don't want to run this if we have a recorded Airspeed Reference
+        have_reference = 'Airspeed Reference' in available
+        return (airbus or boeing) and not have_reference  # or propeller
 
     def derive(self,
                flap=M('Flap'),
@@ -528,7 +531,7 @@ class AirspeedRelative(DerivedParameterNode):
 
 class AirspeedRelativeFor3Sec(DerivedParameterNode):
     '''
-    Airspeed on approach relative to Vapp/Vref over a 3 second window.
+    Airspeed relative to Vapp/Vref over a 3 second window.
 
     See the derived parameter 'Airspeed Relative'.
     '''
@@ -1423,7 +1426,6 @@ class AltitudeTail(DerivedParameterNode):
 # Automated Systems
 
 
-
 class ClimbForFlightPhases(DerivedParameterNode):
     """
     This computes climb segments, and resets to zero as soon as the aircraft
@@ -1643,8 +1645,6 @@ class BrakePressure(DerivedParameterNode):
 
     def derive(self, brake_L=P('Brake (L) Press'), brake_R=P('Brake (R) Press')):
         self.array, self.frequency, self.offset = blend_two_parameters(brake_L, brake_R)
-
-
 
 
 ################################################################################
@@ -2779,6 +2779,9 @@ class Eng_VibBroadbandMax(DerivedParameterNode):
         self.offset = offset_select('mean', params)
 
 
+################################################################################
+
+
 class FuelQty(DerivedParameterNode):
     '''
     May be supplanted by an LFL parameter of the same name if available.
@@ -2827,7 +2830,6 @@ class FuelQty(DerivedParameterNode):
             # empty array like the last (inherently recorded) array.
             self.array = np_ma_masked_zeros_like(param.array)
             self.offset = 0.0
-
 
 
 ################################################################################
@@ -2963,22 +2965,17 @@ class FlapAngle(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        flap_angles = (
+        return any_of((
             'Flap Angle (L)', 'Flap Angle (R)',
             'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard',
-        )
-        flap_combo = any_of(flap_angles, available)
-        herc_flap = 'Altitude AAL' in available and \
-            not [p for p in flap_angles if p in available]
-        return flap_combo or herc_flap
+        ), available)
 
     def derive(self,
                flap_A=P('Flap Angle (L)'),
                flap_B=P('Flap Angle (R)'),
                flap_A_inboard=P('Flap Angle (L) Inboard'),
                flap_B_inboard=P('Flap Angle (R) Inboard'),
-               frame=A('Frame'),
-               alt_aal=P('Altitude AAL')):
+               frame=A('Frame')):
 
         frame_name = frame.value if frame else ''
         flap_A = flap_A or flap_A_inboard
@@ -2987,25 +2984,10 @@ class FlapAngle(DerivedParameterNode):
         if frame_name in ['747-200-GE', '747-200-PW', '747-200-AP-BIB']:
             # Only the right inboard flap is instrumented.
             self.array = flap_B.array
-        elif flap_A or flap_B:
+        else:
             # By default, blend the two parameters.
             self.array, self.frequency, self.offset = blend_two_parameters(
                 flap_A, flap_B)
-        else:
-            assert frame_name == 'L382-Hercules'
-            # HERCULES ONLY!
-            # Flap is not recorded, so invent one of the correct length.
-            flap_herc = np_ma_zeros_like(alt_aal.array)
-    
-            # Takeoff is normally with 50% flap382
-            _, toffs = slices_from_to(alt_aal.array, 0.0, 1000.0)
-            flap_herc[:toffs[0].stop] = 50.0
-    
-            # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
-            _, apps = slices_from_to(alt_aal.array, 2000.0, 0.0)
-            flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
-    
-            self.array = np.ma.array(flap_herc)
 
 
 '''
@@ -3063,6 +3045,7 @@ class SlopeToLanding(DerivedParameterNode):
     """
     def derive(self, alt_aal=P('Altitude AAL'), dist=P('Distance To Landing')):
         self.array = alt_aal.array / (dist.array * FEET_PER_NM)
+
 
 
 
@@ -4456,7 +4439,6 @@ class ThrustAsymmetry(DerivedParameterNode):
         self.array = moving_average(max_n1.array - min_n1.array, window=window)
 
 
-
 class TurbulenceRMSG(DerivedParameterNode):
     """
     Simple RMS g measurement of turbulence over a 5-second period.
@@ -4587,8 +4569,6 @@ class TAT(DerivedParameterNode):
             blend_two_parameters(source_1, source_2)
 
 
-
-
 class V2(DerivedParameterNode):
     '''
     Derives a value for the V2 velocity speed.
@@ -4643,7 +4623,7 @@ class V2Lookup(DerivedParameterNode):
         weight = base + ['Gross Weight At Liftoff']
         airbus = set(weight + ['Configuration']).issubset(x)
         boeing = set(weight + ['Flap']).issubset(x)
-        #propeller = set(base + ['Eng (*) Np Avg', 'Liftoff']).issubset(x)
+        propeller = set(base + ['Eng (*) Np Avg', 'Liftoff']).issubset(x)
         # FIXME: Replace the flaky logic for small propeller aircraft which do
         #        not record gross weight, cannot provide achieved flight
         #        records and will be using a fixed value for processing.
@@ -5017,9 +4997,6 @@ class Speedbrake(DerivedParameterNode):
 
         else:
             raise DataFrameError(self.name, frame_name)
-
-
-
 
 
 class SpeedbrakeHandle(DerivedParameterNode):
@@ -5429,9 +5406,6 @@ class TrackDeviationFromRunway(DerivedParameterNode):
                                   magnetic)
 
 
-
-
-
 class ElevatorActuatorMismatch(DerivedParameterNode):
     '''
     An incident focused attention on mismatch between the elevator actuator
@@ -5460,5 +5434,4 @@ class ElevatorActuatorMismatch(DerivedParameterNode):
                                 self.frequency)
         
         self.array = amm
-
 
