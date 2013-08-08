@@ -4136,8 +4136,7 @@ class VerticalSpeed(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        if 'Altitude STD Smoothed' in available:
-            return True
+        return 'Altitude STD Smoothed' in available
 
     def derive(self, alt_std=P('Altitude STD Smoothed'), frame=A('Frame')):
         frame_name = frame.value if frame else ''
