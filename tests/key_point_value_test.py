@@ -139,6 +139,7 @@ from analysis_engine.key_point_values import (
     AOADuringGoAroundMax,
     AOAWithFlapMax,
     APDisengagedDuringCruiseDuration,
+    APUFireWarningDuration,
     BrakePressureInTakeoffRollMax,
     ControlColumnStiffness,
     DecelerationFromTouchdownToStopOnRunway,
@@ -4107,6 +4108,40 @@ class TestEngFireWarningDuration(unittest.TestCase, CreateKPVsWhereTest):
         self.values_mapping = {0: '-', 1: 'Fire'}
 
         self.basic_setup()
+
+
+##############################################################################
+# APU Fire
+
+
+class TestAPUFireWarningDuration(unittest.TestCase):
+
+    def setUp(self):
+        self.node_class = APUFireWarningDuration
+
+    def test_can_operate(self):
+        opts = self.node_class.get_operational_combinations()
+        expected = [('Fire APU Single Bottle System',),
+                    ('Fire APU Dual Bottle System',),
+                    ('Fire APU Single Bottle System', 'Fire APU Dual Bottle System')]
+        self.assertEqual(expected, opts)
+
+    def test_derive_basic(self):
+        values_mapping = {
+            1: 'Fire',
+        }
+        single_fire = M(name='Fire APU Single Bottle System',
+                        array=np.ma.zeros(10),
+                        values_mapping=values_mapping)
+        single_fire.array[5:7] = 'Fire'
+        
+        node = self.node_class()
+        node.derive(single_fire, None)
+
+        self.assertEqual(node[0].name, 'APU Fire Warning Duration')
+        self.assertEqual(node[0].index, 5)
+        self.assertEqual(node[0].value, 2)
+        self.assertEqual(len(node), 1)
 
 
 ##############################################################################

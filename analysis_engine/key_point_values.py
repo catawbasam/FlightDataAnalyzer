@@ -67,7 +67,8 @@ from analysis_engine.library import (ambiguous_runway,
                                      trim_slices,
                                      value_at_index,
                                      vspeed_lookup,
-                                     vstack_params)
+                                     vstack_params,
+                                     vstack_params_where_state)
 
 
 ##############################################################################
@@ -4960,6 +4961,34 @@ class EngFireWarningDuration(KeyPointValueNode):
     def derive(self, eng_fire=M('Eng (*) Fire'), airborne=S('Airborne')):
         self.create_kpvs_where(eng_fire.array == 'Fire',
                                eng_fire.hz, phase=airborne)
+
+
+##############################################################################
+# APU Fire
+
+
+class APUFireWarningDuration(KeyPointValueNode):
+    '''
+    Duration that the any of the APU Fire Warnings are active.
+    '''
+
+    name = 'APU Fire Warning Duration'
+    units = 's'
+
+    @classmethod
+    def can_operate(cls, available):
+        params = ('Fire APU Single Bottle System', 'Fire APU Dual Bottle System')
+        return any_of(params, available)
+
+    def derive(self, single_bottle=M('Fire APU Single Bottle System'),
+               dual_bottle=M('Fire APU Dual Bottle System')):
+
+        hz = single_bottle.hz or dual_bottle.hz
+        apu_fires = vstack_params_where_state((single_bottle, 'Fire'),
+                                              (dual_bottle, 'Fire'))
+
+        self.create_kpvs_where(apu_fires.any(axis=0) == True,
+                               hz)
 
 
 ##############################################################################

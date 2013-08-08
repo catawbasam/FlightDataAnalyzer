@@ -415,7 +415,10 @@ class AirspeedReferenceLookup(DerivedParameterNode):
         # FIXME: Replace the flaky logic for small propeller aircraft which do
         #        not record gross weight, cannot provide achieved flight
         #        records and will be using a fixed value for processing.
-        return airbus or boeing  # or propeller
+        
+        # Paradoxically, we don't want to run this if we have a recorded Airspeed Reference
+        have_reference = 'Airspeed Reference' in available
+        return (airbus or boeing) and not have_reference  # or propeller
 
     def derive(self,
                flap=M('Flap'),
@@ -528,7 +531,7 @@ class AirspeedRelative(DerivedParameterNode):
 
 class AirspeedRelativeFor3Sec(DerivedParameterNode):
     '''
-    Airspeed on approach relative to Vapp/Vref over a 3 second window.
+    Airspeed relative to Vapp/Vref over a 3 second window.
 
     See the derived parameter 'Airspeed Relative'.
     '''
@@ -1164,10 +1167,8 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             # weighting merges the two to create a smoothed average.
             self.array = moving_average(alt.array, window=3,
                                         weightings=[0.25,0.5,0.25], pad=True)
-        elif frame_name in ['747-200-GE']:
-            # Rollover is at 2^12 x resolution of fine part.
-            self.array = straighten_altitudes(fine.array, alt.array, 5000)
-        elif frame_name in ['A300-203-B4']:
+        elif frame_name.startswith('747-200-') or \
+             frame_name in ['A300-203-B4']:
             # Fine part synchro used to compute altitude, as this does not match the coarse part synchro.
             self.array = straighten_altitudes(fine.array, alt.array, 5000)
         else:
