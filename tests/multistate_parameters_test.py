@@ -470,10 +470,6 @@ class TestFlap(unittest.TestCase):
         self.assertTrue(Flap.can_operate(('Altitude AAL',),
                                          frame=Attribute('Frame', 'L382-Hercules')))
         self.assertTrue(Flap.can_operate(('Flap Angle', 'Series', 'Family')))
-        #opts = Flap.get_operational_combinations()
-        #self.assertEqual(opts, [
-            #('Flap Angle', 'Series', 'Family'), # normal
-        #])
 
     def test_flap_stepped_nearest_5(self):
         flap = P('Flap Angle', np.ma.arange(50))

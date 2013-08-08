@@ -2758,9 +2758,10 @@ class TestAileronTrim(unittest.TestCase):
 
 class TestFlaperon(unittest.TestCase):
     def test_can_operate(self):
-        opts = Flaperon.get_operational_combinations()
-        self.assertEqual(opts, 
-                         [('Aileron (L)', 'Aileron (R)', 'Series', 'Family')])
+        self.assertTrue(Flaperon.can_operate(
+            ('Aileron (L)', 'Aileron (R)'),
+            series=Attribute('Series', 'A330-200'),
+            family=Attribute('Family', 'A330')))
         
     def test_derive(self):
         al = load(os.path.join(test_data_path, 'aileron_left.nod'))

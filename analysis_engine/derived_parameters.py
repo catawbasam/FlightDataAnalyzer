@@ -4817,6 +4817,14 @@ class Flaperon(DerivedParameterNode):
     Note: This is used for Airbus models and does not necessarily mean as
     much to other aircraft types.
     '''
+    @classmethod
+    def can_operate(cls, available, series=A('Series'), family=A('Family')):
+        try:
+            get_aileron_map(series.value, family.value)
+        except KeyError:
+            return False
+        return 'Aileron (L)' in available and 'Aileron (R)' in available
+    
     # TODO: Multistate
     def derive(self, al=P('Aileron (L)'), ar=P('Aileron (R)'),
                series=A('Series'), family=A('Family')):
@@ -4824,15 +4832,8 @@ class Flaperon(DerivedParameterNode):
         # other out when rolling) and divide the range by two (to account for
         # the left going negative and right going positive when flaperons set)
         flaperon_angle = (al.array - ar.array) / 2
-        try:
-            ail_steps = get_aileron_map(series.value, family.value)
-        except KeyError:
-            # no mapping, aircraft must not support Flaperons so create a
-            # masked 0 array.
-            self.array = None
-            return
-        else:
-            self.array = step_values(flaperon_angle, self.frequency, ail_steps)
+        ail_steps = get_aileron_map(series.value, family.value)
+        self.array = step_values(flaperon_angle, self.frequency, ail_steps)
 
 
 class AileronLeft(DerivedParameterNode):
