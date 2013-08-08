@@ -144,6 +144,7 @@ from analysis_engine.key_point_values import (
     ControlColumnStiffness,
     DecelerationFromTouchdownToStopOnRunway,
     DelayedBrakingAfterTouchdown,
+    ElevatorDuringLandingMin,
     EngBleedValvesAtLiftoff,
     EngEPRDuringApproachMax,
     EngEPRDuringApproachMin,
@@ -5587,11 +5588,8 @@ class TestHeadingAtLowestAltitudeDuringApproach(unittest.TestCase, CreateKPVsAtK
 class TestElevatorDuringLandingMin(unittest.TestCase,
                                    CreateKPVsWithinSlicesTest):
     def setUp(self):
-        from analysis_engine.key_point_values import ElevatorDuringLandingMin
-
         self.node_class = ElevatorDuringLandingMin
-        self.operational_combinations = [('Elevator During Landing',
-                                          'Landing')]
+        self.operational_combinations = [('Elevator', 'Landing')]
         self.function = min_value
 
     def test_derive(self):

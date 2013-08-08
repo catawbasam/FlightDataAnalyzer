@@ -11,7 +11,6 @@ import pprint
 from abc import ABCMeta
 from collections import namedtuple, Iterable
 from functools import total_ordering
-from inspect import getargspec
 from itertools import product
 from operator import attrgetter
 

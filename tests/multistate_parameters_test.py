@@ -8,7 +8,7 @@ from hdfaccess.parameter import MappedArray
 from flightdatautilities import masked_array_testutils as ma_test
 
 from analysis_engine.node import (
-    #Attribute,
+    Attribute,
     A,
     #App,
     #ApproachItem,
@@ -467,10 +467,13 @@ class TestEngThrustModeRequired(unittest.TestCase):
 class TestFlap(unittest.TestCase):
         
     def test_can_operate(self):
-        opts = Flap.get_operational_combinations()
-        self.assertEqual(opts, [
-            ('Flap Angle', 'Series', 'Family'), # normal
-        ])
+        self.assertTrue(Flap.can_operate(('Altitude AAL',),
+                                         frame=Attribute('Frame', 'L382-Hercules')))
+        self.assertTrue(Flap.can_operate(('Flap Angle', 'Series', 'Family')))
+        #opts = Flap.get_operational_combinations()
+        #self.assertEqual(opts, [
+            #('Flap Angle', 'Series', 'Family'), # normal
+        #])
 
     def test_flap_stepped_nearest_5(self):
         flap = P('Flap Angle', np.ma.arange(50))
