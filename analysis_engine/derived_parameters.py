@@ -4662,11 +4662,13 @@ class V2Lookup(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available, series=A('Series'), family=A('Family'),
                     engine=A('Engine Series'), engine_type=A('Engine Type')):
-        vspeed_class = cls._get_vspeed_class(series, family, engine,
-                                             engine_type)
-        return (('Conf' in available or 'Flap' in available) and
-                ('Liftoff' in available or 'Gross Weight At Liftoff' in available) and
-                vspeed_class)
+        try:
+            cls._get_vspeed_class(series, family, engine, engine_type)
+        except KeyError:
+            return False
+        return ('Airspeed' in available and
+                ('Conf' in available or 'Flap' in available) and
+                ('Liftoff' in available or 'Gross Weight At Liftoff' in available))
     
     @staticmethod
     def _get_vspeed_class(series, family, engine, engine_type):
