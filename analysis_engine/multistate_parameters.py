@@ -479,23 +479,67 @@ class EngThrustModeRequired(MultistateDerivedParameterNode):
         
         array.mask = merge_masks(masks)
         self.array = array
-        
+
 
 class Flap(MultistateDerivedParameterNode):
     '''
-    Steps raw Flap Angle surface measurements into detents rounding to the
-    midpoint of the Flap Angle transition.
+    Steps raw Flap angle from surface into detents.
     '''
+
     units = 'deg'
 
-    def derive(self, flap=P('Flap Angle'), 
-               series=A('Series'), family=A('Family')):
-        self.values_mapping = get_flap_values_mapping(series, family, flap)
-        self.array = step_values(flap.array, flap.frequency, 
-                                 self.values_mapping.keys(),
-                                 step_at='midpoint')
+    @classmethod
+    def can_operate(cls, available, frame=A('Frame')):
+        '''
+        can operate with Frame and Alt aal if herc or Flap surface
+        '''
+        frame_name = frame.value if frame else None
         
+        if frame_name == 'L382-Hercules':
+            return 'Altitude AAL' in available
         
+        return all_of(('Flap Angle', 'Series', 'Family'), available)
+
+    def derive(self,
+               flap=P('Flap Angle'),
+               series=A('Series'),
+               family=A('Family'),
+               frame=A('Frame'),
+               alt_aal=P('Altitude AAL')):
+
+        frame_name = frame.value if frame else None
+
+        if frame_name == 'L382-Hercules':
+            self.values_mapping = {0: '0', 50: '50', 100: '100'}
+            
+            # Flap is not recorded, so invent one of the correct length.
+            flap_herc = np_ma_zeros_like(alt_aal.array)
+
+            # Takeoff is normally with 50% flap382
+            _, toffs = slices_from_to(alt_aal.array, 0.0,1000.0)
+            flap_herc[:toffs[0].stop] = 50.0
+
+            # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
+            _, apps = slices_from_to(alt_aal.array, 2000.0,0.0)
+            flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
+
+            self.array = np.ma.array(flap_herc)
+            self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
+
+        elif flap:
+            try:
+                flap_steps = get_flap_map(series.value, family.value)
+            except KeyError:
+                # no flaps mapping, round to nearest 5 degrees
+                self.warning("No flap settings - rounding to nearest 5")
+                # round to nearest 5 degrees
+                array = round_to_nearest(flap.array, 5.0)
+                flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
+            finally:
+                self.values_mapping = {f: str(f) for f in flap_steps}
+                self.array = step_values(flap.array, flap.frequency, flap_steps)
+
+
 class FlapExcludingTransition(MultistateDerivedParameterNode):
     '''
     Specifically designed to cater for maintenance monitoring, this assumes
