@@ -1734,6 +1734,52 @@ class Eng_EPRMinFor5Sec(DerivedParameterNode):
         self.array = second_window(eng_epr_min.array, self.frequency, 5)
 
 
+class Eng_TPRMax(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) TPR Max'
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) TPR'),
+               eng2=P('Eng (2) TPR'),
+               eng3=P('Eng (3) TPR'),
+               eng4=P('Eng (4) TPR')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+
+
+class Eng_TPRMin(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) TPR Max'
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) TPR'),
+               eng2=P('Eng (2) TPR'),
+               eng3=P('Eng (3) TPR'),
+               eng4=P('Eng (4) TPR')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+
+
 ################################################################################
 # Engine Fuel Flow
 
