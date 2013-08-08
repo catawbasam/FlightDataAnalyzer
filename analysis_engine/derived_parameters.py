@@ -4659,17 +4659,20 @@ class V2Lookup(DerivedParameterNode):
     units = 'kts'
 
     @classmethod
-    def can_operate(cls, available):
-        x = set(available)
-        base = ['Airspeed', 'Series', 'Family']
-        weight = base + ['Gross Weight At Liftoff']
-        airbus = set(weight + ['Configuration']).issubset(x)
-        boeing = set(weight + ['Flap']).issubset(x)
-        propeller = set(base + ['Eng (*) Np Avg', 'Liftoff']).issubset(x)
-        # FIXME: Replace the flaky logic for small propeller aircraft which do
-        #        not record gross weight, cannot provide achieved flight
-        #        records and will be using a fixed value for processing.
-        return airbus or boeing  # or propeller
+    def can_operate(cls, available, series=A('Series'), family=A('Family'),
+                    engine=A('Engine Series'), engine_type=A('Engine Type')):
+        vspeed_class = cls._get_vspeed_class(series, family, engine,
+                                             engine_type)
+        return (('Conf' in available or 'Flap' in available) and
+                ('Liftoff' in available or 'Gross Weight At Liftoff' in available) and
+                vspeed_class)
+    
+    @staticmethod
+    def _get_vspeed_class(series, family, engine, engine_type):
+        x = map(lambda x: x.value if x else None,
+                (series, family, engine, engine_type))
+        return get_vspeed_map(*x)
+        
 
     def derive(self,
                flap=M('Flap'),
@@ -4687,10 +4690,9 @@ class V2Lookup(DerivedParameterNode):
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(air_spd.array)
 
-        x = map(lambda x: x.value if x else None, (series, family, engine, engine_type))
-
         try:
-            vspeed_class = get_vspeed_map(*x)
+            vspeed_class = self._get_vspeed_class(series, family, engine,
+                                                  engine_type)
         except KeyError as err:
             if v2:
                 self.info("Error in '%s': %s", self.name, err)
