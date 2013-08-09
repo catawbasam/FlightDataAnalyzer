@@ -756,6 +756,10 @@ def scan_ils(beam, ils_dots, height, scan_slice):
         if idx_200 is not None:
             ils_lost_idx = min(ils_lost_idx, idx_200)
 
+        if np.ma.count(ils_dots[scan_slice.start:ils_lost_idx]) < 5:
+            # less than 5 valid values within remaining section
+            return None
+
     # ----------- Find start of capture
 
     # Find where to start scanning for the point of "Capture", Look for the
