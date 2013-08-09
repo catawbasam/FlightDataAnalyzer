@@ -2550,19 +2550,17 @@ class TestV2(unittest.TestCase, NodeTest):
         np.testing.assert_array_equal(node.array, expected)
 
 
-class TestV2Lookup(unittest.TestCase, NodeTest):
+class TestV2Lookup(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = V2Lookup
-        self.operational_combinations = [
-            # Airbus:
-            ('Airspeed', 'Series', 'Family', 'Gross Weight At Liftoff', 'Configuration'),
-            # Boeing:
-            ('Airspeed', 'Series', 'Family', 'Gross Weight At Liftoff', 'Flap'),
-            ##### Propeller:
-            ####('Airspeed', 'Series', 'Family', 'Liftoff', 'Eng (*) Np Avg'),
-        ]
-
+    def test_can_operate(self):
+        self.assertTrue(V2Lookup.can_operate(
+            ('Airspeed', 'Conf', 'Liftoff'),
+            series=Attribute('Series', 'A320-200'),
+            family=Attribute('Family', 'A320'),
+            engine=Attribute('Engine Series', 'CFM56-5B'),
+            engine_type=Attribute('Engine Type', 'CFM56-5B5/P'),
+        ))
+    
     def test_derive__boeing(self):
         series = A('Series', value='B737-300')
         family = A('Family', value='B737 Classic')
@@ -2580,7 +2578,7 @@ class TestV2Lookup(unittest.TestCase, NodeTest):
 
             args = [flap, None, air_spd, gw, series, family, None, None, None, None]
 
-            node = self.node_class()
+            node = V2Lookup()
             node.get_derived(args)
             expected = np.ma.array([150.868884] * 5888)
             np.testing.assert_array_equal(node.array, expected)
@@ -2602,7 +2600,7 @@ class TestV2Lookup(unittest.TestCase, NodeTest):
             flap = M('Flap', np.ma.array([detent] * 20),
                      values_mapping={detent: str(detent)})
             args = [flap, None, air_spd, None, series, family, None, None, None, liftoffs]
-            node = self.node_class()
+            node = V2Lookup()
             node.get_derived(args)
             expected = np.ma.array([v2] * 20)
             np.testing.assert_array_equal(node.array, expected)
@@ -2760,9 +2758,10 @@ class TestAileronTrim(unittest.TestCase):
 
 class TestFlaperon(unittest.TestCase):
     def test_can_operate(self):
-        opts = Flaperon.get_operational_combinations()
-        self.assertEqual(opts, 
-                         [('Aileron (L)', 'Aileron (R)', 'Series', 'Family')])
+        self.assertTrue(Flaperon.can_operate(
+            ('Aileron (L)', 'Aileron (R)'),
+            series=Attribute('Series', 'A330-200'),
+            family=Attribute('Family', 'A330')))
         
     def test_derive(self):
         al = load(os.path.join(test_data_path, 'aileron_left.nod'))

@@ -2130,9 +2130,16 @@ class NodeManager(object):
              or name in ('root', 'Start Datetime', 'HDF Duration'):
             return True
         elif name in self.derived_nodes:
+            derived_node = self.derived_nodes[name]
             # NOTE: Raises "Unbound method" here due to can_operate being
             # overridden without wrapping with @classmethod decorator
-            res = self.derived_nodes[name].can_operate(available)
+            attributes = []
+            argspec = inspect.getargspec(derived_node.can_operate)
+            if argspec.defaults:
+                for default in argspec.defaults:
+                    attributes.append(self.get_attribute(default.name))
+            # can_operate expects attributes.
+            res = derived_node.can_operate(available, *attributes)
             if not res:
                 logger.debug("Derived Node %s cannot operate with available nodes: %s",
                               name, available)
