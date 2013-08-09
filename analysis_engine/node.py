@@ -22,6 +22,7 @@ from analysis_engine.library import (
     is_slice_within_slice,
     repair_mask,
     runs_of_ones,
+    slice_duration,
     slice_multiply,
     slices_above,
     slices_below,
@@ -1027,6 +1028,32 @@ class SectionNode(Node, list):
             if getattr(elem.slice, use) < index:
                 return elem
         return None
+    
+    def get_longest(self, **kwargs):
+        '''
+        Gets the longest section matching the lookup criteria.
+        
+        :param kwargs: Passed into _get_condition (see docstring).
+        :returns: Longest section matching conditions.
+        :rtype: item within self or None
+        '''
+        matching = self.get(**kwargs)
+        if not matching:
+            return None
+        return max(matching, key=lambda s: slice_duration(s.slice, self.hz))
+    
+    def get_shortest(self, **kwargs):
+        '''
+        Gets the shortest section matching the lookup criteria.
+        
+        :param kwargs: Passed into _get_condition (see docstring).
+        :returns: Shortest section matching conditions.
+        :rtype: item within self or None
+        '''
+        matching = self.get(**kwargs)
+        if not matching:
+            return None
+        return min(matching, key=lambda s: slice_duration(s.slice, self.hz))
 
     def get_surrounding(self, index):
         '''
