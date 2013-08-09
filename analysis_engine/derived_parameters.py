@@ -404,10 +404,16 @@ class AirspeedReferenceLookup(DerivedParameterNode):
     units = 'kts'
 
     @classmethod
-    def can_operate(cls, available):
+    def can_operate(cls, available, series=A('Series'), family=A('Family'),
+                    engine=A('Engine Series'), engine_type=A('Engine Type')):
+
+        try:
+            cls._get_vspeed_class(series, family, engine, engine_type)
+        except KeyError:
+            return False
+
         x = set(available)
-        base = ['Airspeed', 'Series', 'Family', 'Approach And Landing',
-                'Touchdown']
+        base = ['Airspeed', 'Approach And Landing', 'Touchdown']
         weight = base + ['Gross Weight Smoothed']
         airbus = set(weight + ['Configuration']).issubset(x)
         boeing = set(weight + ['Flap']).issubset(x)
@@ -415,10 +421,14 @@ class AirspeedReferenceLookup(DerivedParameterNode):
         # FIXME: Replace the flaky logic for small propeller aircraft which do
         #        not record gross weight, cannot provide achieved flight
         #        records and will be using a fixed value for processing.
-        
-        # Paradoxically, we don't want to run this if we have a recorded Airspeed Reference
-        have_reference = 'Airspeed Reference' in available
-        return (airbus or boeing) and not have_reference  # or propeller
+
+        return (airbus or boeing) # or propeller
+
+    @staticmethod
+    def _get_vspeed_class(series, family, engine, engine_type):
+        x = map(lambda x: x.value if x else None,
+                (series, family, engine, engine_type))
+        return get_vspeed_map(*x)
 
     def derive(self,
                flap=M('Flap'),
@@ -4662,14 +4672,23 @@ class V2Lookup(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available, series=A('Series'), family=A('Family'),
                     engine=A('Engine Series'), engine_type=A('Engine Type')):
+
         try:
             cls._get_vspeed_class(series, family, engine, engine_type)
         except KeyError:
             return False
-        return ('Airspeed' in available and
-                ('Conf' in available or 'Flap' in available) and
-                ('Liftoff' in available or 'Gross Weight At Liftoff' in available))
-    
+
+        x = set(available)
+        base = ['Airspeed']
+        weight = base + ['Gross Weight At Liftoff']
+        airbus = set(weight + ['Configuration']).issubset(x)
+        boeing = set(weight + ['Flap']).issubset(x)
+        propeller = set(base + ['Eng (*) Np Avg', 'Liftoff']).issubset(x)
+        # FIXME: Replace the flaky logic for small propeller aircraft which do
+        #        not record gross weight, cannot provide achieved flight
+        #        records and will be using a fixed value for processing.
+        return airbus or boeing  # or propeller
+
     @staticmethod
     def _get_vspeed_class(series, family, engine, engine_type):
         x = map(lambda x: x.value if x else None,

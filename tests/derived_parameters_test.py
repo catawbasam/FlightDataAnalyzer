@@ -519,7 +519,7 @@ class TestAirspeedReference(unittest.TestCase, NodeTest):
         np.testing.assert_array_equal(node.array, self.vref.array)
 
 
-class TestAirspeedReferenceLookup(unittest.TestCase, NodeTest):
+class TestAirspeedReferenceLookup(unittest.TestCase):
 
     def setUp(self):
         self.node_class = AirspeedReferenceLookup
@@ -531,6 +531,25 @@ class TestAirspeedReferenceLookup(unittest.TestCase, NodeTest):
             ##### Propeller:
             ####('Airspeed', 'Series', 'Family', 'Approach And Landing', 'Touchdown', 'Eng (*) Np Avg'),
         ]
+
+    def test_can_operate(self):
+        self.assertTrue(AirspeedReferenceLookup.can_operate(
+            ('Airspeed', 'Configuration', 'Approach And Landing', 'Touchdown', 'Gross Weight Smoothed'),
+            series=Attribute('Series', 'A320-200'),
+            family=Attribute('Family', 'A320'),
+            engine=Attribute('Engine Series', 'CFM56-5B'),
+            engine_type=Attribute('Engine Type', 'CFM56-5B5/P'),
+        ))
+        self.assertTrue(AirspeedReferenceLookup.can_operate(
+            ('Airspeed', 'Flap', 'Approach And Landing', 'Touchdown', 'Gross Weight Smoothed'),
+            series=Attribute('Series', 'B737-300'),
+            family=Attribute('Family', 'B737'),
+        ))
+        self.assertFalse(AirspeedReferenceLookup.can_operate(
+            ('Airspeed', 'Approach And Landing', 'Touchdown'),
+            series=Attribute('Series', 'B737-300'),
+            family=Attribute('Family', 'B737'),
+        ))
 
     # TODO: Remove mock patch - our tables should be correct.
     @patch('analysis_engine.derived_parameters.get_vspeed_map')
@@ -2554,11 +2573,21 @@ class TestV2Lookup(unittest.TestCase):
 
     def test_can_operate(self):
         self.assertTrue(V2Lookup.can_operate(
-            ('Airspeed', 'Conf', 'Liftoff'),
+            ('Airspeed', 'Configuration', 'Liftoff', 'Gross Weight At Liftoff'),
             series=Attribute('Series', 'A320-200'),
             family=Attribute('Family', 'A320'),
             engine=Attribute('Engine Series', 'CFM56-5B'),
             engine_type=Attribute('Engine Type', 'CFM56-5B5/P'),
+        ))
+        self.assertTrue(V2Lookup.can_operate(
+            ('Airspeed', 'Flap', 'Liftoff', 'Gross Weight At Liftoff'),
+            series=Attribute('Series', 'B737-300'),
+            family=Attribute('Family', 'B737'),
+        ))
+        self.assertFalse(V2Lookup.can_operate(
+            ('Airspeed', 'Flap', 'Liftoff'),
+            series=Attribute('Series', 'B737-300'),
+            family=Attribute('Family', 'B737'),
         ))
     
     def test_derive__boeing(self):
