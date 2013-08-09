@@ -15,7 +15,6 @@ from analysis_engine.node import (
 )
 
 from analysis_engine.multistate_parameters import (
-    Flap,
     FlapExcludingTransition,
     FlapIncludingTransition,
     StableApproach,
@@ -140,10 +139,12 @@ from analysis_engine.key_point_values import (
     AOADuringGoAroundMax,
     AOAWithFlapMax,
     APDisengagedDuringCruiseDuration,
+    APUFireWarningDuration,
     BrakePressureInTakeoffRollMax,
     ControlColumnStiffness,
     DecelerationFromTouchdownToStopOnRunway,
     DelayedBrakingAfterTouchdown,
+    ElevatorDuringLandingMin,
     EngBleedValvesAtLiftoff,
     EngEPRDuringApproachMax,
     EngEPRDuringApproachMin,
@@ -156,6 +157,8 @@ from analysis_engine.key_point_values import (
     EngEPRFor5Sec1000To500FtMin,
     EngEPRFor5Sec500To50FtMin,
     EngEPRAtTOGADuringTakeoffMax,
+    EngTPRAtTOGADuringTakeoffMin,
+    EngTPRDuringTakeoff5MinRatingMax,
     EngFireWarningDuration,
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
@@ -3975,12 +3978,12 @@ class TestEngEPRDuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSl
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestEngEPRDuringTakeoff5MinRatingMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestEngTPRDuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = EngEPRDuringTakeoff5MinRatingMin
-        self.operational_combinations = [('Eng (*) EPR Min', 'Takeoff 5 Min Rating')]
-        self.function = min_value
+        self.node_class = EngTPRDuringTakeoff5MinRatingMax
+        self.operational_combinations = [('Eng (*) TPR Max', 'Takeoff 5 Min Rating')]
+        self.function = max_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -4070,6 +4073,28 @@ class TestEngEPRAtTOGADuringTakeoffMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
+class TestEngTPRAtTOGADuringTakeoffMin(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = EngTPRAtTOGADuringTakeoffMin
+        self.operational_combinations = [('Eng (*) TPR Min', 'Takeoff And Go Around', 'Takeoff')]
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngTPRDuringTakeoff5MinRatingMax(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = EngTPRDuringTakeoff5MinRatingMax
+        self.operational_combinations = [('Eng (*) TPR Max', 'Takeoff 5 Min Rating')]
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
 ##############################################################################
 # Engine Fire
 
@@ -4084,6 +4109,40 @@ class TestEngFireWarningDuration(unittest.TestCase, CreateKPVsWhereTest):
         self.values_mapping = {0: '-', 1: 'Fire'}
 
         self.basic_setup()
+
+
+##############################################################################
+# APU Fire
+
+
+class TestAPUFireWarningDuration(unittest.TestCase):
+
+    def setUp(self):
+        self.node_class = APUFireWarningDuration
+
+    def test_can_operate(self):
+        opts = self.node_class.get_operational_combinations()
+        expected = [('Fire APU Single Bottle System',),
+                    ('Fire APU Dual Bottle System',),
+                    ('Fire APU Single Bottle System', 'Fire APU Dual Bottle System')]
+        self.assertEqual(expected, opts)
+
+    def test_derive_basic(self):
+        values_mapping = {
+            1: 'Fire',
+        }
+        single_fire = M(name='Fire APU Single Bottle System',
+                        array=np.ma.zeros(10),
+                        values_mapping=values_mapping)
+        single_fire.array[5:7] = 'Fire'
+        
+        node = self.node_class()
+        node.derive(single_fire, None)
+
+        self.assertEqual(node[0].name, 'APU Fire Warning Duration')
+        self.assertEqual(node[0].index, 5)
+        self.assertEqual(node[0].value, 2)
+        self.assertEqual(len(node), 1)
 
 
 ##############################################################################
@@ -4228,18 +4287,6 @@ class TestEngN1DuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSli
         self.node_class = EngN1DuringTakeoff5MinRatingMax
         self.operational_combinations = [('Eng (*) N1 Max', 'Takeoff 5 Min Rating')]
         self.function = max_value
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestEngN1DuringTakeoff5MinRatingMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
-
-    def setUp(self):
-        self.node_class = EngN1DuringTakeoff5MinRatingMin
-        self.operational_combinations = [('Eng (*) N1 Min', 'Takeoff 5 Min Rating')]
-        self.function = min_value
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -5541,11 +5588,8 @@ class TestHeadingAtLowestAltitudeDuringApproach(unittest.TestCase, CreateKPVsAtK
 class TestElevatorDuringLandingMin(unittest.TestCase,
                                    CreateKPVsWithinSlicesTest):
     def setUp(self):
-        from analysis_engine.key_point_values import ElevatorDuringLandingMin
-
         self.node_class = ElevatorDuringLandingMin
-        self.operational_combinations = [('Elevator During Landing',
-                                          'Landing')]
+        self.operational_combinations = [('Elevator', 'Landing')]
         self.function = min_value
 
     def test_derive(self):

@@ -415,7 +415,10 @@ class AirspeedReferenceLookup(DerivedParameterNode):
         # FIXME: Replace the flaky logic for small propeller aircraft which do
         #        not record gross weight, cannot provide achieved flight
         #        records and will be using a fixed value for processing.
-        return airbus or boeing  # or propeller
+        
+        # Paradoxically, we don't want to run this if we have a recorded Airspeed Reference
+        have_reference = 'Airspeed Reference' in available
+        return (airbus or boeing) and not have_reference  # or propeller
 
     def derive(self,
                flap=M('Flap'),
@@ -528,7 +531,7 @@ class AirspeedRelative(DerivedParameterNode):
 
 class AirspeedRelativeFor3Sec(DerivedParameterNode):
     '''
-    Airspeed on approach relative to Vapp/Vref over a 3 second window.
+    Airspeed relative to Vapp/Vref over a 3 second window.
 
     See the derived parameter 'Airspeed Relative'.
     '''
@@ -1164,10 +1167,8 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             # weighting merges the two to create a smoothed average.
             self.array = moving_average(alt.array, window=3,
                                         weightings=[0.25,0.5,0.25], pad=True)
-        elif frame_name in ['747-200-GE']:
-            # Rollover is at 2^12 x resolution of fine part.
-            self.array = straighten_altitudes(fine.array, alt.array, 5000)
-        elif frame_name in ['A300-203-B4']:
+        elif frame_name.startswith('747-200-') or \
+             frame_name in ['A300-203-B4']:
             # Fine part synchro used to compute altitude, as this does not match the coarse part synchro.
             self.array = straighten_altitudes(fine.array, alt.array, 5000)
         else:
@@ -1732,6 +1733,52 @@ class Eng_EPRMinFor5Sec(DerivedParameterNode):
 
         #self.array = clip(eng_epr_min.array, 5.0, eng_epr_min.frequency, remove='troughs')
         self.array = second_window(eng_epr_min.array, self.frequency, 5)
+
+
+class Eng_TPRMax(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) TPR Max'
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) TPR'),
+               eng2=P('Eng (2) TPR'),
+               eng3=P('Eng (3) TPR'),
+               eng4=P('Eng (4) TPR')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+
+
+class Eng_TPRMin(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng (*) TPR Max'
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) TPR'),
+               eng2=P('Eng (2) TPR'),
+               eng3=P('Eng (3) TPR'),
+               eng4=P('Eng (4) TPR')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.min(engines, axis=0)
+        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
 
 
 ################################################################################
@@ -4090,8 +4137,7 @@ class VerticalSpeed(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        if 'Altitude STD Smoothed' in available:
-            return True
+        return 'Altitude STD Smoothed' in available
 
     def derive(self, alt_std=P('Altitude STD Smoothed'), frame=A('Frame')):
         frame_name = frame.value if frame else ''
@@ -4614,17 +4660,22 @@ class V2Lookup(DerivedParameterNode):
     units = 'kts'
 
     @classmethod
-    def can_operate(cls, available):
-        x = set(available)
-        base = ['Airspeed', 'Series', 'Family']
-        weight = base + ['Gross Weight At Liftoff']
-        airbus = set(weight + ['Configuration']).issubset(x)
-        boeing = set(weight + ['Flap']).issubset(x)
-        propeller = set(base + ['Eng (*) Np Avg', 'Liftoff']).issubset(x)
-        # FIXME: Replace the flaky logic for small propeller aircraft which do
-        #        not record gross weight, cannot provide achieved flight
-        #        records and will be using a fixed value for processing.
-        return airbus or boeing  # or propeller
+    def can_operate(cls, available, series=A('Series'), family=A('Family'),
+                    engine=A('Engine Series'), engine_type=A('Engine Type')):
+        try:
+            cls._get_vspeed_class(series, family, engine, engine_type)
+        except KeyError:
+            return False
+        return ('Airspeed' in available and
+                ('Conf' in available or 'Flap' in available) and
+                ('Liftoff' in available or 'Gross Weight At Liftoff' in available))
+    
+    @staticmethod
+    def _get_vspeed_class(series, family, engine, engine_type):
+        x = map(lambda x: x.value if x else None,
+                (series, family, engine, engine_type))
+        return get_vspeed_map(*x)
+        
 
     def derive(self,
                flap=M('Flap'),
@@ -4642,10 +4693,9 @@ class V2Lookup(DerivedParameterNode):
         # Initialize the result space.
         self.array = np_ma_masked_zeros_like(air_spd.array)
 
-        x = map(lambda x: x.value if x else None, (series, family, engine, engine_type))
-
         try:
-            vspeed_class = get_vspeed_map(*x)
+            vspeed_class = self._get_vspeed_class(series, family, engine,
+                                                  engine_type)
         except KeyError as err:
             if v2:
                 self.info("Error in '%s': %s", self.name, err)
@@ -4767,6 +4817,14 @@ class Flaperon(DerivedParameterNode):
     Note: This is used for Airbus models and does not necessarily mean as
     much to other aircraft types.
     '''
+    @classmethod
+    def can_operate(cls, available, series=A('Series'), family=A('Family')):
+        try:
+            get_aileron_map(series.value, family.value)
+        except KeyError:
+            return False
+        return 'Aileron (L)' in available and 'Aileron (R)' in available
+    
     # TODO: Multistate
     def derive(self, al=P('Aileron (L)'), ar=P('Aileron (R)'),
                series=A('Series'), family=A('Family')):
@@ -4774,15 +4832,8 @@ class Flaperon(DerivedParameterNode):
         # other out when rolling) and divide the range by two (to account for
         # the left going negative and right going positive when flaperons set)
         flaperon_angle = (al.array - ar.array) / 2
-        try:
-            ail_steps = get_aileron_map(series.value, family.value)
-        except KeyError:
-            # no mapping, aircraft must not support Flaperons so create a
-            # masked 0 array.
-            self.array = None
-            return
-        else:
-            self.array = step_values(flaperon_angle, self.frequency, ail_steps)
+        ail_steps = get_aileron_map(series.value, family.value)
+        self.array = step_values(flaperon_angle, self.frequency, ail_steps)
 
 
 class AileronLeft(DerivedParameterNode):

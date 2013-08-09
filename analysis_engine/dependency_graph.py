@@ -375,7 +375,7 @@ def process_order(gr_all, node_mgr, raise_inoperable_required=False):
             if tree:
                 items.append('------- INOPERABLE -------')
                 items.extend(tree)
-        logger.warn('\n'+'\n'.join(items))        
+        logger.debug('\n'+'\n'.join(items))        
         ##for p in sorted(inoperable_required):
             ##available = []
             ##unavailable = []

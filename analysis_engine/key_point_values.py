@@ -67,7 +67,8 @@ from analysis_engine.library import (ambiguous_runway,
                                      trim_slices,
                                      value_at_index,
                                      vspeed_lookup,
-                                     vstack_params)
+                                     vstack_params,
+                                     vstack_params_where_state)
 
 
 ##############################################################################
@@ -4758,6 +4759,20 @@ class EngEPRDuringTakeoff5MinRatingMax(KeyPointValueNode):
         self.create_kpvs_within_slices(eng_epr_max.array, ratings, max_value)
 
 
+class EngTPRDuringTakeoff5MinRatingMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng TPR During Takeoff 5 Min Rating Max'
+    units = '%'
+
+    def derive(self,
+               eng_tpr_max=P('Eng (*) TPR Max'),
+               ratings=S('Takeoff 5 Min Rating')):
+
+        self.create_kpvs_within_slices(eng_tpr_max.array, ratings, max_value)
+
+
 class EngEPRDuringGoAround5MinRatingMax(KeyPointValueNode):
     '''
     '''
@@ -4770,6 +4785,20 @@ class EngEPRDuringGoAround5MinRatingMax(KeyPointValueNode):
                ratings=S('Go Around 5 Min Rating')):
 
         self.create_kpvs_within_slices(eng_epr_max.array, ratings, max_value)
+
+
+class EngTPRDuringGoAround5MinRatingMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng TPR During Go Around 5 Min Rating Max'
+    units = '%'
+
+    def derive(self,
+               eng_tpr_max=P('Eng (*) TPR Max'),
+               ratings=S('Go Around 5 Min Rating')):
+
+        self.create_kpvs_within_slices(eng_tpr_max.array, ratings, max_value)
 
 
 class EngEPRDuringMaximumContinuousPowerMax(KeyPointValueNode):
@@ -4787,6 +4816,23 @@ class EngEPRDuringMaximumContinuousPowerMax(KeyPointValueNode):
 
         slices = to_ratings + ga_ratings + grounded
         self.create_kpv_outside_slices(eng_epr_max.array, slices, max_value)
+
+
+class EngTPRDuringMaximumContinuousPowerMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng TPR During Maximum Continuous Power Max'
+    units = '%'
+
+    def derive(self,
+               eng_tpr_max=P('Eng (*) TPR Max'),
+               to_ratings=S('Takeoff 5 Min Rating'),
+               ga_ratings=S('Go Around 5 Min Rating'),
+               grounded=S('Grounded')):
+
+        slices = to_ratings + ga_ratings + grounded
+        self.create_kpv_outside_slices(eng_tpr_max.array, slices, max_value)
 
 
 class EngEPR500To50FtMax(KeyPointValueNode):
@@ -4883,6 +4929,24 @@ class EngEPRAtTOGADuringTakeoffMax(KeyPointValueNode):
             self.create_kpv(index, value)
 
 
+class EngTPRAtTOGADuringTakeoffMin(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng TPR At TOGA During Takeoff Min'
+
+    def derive(self,
+               eng_tpr_max=P('Eng (*) TPR Min'),
+               toga=M('Takeoff And Go Around'),
+               takeoff=S('Takeoff')):
+
+        indexes = find_edges_on_state_change('TOGA', toga.array,
+                                             change='entering', phase=takeoff)
+        for index in indexes:
+            value = value_at_index(eng_tpr_max.array, index)
+            self.create_kpv(index, value)
+
+
 ##############################################################################
 # Engine Fire
 
@@ -4897,6 +4961,34 @@ class EngFireWarningDuration(KeyPointValueNode):
     def derive(self, eng_fire=M('Eng (*) Fire'), airborne=S('Airborne')):
         self.create_kpvs_where(eng_fire.array == 'Fire',
                                eng_fire.hz, phase=airborne)
+
+
+##############################################################################
+# APU Fire
+
+
+class APUFireWarningDuration(KeyPointValueNode):
+    '''
+    Duration that the any of the APU Fire Warnings are active.
+    '''
+
+    name = 'APU Fire Warning Duration'
+    units = 's'
+
+    @classmethod
+    def can_operate(cls, available):
+        params = ('Fire APU Single Bottle System', 'Fire APU Dual Bottle System')
+        return any_of(params, available)
+
+    def derive(self, single_bottle=M('Fire APU Single Bottle System'),
+               dual_bottle=M('Fire APU Dual Bottle System')):
+
+        hz = single_bottle.hz or dual_bottle.hz
+        apu_fires = vstack_params_where_state((single_bottle, 'Fire'),
+                                              (dual_bottle, 'Fire'))
+
+        self.create_kpvs_where(apu_fires.any(axis=0) == True,
+                               hz)
 
 
 ##############################################################################
