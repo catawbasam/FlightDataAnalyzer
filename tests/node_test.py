@@ -736,7 +736,20 @@ class TestSectionNode(unittest.TestCase):
         self.assertEqual(node.get_surrounding(12), [sect_1, sect_2])
         self.assertEqual(node.get_surrounding(-3), [])
         self.assertEqual(node.get_surrounding(25), [sect_2])
-
+    
+    def test_get_shortest(self):
+        node = SectionNode(items=[Section('ThisSection', slice(0, 5), 0, 5),
+                                  Section('ThisSection', slice(10, 13), 10, 13),
+                                  Section('ThisSection', slice(25, 30), 25, 30)])
+        self.assertEqual(node.get_shortest(), node[1])
+        self.assertEqual(node.get_shortest(within_slice=slice(20,40)), node[2])
+    
+    def test_get_longest(self):
+        node = SectionNode(items=[Section('ThisSection', slice(0, 5), 0, 5),
+                                  Section('ThisSection', slice(10, 20), 10, 13),
+                                  Section('ThisSection', slice(25, 30), 25, 30)])
+        self.assertEqual(node.get_longest(), node[1])
+        self.assertEqual(node.get_longest(within_slice=slice(0, 8)), node[0])
 
 
 class TestFormattedNameNode(unittest.TestCase):
