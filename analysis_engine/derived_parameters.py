@@ -4101,7 +4101,7 @@ class VerticalSpeed(DerivedParameterNode):
            frame_name.startswith('737-6'):
             self.array = rate_of_change(alt_std, 11.0) * 60.0
         elif frame_name in ['L382-Hercules']:
-             self.array = rate_of_change(alt_std, 15.0, method='regression') * 60.0
+            self.array = rate_of_change(alt_std, 15.0, method='regression') * 60.0
         else:
             self.array = rate_of_change(alt_std, 4.0) * 60.0
 
