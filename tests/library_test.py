@@ -2588,6 +2588,15 @@ class TestMaxValue(unittest.TestCase):
         self.assertEqual(v, None)
 
 
+class TestAverageValue(unittest.TestCase):
+    def test_average_value(self):
+        array = np.ma.arange(10)
+        self.assertEqual(average_value(array), Value(5, 4.5))
+        
+        array = np.ma.arange(30)
+        self.assertEqual(average_value(array), Value(15, 14.5))
+
+
 class TestMaxAbsValue(unittest.TestCase):
     def test_max_abs_value(self):
         array = np.ma.array(range(-20,30) + range(10,-41, -1) + range(10))
@@ -2724,6 +2733,7 @@ class TestMinimumUnmasked(unittest.TestCase):
         result = minimum_unmasked(a1,a2)
         np.testing.assert_array_equal(expected, result)
 
+
 class TestBlendParameters(unittest.TestCase):
     
     # Reminder: blend_parameters(params, offset, frequency):
@@ -2795,7 +2805,6 @@ class TestBlendParameters(unittest.TestCase):
         p1.array[5:] = np.ma.masked
         result = blend_parameters((p1, p2))
         self.assertAlmostEqual(len(result), 4)
-
 
 
 class TestBlendParametersWeighting(unittest.TestCase):
