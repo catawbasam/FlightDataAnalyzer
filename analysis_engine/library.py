@@ -3549,11 +3549,11 @@ def blend_two_parameters(param_one, param_two):
         return np_ma_masked_zeros_like(param_one.array), param_one.frequency, param_one.offset
 
     if a < b*0.8:
-        logger.warning("Little valid data available for %s (%d), using only %s (%d)data.", param_one.name, float(a)/len(param_one.array)*100, param_two.name, float(b)/len(param_two.array)*100)
+        logger.warning("Little valid data available for %s (%d valid samples), using %s (%d valid samples).", param_one.name, float(a)/len(param_one.array)*100, param_two.name, float(b)/len(param_two.array)*100)
         return param_two.array, param_two.frequency, param_two.offset
 
     elif b < a*0.8:
-        logger.warning("Little valid data available for %s (%d), using only %s (%d) data.", param_two.name, float(b)/len(param_two.array)*100, param_one.name, float(a)/len(param_one.array)*100)
+        logger.warning("Little valid data available for %s (%d valid samples), using %s (%d valid samples).", param_two.name, float(b)/len(param_two.array)*100, param_one.name, float(a)/len(param_one.array)*100)
         return param_one.array, param_one.frequency, param_one.offset
 
     # A second problem is where both sensor may appear to be serviceable but
