@@ -5257,12 +5257,29 @@ def smooth_track(lat, lon, hz):
 def straighten_altitudes(fine_array, coarse_array, limit, copy=False):
     '''
     Like straighten headings, this takes an array and removes jumps, however
-    in this case it is the fine altimeter rollovers that get corrected. We
-    keep the signal in step with the coarse altimeter signal without relying
-    upon that for accuracy.
+    in this case it is the fine altimeter rollovers that get corrected. 
+    
+    In the original format, we kept the signal in step with the coarse
+    altimeter signal without relying upon that for accuracy, but now the fine
+    signal is straightened before removing spikes and the alignment is
+    carried out in match_altitudes.
     '''
     return straighten(fine_array, coarse_array, limit, copy)
 
+def match_altitudes(fine, coarse):
+    '''
+    '''
+    ratio = float(len(fine))/float(len(coarse))
+    if ratio not in [1.0, 2.0, 4.0, 8.0]:
+        raise ValueError('Altitude matching relies upon correct sample rates')
+    corr,m,c = coreg(fine[0::ratio], indep_var=coarse)
+    print 'In match_altitudes: corr = ', corr, 'm = ', m, 'c = ',c
+    if corr<0.95:
+        raise ValueError('Altitude matching indicates unacceptable fine:coarse correlation')
+    if m<0.6 or m>1.5:
+        raise ValueError('Altitude matching indicates unacceptable fine:coarse slope')
+    return fine-c
+    
 def straighten_headings(heading_array, copy=True):
     '''
     We always straighten heading data before checking for spikes.

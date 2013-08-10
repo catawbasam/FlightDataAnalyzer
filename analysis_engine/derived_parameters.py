@@ -54,6 +54,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      machtat2sat,
                                      mask_inside_slices,
                                      mask_outside_slices,
+                                     match_altitudes,
                                      max_value,
                                      merge_masks,
                                      merge_two_parameters,
@@ -1152,6 +1153,7 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
     :type parameter object.
     """
 
+    align = False
     name = "Altitude STD Smoothed"
     units = 'ft'
 
@@ -1172,17 +1174,30 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             # excessive manipulation of the data.
             gauss = [0.054488683, 0.244201343, 0.402619948, 0.244201343, 0.054488683]
             self.array = moving_average(alt.array, window=5, weightings=gauss)
+            self.frequency = alt.frequency
+            self.offset = alt.offset
+            
         elif frame_name in ['E135-145', 'L382-Hercules']:
             # Here two sources are sampled alternately, so this form of
             # weighting merges the two to create a smoothed average.
             self.array = moving_average(alt.array, window=3,
                                         weightings=[0.25,0.5,0.25], pad=True)
+            self.frequency = alt.frequency
+            self.offset = alt.offset
+
         elif frame_name.startswith('747-200-') or \
              frame_name in ['A300-203-B4']:
-            # Fine part synchro used to compute altitude, as this does not match the coarse part synchro.
-            self.array = straighten_altitudes(fine.array, alt.array, 5000)
+            # The fine recording is used to compute altitude, and here we
+            # match the fine part to the coarse part to get the altitudes
+            # right.
+            self.array = match_altitudes(fine.array, alt.array)
+            self.frequency = fine.frequency
+            self.offset = fine.offset
+
         else:
             self.array = alt.array
+            self.frequency = alt.frequency
+            self.offset = alt.offset
 
 # TODO: Account for 'Touch & Go' - need to adjust QNH for additional airfields!
 class AltitudeQNH(DerivedParameterNode):
