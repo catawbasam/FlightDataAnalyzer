@@ -3337,6 +3337,26 @@ def min_value(array, _slice=slice(None), start_edge=None, stop_edge=None):
     return Value(index, value)
 
 
+def average_value(array, _slice=None):
+    '''
+    Calculate the average value within an optional slice of the array and return
+    both the midpoint index and the average.
+    
+    :param array: Data to calculate the average value of.
+    :type array: np.ma.masked_array
+    :param _slice: Optional subsection of the data to calculate the average value within.
+    :type _slice: slice
+    :returns: The midpoint index and the average value.
+    :rtype: Value named tuple of index and value.
+    '''
+    start = _slice.start or 0 if _slice else 0
+    stop = _slice.stop or len(array) if _slice else len(array)
+    midpoint = start + ((stop - start) / 2)
+    if _slice:
+        array = array[_slice]
+    return Value(midpoint, np.ma.mean(array))
+
+
 def minimum_unmasked(array1, array2):
     """
     Get the minimum value between two arrays. Differs from the Numpy minimum
@@ -4610,6 +4630,20 @@ def slice_duration(_slice, hz):
         raise ValueError("Slice stop '%s' is unsupported by slice_duration.",
                          _slice.stop)
     return (_slice.stop - (_slice.start or 0)) / hz
+
+
+def slice_midpoint(_slice):
+    '''
+    Gets the midpoint of a slice. Slice stop of None is not supported.
+    
+    :param _slice:
+    :type _slice: slice
+    :returns: The midpoint of the slice.
+    :rtype: float
+    '''
+    difference = _slice.stop - (_slice.start or 0)
+    return _slice.stop - (difference / 2)
+
 
 def slice_multiply(_slice, f):
     '''

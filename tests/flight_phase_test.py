@@ -513,6 +513,7 @@ class TestCombinedClimb(unittest.TestCase):
                             Section(name='Combined Climb', slice=slice(5404.4375, 5496, None), start_edge=5404.4375, stop_edge=5496),
                             Section(name='Combined Climb', slice=slice(6314.9375, 7414, None), start_edge=6314.9375, stop_edge=7414)]
                      )
+        self.assertEqual(list(node), expected)
 
 
 class TestClimbCruiseDescent(unittest.TestCase):

@@ -14,12 +14,10 @@ from analysis_engine.library import (
     cycle_finder,
     cycle_match,
     find_edges,
-    find_toc_tod,
     first_order_washout,
     first_valid_sample,
     index_at_value,
     index_at_value_or_level_off,
-    index_closest_value,
     is_index_within_slice,
     is_slice_within_slice,
     last_valid_sample,
@@ -756,6 +754,10 @@ def scan_ils(beam, ils_dots, height, scan_slice):
         if idx_200 is not None:
             ils_lost_idx = min(ils_lost_idx, idx_200)
 
+        if np.ma.count(ils_dots[scan_slice.start:ils_lost_idx]) < 5:
+            # less than 5 valid values within remaining section
+            return None
+
     # ----------- Find start of capture
 
     # Find where to start scanning for the point of "Capture", Look for the
@@ -843,7 +845,7 @@ class ILSApproach(FlightPhaseNode):
                                                      _slice=before_established)
                     end = est_slice.stop
                     self.create_phase(slice(begin, end))
-                    '''
+'''
 
 
 class ILSGlideslopeEstablished(FlightPhaseNode):
@@ -935,7 +937,7 @@ class InitialApproach(FlightPhaseNode):
                 if ini_app[pit] < ini_app[begin] :
                     self.create_phases(shift_slices([slice(begin, pit)],
                                                    app_land.slice.start))
-                                                   """
+"""
 
 
 class InitialClimb(FlightPhaseNode):
@@ -991,11 +993,11 @@ class Grounded(FlightPhaseNode):
 
 
 class Mobile(FlightPhaseNode):
-    """
+    '''
     This finds the first and last signs of movement to provide endpoints to
     the taxi phases. As Rate Of Turn is derived directly from heading, this
     phase is guaranteed to be operable for very basic aircraft.
-    """
+    '''
     @classmethod
     def can_operate(cls, available):
         return 'Rate Of Turn' in available

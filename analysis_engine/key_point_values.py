@@ -146,6 +146,7 @@ class FlapOrConfigurationMaxOrMin(object):
             kpvs.append((index, value, detent))
         return kpvs
 
+
 ##############################################################################
 # Helpers
 
@@ -157,6 +158,7 @@ def thrust_reversers_working(landing, pwr, tr):
     high_power = np.ma.masked_less(pwr.array[landing.slice], 65.0)
     high_power_slices = np.ma.clump_unmasked(high_power)
     return clump_multistate(tr.array, 'Deployed', high_power_slices)
+
 
 
 ##############################################################################
