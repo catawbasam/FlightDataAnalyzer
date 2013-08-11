@@ -564,7 +564,9 @@ class Fast(FlightPhaseNode):
                 start = None
             if abs(airspeed.array[stop - 1] - AIRSPEED_THRESHOLD) > 30:
                 stop = None
-            self.create_phase(slice(start, stop))
+            # Dont create a phase if neither is valid.
+            if start or stop:
+                self.create_phase(slice(start, stop))
 
 
 class FinalApproach(FlightPhaseNode):
