@@ -2536,14 +2536,14 @@ class TestMatchAltitudes(unittest.TestCase):
 
     def test_basic_operation(self):
         fine = np.ma.arange(20)+0.0
-        coarse = np.ma.arange(10)*2.0+100.0
-        expected = fine + 100.0
+        coarse = np.ma.arange(10)*2.0+4500.0
+        expected = fine + 5000.0
         result = match_altitudes(fine, coarse)
         ma_test.assert_masked_array_approx_equal(result, expected)
         
     def test_slope_mismatch(self):
         fine = np.ma.arange(20)+0.0
-        coarse = np.ma.arange(10)*2.6+100.0
+        coarse = np.ma.arange(10)*3.6+100.0
         self.assertRaises(ValueError, match_altitudes, fine, coarse)
         
     def test_correlation_failure(self):

@@ -5268,17 +5268,35 @@ def straighten_altitudes(fine_array, coarse_array, limit, copy=False):
 
 def match_altitudes(fine, coarse):
     '''
+    This function is specific to old altimetry systems which had fine and
+    coarse potentiometers. The coarse pot had a range of 135,000ft (yes!) and
+    the fine pot covered 5,000ft. The difficulty is that there is no
+    certainty what the coarse value will be when the fine pot rolls over
+    (unlike digital systems where the coarse and fine parts originate from
+    the same binary value).
+    
+    The fine part is straightened early in the processing so that spikes can
+    be corrected using the normal validation processes, but as we start from
+    an arbitrary turn of the potentiometer, we can be any multiple of 5000 ft
+    out from the true altitude.
+    
+    This function compares the two (allowing for the different sample rates,
+    without bothering to align the lower sample rate coarse part, then uses
+    the correlation function to determine the best fit height adjustment.
+    This is snapped onto the nearest 5000ft value and used to correct the
+    altitude(fine) based readings.
     '''
     ratio = float(len(fine))/float(len(coarse))
     if ratio not in [1.0, 2.0, 4.0, 8.0]:
         raise ValueError('Altitude matching relies upon correct sample rates')
     corr,m,c = coreg(fine[0::ratio], indep_var=coarse)
-    print 'In match_altitudes: corr = ', corr, 'm = ', m, 'c = ',c
     if corr<0.95:
         raise ValueError('Altitude matching indicates unacceptable fine:coarse correlation')
     if m<0.6 or m>1.5:
         raise ValueError('Altitude matching indicates unacceptable fine:coarse slope')
-    return fine-c
+    # The fine altimeter has a 5000ft increment, so pick the nearest...
+    correction = round(c/5000.0)*5000.0
+    return fine-correction
     
 def straighten_headings(heading_array, copy=True):
     '''
