@@ -2929,9 +2929,14 @@ class GrossWeightSmoothed(DerivedParameterNode):
         gw_masked = mask_outside_slices(gw.array, fast.get_slices())
 
         gw_nonzero = gw.array.nonzero()[0]
-
+        
+        flow = repair_mask(ff.array)
+        fuel_to_burn = np.ma.array(integrate(flow / 3600.0, ff.frequency,
+                                             direction='reverse'))
+        
         try:
-            gw_valid_index = gw_masked.nonzero()[0][-1]
+            valid_index = np.ma.intersect1d(gw_masked.nonzero()[0],
+                                            fuel_to_burn.nonzero()[0])[-1]
         except IndexError:
             self.warning(
                 "'%s' had no valid samples within '%s' section, but outside "
@@ -2940,16 +2945,14 @@ class GrossWeightSmoothed(DerivedParameterNode):
             self.array = gw.array
             return
 
-        flow = repair_mask(ff.array)
-        fuel_to_burn = np.ma.array(integrate(flow / 3600.0, ff.frequency,
-                                             direction='reverse'))
-
-        offset = gw_masked[gw_valid_index] - fuel_to_burn[gw_valid_index]
+        offset = gw_masked[valid_index] - fuel_to_burn[valid_index]
 
         self.array = fuel_to_burn + offset
 
         # Test that the resulting array is sensible compared with Gross Weight.
-        test_index = len(gw_nonzero) / 2
+        where_array = np.ma.where(self.array)[0]
+        test_index = where_array[len(where_array) / 2]
+        #test_index = len(gw_nonzero) / 2
         test_difference = \
             abs(gw.array[test_index] - self.array[test_index]) > 1000
         if test_difference > 1000: # Q: Is 1000 too large?
@@ -3967,7 +3970,6 @@ class MagneticVariationFromRunway(DerivedParameterNode):
         # landing variation is more likely to be the same as takeoff than 0
         # degrees (and vice versa).
         self.array = interpolate(dev, extrapolate=True)
-
 
 
 class VerticalSpeedInertial(DerivedParameterNode):
