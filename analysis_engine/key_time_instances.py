@@ -363,14 +363,14 @@ class TopOfClimb(KeyTimeInstanceNode):
                 n_toc = find_toc_tod(alt_std.array, ccd_slice, 'Climb')
             except:
                 # altitude data does not have an increasing section, so quit.
-                break
+                continue
             # If the data started in mid-flight the ccd slice will start with None
             if ccd_slice.start is None:
-                break
+                continue
             # if this is the first point in the slice, it's come from
             # data that is already in the cruise, so we'll ignore this as well
             if n_toc==0:
-                break
+                continue
             # Record the moment (with respect to this section of data)
             self.create_kti(n_toc)
 
@@ -386,14 +386,14 @@ class TopOfDescent(KeyTimeInstanceNode):
                 n_tod = find_toc_tod(alt_std.array, ccd_slice, 'Descent')
             except:
                 # altitude data does not have a decreasing section, so quit.
-                break
+                continue
             # If this slice ended in mid-cruise, the ccd slice will end in None.
             if ccd_slice.stop is None:
-                break
+                continue
             # if this is the last point in the slice, it's come from
             # data that ends in the cruise, so we'll ignore this too.
             if n_tod==ccd_slice.stop - 1:
-                break
+                continue
             # Record the moment (with respect to this section of data)
             self.create_kti(n_tod)
 
