@@ -518,7 +518,7 @@ class TestCombinedClimb(unittest.TestCase):
 
 class TestClimbCruiseDescent(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Altitude AAL For Flight Phases','Airborne')]
+        expected = [('Altitude STD Smoothed','Airborne')]
         opts = ClimbCruiseDescent.get_operational_combinations()
         self.assertEqual(opts, expected)
 
@@ -527,7 +527,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         camel = ClimbCruiseDescent()
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.array([15000] * 5 + range(15000, 1000, -1000))
-        alt_aal = Parameter('Altitude AAL For Flight Phases',
+        alt_aal = Parameter('Altitude STD Smoothed',
                             np.ma.array(testwave))
         air=buildsection('Airborne', None, 19)
         camel.derive(alt_aal, air)
@@ -539,7 +539,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         camel = ClimbCruiseDescent()
         # Needs to get above 15000ft and below 10000ft to create this phase.
         testwave = np.ma.array(range(1000,15000,1000)+[15000]*5)
-        alt_aal = Parameter('Altitude AAL For Flight Phases',
+        alt_aal = Parameter('Altitude STD Smoothed',
                             np.ma.array(testwave))
         air=buildsection('Airborne',0, None)
         camel.derive(alt_aal, air)
@@ -553,7 +553,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         testwave = np.ma.array([15000]*5)
         # plot_parameter (testwave)
         air=buildsection('Airborne',0,5)
-        camel.derive(Parameter('Altitude AAL For Flight Phases',
+        camel.derive(Parameter('Altitude STD Smoothed',
                                np.ma.array(testwave)),air)
         expected = []
         self.assertEqual(camel, expected)
@@ -576,7 +576,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         testwave = np.ma.cos(np.arange(0, 3.14 * 4, 0.1)) * (-3000) + 12500
         # plot_parameter (testwave)
         air=buildsection('Airborne',0,122)
-        camel.derive(Parameter('Altitude AAL For Flight Phases',
+        camel.derive(Parameter('Altitude STD Smoothed',
                                np.ma.array(testwave)), air)
         self.assertEqual(len(camel), 2)
 
@@ -587,7 +587,7 @@ class TestClimbCruiseDescent(unittest.TestCase):
         testwave = np.ma.cos(np.arange(0, 3.14 * 6, 0.1)) * (-3000) + 12500
         # plot_parameter (testwave)
         air=buildsection('Airborne',0,186)
-        camel.derive(Parameter('Altitude AAL For Flight Phases',
+        camel.derive(Parameter('Altitude STD Smoothed',
                                np.ma.array(testwave)), air)
         self.assertEqual(len(camel), 3)
 
