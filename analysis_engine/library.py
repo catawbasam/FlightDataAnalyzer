@@ -5280,23 +5280,29 @@ def match_altitudes(fine, coarse):
     an arbitrary turn of the potentiometer, we can be any multiple of 5000 ft
     out from the true altitude.
     
-    This function compares the two (allowing for the different sample rates,
-    without bothering to align the lower sample rate coarse part, then uses
-    the correlation function to determine the best fit height adjustment.
-    This is snapped onto the nearest 5000ft value and used to correct the
-    altitude(fine) based readings.
+    This function compares the two, then uses the correlation function to
+    determine the best fit height adjustment. This is snapped onto the
+    nearest 5000ft value and used to correct the altitude(fine) based
+    readings.
+    
+    The process works in valid data blocks as the offset will have been reset
+    during the calculation of the fine part in the presence of data spikes.
     '''
-    ratio = float(len(fine))/float(len(coarse))
-    if ratio not in [1.0, 2.0, 4.0, 8.0]:
-        raise ValueError('Altitude matching relies upon correct sample rates')
-    corr,m,c = coreg(fine[0::ratio], indep_var=coarse)
-    if corr<0.95:
-        raise ValueError('Altitude matching indicates unacceptable fine:coarse correlation')
-    if m<0.6 or m>1.5:
-        raise ValueError('Altitude matching indicates unacceptable fine:coarse slope')
-    # The fine altimeter has a 5000ft increment, so pick the nearest...
-    correction = round(c/5000.0)*5000.0
-    return fine-correction
+
+    fine.mask = np.ma.getmaskarray(coarse) | np.ma.getmaskarray(fine)
+    chunks = np.ma.clump_unmasked(fine)
+    big_chunks = slices_remove_small_slices(chunks, count=2)
+    result = np_ma_masked_zeros_like(fine)
+    for chunk in big_chunks:
+        corr,m,c = coreg(fine[chunk], indep_var=coarse[chunk])
+        if corr<0.95:
+            raise ValueError('Altitude matching indicates unacceptable fine:coarse correlation')
+        if m<0.6 or m>1.5:
+            raise ValueError('Altitude matching indicates unacceptable fine:coarse slope')
+        # The fine altimeter has a 5000ft increment, so pick the nearest...
+        correction = round(c/5000.0)*5000.0
+        result[chunk] = fine[chunk]-correction
+    return result
     
 def straighten_headings(heading_array, copy=True):
     '''
