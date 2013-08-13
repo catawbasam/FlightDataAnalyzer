@@ -215,10 +215,10 @@ class EngStart(KeyTimeInstanceNode):
                eng_3_n3=P('Eng (3) N3'),
                eng_4_n3=P('Eng (4) N3')):
         
-        if eng_1_n3:
+        if eng_1_n3 or eng_2_n3:
             # This aircraft has 3-spool engines
             eng_nx_list = (eng_1_n3, eng_2_n3, eng_3_n3, eng_4_n3)
-        elif eng_1_n2:
+        elif eng_1_n2 or eng_2_n2:
             # The engines are 2-spool engines
             eng_nx_list = (eng_1_n2, eng_2_n2, eng_3_n2, eng_4_n2)
         else:
