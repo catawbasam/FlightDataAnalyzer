@@ -2641,6 +2641,10 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
                alt_aal=P('Altitude AAL'),
                airborne=S('Airborne')):
         flap = flap_lever or flap_synth
+        
+        if flap_liftoff == []:
+            # No Flap at Liftoff identified
+            return
 
         if flap_liftoff.get_first().value == 0.0:
             # if taken off with flap 0 likely first flap change after liftoff
