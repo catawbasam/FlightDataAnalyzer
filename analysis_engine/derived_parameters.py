@@ -751,7 +751,7 @@ class AltitudeAAL(DerivedParameterNode):
         #x = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
         #ralt_sections = [y for y in x if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
         ## ralt_sections = np.ma.clump_unmasked(np.ma.masked_greater(alt_rad_aal, 100.0))
-        ralt_sections = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
+        ralt_sections = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.0, 100.0))
 
         if len(ralt_sections)==0:
             # Either Altitude Radio did not drop below 100, or did not get
@@ -766,28 +766,10 @@ class AltitudeAAL(DerivedParameterNode):
             alt_result[ralt_section] = alt_rad_aal[ralt_section]
 
             for baro_section in baro_sections:
-                begin_index = baro_section.start
-            
-                if ralt_section.stop == baro_section.start:
-                    # Avoid indexing beyond the end of the data.
-                    ending = min(begin_index + 60, len(alt_std), len(alt_rad)) 
-                    alt_diff = (alt_std[begin_index:ending] -
-                                alt_rad[begin_index:ending])
-                    slip, up_diff = first_valid_sample(alt_diff)
-                    if slip is None:
-                        up_diff = 0.0
-                    else:
-                        # alt_std is invalid at the point of handover
-                        # so stretch the radio signal until we can
-                        # handover.
-                        fix_slice = slice(begin_index,
-                                          begin_index + slip)
-                        alt_result[fix_slice] = alt_rad[fix_slice]
-                        begin_index += slip
-            
-                    alt_result[begin_index:] = \
-                        alt_std[begin_index:] - up_diff
-                
+                # I know there must be a better way to code these symmetrical processes, but this works :o)
+                link_baro_rad_fwd(baro_section, ralt_section, alt_rad_aal, alt_std, alt_result)
+                link_baro_rad_rev(baro_section, ralt_section, alt_rad_aal, alt_std, alt_result)
+
         return alt_result
 
     def derive(self, alt_rad=P('Altitude Radio'),
@@ -966,9 +948,9 @@ class AltitudeAAL(DerivedParameterNode):
                                          alt_std.array[dip['slice']],
                                          dip['alt_std'], dip['highest_ground'])
                       
-        # Reset end sections
-        alt_aal[quick.start:alt_idxs[0]+1] = 0.0
-        alt_aal[alt_idxs[-1]+1:quick.stop] = 0.0
+            # Reset end sections
+            alt_aal[quick.start:alt_idxs[0]+1] = 0.0
+            alt_aal[alt_idxs[-1]+1:quick.stop] = 0.0
         
         '''
         # Quick visual check of the altitude aal.
@@ -979,6 +961,50 @@ class AltitudeAAL(DerivedParameterNode):
         
         self.array = alt_aal
         
+
+def link_baro_rad_fwd(baro_section, ralt_section, alt_rad, alt_std, alt_result):
+    begin_index = baro_section.start
+
+    if ralt_section.stop == begin_index:
+        start_plus_60 = min(begin_index + 60, len(alt_std))
+        alt_diff = (alt_std[begin_index:start_plus_60] -
+                    alt_rad[begin_index:start_plus_60])
+        slip, up_diff = first_valid_sample(alt_diff)
+        if slip is None:
+            up_diff = 0.0
+        else:
+            # alt_std is invalid at the point of handover
+            # so stretch the radio signal until we can
+            # handover.
+            fix_slice = slice(begin_index,
+                              begin_index + slip)
+            alt_result[fix_slice] = alt_rad[fix_slice]
+            begin_index += slip
+
+        alt_result[begin_index:] = \
+            alt_std[begin_index:] - up_diff
+
+def link_baro_rad_rev(baro_section, ralt_section, alt_rad, alt_std, alt_result):
+    end_index = baro_section.stop
+
+    if ralt_section.start == end_index:
+        end_minus_60 = max(end_index-60, 0)
+        alt_diff = (alt_std[end_minus_60:end_index] -
+                    alt_rad[end_minus_60:end_index])
+        slip, up_diff = first_valid_sample(alt_diff[::-1])
+        if slip is None:
+            up_diff = 0.0
+        else:
+            # alt_std is invalid at the point of handover
+            # so stretch the radio signal until we can
+            # handover.
+            fix_slice = slice(end_index-slip,
+                              end_index)
+            alt_result[fix_slice] = alt_rad[fix_slice]
+            end_index -= slip
+
+        alt_result[:end_index] = \
+            alt_std[:end_index] - up_diff
 
 class AltitudeAALForFlightPhases(DerivedParameterNode):
     name = 'Altitude AAL For Flight Phases'

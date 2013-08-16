@@ -791,7 +791,32 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_almost_equal(alt_aal.array[191], 8965, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[313], 17, decimal=0)
-    
+
+    def test_alt_aal_complex_with_mask(self):
+        #testwave = np.ma.cos(np.arange(0, 3.14 * 2 * 5, 0.1)) * -3000 + \
+            #np.ma.cos(np.arange(0, 3.14 * 2, 0.02)) * -5000 + 7996
+        
+        std_wave = np.ma.concatenate([np.ma.zeros(50), np.ma.arange(0,5000, 200), np.ma.zeros(50)+5000, np.ma.arange(5000,5500, 200), np.ma.zeros(50)+5500, np.ma.arange(5500, 0, -500), np.ma.zeros(50)])
+        rad_wave = np.copy(std_wave) - 8
+        rad_data = np.ma.masked_greater(rad_wave, 2600)
+        phase_fast = buildsection('Fast', 35, len(std_wave))
+        std_wave += 1000
+        rad_data[42:48] = np.ma.masked
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(P('Altitude Radio', np.ma.copy(rad_data)),
+                       P('Altitude STD', np.ma.copy(std_wave)),
+                       phase_fast)
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(std_wave, '-b')
+        plt.plot(rad_data, 'o-r')
+        plt.plot(alt_aal.array, '-k')
+        plt.show()
+        '''
+        #  Check alt aal does not try to jump to alt std in masked period of
+        #  alt rad
+        self.assertEqual(alt_aal.array[45].mask, True)
+
     def test_alt_aal_complex_doubled(self):
         testwave = np.ma.cos(np.arange(0, 3.14 * 2, 0.02)) * -5000 + 5500
         rad_wave = np.copy(testwave)-500
@@ -805,13 +830,13 @@ class TestAltitudeAAL(unittest.TestCase):
                        P('Altitude STD', double_test),
                        phase_fast)
         
-        '''
-        import matplotlib.pyplot as plt
+        
+        '''import matplotlib.pyplot as plt
         plt.plot(double_test, '-b')
         plt.plot(double_rad, 'o-r')
         plt.plot(alt_aal.array, '-k')
-        plt.show()
-        '''
+        plt.show()'''
+        self.assertNotEqual(alt_aal.array[200], 0.0)
         np.testing.assert_equal(alt_aal.array[0], 0.0)
 
 
