@@ -5294,13 +5294,8 @@ def match_altitudes(fine, coarse):
     big_chunks = slices_remove_small_slices(chunks, count=2)
     result = np_ma_masked_zeros_like(fine)
     for chunk in big_chunks:
-        corr,m,c = coreg(fine[chunk], indep_var=coarse[chunk])
-        if corr<0.95:
-            raise ValueError('Altitude matching indicates unacceptable fine:coarse correlation')
-        if m<0.6 or m>1.5:
-            raise ValueError('Altitude matching indicates unacceptable fine:coarse slope')
-        # The fine altimeter has a 5000ft increment, so pick the nearest...
-        correction = round(c/5000.0)*5000.0
+        av_diff = np.average(fine.data[chunk] - coarse.data[chunk])
+        correction = round(av_diff/5000.0)*5000.0
         result[chunk] = fine[chunk]-correction
     return result
     
