@@ -2049,8 +2049,8 @@ class TestGroundspeedAlongTrack(unittest.TestCase):
         self.assertGreater(np.ma.max(gat.array.data),16)
         # ...and finally decays as the longer washout time constant takes effect.
         self.assertLess(gat.array[199],52.0)
-        
-        
+
+
 class TestHeadingContinuous(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Heading',)]
