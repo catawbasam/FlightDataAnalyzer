@@ -19,6 +19,7 @@ from analysis_engine.library import (
     align_slices,
     find_edges,
     is_index_within_slice,
+    is_index_within_slices,
     is_slice_within_slice,
     repair_mask,
     runs_of_ones,
@@ -1188,25 +1189,33 @@ class FormattedNameNode(ListNode):
             raise ValueError("invalid name '%s'" % name)
         return name # return as a confirmation it was successful
 
-    def _get_condition(self, within_slice=None, name=None):
+    def _get_condition(self, within_slice=None, within_slices=None, name=None):
         '''
         Returns a condition function which checks if the element is within
         a slice or has a specified name if they are provided.
 
         :param within_slice: Only return elements within this slice.
         :type within_slice: slice
+        :param within_slices: Only return elements within these slices.
+        :type within_slices: [slice]
         :param name: Only return elements with this name.
         :type name: str
         :returns: Either a condition function or None.
         :rtype: func or None
         '''
-        within_slice_func = \
-            lambda e: is_index_within_slice(e.index, within_slice)
-        name_func = lambda e: e.name == name
-        if within_slice and name:
-            return lambda e: within_slice_func(e) and name_func(e)
+        if within_slice and within_slices:
+            within_slices.append(within_slice)
         elif within_slice:
-            return within_slice_func
+            within_slices = [within_slice]
+        
+        within_slices_func = \
+            lambda e: is_index_within_slices(e.index, within_slices)
+        name_func = lambda e: e.name == name
+        
+        if within_slices and name:
+            return lambda e: within_slices_func(e) and name_func(e)
+        elif within_slices:
+            return within_slices_func
         elif name:
             if self.restrict_names and name not in self.names():
                 raise ValueError("Attempted to filter by invalid name '%s' "
@@ -1724,11 +1733,11 @@ class KeyPointValueNode(FormattedNameNode):
         for _slice in slices:
             start = _slice.start or 0
             stop = _slice.stop or len(array)
-            slice_duration = (stop - start)
-            if index < slice_duration:
+            duration = (stop - start)
+            if index < duration:
                 index += start or 0
                 break
-            index -= slice_duration
+            index -= duration
         self.create_kpv(index, value, **kwargs)
 
 
