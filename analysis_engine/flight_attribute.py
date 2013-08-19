@@ -172,7 +172,7 @@ class LandingAirport(FlightAttributeNode):
     name = 'FDR Landing Airport'
 
     @classmethod
-    def can_operate(self, available):
+    def can_operate(cls, available):
         '''
         We can determine a landing airport in one of two ways:
 
@@ -232,7 +232,7 @@ class LandingRunway(FlightAttributeNode):
     name = 'FDR Landing Runway'
 
     @classmethod
-    def can_operate(self, available):
+    def can_operate(cls, available):
         '''
         We can determine a landing runway in a number of ways:
 
@@ -384,7 +384,7 @@ class TakeoffAirport(FlightAttributeNode):
     name = 'FDR Takeoff Airport'
 
     @classmethod
-    def can_operate(self, available):
+    def can_operate(cls, available):
         '''
         We can determine a takeoff airport in one of two ways:
 
@@ -456,7 +456,7 @@ class TakeoffFuel(FlightAttributeNode):
     "Weight of Fuel in KG at point of Takeoff"
     name = 'FDR Takeoff Fuel'
     @classmethod
-    def can_operate(self, available):
+    def can_operate(cls, available):
         return 'AFR Takeoff Fuel' in available or \
                'Fuel Qty At Liftoff' in available
 
@@ -552,7 +552,7 @@ class TakeoffRunway(FlightAttributeNode):
     name = 'FDR Takeoff Runway'
 
     @classmethod
-    def can_operate(self, available):
+    def can_operate(cls, available):
         '''
         We can determine a takeoff runway in a number of ways:
 
@@ -664,7 +664,7 @@ class FlightType(FlightAttributeNode):
         LINE_TRAINING = 'LINE_TRAINING'
 
     @classmethod
-    def can_operate(self, available):
+    def can_operate(cls, available):
         return all(n in available for n in ['Fast', 'Liftoff', 'Touchdown'])
 
     def derive(self, afr_type=A('AFR Type'), fast=S('Fast'),
@@ -754,7 +754,7 @@ class LandingFuel(FlightAttributeNode):
     "Weight of Fuel in KG at point of Touchdown"
     name = 'FDR Landing Fuel'
     @classmethod
-    def can_operate(self, available):
+    def can_operate(cls, available):
         return 'AFR Landing Fuel' in available or \
                'Fuel Qty At Touchdown' in available
 
