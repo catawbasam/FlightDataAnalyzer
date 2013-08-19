@@ -45,6 +45,7 @@ from analysis_engine.key_time_instances import (
     MinsToTouchdown,
     SecsToTouchdown,
     SlatAlternateArmed,
+    SlatSet,
     TakeoffAccelerationStart,
     TakeoffPeakAcceleration,
     TakeoffTurnOntoRunway,
@@ -930,6 +931,24 @@ class TestFlapSet(unittest.TestCase, NodeTest):
             KeyTimeInstance(index=8.5, name='Flap 5 Set'),
             KeyTimeInstance(index=10.5, name='Flap 0 Set'),
             KeyTimeInstance(index=12.5, name='Flap 17.5 Set'),
+        ])
+
+
+class TestSlatSet(unittest.TestCase):
+
+    def setUp(self):
+        self.assertEqual(SlatSet.get_operational_combinations(),
+                         [('Slat',)])
+
+    def test_derive_basic(self):
+        slat = P('Slat', array=np.ma.array([0] * 10 +
+                                           [15] * 10 +
+                                           [20] * 10))
+        node = SlatSet()
+        node.derive(slat)
+        self.assertEqual(node, [
+            KeyTimeInstance(index=9.5, name='Slat 15 Set'),
+            KeyTimeInstance(index=19.5, name='Slat 20 Set'),
         ])
 
 
