@@ -814,6 +814,72 @@ class GearUpSelected(MultistateDerivedParameterNode):
         self.offset = gear_down.offset
 
 
+class ILSInnerMarker(MultistateDerivedParameterNode):
+    '''
+    Combine ILS Marker for captain and first officer where recorded separately.
+    '''
+    values_mapping = {0: '-', 1: 'Present'}
+    align = False
+    name = 'ILS Inner Marker'
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self, 
+               ils_mkr_capt=M('ILS Inner Marker (Capt)'),
+               ils_mkr_fo=M('ILS Inner Marker (FO)')):
+
+        self.array = vstack_params_where_state(
+            (ils_mkr_capt, 'Present'),
+            (ils_mkr_fo, 'Present'),
+        ).any(axis=0)
+
+
+class ILSMiddleMarker(MultistateDerivedParameterNode):
+    '''
+    Combine ILS Marker for captain and first officer where recorded separately.
+    '''
+    values_mapping = {0: '-', 1: 'Present'}
+    align = False
+    name = 'ILS Middle Marker'
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self, 
+               ils_mkr_capt=M('ILS Middle Marker (Capt)'),
+               ils_mkr_fo=M('ILS Middle Marker (FO)')):
+
+        self.array = vstack_params_where_state(
+            (ils_mkr_capt, 'Present'),
+            (ils_mkr_fo, 'Present'),
+        ).any(axis=0)
+
+
+class ILSOuterMarker(MultistateDerivedParameterNode):
+    '''
+    Combine ILS Marker for captain and first officer where recorded separately.
+    '''
+    values_mapping = {0: '-', 1: 'Present'}
+    align = False
+    name = 'ILS Outer Marker'
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self, 
+               ils_mkr_capt=M('ILS Outer Marker (Capt)'),
+               ils_mkr_fo=M('ILS Outer Marker (FO)')):
+
+        self.array = vstack_params_where_state(
+            (ils_mkr_capt, 'Present'),
+            (ils_mkr_fo, 'Present'),
+        ).any(axis=0)
+
+
 class MasterWarning(MultistateDerivedParameterNode):
     '''
     Combine master warning for captain and first officer.

@@ -50,6 +50,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      machtat2sat,
                                      mask_inside_slices,
                                      mask_outside_slices,
+                                     match_altitudes,
                                      max_value,
                                      moving_average,
                                      np_ma_ones_like,
@@ -397,10 +398,16 @@ class AirspeedReferenceLookup(DerivedParameterNode):
     units = 'kts'
 
     @classmethod
-    def can_operate(cls, available):
+    def can_operate(cls, available, series=A('Series'), family=A('Family'),
+                    engine=A('Engine Series'), engine_type=A('Engine Type')):
+
+        try:
+            cls._get_vspeed_class(series, family, engine, engine_type)
+        except KeyError:
+            return False
+
         x = set(available)
-        base = ['Airspeed', 'Series', 'Family', 'Approach And Landing',
-                'Touchdown']
+        base = ['Airspeed', 'Approach And Landing', 'Touchdown']
         weight = base + ['Gross Weight Smoothed']
         airbus = set(weight + ['Configuration']).issubset(x)
         boeing = set(weight + ['Flap']).issubset(x)
@@ -408,10 +415,14 @@ class AirspeedReferenceLookup(DerivedParameterNode):
         # FIXME: Replace the flaky logic for small propeller aircraft which do
         #        not record gross weight, cannot provide achieved flight
         #        records and will be using a fixed value for processing.
-        
-        # Paradoxically, we don't want to run this if we have a recorded Airspeed Reference
-        have_reference = 'Airspeed Reference' in available
-        return (airbus or boeing) and not have_reference  # or propeller
+
+        return (airbus or boeing) # or propeller
+
+    @staticmethod
+    def _get_vspeed_class(series, family, engine, engine_type):
+        x = map(lambda x: x.value if x else None,
+                (series, family, engine, engine_type))
+        return get_vspeed_map(*x)
 
     def derive(self,
                flap=M('Flap'),
@@ -733,7 +744,7 @@ class AltitudeAAL(DerivedParameterNode):
         #x = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
         #ralt_sections = [y for y in x if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
         ## ralt_sections = np.ma.clump_unmasked(np.ma.masked_greater(alt_rad_aal, 100.0))
-        ralt_sections = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
+        ralt_sections = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.0, 100.0))
 
         if len(ralt_sections)==0:
             # Either Altitude Radio did not drop below 100, or did not get
@@ -748,28 +759,10 @@ class AltitudeAAL(DerivedParameterNode):
             alt_result[ralt_section] = alt_rad_aal[ralt_section]
 
             for baro_section in baro_sections:
-                begin_index = baro_section.start
-            
-                if ralt_section.stop == baro_section.start:
-                    # Avoid indexing beyond the end of the data.
-                    ending = min(begin_index + 60, len(alt_std), len(alt_rad)) 
-                    alt_diff = (alt_std[begin_index:ending] -
-                                alt_rad[begin_index:ending])
-                    slip, up_diff = first_valid_sample(alt_diff)
-                    if slip is None:
-                        up_diff = 0.0
-                    else:
-                        # alt_std is invalid at the point of handover
-                        # so stretch the radio signal until we can
-                        # handover.
-                        fix_slice = slice(begin_index,
-                                          begin_index + slip)
-                        alt_result[fix_slice] = alt_rad[fix_slice]
-                        begin_index += slip
-            
-                    alt_result[begin_index:] = \
-                        alt_std[begin_index:] - up_diff
-                
+                # I know there must be a better way to code these symmetrical processes, but this works :o)
+                link_baro_rad_fwd(baro_section, ralt_section, alt_rad_aal, alt_std, alt_result)
+                link_baro_rad_rev(baro_section, ralt_section, alt_rad_aal, alt_std, alt_result)
+
         return alt_result
 
     def derive(self, alt_rad=P('Altitude Radio'),
@@ -948,9 +941,9 @@ class AltitudeAAL(DerivedParameterNode):
                                          alt_std.array[dip['slice']],
                                          dip['alt_std'], dip['highest_ground'])
                       
-        # Reset end sections
-        alt_aal[quick.start:alt_idxs[0]+1] = 0.0
-        alt_aal[alt_idxs[-1]+1:quick.stop] = 0.0
+            # Reset end sections
+            alt_aal[quick.start:alt_idxs[0]+1] = 0.0
+            alt_aal[alt_idxs[-1]+1:quick.stop] = 0.0
         
         '''
         # Quick visual check of the altitude aal.
@@ -961,6 +954,50 @@ class AltitudeAAL(DerivedParameterNode):
         
         self.array = alt_aal
         
+
+def link_baro_rad_fwd(baro_section, ralt_section, alt_rad, alt_std, alt_result):
+    begin_index = baro_section.start
+
+    if ralt_section.stop == begin_index:
+        start_plus_60 = min(begin_index + 60, len(alt_std))
+        alt_diff = (alt_std[begin_index:start_plus_60] -
+                    alt_rad[begin_index:start_plus_60])
+        slip, up_diff = first_valid_sample(alt_diff)
+        if slip is None:
+            up_diff = 0.0
+        else:
+            # alt_std is invalid at the point of handover
+            # so stretch the radio signal until we can
+            # handover.
+            fix_slice = slice(begin_index,
+                              begin_index + slip)
+            alt_result[fix_slice] = alt_rad[fix_slice]
+            begin_index += slip
+
+        alt_result[begin_index:] = \
+            alt_std[begin_index:] - up_diff
+
+def link_baro_rad_rev(baro_section, ralt_section, alt_rad, alt_std, alt_result):
+    end_index = baro_section.stop
+
+    if ralt_section.start == end_index:
+        end_minus_60 = max(end_index-60, 0)
+        alt_diff = (alt_std[end_minus_60:end_index] -
+                    alt_rad[end_minus_60:end_index])
+        slip, up_diff = first_valid_sample(alt_diff[::-1])
+        if slip is None:
+            up_diff = 0.0
+        else:
+            # alt_std is invalid at the point of handover
+            # so stretch the radio signal until we can
+            # handover.
+            fix_slice = slice(end_index-slip,
+                              end_index)
+            alt_result[fix_slice] = alt_rad[fix_slice]
+            end_index -= slip
+
+        alt_result[:end_index] = \
+            alt_std[:end_index] - up_diff
 
 class AltitudeAALForFlightPhases(DerivedParameterNode):
     name = 'Altitude AAL For Flight Phases'
@@ -1155,15 +1192,20 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             # excessive manipulation of the data.
             gauss = [0.054488683, 0.244201343, 0.402619948, 0.244201343, 0.054488683]
             self.array = moving_average(alt.array, window=5, weightings=gauss)
+            
         elif frame_name in ['E135-145', 'L382-Hercules']:
             # Here two sources are sampled alternately, so this form of
             # weighting merges the two to create a smoothed average.
             self.array = moving_average(alt.array, window=3,
                                         weightings=[0.25,0.5,0.25], pad=True)
+
         elif frame_name.startswith('747-200-') or \
              frame_name in ['A300-203-B4']:
-            # Fine part synchro used to compute altitude, as this does not match the coarse part synchro.
-            self.array = straighten_altitudes(fine.array, alt.array, 5000)
+            # The fine recording is used to compute altitude, and here we
+            # match the fine part to the coarse part to get the altitudes
+            # right.
+            self.array = match_altitudes(fine.array, alt.array)
+
         else:
             self.array = alt.array
 
@@ -3829,6 +3871,7 @@ class LongitudeSmoothed(DerivedParameterNode, CoordinatesSmoothed):
                                             gspd, tas, toff, toff_rwy,
                                             tdwns, approaches, mobile, precision)
         self.array = track_linking(lon.array, lon_adj)
+        
 
 class Mach(DerivedParameterNode):
     '''
@@ -4656,14 +4699,23 @@ class V2Lookup(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available, series=A('Series'), family=A('Family'),
                     engine=A('Engine Series'), engine_type=A('Engine Type')):
+
         try:
             cls._get_vspeed_class(series, family, engine, engine_type)
         except KeyError:
             return False
-        return ('Airspeed' in available and
-                ('Conf' in available or 'Flap' in available) and
-                ('Liftoff' in available or 'Gross Weight At Liftoff' in available))
-    
+
+        x = set(available)
+        base = ['Airspeed']
+        weight = base + ['Gross Weight At Liftoff']
+        airbus = set(weight + ['Configuration']).issubset(x)
+        boeing = set(weight + ['Flap']).issubset(x)
+        propeller = set(base + ['Eng (*) Np Avg', 'Liftoff']).issubset(x)
+        # FIXME: Replace the flaky logic for small propeller aircraft which do
+        #        not record gross weight, cannot provide achieved flight
+        #        records and will be using a fixed value for processing.
+        return airbus or boeing  # or propeller
+
     @staticmethod
     def _get_vspeed_class(series, family, engine, engine_type):
         x = map(lambda x: x.value if x else None,

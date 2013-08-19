@@ -3582,11 +3582,11 @@ def blend_two_parameters(param_one, param_two):
         return np_ma_masked_zeros_like(param_one.array), param_one.frequency, param_one.offset
 
     if a < b*0.8:
-        logger.warning("Little valid data available for %s (%d), using only %s (%d)data.", param_one.name, float(a)/len(param_one.array)*100, param_two.name, float(b)/len(param_two.array)*100)
+        logger.warning("Little valid data available for %s (%d valid samples), using %s (%d valid samples).", param_one.name, float(a)/len(param_one.array)*100, param_two.name, float(b)/len(param_two.array)*100)
         return param_two.array, param_two.frequency, param_two.offset
 
     elif b < a*0.8:
-        logger.warning("Little valid data available for %s (%d), using only %s (%d) data.", param_two.name, float(b)/len(param_two.array)*100, param_one.name, float(a)/len(param_one.array)*100)
+        logger.warning("Little valid data available for %s (%d valid samples), using %s (%d valid samples).", param_two.name, float(b)/len(param_two.array)*100, param_one.name, float(a)/len(param_one.array)*100)
         return param_one.array, param_one.frequency, param_one.offset
 
     # A second problem is where both sensor may appear to be serviceable but
@@ -5340,12 +5340,48 @@ def smooth_track(lat, lon, hz):
 def straighten_altitudes(fine_array, coarse_array, limit, copy=False):
     '''
     Like straighten headings, this takes an array and removes jumps, however
-    in this case it is the fine altimeter rollovers that get corrected. We
-    keep the signal in step with the coarse altimeter signal without relying
-    upon that for accuracy.
+    in this case it is the fine altimeter rollovers that get corrected. 
+    
+    In the original format, we kept the signal in step with the coarse
+    altimeter signal without relying upon that for accuracy, but now the fine
+    signal is straightened before removing spikes and the alignment is
+    carried out in match_altitudes.
     '''
     return straighten(fine_array, coarse_array, limit, copy)
 
+def match_altitudes(fine, coarse):
+    '''
+    This function is specific to old altimetry systems which had fine and
+    coarse potentiometers. The coarse pot had a range of 135,000ft (yes!) and
+    the fine pot covered 5,000ft. The difficulty is that there is no
+    certainty what the coarse value will be when the fine pot rolls over
+    (unlike digital systems where the coarse and fine parts originate from
+    the same binary value).
+    
+    The fine part is straightened early in the processing so that spikes can
+    be corrected using the normal validation processes, but as we start from
+    an arbitrary turn of the potentiometer, we can be any multiple of 5000 ft
+    out from the true altitude.
+    
+    This function compares the two, then uses the correlation function to
+    determine the best fit height adjustment. This is snapped onto the
+    nearest 5000ft value and used to correct the altitude(fine) based
+    readings.
+    
+    The process works in valid data blocks as the offset will have been reset
+    during the calculation of the fine part in the presence of data spikes.
+    '''
+
+    fine.mask = np.ma.getmaskarray(coarse) | np.ma.getmaskarray(fine)
+    chunks = np.ma.clump_unmasked(fine)
+    big_chunks = slices_remove_small_slices(chunks, count=2)
+    result = np_ma_masked_zeros_like(fine)
+    for chunk in big_chunks:
+        av_diff = np.average(fine.data[chunk] - coarse.data[chunk])
+        correction = round(av_diff/5000.0)*5000.0
+        result[chunk] = fine[chunk]-correction
+    return result
+    
 def straighten_headings(heading_array, copy=True):
     '''
     We always straighten heading data before checking for spikes.
@@ -5357,34 +5393,6 @@ def straighten_headings(heading_array, copy=True):
     :rtype: Generator of type Float
     '''
     return straighten(heading_array, None, 360.0, copy)
-    #if copy:
-        #heading_array = heading_array.copy()
-    #head_prev = None
-    #diff_prev = None
-    #for clump in np.ma.clump_unmasked(heading_array):
-        #head_start = heading_array.data[clump.start]
-        #if diff_prev is not None:
-            ## Account for rollovers within masked sections.
-            #if (head_start - head_prev) > 180:
-                #diff_prev -= 360  + head_prev
-            #elif (head_start - head_prev) < -180:
-                #diff_prev += 360 + (360 - head_prev)
-            #else:
-                #diff_prev += head_start - head_prev
-            #head_start += diff_prev
-        ## Store the last unmasked value of heading to compare with
-        ## the start of the next unmasked section.
-        #head_prev = heading_array[clump][-1]
-        
-        #diff = np.ediff1d(heading_array.data[clump])
-        #diff = diff - 360.0 * np.trunc(diff / 180.0)
-        #diff = np.cumsum(diff)
-        #diff_prev = diff[-1]
-        
-        #heading_array[clump][0] = head_start
-        #heading_array[clump][1:] = diff + head_start
-        
-    #return heading_array
 
 def straighten(array, estimate, limit, copy):
     '''

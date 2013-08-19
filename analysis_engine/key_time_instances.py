@@ -216,10 +216,10 @@ class EngStart(KeyTimeInstanceNode):
                eng_3_n3=P('Eng (3) N3'),
                eng_4_n3=P('Eng (4) N3')):
         
-        if eng_1_n3:
+        if eng_1_n3 or eng_2_n3:
             # This aircraft has 3-spool engines
             eng_nx_list = (eng_1_n3, eng_2_n3, eng_3_n3, eng_4_n3)
-        elif eng_1_n2:
+        elif eng_1_n2 or eng_2_n2:
             # The engines are 2-spool engines
             eng_nx_list = (eng_1_n2, eng_2_n2, eng_3_n2, eng_4_n2)
         else:
@@ -364,14 +364,14 @@ class TopOfClimb(KeyTimeInstanceNode):
                 n_toc = find_toc_tod(alt_std.array, ccd_slice, 'Climb')
             except:
                 # altitude data does not have an increasing section, so quit.
-                break
+                continue
             # If the data started in mid-flight the ccd slice will start with None
             if ccd_slice.start is None:
-                break
+                continue
             # if this is the first point in the slice, it's come from
             # data that is already in the cruise, so we'll ignore this as well
             if n_toc==0:
-                break
+                continue
             # Record the moment (with respect to this section of data)
             self.create_kti(n_toc)
 
@@ -387,14 +387,14 @@ class TopOfDescent(KeyTimeInstanceNode):
                 n_tod = find_toc_tod(alt_std.array, ccd_slice, 'Descent')
             except:
                 # altitude data does not have a decreasing section, so quit.
-                break
+                continue
             # If this slice ended in mid-cruise, the ccd slice will end in None.
             if ccd_slice.stop is None:
-                break
+                continue
             # if this is the last point in the slice, it's come from
             # data that ends in the cruise, so we'll ignore this too.
             if n_tod==ccd_slice.stop - 1:
-                break
+                continue
             # Record the moment (with respect to this section of data)
             self.create_kti(n_tod)
 

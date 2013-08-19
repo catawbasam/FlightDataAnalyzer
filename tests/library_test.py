@@ -2541,6 +2541,30 @@ class TestMaskOutsideSlices(unittest.TestCase):
         ma_test.assert_equal(mask_outside_slices(array, slices),
                              expected_result)
 
+class TestMatchAltitudes(unittest.TestCase):
+    def test_basic_operation(self):
+        fine = np.ma.arange(20)+0.0
+        coarse = np.ma.arange(20)+4500.0
+        expected = fine + 5000.0
+        result = match_altitudes(fine, coarse)
+        ma_test.assert_masked_array_approx_equal(result, expected)
+        
+    def test_masked_fine(self):
+        fine = np.ma.array(data=[1,2,3,4,-4995,-4994,-4993,-4992],
+                           mask=[0,0,0,1,1,0,0,0])
+        coarse = np.ma.array(data=[1,2,3,4,6,5,7,8])+5000.0
+        expected = np.ma.array(data=[1,2,3,4,5,6,7,8], mask=fine.mask)+5000.0
+        result = match_altitudes(fine, coarse)
+        ma_test.assert_masked_array_approx_equal(result, expected)
+
+    def test_masked_coarse(self):
+        coarse = np.ma.array(data=[1,2,3,4,5,6,7,8],
+                           mask=[0,0,0,1,1,0,0,0])
+        fine = np.ma.array(data=[1,2,3,4,5,6,7,8])+5000.0
+        expected = np.ma.array(data=fine.data, mask=coarse.mask) - 5000.0
+        result = match_altitudes(fine, coarse)
+        ma_test.assert_masked_array_approx_equal(result, expected)
+
 
 class TestMaxValue(unittest.TestCase):
     def test_max_value(self):

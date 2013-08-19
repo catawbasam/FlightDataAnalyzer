@@ -302,10 +302,19 @@ class BouncedLanding(FlightPhaseNode):
 
 
 class ClimbCruiseDescent(FlightPhaseNode):
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
+    def derive(self, alt_std=P('Altitude STD Smoothed'),
                airs=S('Airborne')):
         for air in airs:
-            pk_idxs, pk_vals = cycle_finder(alt_aal.array[air.slice],
+            altitudes = alt_std.array[air.slice]
+            # We squash the altitude signal above 10,000ft so that changes of
+            # altitude to create a new flight phase have to be five times
+            # greater; 500ft changes below 10,000ft are significant, while
+            # above this 2,500ft is more meaningful.
+            alt_squash = np.ma.where(altitudes>10000, 
+                                     (altitudes-10000)/5.0+10000,
+                                     altitudes
+                                     )
+            pk_idxs, pk_vals = cycle_finder(alt_squash,
                                             min_step=HYSTERESIS_FPALT_CCD)
             
             if pk_vals is not None:
@@ -564,7 +573,9 @@ class Fast(FlightPhaseNode):
                 start = None
             if abs(airspeed.array[stop - 1] - AIRSPEED_THRESHOLD) > 30:
                 stop = None
-            self.create_phase(slice(start, stop))
+            # Dont create a phase if neither is valid.
+            if start or stop:
+                self.create_phase(slice(start, stop))
 
 
 class FinalApproach(FlightPhaseNode):
@@ -590,13 +601,13 @@ class GearExtending(FlightPhaseNode):
                gear_warn_n=P('Gear (N) Red Warning'),
                gear_warn_r=P('Gear (R) Red Warning'),
                frame=A('Frame'), airs=S('Airborne')):
-        if any((gear_warn_l, gear_warn_n, gear_warn_r)):
-            # Aircraft with red warning captions to show travelling
-            if not all((gear_warn_l, gear_warn_n, gear_warn_r)):
-                frame_name = frame.value if frame else None
-                # some, but not all are available. Q: allow for any combination
-                # rather than raising exception
-                raise DataFrameError(self.name, frame_name)
+        if all((gear_warn_l, gear_warn_n, gear_warn_r)):
+            ### Aircraft with red warning captions to show travelling
+            ##if not all((gear_warn_l, gear_warn_n, gear_warn_r)):
+                ##frame_name = frame.value if frame else None
+                ### some, but not all are available. Q: allow for any combination
+                ### rather than raising exception
+                ##raise DataFrameError(self.name, frame_name)
             gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
             gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
             slices = _ezclump(gear_warn)
@@ -651,13 +662,13 @@ class GearRetracting(FlightPhaseNode):
                gear_warn_n=P('Gear (N) Red Warning'),
                gear_warn_r=P('Gear (R) Red Warning'),
                frame=A('Frame'), airs=S('Airborne')):
-        if any((gear_warn_l, gear_warn_n, gear_warn_r)):
-            # Aircraft with red warning captions to show travelling
-            if not all((gear_warn_l, gear_warn_n, gear_warn_r)):
-                frame_name = frame.value if frame else None
-                # some, but not all are available. Q: allow for any combination
-                # rather than raising exception
-                raise DataFrameError(self.name, frame_name)
+        if all((gear_warn_l, gear_warn_n, gear_warn_r)):
+            ### Aircraft with red warning captions to show travelling
+            ##if not all((gear_warn_l, gear_warn_n, gear_warn_r)):
+                ##frame_name = frame.value if frame else None
+                ### some, but not all are available. Q: allow for any combination
+                ### rather than raising exception
+                ##raise DataFrameError(self.name, frame_name)
             gear_warn = ((gear_warn_l.array == 'Warning') |
                          (gear_warn_r.array == 'Warning') |
                          (gear_warn_n.array == 'Warning'))
@@ -1287,7 +1298,7 @@ class TaxiIn(FlightPhaseNode):
     out, and the end of the landing to the end of the data as taxi in. Could
     be improved to include engines running condition at a later date.
     """
-    def derive(self, gnds=S('Grounded'), lands=S('Landing')):
+    def derive(self, gnds=S('Mobile'), lands=S('Landing')):
         land = lands.get_last()
         if not land:
             return
@@ -1302,10 +1313,9 @@ class TaxiIn(FlightPhaseNode):
 class TaxiOut(FlightPhaseNode):
     """
     This takes the period from start of data to start of takeoff as the taxi
-    out, and the end of the landing to the end of the data as taxi in. Could
-    be improved to include engines running condition at a later date.
+    out, and the end of the landing to the end of the data as taxi in.
     """
-    def derive(self, gnds=S('Grounded'), toffs=S('Takeoff')):
+    def derive(self, gnds=S('Mobile'), toffs=S('Takeoff')):
         if toffs:
             toff = toffs[0]
             for gnd in gnds:

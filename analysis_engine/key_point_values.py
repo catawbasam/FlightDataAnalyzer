@@ -1598,7 +1598,7 @@ class AirspeedWithGearDownMax(KeyPointValueNode):
                gear=M('Gear Down'),
                airs=S('Airborne')):
 
-        gear.array[gear.array == 'Up'] = np.ma.masked
+        gear.array[gear.array != 'Down'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
         self.create_kpvs_within_slices(
             air_spd.array, slices_and(airs.get_slices(), gear_downs),
@@ -2641,6 +2641,10 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
                alt_aal=P('Altitude AAL'),
                airborne=S('Airborne')):
         flap = flap_lever or flap_synth
+        
+        if flap_liftoff == []:
+            # No Flap at Liftoff identified
+            return
 
         if flap_liftoff.get_first().value == 0.0:
             # if taken off with flap 0 likely first flap change after liftoff
@@ -2809,7 +2813,7 @@ class AltitudeWithGearDownMax(KeyPointValueNode):
                gear=M('Gear Down'),
                airs=S('Airborne')):
 
-        gear.array[gear.array == 'Up'] = np.ma.masked
+        gear.array[gear.array != 'Down'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
         self.create_kpvs_within_slices(
             alt_aal.array, slices_and(airs.get_slices(), gear_downs),
@@ -4596,7 +4600,7 @@ class MachWithGearDownMax(KeyPointValueNode):
                gear=M('Gear Down'),
                airs=S('Airborne')):
 
-        gear.array[gear.array == 'Up'] = np.ma.masked
+        gear.array[gear.array != 'Down'] = np.ma.masked
         gear_downs = np.ma.clump_unmasked(gear.array)
         self.create_kpvs_within_slices(
             mach.array, slices_and(airs.get_slices(), gear_downs),
