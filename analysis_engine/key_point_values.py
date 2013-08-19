@@ -2752,9 +2752,7 @@ class AltitudeAtGearDownSelectionWithFlapDown(KeyPointValueNode):
                flap=M('Flap')):
 
         flap_dns = np.ma.clump_unmasked(np.ma.masked_equal(flap.array, 0.0))
-        flap_dn_gear_downs = []
-        for _slice in flap_dns:
-            flap_dn_gear_downs.extend(gear_downs.get(within_slice=_slice))
+        flap_dn_gear_downs = gear_downs.get(within_slices=flap_dns)
         self.create_kpvs_at_ktis(alt_aal.array, flap_dn_gear_downs)
 
 
@@ -2828,9 +2826,7 @@ class AltitudeAtGearDownSelectionWithFlapUp(KeyPointValueNode):
                flap=M('Flap')):
         
         flap_ups = np.ma.clump_unmasked(np.ma.masked_greater(flap.array, 0))
-        flap_up_gear_downs = []
-        for _slice in flap_ups:
-            flap_up_gear_downs.extend(gear_downs.get(within_slice=_slice))
+        flap_up_gear_downs = gear_downs.get(within_slices=flap_ups)
         self.create_kpvs_at_ktis(alt_aal.array, flap_up_gear_downs)
 
 
@@ -5738,19 +5734,18 @@ class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
                landings=S('Landing'),
                touchdowns=KTI('Touchdown')):
 
-        for landing in landings:
-            for touchdown in touchdowns.get(within_slice=landing.slice):
-                # Seek the throttle lowpoint before thrust reverse is applied:
-                retard_idx = index_at_value(tla.array, 0.0, landing.slice,
-                                            endpoint='closing')
-                # The range of interest is therefore...
-                scan = slice(landing.slice.start - 5 / tla.hz, retard_idx)
-                # Now see where the power is reduced:
-                reduce_idx = peak_curvature(tla.array, scan,
-                                            curve_sense='Convex', gap=1, ttp=3)
-                if reduce_idx:
-                    value = (reduce_idx - touchdown.index) / tla.hz
-                    self.create_kpv(reduce_idx, value)
+        for touchdown in touchdowns.get(within_slices=landings.get_slices()):
+            # Seek the throttle lowpoint before thrust reverse is applied:
+            retard_idx = index_at_value(tla.array, 0.0, landing.slice,
+                                        endpoint='closing')
+            # The range of interest is therefore...
+            scan = slice(landing.slice.start - 5 / tla.hz, retard_idx)
+            # Now see where the power is reduced:
+            reduce_idx = peak_curvature(tla.array, scan,
+                                        curve_sense='Convex', gap=1, ttp=3)
+            if reduce_idx:
+                value = (reduce_idx - touchdown.index) / tla.hz
+                self.create_kpv(reduce_idx, value)
 
 
 ################################################################################
