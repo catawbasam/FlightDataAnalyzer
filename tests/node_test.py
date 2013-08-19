@@ -846,6 +846,9 @@ class TestFormattedNameNode(unittest.TestCase):
         # within a slice
         kti2 = kti_node.get_first(within_slice=slice(15,100))
         self.assertEqual(kti2.index, 50)
+        # within slices
+        kti2 = kti_node.get_first(within_slices=[slice(10,20), slice(40, 60)])
+        self.assertEqual(kti2.index, 12)        
         # with a particular name
         kti3 = kti_node.get_first(name='Slowest')
         self.assertEqual(kti3.index, 2)
