@@ -6,6 +6,7 @@ import unittest
 
 from datetime import datetime
 from math import sqrt
+from time import clock
 
 from analysis_engine.flight_attribute import LandingRunway
 
@@ -2328,6 +2329,16 @@ class TestIsIndexWithinSlice(unittest.TestCase):
         self.assertTrue(is_index_within_slice(10, slice(None, 12)))
 
 
+class TestIsIndexWithinSlices(unittest.TestCase):
+    def test_is_index_within_slices(self):
+        self.assertTrue(is_index_within_slices(1, [slice(0,2), slice(5,10)]))
+        self.assertTrue(is_index_within_slices(5, [slice(5,7), slice(9,10)]))
+        # Slice is not inclusive of last index.
+        self.assertFalse(is_index_within_slices(7, [slice(0,2), slice(5,7)]))
+        self.assertTrue(is_index_within_slices(10, [slice(8,None)]))
+        self.assertTrue(is_index_within_slices(10, [slice(None, 12)]))
+
+
 class TestILSGlideslopeAlign(unittest.TestCase):
     def test_ils_glideslope_align(self):
         runway =  {'end': {'latitude': 60.280151,
@@ -3908,6 +3919,26 @@ class TestSlicesAbove(unittest.TestCase):
         self.assertEqual(slices, [slice(5, 10, None), slice(15, 18, None)])
 
 
+class TestSlicesAfter(unittest.TestCase):
+    def test_slices_after(self):
+        self.assertEqual(slices_after([], 5), [])
+        self.assertEqual(slices_after([slice(10, 15)], 5), [slice(10, 15)])
+        self.assertEqual(slices_after([slice(10, 15)], 12), [slice(12, 15)])
+        self.assertEqual(slices_after([slice(0, 5), slice(10, 15),
+                                       slice(10, 20), slice(20, 30)], 12),
+                         [slice(12, 15), slice(12, 20), slice(20, 30)])
+
+
+class TestSlicesBefore(unittest.TestCase):
+    def test_slices_before(self):
+        self.assertEqual(slices_before([], 20), [])
+        self.assertEqual(slices_before([slice(10, 15)], 20), [slice(10, 15)])
+        self.assertEqual(slices_before([slice(10, 15)], 12), [slice(10, 12)])
+        self.assertEqual(slices_before([slice(0, 5), slice(8, 15),
+                                       slice(10, 20), slice(20, 30)], 12),
+                         [slice(0, 5), slice(8, 12), slice(10, 12)])
+
+
 class TestSlicesBelow(unittest.TestCase):
     def test_slices_below(self):
         array = np.ma.concatenate([np.ma.arange(10), np.ma.arange(10)])
@@ -3922,6 +3953,14 @@ class TestSlicesBetween(unittest.TestCase):
         array.mask = [True] * 10 + [False] * 10
         repaired_array, slices = slices_between(array, 5, 15)
         self.assertEqual(slices, [slice(10, 15)])
+
+
+class TestSlicesDuration(unittest.TestCase):
+    def test_slices_duration(self):
+        self.assertEqual(slices_duration([], 1), 0)
+        self.assertEqual(slices_duration([slice(0, 10)], 1), 10)
+        self.assertEqual(slices_duration([slice(5, 10), slice(12,15), 
+                                          slice(30, 60)], 2), 19)
 
 
 class TestSliceSamples(unittest.TestCase):
@@ -4548,15 +4587,13 @@ class TestSmoothTrack(unittest.TestCase):
         self.assertGreater (cost,250)
 
     def test_smooth_track_speed(self):
-        from time import clock
         lon = np.ma.arange(10000, dtype=float)
         lon = lon%27
         lat = np.ma.zeros(10000, dtype=float)
         start = clock()
         lat_s, lon_s, cost = smooth_track(lat, lon, 0.25)
         end = clock()
-        print end-start
-        self.assertLess (end-start,1.0)
+        self.assertLess(end-start, 1.0)
 
 
 class TestSubslice(unittest.TestCase):
