@@ -2,8 +2,13 @@ import numpy as np
 
 from analysis_engine.library import (
     average_value,
+    slices_before,
+    slices_below,
+    slices_and,
     slice_duration,
+    slices_duration,
     slice_midpoint,
+    shift_slices,
 )
 from analysis_engine.node import (FlightPhaseNode, KeyPointValueNode, KTI, P, S)
 from analysis_engine.settings import NAME_VALUES_FLAP
@@ -231,6 +236,9 @@ class FMISTimeFirst2LastEngineStop(KeyPointValueNode):
 
 
 class FMISTimeFlap(KeyPointValueNode):
+    '''
+    These KPVs should only be created for Boeing aircraft.
+    '''
     NAME_FORMAT = 'FMIS TimeFlap%(flap)d'
     NAME_VALUES = NAME_VALUES_FLAP.copy()
     
@@ -241,3 +249,183 @@ class FMISTimeFlap(KeyPointValueNode):
                 slice_midpoint(landing.slice),
                 len(np.ma.where(flap.array[landing.slice] == flap_setting)[0]) * flap.hz,
                 flap=flap_setting)
+
+
+class FMISTimeFlap_Airbus(KeyPointValueNode):
+    NAME_FORMAT = 'FMIS TimeFlap%(conf)sAirbus'
+    NAME_VALUES = {'conf': ['1', '1F', '2', '3', '4']}
+    
+    def derive(self, conf=P('Configuration'), apps=S('Approach And Landing')):
+        landing = apps.get_last()
+        for conf_setting in self.NAME_VALUES['conf']:
+            duration = len(np.ma.where(conf.array[landing.slice] == conf_setting.replace('F', '+F'))[0]) * conf.hz
+            self.create_kpv(
+                slice_midpoint(landing.slice), duration, conf=conf_setting)
+
+
+class FMISTimeFL250ToTDown(KeyPointValueNode):
+    name = 'FMIS TimeFL250ToTDown'
+    
+    def derive(self, alt_descs=KTI('Altitude When Descending'),
+               touchdowns=KTI('Touchdown')):
+        alt_desc = alt_descs.get_first(name='2500 Ft Descending')
+        
+        if not alt_desc:
+            return
+        
+        touchdown = touchdowns.get_last()
+        
+        duration = (touchdown.index - alt_desc.index) / self.frequency
+        
+        self.create_kpv(slice_midpoint(slice(alt_desc.index, touchdown.index)),
+                        duration)
+
+
+class FMISTimeFL1000ToTDown(KeyPointValueNode):
+    name = 'FMIS TimeFL1000ToTDown'
+    
+    def derive(self, alt_descs=KTI('Altitude When Descending'),
+               touchdowns=KTI('Touchdown')):
+        alt_desc = alt_descs.get_first(name='10000 Ft Descending')
+        
+        if not alt_desc:
+            return
+        
+        touchdown = touchdowns.get_last()
+        
+        duration = (touchdown.index - alt_desc.index) / self.frequency
+        
+        self.create_kpv(slice_midpoint(slice(alt_desc.index, touchdown.index)),
+                        duration)
+
+
+class FMISApuTime(KeyPointValueNode):
+    name = 'FMIS ApuTime'
+    
+    def derive(self, eng_stops=KTI('Eng Stop')):
+        eng_stop = eng_stops.get_last()
+        self.create_kpv(eng_stop.index, eng_stop.index)
+
+
+class FMISTimeSpdBrakeExt(KeyPointValueNode):
+    name = 'FMIS TimeSpdBrakeExt'
+    
+    def derive(self, speedbrake=P('Speedbrake'),
+               alt_descs=KTI('Altitude When Descending'),
+               touchdowns=KTI('Touchdown')):
+        alt_desc = alt_descs.get_first(name='2500 Ft Descending')
+        
+        if not alt_desc:
+            return
+
+        touchdown = touchdowns.get_last()
+        duration = \
+            len(np.ma.nonzero(speedbrake.array[alt_desc.index:touchdown.index])[0]) / self.frequency
+        self.create_kpv(slice_midpoint(slice(alt_desc.index, touchdown.index)),
+                        duration)
+
+
+class FMISGearDownAALapp(KeyPointValueNode):
+    name = 'FMIS GearDownAALapp'
+    
+    def derive(self, alt_gear_downs=P('Altitude At Gear Down Selection')):
+        alt_gear_down = alt_gear_downs.get_last()
+        
+        if not alt_gear_down:
+            return
+        
+        value = alt_gear_down.value if alt_gear_down.value > 1000 else 1000
+        self.create_kpv(alt_gear_down.index, value)
+
+
+class FMISAALFirstSlatFlapSelApp(KeyPointValueNode):
+    name = 'FMIS AALFirstSlatFlapSelApp'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('Altitude AAL' in available and 'Descending' in available and 
+                ('Flap Set' in available or 'Slat Set' in available))
+    
+    def derive(self, alt_aal=P('Altitude AAL'), desc=S('Descending'), flap_sets=KTI('Flap Set'),
+               slat_sets=KTI('Slat Set')):
+        indices = []
+        for kti_node in (flap_sets, slat_sets):
+            if not kti_node:
+                continue
+            kti = kti_node.get_first(within_slices=desc.get_slices())
+            if kti:
+                indices.append(kti.index)
+        
+        if not indices:
+            return
+        
+        index = min(indices)
+        
+        self.create_kpv(index, alt_aal.array[index])
+
+
+class FMISTimeFirst2LastEngShutDown(KeyPointValueNode):
+    name = 'FMIS TimeFirst2LastEngShutDown'
+    
+    def derive(self, eng_stops=P('Eng Stop')):
+        if not eng_stops:
+            return
+        
+        if len(eng_stops) == 1:
+            eng_stop = eng_stops[0]
+            self.create_kpv(eng_stop.index, 0)
+            return
+        
+        first_eng_stop = eng_stops.get_first()
+        last_eng_stop = eng_stops.get_last()
+        
+        index = slice_midpoint(slice(first_eng_stop.index, last_eng_stop.index))
+        value = last_eng_stop.index - first_eng_stop.index
+        self.create_kpv(index, value)
+
+
+class FMISLevelFlight(FlightPhaseNode):
+    name = 'FMIS LevelFlight'
+    
+    def derive(self, vert_spd=P('Vertical Speed Inertial'), airs=S('Airborne')):
+        for air in airs:
+            level_flight_slices = slices_below(vert_spd.array[air.slice], 200)[1]
+            self.create_phases(
+                shift_slices(level_flight_slices, air.slice.start))
+
+
+class FMISTimeLvlFltBelowFL250Climb(KeyPointValueNode):
+    name = 'FMIS TimeLvlFltBelowFL250Climb'
+    
+    def derive(self, alt_climbs=KTI('Altitude When Climbing'),
+               level_flights=S('FMIS LevelFlight')):
+        alt_climb_2500 = alt_climbs.get_first(name='2500 Ft Climbing')
+        
+        if not alt_climb_2500:
+            self.warning("'%s' '2500 Ft Climbing' KTI does not exist.",
+                         alt_climbs.name)
+            return
+        
+        index = alt_climb_2500.index
+        duration = slices_duration(slices_before(level_flights.get_slices(),
+                                                 index), self.hz)
+        
+        self.create_kpv(index, duration)
+
+
+class FMISTimeLvlFltFL250toFL70Desc(KeyPointValueNode):
+    name = 'FMIS TimeLvlFltFL250toFL70Desc'
+    
+    def derive(self, alt_aal=P('Altitude AAL'), descs=KTI('Descending'),
+               level_flights=S('FMIS LevelFlight')):
+        desc_level = slices_and(level_flights.get_slices(),
+                                descs.get_slices())
+        desc_level_2500_to_700 = slices_and(desc_level,
+                                            alt_aal.slices_from_to(2500, 700))
+        
+        if not desc_level_2500_to_700:
+            return
+        
+        index = desc_level_2500_to_700[0].slice.start
+        self.create_kpv(index, slices_duration(desc_level_2500_to_700))
+
