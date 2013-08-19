@@ -98,8 +98,8 @@ class TestAlignSlices(unittest.TestCase):
                                   slice(79, None, None), slice(9, 19, 3), None,
                                   slice(None, None, None)])
 
-class TestAlignSlice(unittest.TestCase):
 
+class TestAlignSlice(unittest.TestCase):
     @mock.patch('analysis_engine.library.align_slices')
     def test_align_slice(self, align_slices):
         slave = mock.Mock()
@@ -1151,8 +1151,8 @@ class TestActuatorMismatch(unittest.TestCase):
         self.assertGreater(peak_value, 1.0)
         self.assertGreater(peak_index, 9530)
         self.assertLess(peak_index, 9540)
-        
-        
+
+
 class TestClip(unittest.TestCase):
     # Previously known as Duration
     def setUp(self):
@@ -1483,8 +1483,8 @@ class TestCycleMatch(unittest.TestCase):
         self.assertEqual(cycle_match(120, cycles, dist=4000), (100, 144))
         # equal distance rounds down
         self.assertEqual(cycle_match(20, cycles), (None, 30))
-        
- 
+
+
 class TestDatetimeOfIndex(unittest.TestCase):
     def test_index_of_datetime(self):
         start_datetime = datetime.now()
@@ -2117,8 +2117,8 @@ class TestIndexAtValue(unittest.TestCase):
     def test_index_at_value_all_masked(self):
         array = np.ma.array(data=[1.,2.,3.],mask=[1,1,1])
         self.assertEqual(index_at_value(array,2.5, slice(0,3), endpoint='closing'), None)
-        
-        
+
+
 class TestIndexClosestValue(unittest.TestCase):
     def test_index_closest_value(self):
         array = np.ma.array([1, 2, 3, 4, 5, 4, 3])
@@ -2201,6 +2201,7 @@ class TestIntegValue(unittest.TestCase):
         i, v = integ_value(array)
         self.assertEqual(i, None)
         self.assertEqual(v, None)
+
 
 class TestInterpolate(unittest.TestCase):
     def test_interpolate_basic(self):
@@ -2444,6 +2445,7 @@ class TestIntegrate (unittest.TestCase):
         np.testing.assert_array_equal(result.data, [0.25, 1, 2.75, 6])
 
     #TODO: test for mask repair
+
 
 class TestIsSliceWithinSlice(unittest.TestCase):
     def test_is_slice_within_slice(self):
@@ -2836,7 +2838,8 @@ class TestBlendParametersWeighting(unittest.TestCase):
         expected = [0.0, 0.05, 2.0]
         # When first run, the length of this array was 4, not 3 (!)
         ma_test.assert_almost_equal(len(result.data), 3)
-        
+
+
 class TestBlendTwoParameters(unittest.TestCase):
     def test_blend_two_parameters_p2_before_p1_equal_spacing(self):
         p1 = P(array=[0,0,0,1.0], frequency=1, offset=0.9)
@@ -2910,6 +2913,7 @@ class TestBlendTwoParameters(unittest.TestCase):
         self.assertEqual(freq, 2.0)
         self.assertAlmostEqual(off, 0.4)
 
+
 class TestMostPointsCost(unittest.TestCase):
     def test_mpc_assertion(self):
         coefs=[0.0,0.0]
@@ -2935,6 +2939,7 @@ class TestMostPointsCost(unittest.TestCase):
         y = np.ma.array([0.0, 0.0, 0.0])
         result = most_points_cost(coefs, x, y)
         self.assertAlmostEqual(result, 0.003 * 3.0, places=3)
+
 
 class TestMovingAverage(unittest.TestCase):
     def test_basic_average(self):
@@ -3208,7 +3213,6 @@ class TestPeakCurvature(unittest.TestCase):
         self.assertGreaterEqual(pc,35)
         self.assertLessEqual(pc,45)
 
-
     def test_peak_curvature_flat_data(self):
         array = np.ma.array([34]*40)
         pc = peak_curvature(array)
@@ -3355,6 +3359,7 @@ class TestRateOfChangeArray(unittest.TestCase):
                              mask=[0,0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0])
         ma_test.assert_array_equal(sloped, answer)
 
+
 class TestRateOfChange(unittest.TestCase):
     # 13/4/12 Changed timebase to be full width as this is more logical.
     # Reminder: was: rate_of_change(to_diff, half_width, hz) - half width in seconds.
@@ -3497,7 +3502,6 @@ class TestRepairMask(unittest.TestCase):
         ma_test.assert_array_equal(res, expected)
 
 
-
 class TestResample(unittest.TestCase):
     def test_resample_upsample(self):
         ma_test.assert_equal(
@@ -3582,6 +3586,7 @@ class TestRMSNoise(unittest.TestCase):
         result = rms_noise(array, ignore_pc=10)
         expected = 1.0
         self.assertEqual(result, expected)
+
 
 class TestRunwayDistanceFromEnd(unittest.TestCase):
     def test_null(self):
@@ -3895,7 +3900,6 @@ class TestSlicesAnd(unittest.TestCase):
                          [slice(4,6), slice(7,10)])
 
 
-
 class TestSlicesAbove(unittest.TestCase):
     def test_slices_above(self):
         array = np.ma.concatenate([np.ma.arange(10), np.ma.arange(10)])
@@ -4004,6 +4008,7 @@ class TestSlicesFromTo(unittest.TestCase):
         _, slices = slices_from_to(array, 6, 4)
         self.assertEqual(slices, [])
 
+
 class TestSlicesFromKtis(unittest.TestCase):
     def test_basic_structure(self):
         kti_1 = KTI(items=[KeyTimeInstance(1, 'KTI_1')])
@@ -4048,6 +4053,7 @@ class TestSlicesFromKtis(unittest.TestCase):
         slices = slices_from_ktis(kti_1, kti_2)
         self.assertEqual(slices, [slice(5,8)])
 
+
 class TestSliceMultiply(unittest.TestCase):
     def test_slice_multiply(self):
         self.assertEqual(slice_multiply(slice(1,2,3),2),
@@ -4070,6 +4076,7 @@ class TestSlicesMultiply(unittest.TestCase):
         slices = [slice(0,2,None)]
         result = [slice(0,8,None)]
         self.assertEqual(slices_multiply(slices,4),result)
+
 
 class TestSlicesOverlap(unittest.TestCase):
     def test_slices_overlap(self):
@@ -4165,7 +4172,8 @@ class TestSlicesRemoveSmallGaps(unittest.TestCase):
         newlist=slices_remove_small_gaps(slicelist, hz=2)
         expected = []
         self.assertEqual(expected, newlist)
-        
+
+
 class TestSlicesRemoveSmallSlices(unittest.TestCase):
     def test_slice_removal(self):
         slicelist = [slice(1, 13), slice(25, 27), slice(30, 43)]
@@ -4190,7 +4198,6 @@ class TestSlicesRemoveSmallSlices(unittest.TestCase):
         newlist = slices_remove_small_slices(slicelist, count=5)
         expected = [slice(1, 13)]
         self.assertEqual(expected, newlist)
-
 
 
 class TestSlicesNot(unittest.TestCase):
@@ -4281,7 +4288,8 @@ class TestSlicesOr(unittest.TestCase):
 
     def test_slices_or_raises_with_none(self):
         self.assertRaises(slices_or([None]))
-        
+
+
 class TestStepLocalCusp(unittest.TestCase):
     def test_step_cusp_basic(self):
         array = np.ma.array([3,7,9,9])
@@ -4324,8 +4332,8 @@ class TestStepLocalCusp(unittest.TestCase):
         test_slice=slice(None, None, None)
         cusp = step_local_cusp(array, test_slice)
         self.assertEqual(cusp, 0)
-        
-        
+
+
 class TestStepValues(unittest.TestCase):
     '''
     Step values is used to reduce continuously variable arrays to defined
@@ -4517,6 +4525,7 @@ class TestStraighten(unittest.TestCase):
         self.assertEqual(result[0], 86.0)
         result = straighten(np.ma.array([0.0]), np.ma.array([-200.0]), 45.0, False)
         self.assertEqual(result[0], -180.0)
+
 
 class TestSmoothTrack(unittest.TestCase):
     def test_smooth_track_latitude(self):
@@ -4812,8 +4821,8 @@ class TestVspeedLookup(unittest.TestCase):
     def test_vspdlkup_out_of_range_error(self):
         # We return None so that the incorrect flap at takeoff can be reported.
         self.assertEqual(vspeed_lookup('V2', 'B737-300', None, 25, 65000), None)
-        
-        
+
+
 class TestVstackParams(unittest.TestCase):
     def test_vstack_params(self):
         a = P('a', array=np.ma.array(range(0, 10)))
