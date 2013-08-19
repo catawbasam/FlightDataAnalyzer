@@ -11,7 +11,6 @@ from flightdatautilities.model_information import (get_aileron_map,
                                                    get_flap_map,
                                                    get_slat_map)
 from flightdatautilities.velocity_speed import get_vspeed_map
-from hdfaccess.parameter import MappedArray
 
 from analysis_engine.exceptions import DataFrameError
 from analysis_engine.node import (
@@ -31,7 +30,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      cas2dp,
                                      coreg,
                                      cycle_finder,
-                                     datetime_of_index,
                                      dp2tas,
                                      dp_over_p2mach,
                                      filter_vor_ils_frequencies,
@@ -41,12 +39,10 @@ from analysis_engine.library import (actuator_mismatch,
                                      ground_track,
                                      ground_track_precise,
                                      hysteresis,
-                                     index_at_value,
                                      integrate,
                                      ils_localizer_align,
-                                     index_closest_value,
+                                     index_at_value,
                                      interpolate,
-                                     is_day,
                                      is_index_within_slice,
                                      last_valid_sample,
                                      latitudes_and_longitudes,
@@ -55,8 +51,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      mask_inside_slices,
                                      mask_outside_slices,
                                      max_value,
-                                     merge_masks,
-                                     merge_two_parameters,
                                      moving_average,
                                      np_ma_ones_like,
                                      np_ma_masked_zeros_like,
@@ -84,8 +78,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      second_window,
                                      track_linking,
                                      value_at_index,
-                                     vstack_params,
-                                     vstack_params_where_state)
+                                     vstack_params)
 
 from settings import (AZ_WASHOUT_TC,
                       FEET_PER_NM,
@@ -2898,7 +2891,6 @@ class FuelQty(DerivedParameterNode):
         ##else:
             ##raise DataFrameError(self.name, frame.value)
 
-    
 
 class GrossWeightSmoothed(DerivedParameterNode):
     '''
