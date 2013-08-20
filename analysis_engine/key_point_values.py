@@ -518,7 +518,7 @@ class AccelerationNormalAtTouchdown(KeyPointValueNode):
             self.create_kpv(*bump(acc_norm, touchdown))
 
 
-class AccelerationNormalLiftoffTo35FtMax(KeyPointValueNode):
+class AccelerationNormalTakeoffMax(KeyPointValueNode):
     '''
     '''
 

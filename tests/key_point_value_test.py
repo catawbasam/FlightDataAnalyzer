@@ -36,7 +36,7 @@ from analysis_engine.key_point_values import (
     AccelerationNormalWithFlapUpWhileAirborneMin,
     AccelerationNormalAtLiftoff,
     AccelerationNormalAtTouchdown,
-    AccelerationNormalLiftoffTo35FtMax,
+    AccelerationNormalTakeoffMax,
     AccelerationNormalMax,
     AccelerationNormalOffset,
     Airspeed10000To8000FtMax,
@@ -1035,10 +1035,10 @@ class TestAccelerationNormalAtTouchdown(unittest.TestCase, NodeTest):
         ])
 
 
-class TestAccelerationNormalLiftoffTo35FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestAccelerationNormalTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = AccelerationNormalLiftoffTo35FtMax
+        self.node_class = AccelerationNormalTakeoffMax
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'Takeoff')]
         self.function = max_value
 
