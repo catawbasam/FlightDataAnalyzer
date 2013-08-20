@@ -74,7 +74,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      slices_or,
                                      smooth_track,
                                      step_values,
-                                     straighten_altitudes,
                                      straighten_headings,
                                      second_window,
                                      track_linking,
@@ -3051,7 +3050,7 @@ class FlapAngle(DerivedParameterNode):
             'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard',
         ), available)
         if family and family.value == 'B787':
-            return flap_angle and 'Slat' in available
+            return flap_angle and 'Slat Surface' in available
         else:
             return flap_angle
     
