@@ -498,21 +498,21 @@ class TestCombinedClimb(unittest.TestCase):
 
     def test_derive(self):
         toc_name = 'Top Of Climb'
-        toc = KTI(toc_name, items=[KeyTimeInstance(4338, toc_name),
+        toc = KTI(toc_name, items=[KeyTimeInstance(4344, toc_name),
                                    KeyTimeInstance(5496, toc_name),
                                    KeyTimeInstance(7414, toc_name)])
         ga_name = 'Go Around'
         ga = KTI(ga_name, items=[KeyTimeInstance(5404.4375, ga_name),
                                        KeyTimeInstance(6314.9375, ga_name)])
-        lo = KTI('Liftoff', items=[KeyTimeInstance(3987.9375, 'Liftoff')])
+        lo = KTI('Liftoff', items=[KeyTimeInstance(3988.9375, 'Liftoff')])
         node = CombinedClimb()
         node.derive(toc, ga, lo)
         climb_name = 'Combined Climb'
-        expected = S(climb_name,
-                     items=[Section(name='Combined Climb', slice=slice(3988.9375, 4344, None), start_edge=3988.9375, stop_edge=4344),
-                            Section(name='Combined Climb', slice=slice(5404.4375, 5496, None), start_edge=5404.4375, stop_edge=5496),
-                            Section(name='Combined Climb', slice=slice(6314.9375, 7414, None), start_edge=6314.9375, stop_edge=7414)]
-                     )
+        expected = [Section(name='Combined Climb', slice=slice(3988.9375, 4344, None), start_edge=3988.9375, stop_edge=4344),
+                    Section(name='Combined Climb', slice=slice(5404.4375, 5496, None), start_edge=5404.4375, stop_edge=5496),
+                    Section(name='Combined Climb', slice=slice(6314.9375, 7414, None), start_edge=6314.9375, stop_edge=7414)
+                    ]
+
         self.assertEqual(list(node), expected)
 
 
