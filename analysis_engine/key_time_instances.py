@@ -799,8 +799,7 @@ class Liftoff(KeyTimeInstanceNode):
                     idx = np.ma.argmax(acc_norm.array[to_scan])
                     if acc_norm.array[to_scan][idx]>1.2:
                         index_acc=idx+back_3
-                    
-                            
+            
             if alt_rad:
                 index_rad = index_at_value(alt_rad.array, 0.0, to_scan)
                 
@@ -888,7 +887,7 @@ class Liftoff(KeyTimeInstanceNode):
             plt.clf()
             plt.close()
             '''
-            
+
 
 class LowestAltitudeDuringApproach(KeyTimeInstanceNode):
     '''

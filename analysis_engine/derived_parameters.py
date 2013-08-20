@@ -3045,24 +3045,87 @@ class FlapAngle(DerivedParameterNode):
     units = 'deg'
 
     @classmethod
-    def can_operate(cls, available):
-        return any_of((
+    def can_operate(cls, available, family=A('Family')):
+        flap_angle = any_of((
             'Flap Angle (L)', 'Flap Angle (R)',
             'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard',
         ), available)
+        if family and family.value == 'B787':
+            return flap_angle and 'Slat' in available
+        else:
+            return flap_angle
+    
+    @staticmethod
+    def _combine_flap_slat(slat_array, flap_array, conf_map):
+        '''
+        Example conf map (slat, flap):
+        'B787': {
+            0:    (0, 0),
+            1:    (50, 0),
+            5:    (50, 5),
+            15:   (50, 15),
+            20:   (50, 20),
+            25:   (100, 20),
+            30:   (100, 30),
+        }
+        Creates interpolation params:
+        Slat X: [0, 50, 100]
+        Slat Y: [0, 1, 6]
+        Flap X: [0, 5, 15, 20, 30]
+        Flap Y: [0, 4, 14, 19, 24]
+        '''
+        # Assumes states are strings.
+        previous_state = None
+        previous_slat = None
+        previous_flap = None
+        slat_interp_x = []
+        slat_interp_y = []
+        flap_interp_x = []
+        flap_interp_y = []
+        for index, (current_state, (current_slat, current_flap)) in enumerate(sorted(conf_map.items())):
+            if index == 0:
+                previous_state = current_state
+            state_difference = current_state - previous_state
+            if index == 0 or (previous_slat != current_slat):
+                slat_interp_x.append(current_slat)
+                slat_interp_y.append((slat_interp_y[-1] if slat_interp_y else 0)
+                                     + state_difference)
+                previous_slat = current_slat
+            if index == 0 or (previous_flap != current_flap):
+                flap_interp_x.append(current_flap)
+                flap_interp_y.append((flap_interp_y[-1] if flap_interp_y else 0)
+                                     + state_difference)
+                previous_flap = current_flap
+            previous_state = current_state
+        slat_interp = interp1d(slat_interp_x, slat_interp_y)
+        flap_interp = interp1d(flap_interp_x, flap_interp_y)
+        return slat_interp(slat_array) + flap_interp(flap_array)
 
     def derive(self,
                flap_A=P('Flap Angle (L)'),
                flap_B=P('Flap Angle (R)'),
                flap_A_inboard=P('Flap Angle (L) Inboard'),
                flap_B_inboard=P('Flap Angle (R) Inboard'),
-               frame=A('Frame')):
+               slat=P('Slat Surface'),
+               frame=A('Frame'),
+               family=A('Family')):
 
         frame_name = frame.value if frame else ''
+        family_name = family.value if family else ''
         flap_A = flap_A or flap_A_inboard
         flap_B = flap_B or flap_B_inboard
         
-        if frame_name in ['747-200-GE', '747-200-PW', '747-200-AP-BIB']:
+        if family_name == 'B787':
+            conf_map = get_conf_map(None, family_name)
+            # Flap settings 1 and 25 only affect Slat.
+            # Combine Flap Angle (L) and Flap Angle (R).
+            self.array, self.frequency, self.offset = blend_two_parameters(
+                flap_A, flap_B)
+            # Frequency will be doubled after blending parameters.
+            slat.array = align(slat, self)
+            self.array = self._combine_flap_slat(slat.array, self.array,
+                                                 conf_map)
+        elif frame_name in ['747-200-GE', '747-200-PW', '747-200-AP-BIB']:
             # Only the right inboard flap is instrumented.
             self.array = flap_B.array
         else:
