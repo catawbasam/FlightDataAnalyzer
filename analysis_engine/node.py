@@ -123,12 +123,13 @@ def get_param_kwarg_names(method):
     """
     args, varargs, varkw, defaults = inspect.getargspec(method)
     if not defaults or args[:-len(defaults)] != ['self'] or varargs:
-        raise ValueError("Node '%s' must have kwargs, cannot accept no kwargs "
-                         "or any args other than 'self'. args:'%s' *args:'%s'"
+        raise ValueError("Node '%s' must have kwargs, must accept at least one "
+                         "kwarg and not any args other than 'self'. args:'%s' "
+                         "*args:'%s'"
                          % (method.im_class.get_name(), args[1:], varargs))
     if varkw:
         # One day, could insert all available params as kwargs - but cannot
-        # guarentee requirements will work
+        # guarantee requirements will work
         raise NotImplementedError("Cannot define **kwargs")
     # alternative: return dict(zip(defaults, args[-len(defaults):]))
     return defaults
@@ -2173,6 +2174,9 @@ class NodeManager(object):
             argspec = inspect.getargspec(derived_node.can_operate)
             if argspec.defaults:
                 for default in argspec.defaults:
+                    if not isinstance(default, Attribute):
+                        raise TypeError('Only Attributes may be keyword '
+                                        'arguments in can_operate methods.')
                     attributes.append(self.get_attribute(default.name))
             # can_operate expects attributes.
             res = derived_node.can_operate(available, *attributes)

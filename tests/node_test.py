@@ -3,8 +3,9 @@ import numpy as np
 import os
 import unittest
 
-from random import shuffle
 from datetime import datetime
+from inspect import ArgSpec
+from random import shuffle
 
 from analysis_engine.library import min_value
 from analysis_engine.node import (
@@ -21,7 +22,8 @@ from analysis_engine.node import (
     MultistateDerivedParameterNode, M,
     load,
     powerset,
-    SectionNode, Section,
+    SectionNode,
+    Section,
 )
 
 from hdfaccess.file import hdf_file
@@ -369,9 +371,19 @@ class TestNodeManager(unittest.TestCase):
         self.assertFalse(mgr.operational('v', ['a'])) # achieved flight record
         self.assertFalse(mgr.operational('u', ['a'])) # aircraft info
         self.assertFalse(mgr.operational('z', ['a', 'b']))
+        getargspec.return_value = argspec
         self.assertEqual(mgr.keys(),
                          ['HDF Duration', 'Start Datetime'] +
                          list('abclmnopxyz'))
+        getargspec.return_value = ArgSpec(
+            args=['cls', 'available', 'x'], varargs=None, keywords=None,
+            defaults=(Attribute('o', None),))
+        self.assertTrue(mgr.operational('y', ['o']))
+        mock_node.can_operate.assert_called_with(['o'], Attribute('o', 2))
+        getargspec.return_value = ArgSpec(
+            args=['cls', 'available', 'x'], varargs=None, keywords=None,
+            defaults=(DerivedParameterNode('o'),))
+        self.assertRaises(TypeError, mgr.operational, 'y', Attribute('o', 2))
 
     def test_get_attribute(self):
         aci = {'a': 'a_value', 'b': None}
