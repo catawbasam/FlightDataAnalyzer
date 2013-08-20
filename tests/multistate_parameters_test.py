@@ -230,6 +230,14 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         self.flap = M('Flap', np.tile(np.ma.array(f), 10000),
                       values_mapping={x: str(x) for x in np.ma.unique(f)})
         self.ails = P('Flaperon', np.tile(np.ma.array(a), 10000))
+    
+    def test_can_operate_not_airbus(self):
+        self.assertFalse(self.node_class.can_operate(
+            ['Flap', 'Slat', 'Series', 'Family'],
+            manu=Attribute('Manufacturer', 'Boeing')))
+        self.assertTrue(self.node_class.can_operate(
+            ['Flap', 'Slat', 'Series', 'Family'],
+            manu=Attribute('Manufacturer', 'Airbus')))
 
     def test_conf_for_a330(self):
         # Note: The last state is invalid...
@@ -247,9 +255,8 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         # return masked array
         series = A('Series', 'Global Express XRS')
         family = A('Family', 'Global')
-        manuf = A('Manufacturer', 'Bombardier')
         node = self.node_class()
-        node.derive(self.slat, self.flap, self.ails, series, family, manuf)
+        node.derive(self.slat, self.flap, self.ails, series, family)
         
         self.assertEqual(np.ma.count_masked(node.array), 170000)
         self.assertEqual(np.ma.count(node.array), 0)

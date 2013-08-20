@@ -215,17 +215,13 @@ class Configuration(MultistateDerivedParameterNode):
     }
 
     @classmethod
-    def can_operate(cls, available):
-        # TODO: Implement check for the value of Family for Airbus
+    def can_operate(cls, available, manu=A('Manufacturer')):
+        if manu and manu.value != 'Airbus':
+            return False
         return all_of(('Slat', 'Flap', 'Series', 'Family'), available)
 
     def derive(self, slat=P('Slat'), flap=M('Flap'), flaperon=P('Flaperon'),
-               series=A('Series'), family=A('Family'), manu=A('Manufacturer')):
-
-        if manu and manu.value != 'Airbus':
-            # TODO: remove check once we can check attributes in can_operate
-            self.array = np_ma_masked_zeros_like(flap.array)
-            return
+               series=A('Series'), family=A('Family')):
 
         mapping = get_conf_map(series.value, family.value)
         qty_param = len(mapping.itervalues().next())
@@ -517,11 +513,11 @@ class Flap(MultistateDerivedParameterNode):
             flap_herc = np_ma_zeros_like(alt_aal.array)
 
             # Takeoff is normally with 50% flap382
-            _, toffs = slices_from_to(alt_aal.array, 0.0,1000.0)
+            _, toffs = slices_from_to(alt_aal.array, 0.0, 1000.0)
             flap_herc[:toffs[0].stop] = 50.0
 
             # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
-            _, apps = slices_from_to(alt_aal.array, 2000.0,0.0)
+            _, apps = slices_from_to(alt_aal.array, 2000.0, 0.0)
             flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
 
             self.array = np.ma.array(flap_herc)
