@@ -1062,6 +1062,20 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
                             'Deployed/Cmd Up', armed)
         return array
 
+    def b787_speedbrake(self, handle):
+        '''
+        Speedbrake Handle Positions for 787, taken from early recordings. The
+        units are unknown - may be inches of transducer or degrees of handle
+        movement, but with -6.18 in the stowed position we anticipate a
+        change in this procedure.
+        '''
+        # Speedbrake Handle only
+        armed = np.ma.where((-4.0 < handle.array) & (handle.array < 0.0),
+                            'Armed/Cmd Dn', 'Stowed')
+        array = np.ma.where(handle.array >= 0.0,
+                            'Deployed/Cmd Up', armed)
+        return array
+
 
     def derive(self,
                deployed=M('Speedbrake Deployed'),
@@ -1085,8 +1099,11 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         elif 'B737' in family_name:
             self.array = self.b737_speedbrake(spdbrk, handle)
 
-        elif family_name in ['B757', 'B767', 'B787']:
+        elif family_name in ['B757', 'B767']:
             self.array = self.b757_767_speedbrake(handle)
+
+        elif family_name in ['B787']:
+            self.array = self.b787_speedbrake(handle)
 
         elif family_name == 'A320':
             self.array = self.a320_speedbrake(armed, spdbrk)
