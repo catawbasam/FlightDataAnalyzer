@@ -3286,16 +3286,52 @@ class TestFlapAngle(unittest.TestCase, NodeTest):
             ('Flap Angle (L)', 'Flap Angle (R)'),
             ('Flap Angle (L) Inboard', 'Flap Angle (R) Inboard'),
             ('Flap Angle (L)', 'Flap Angle (R)', 'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard', 'Frame'),
+            ('Flap Angle (L)', 'Flap Angle (R)', 'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard', 'Slat Surface', 'Frame'),
         ]
+    
+    def test_derive_787(self):
+        flap_angle_l = load(os.path.join(test_data_path,
+                                         '787_flap_angle_l.nod'))
+        flap_angle_r = load(os.path.join(test_data_path,
+                                         '787_flap_angle_r.nod'))
+        slat_l = load(os.path.join(test_data_path, '787_slat_l.nod'))
+        slat_r = load(os.path.join(test_data_path, '787_slat_r.nod'))
+        slat = SlatSurface()
+        slat.derive(slat_l, slat_r)
+        family = A('Family', 'B787')
+        f = FlapAngle()
+        f.derive(flap_angle_l, flap_angle_r, None, None, slat, None, family)
+        # Include transitions.
+        self.assertEqual(f.array[18635], 0.70000000000000007)
+        self.assertEqual(f.array[18650], 1.0)
+        self.assertEqual(f.array[18900], 5.0)
+        # The original Flap data does not always record exact Flap settings.
+        self.assertEqual(f.array[19070], 19.945)
+        self.assertEqual(f.array[19125], 24.945)
+        self.assertEqual(f.array[19125], 24.945)
+        self.assertEqual(f.array[19250], 30.0)
+    
+    def test__combine_flap_set_basic(self):
+        conf_map = {
+            0:    (0, 0),
+            1:    (50, 0),
+            5:    (50, 5),
+            15:   (50, 15),
+            20:   (50, 20),
+            25:   (100, 20),
+            30:   (100, 30),
+        }
+        slat_array = np.ma.array([0, 50, 50, 50, 50, 100, 100])
+        flap_array = np.ma.array([0, 0, 5, 15, 20, 20, 30])
+        flap_slat = FlapAngle._combine_flap_slat(slat_array, flap_array,
+                                                 conf_map)
+        self.assertEqual(flap_slat.tolist(),
+                         [0.0, 1.0, 5.0, 15.0, 20.0, 25.0, 30.0])
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
     def test_hercules(self):
         f = FlapAngle()
-        f.derive(None, None, None, None, A('Frame', 'L382-Hercules'), 
-                 P(array=np.ma.array(range(0, 5000, 100) + range(5000, 0, -200))))
+        f.derive(P(array=np.ma.array(range(0, 5000, 100) + range(5000, 0, -200))),
+                 None, None, None, A('Frame', 'L382-Hercules'))
 
 
 class TestHeadingTrueContinuous(unittest.TestCase):
