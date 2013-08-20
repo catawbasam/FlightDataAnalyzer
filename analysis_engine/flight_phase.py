@@ -707,7 +707,7 @@ class GearRetracted(FlightPhaseNode):
             np.ma.masked_equal(gear_down.array,1)))
 
 
-def scan_ils(beam, ils_dots, height, scan_slice):
+def scan_ils(beam, ils_dots, height, scan_slice, frequency):
     '''
     Scans ils dots and returns last slice where ils dots fall below 1 and remain below 2.5 dots
     if beam is glideslope slice will not extend below 200ft.
@@ -737,8 +737,8 @@ def scan_ils(beam, ils_dots, height, scan_slice):
         # less than 40% valid data within valid data slice
         return None
 
-    # get abs of ils dots as its used everywhere
-    ils_abs = np.ma.abs(ils_dots)
+    # get abs of ils dots as its used everywhere and repair small masked periods
+    ils_abs = repair_mask(np.ma.abs(ils_dots), frequency=frequency, repair_duration=5)
 
     # ----------- Find loss of capture
 
@@ -826,7 +826,7 @@ class ILSLocalizerEstablished(FlightPhaseNode):
 
         for _slice in slices:
             ils_slice = scan_ils('localizer', ils_loc.array, alt_aal.array,
-                               _slice)
+                               _slice, ils_loc.frequency)
             if ils_slice is not None:
                 self.create_phase(ils_slice)
 
@@ -878,7 +878,7 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
             # established.
             if ils_loc_est.slice.start and ils_loc_est.slice.stop:
                 gs_est = scan_ils('glideslope', ils_gs.array, alt_aal.array,
-                                  ils_loc_est.slice)
+                                  ils_loc_est.slice, ils_gs.frequency)
                 # If the glideslope signal is corrupt or there is no
                 # glidepath (not fitted or out of service) there may be no
                 # glideslope established phase, or the proportion of unmasked

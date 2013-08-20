@@ -518,7 +518,7 @@ class AccelerationNormalAtTouchdown(KeyPointValueNode):
             self.create_kpv(*bump(acc_norm, touchdown))
 
 
-class AccelerationNormalLiftoffTo35FtMax(KeyPointValueNode):
+class AccelerationNormalTakeoffMax(KeyPointValueNode):
     '''
     '''
 
@@ -3989,7 +3989,9 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                ian_glide_est = scan_ils('glideslope', ian_glidepath.array, alt_aal.array, band)
+                ian_glide_est = scan_ils('glideslope', ian_glidepath.array,
+                                         alt_aal.array, band,
+                                         ian_glidepath.frequency)
                 if ian_glide_est:
                     ian_est_bands.append(ian_glide_est)
 
@@ -4040,7 +4042,9 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                final_app_course_est = scan_ils('glideslope', ian_final.array, alt_aal.array, band)
+                final_app_course_est = scan_ils('glideslope', ian_final.array,
+                                                alt_aal.array, band,
+                                                ian_final.frequency)
                 if final_app_course_est:
                     ian_est_bands.append(final_app_course_est)
 
@@ -6756,7 +6760,7 @@ class PitchAt35FtDuringClimb(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-class PitchLiftoffTo35FtMax(KeyPointValueNode):
+class PitchTakeoffMax(KeyPointValueNode):
     '''
     '''
 
@@ -6764,13 +6768,9 @@ class PitchLiftoffTo35FtMax(KeyPointValueNode):
 
     def derive(self,
                pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL')):
+               takeoffs=S('Takeoff')):
 
-        self.create_kpvs_within_slices(
-            pitch.array,
-            alt_aal.slices_from_to(0, 35),
-            max_value,
-        )
+        self.create_kpvs_within_slices(pitch.array, takeoffs, max_value)
 
 
 class Pitch35To400FtMax(KeyPointValueNode):
