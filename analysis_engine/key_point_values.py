@@ -6765,7 +6765,7 @@ class PitchAt35FtDuringClimb(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-class PitchLiftoffTo35FtMax(KeyPointValueNode):
+class PitchTakeoffMax(KeyPointValueNode):
     '''
     '''
 
@@ -6773,13 +6773,9 @@ class PitchLiftoffTo35FtMax(KeyPointValueNode):
 
     def derive(self,
                pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL')):
+               takeoffs=S('Takeoff')):
 
-        self.create_kpvs_within_slices(
-            pitch.array,
-            alt_aal.slices_from_to(0, 35),
-            max_value,
-        )
+        self.create_kpvs_within_slices(pitch.array, takeoffs, max_value)
 
 
 class Pitch35To400FtMax(KeyPointValueNode):

@@ -303,7 +303,7 @@ from analysis_engine.key_point_values import (
     PitchCyclesDuringFinalApproach,
     PitchDirectLawDuration,
     PitchDuringGoAroundMax,
-    PitchLiftoffTo35FtMax,
+    PitchTakeoffMax,
     PitchRate35To1000FtMax,
     PitchRate20FtToTouchdownMax,
     PitchRate20FtToTouchdownMin,
@@ -6082,13 +6082,12 @@ class TestPitchAt35FtDuringClimb(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestPitchLiftoffTo35FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+class TestPitchTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
 
     def setUp(self):
-        self.node_class = PitchLiftoffTo35FtMax
-        self.operational_combinations = [('Pitch', 'Altitude AAL')]
+        self.node_class = PitchTakeoffMax
+        self.operational_combinations = [('Pitch', 'Takeoff')]
         self.function = max_value
-        self.second_param_method_calls = [('slices_from_to', (0, 35), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
