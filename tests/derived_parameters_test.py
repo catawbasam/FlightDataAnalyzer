@@ -3554,6 +3554,7 @@ class TestRollRate(unittest.TestCase):
         expected=np_ma_ones_like(roll.array)*4.0
         ma_test.assert_array_equal(expected[2:4], rr.array[2:4]) # Differential process blurs ends of the array, so just test the core part.
 
+
 class TestSlat(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
@@ -3589,7 +3590,7 @@ class TestSpeedbrake(unittest.TestCase):
     def test_can_operate(self):
         opts = Speedbrake.get_operational_combinations()
         self.assertTrue(('Spoiler (2)', 'Spoiler (7)', 'Frame') in opts)
-        self.assertTrue(('Spoiler (7)', 'Spoiler (1)', 'Frame') in opts)
+        self.assertTrue(('Spoiler (1)', 'Spoiler (14)', 'Frame') in opts)
         self.assertTrue(('Spoiler (4)', 'Spoiler (9)', 'Frame') in opts)
         
     @unittest.skip('Test Not Implemented')

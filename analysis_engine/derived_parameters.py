@@ -5130,8 +5130,8 @@ class Speedbrake(DerivedParameterNode):
               which parameters are required.
         '''
         return 'Frame' in available and (
+            all_of(('Spoiler (1)', 'Spoiler (14)'), available) or
             all_of(('Spoiler (2)', 'Spoiler (7)'), available) or
-            all_of(('Spoiler (1)', 'Spoiler (7)'), available) or
             all_of(('Spoiler (4)', 'Spoiler (9)'), available))
     
     def merge_spoiler(self, spoiler_a, spoiler_b):
@@ -5149,9 +5149,10 @@ class Speedbrake(DerivedParameterNode):
         return array, offset
 
     def derive(self,
-            spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
-            spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
-            spoiler_1=P('Spoiler (1)'), frame=A('Frame')):
+            spoiler_1=P('Spoiler (1)'), spoiler_2=P('Spoiler (2)'),
+            spoiler_7=P('Spoiler (7)'), spoiler_4=P('Spoiler (4)'),
+            spoiler_9=P('Spoiler (9)'), spoiler_14=P('Spoiler (14)'),
+            frame=A('Frame')):
         '''
         '''
         frame_name = frame.value if frame else ''
@@ -5165,7 +5166,7 @@ class Speedbrake(DerivedParameterNode):
             self.array, self.offset = self.merge_spoiler(spoiler_2, spoiler_7)
         
         elif frame_name == '787-RR-BCG49-ACMF-RR17':
-            self.array, self.offset = self.merge_spoiler(spoiler_1, spoiler_7)
+            self.array, self.offset = self.merge_spoiler(spoiler_1, spoiler_14)
 
         else:
             raise DataFrameError(self.name, frame_name)
