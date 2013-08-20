@@ -3993,7 +3993,9 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                ian_glide_est = scan_ils('glideslope', ian_glidepath.array, alt_aal.array, band)
+                ian_glide_est = scan_ils('glideslope', ian_glidepath.array,
+                                         alt_aal.array, band,
+                                         ian_glidepath.frequency)
                 if ian_glide_est:
                     ian_est_bands.append(ian_glide_est)
 
@@ -4044,7 +4046,9 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                final_app_course_est = scan_ils('glideslope', ian_final.array, alt_aal.array, band)
+                final_app_course_est = scan_ils('glideslope', ian_final.array,
+                                                alt_aal.array, band,
+                                                ian_final.frequency)
                 if final_app_course_est:
                     ian_est_bands.append(final_app_course_est)
 
