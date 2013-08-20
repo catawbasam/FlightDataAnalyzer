@@ -550,8 +550,8 @@ class SlatSet(KeyTimeInstanceNode):
         # Mark all slat changes, and annotate with the new slat position.
         # Could include "phase=airborne" if we want to eliminate ground slat
         # changes.
-        self.create_ktis_at_edges(slat.array, direction='all_edges',
-                                  name='slat')
+        self.create_ktis_at_edges(np.rint(slat.array).astype(np.int),
+                                  direction='all_edges', name='slat')
 
 
 class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
