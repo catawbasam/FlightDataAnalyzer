@@ -5742,18 +5742,19 @@ class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
                landings=S('Landing'),
                touchdowns=KTI('Touchdown')):
 
-        for touchdown in touchdowns.get(within_slices=landings.get_slices()):
-            # Seek the throttle lowpoint before thrust reverse is applied:
-            retard_idx = index_at_value(tla.array, 0.0, landing.slice,
-                                        endpoint='closing')
-            # The range of interest is therefore...
-            scan = slice(landing.slice.start - 5 / tla.hz, retard_idx)
-            # Now see where the power is reduced:
-            reduce_idx = peak_curvature(tla.array, scan,
-                                        curve_sense='Convex', gap=1, ttp=3)
-            if reduce_idx:
-                value = (reduce_idx - touchdown.index) / tla.hz
-                self.create_kpv(reduce_idx, value)
+        for landing in landings:
+            for touchdown in touchdowns.get(within_slice=landing.slice):
+                # Seek the throttle lowpoint before thrust reverse is applied:
+                retard_idx = index_at_value(tla.array, 0.0, landing.slice,
+                                            endpoint='closing')
+                # The range of interest is therefore...
+                scan = slice(landing.slice.start - 5 / tla.hz, retard_idx)
+                # Now see where the power is reduced:
+                reduce_idx = peak_curvature(tla.array, scan,
+                                            curve_sense='Convex', gap=1, ttp=3)
+                if reduce_idx:
+                    value = (reduce_idx - touchdown.index) / tla.hz
+                    self.create_kpv(reduce_idx, value)
 
 
 ################################################################################
