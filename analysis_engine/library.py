@@ -4551,7 +4551,7 @@ def rms_noise(array, ignore_pc=None):
     # for the difference between this sample and the one to the right.
     if len(array.data)==0 or np.ma.ptp(array.data)==0.0:
         #logging.warning('rms noise test has no variation in signal level')
-        return 0.0
+        return None
     diff_left = np.ma.ediff1d(array, to_end=0)
     diff_right = np.ma.array(data=np.roll(diff_left.data,1),
                              mask=np.roll(diff_left.mask,1))
