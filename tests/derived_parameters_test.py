@@ -124,6 +124,7 @@ from analysis_engine.derived_parameters import (
     MagneticVariationFromRunway,
     Pitch,
     RollRate,
+    SlatSurface,
     Speedbrake,
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
@@ -3522,6 +3523,17 @@ class TestSlat(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestSlatSurface(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            SlatSurface.get_operational_combinations(),
+            [('Slat (L)',), ('Slat (R)',), ('Slat (L)', 'Slat (R)')])
+    
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')

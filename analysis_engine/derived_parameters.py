@@ -3163,6 +3163,21 @@ class SlatSurface(DerivedParameterNode):
     s1m = M('Slat (1) Mid Extended'),
 '''
 
+class SlatSurface(DerivedParameterNode):
+    '''
+    Combines Slat (L) and Slat (R).
+    
+    TODO: Reconsider naming of Slat parameters for consistency.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return 'Slat (L)' in available or 'Slat (R)' in available
+    
+    def derive(self, slat_l=P('Slat (L)'), slat_r=P('Slat (R)')):
+        self.array, self.frequency, self.offset = blend_two_parameters(slat_l,
+                                                                       slat_r)
+
+
 class Slat(DerivedParameterNode):
     """
     Steps raw Slat angle into detents.
