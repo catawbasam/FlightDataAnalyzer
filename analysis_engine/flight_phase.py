@@ -355,17 +355,12 @@ class CombinedClimb(FlightPhaseNode):
 
         end_list = [x.index for x in toc.get_ordered_by_index()]
         start_list = [y.index for y in [lo.get_first()] + ga.get_ordered_by_index()]
+        assert len(start_list) == len(end_list)
 
-        if len(start_list) == len(end_list):
-            slice_idxs = zip(start_list, end_list)
-            for slice_tuple in slice_idxs:
-                self.create_phase(slice(*slice_tuple))
-        else:
-            #TODO: remove else once ClimbCruiseDescent has been improved
-            self.warning('Differing number of Liftoff/GA vs TOC, using whole flight as Fallback')
-            start = lo.get_first().index
-            end = touchdown.get_last().index
-            self.create_phase(slice(start, end))
+        slice_idxs = zip(start_list, end_list)
+        for slice_tuple in slice_idxs:
+            self.create_phase(slice(*slice_tuple))
+
 
 class Climb(FlightPhaseNode):
     '''
@@ -449,17 +444,11 @@ class CombinedDescent(FlightPhaseNode):
 
         end_list = [x.index for x in bod_set.get_ordered_by_index()]
         start_list = [y.index for y in tod_set.get_ordered_by_index()]
+        assert len(start_list) == len(end_list)
 
-        if len(start_list) == len(end_list):
-            slice_idxs = zip(start_list, end_list)
-            for slice_tuple in slice_idxs:
-                self.create_phase(slice(*slice_tuple))
-        else:
-            #TODO: remove else once ClimbCruiseDescent has been improved
-            self.warning('Differing number of TOD vs BOD, using whole flight as Fallback')
-            start = liftoff.get_first().index
-            end = touchdown.get_last().index
-            self.create_phase(slice(start, end))
+        slice_idxs = zip(start_list, end_list)
+        for slice_tuple in slice_idxs:
+            self.create_phase(slice(*slice_tuple))
 
 
 class Descending(FlightPhaseNode):
