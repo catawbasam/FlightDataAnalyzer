@@ -60,17 +60,35 @@ class DeterminePilot(object):
         self.warning("Both captain and first officer controls do not change "
             "during '%s' slice.", phase.name)
         return None
-
+    
+    def _key_vhf_in_use(self, key_vhf_capt, key_vhf_fo, phase):
+        key_vhf_capt_changed = key_vhf_capt[phase.slice].ptp()
+        key_vhf_fo_changed = key_vhf_fo[phase.slice].ptp()
+        if key_vhf_capt_changed and not key_vhf_fo_changed:
+            return 'First Officer'
+        elif key_vhf_fo_changed and not key_vhf_capt_changed:
+            return 'Captain'
+        
+        # Either both Capt and FO Key VHF change or neither.
+        return None
+    
     def _determine_pilot(self, pitch_capt, pitch_fo, roll_capt, roll_fo, phase,
-                               ap1, ap2, ap3):
-
+                         ap1, ap2, ap3, key_vhf_capt, key_vhf_fo):
+        
         # 1. Check for change in controls during the phase:
         if all((pitch_capt, pitch_fo, roll_capt, roll_fo, phase)):
             pilot = self._controls_in_use(pitch_capt.array, pitch_fo.array,
                     roll_capt.array, roll_fo.array, phase)
             if pilot:
                 return pilot
-
+            
+        # Check for change in VHF controls during the phase:
+        if all((key_vhf_capt, key_vhf_fo)):
+            pilot = self._key_vhf_in_use(key_vhf_capt.array, key_vhf_fo.array,
+                                         phase)
+            if pilot:
+                return pilot
+        
         # 2. Check which autopilot is engaged:
         if all((ap1, ap2)):
             pilot = self._autopilot_engaged(ap1, ap2, ap3)
@@ -516,7 +534,9 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
             'Liftoff',
             # Optional: 'AP (3) Engaged'
         ), available)
-        return controls or autopilot
+        key_vhf = library.all_of(('Key VHF (Capt)', 'Key VHF (FO)', 'Landing'),
+                                 available)
+        return controls or autopilot or key_vhf
 
     def derive(self,
                pitch_capt=P('Pitch (Capt)'),
@@ -526,6 +546,8 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
                ap1_eng=M('AP (1) Engaged'),
                ap2_eng=M('AP (2) Engaged'),
                ap3_eng=M('AP (3) Engaged'),
+               key_vhf_capt=M('Key VHF (Capt)'),
+               key_vhf_fo=M('Key VHF (FO)'),
                takeoffs=S('Takeoff'),
                liftoffs=KTI('Liftoff')):
 
@@ -538,7 +560,8 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
             ap3 = ap_at_index(ap3_eng) if ap3_eng else None
         else:
             ap1 = ap2 = ap3 = None
-        args = (pitch_capt, pitch_fo, roll_capt, roll_fo, phase, ap1, ap2, ap3)
+        args = (pitch_capt, pitch_fo, roll_capt, roll_fo, phase, ap1, ap2, ap3,
+                key_vhf_capt, key_vhf_fo)
         self.set_flight_attr(self._determine_pilot(*args))
 
 
@@ -812,7 +835,9 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
             'Touchdown',
             # Optional: 'AP (3) Engaged'
         ), available)
-        return controls or autopilot
+        key_vhf = library.all_of(('Key VHF (Capt)', 'Key VHF (FO)', 'Landing'),
+                                 available)
+        return controls or autopilot or key_vhf
 
     def derive(self,
                pitch_capt=P('Pitch (Capt)'),
@@ -822,6 +847,8 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
                ap1_eng=M('AP (1) Engaged'),
                ap2_eng=M('AP (2) Engaged'),
                ap3_eng=M('AP (3) Engaged'),
+               key_vhf_capt=M('Key VHF (Capt)'),
+               key_vhf_fo=M('Key VHF (FO)'),
                landings=S('Landing'),
                touchdowns=KTI('Touchdown')):
 
@@ -834,7 +861,8 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
             ap3 = ap_at_index(ap3_eng) if ap3_eng else None
         else:
             ap1 = ap2 = ap3 = None
-        args = (pitch_capt, pitch_fo, roll_capt, roll_fo, phase, ap1, ap2, ap3)
+        args = (pitch_capt, pitch_fo, roll_capt, roll_fo, phase, ap1, ap2, ap3,
+                key_vhf_capt, key_vhf_fo)
         self.set_flight_attr(self._determine_pilot(*args))
 
 
