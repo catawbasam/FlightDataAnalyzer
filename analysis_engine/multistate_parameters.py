@@ -876,6 +876,38 @@ class ILSOuterMarker(MultistateDerivedParameterNode):
         ).any(axis=0)
 
 
+class KeyVHFCapt(MultistateDerivedParameterNode):
+    
+    name = 'Key VHF (Capt)'
+    values_mapping = {0: '-', 1: 'Keyed'}
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)', 'Key VHF (R) (Capt)'), available)
+
+    def derive(self, key_vhf_l=M('Key VHF (L) (Capt)'),
+               key_vhf_c=M('Key VHF (C) (Capt)'),
+               key_vhf_r=M('Key VHF (R) (Capt)')):
+        arrays = [p.array for p in (key_vhf_l, key_vhf_c, key_vhf_r)]
+        self.array = np.ma.logical_and(*arrays)
+
+
+class KeyVHFFO(MultistateDerivedParameterNode):
+    
+    name = 'Key VHF (FO)'
+    values_mapping = {0: '-', 1: 'Keyed'}
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Key VHF (L) (FO)', 'Key VHF (C) (FO)', 'Key VHF (R) (FO)'), available)
+
+    def derive(self, key_vhf_l=M('Key VHF (L) (FO)'),
+               key_vhf_c=M('Key VHF (C) (FO)'),
+               key_vhf_r=M('Key VHF (R) (FO)')):
+        arrays = [p.array for p in (key_vhf_l, key_vhf_c, key_vhf_r)]
+        self.array = np.ma.logical_and(*arrays)
+
+
 class MasterWarning(MultistateDerivedParameterNode):
     '''
     Combine master warning for captain and first officer.

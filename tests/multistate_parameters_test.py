@@ -43,6 +43,8 @@ from analysis_engine.multistate_parameters import (
     GearDownSelected,
     GearOnGround,
     GearUpSelected,
+    KeyVHFCapt,
+    KeyVHFFO,
     MasterWarning,
     PackValvesOpen,
     PitchAlternateLaw,
@@ -51,7 +53,7 @@ from analysis_engine.multistate_parameters import (
     StickShaker,
     TAWSAlert,
     ThrustReversers,
-    )
+)
 
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -212,8 +214,6 @@ class TestAutoland(unittest.TestCase, NodeTest):
         ma_test.assert_array_equal(expected.array, eng.array)
 
 
-
-
 class TestConfiguration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -266,6 +266,7 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         timer = Timer(self.test_conf_for_a330)
         time = min(timer.repeat(1, 1))
         self.assertLess(time, 0.3, msg='Took too long: %.3fs' % time)
+
 
 class TestDaylight(unittest.TestCase):
     def test_can_operate(self):
@@ -785,6 +786,40 @@ class TestGearUpSelected(unittest.TestCase):
         np.testing.assert_array_equal(up_sel.array, [0,1,1,1,1,1])
         self.assertEqual(up_sel.frequency, 1.0)
         self.assertAlmostEqual(up_sel.offset, 0.1)
+
+
+class TestKeyVHFCapt(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertEqual(KeyVHFCapt.get_operational_combinations(),
+                         [('Key VHF (L) (Capt)',),
+                          ('Key VHF (C) (Capt)',),
+                          ('Key VHF (R) (Capt)',),
+                          ('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)'),
+                          ('Key VHF (L) (Capt)', 'Key VHF (R) (Capt)'),
+                          ('Key VHF (C) (Capt)', 'Key VHF (R) (Capt)'),
+                          ('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)', 'Key VHF (R) (Capt)')])
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
+
+
+class TestKeyVHFFO(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertEqual(KeyVHFFO.get_operational_combinations(),
+                         [('Key VHF (L) (FO)',),
+                          ('Key VHF (C) (FO)',),
+                          ('Key VHF (R) (FO)',),
+                          ('Key VHF (L) (FO)', 'Key VHF (C) (FO)'),
+                          ('Key VHF (L) (FO)', 'Key VHF (R) (FO)'),
+                          ('Key VHF (C) (FO)', 'Key VHF (R) (FO)'),
+                          ('Key VHF (L) (FO)', 'Key VHF (C) (FO)', 'Key VHF (R) (FO)')])
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
 
 
 class TestMasterWarning(unittest.TestCase, NodeTest):
