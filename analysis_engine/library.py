@@ -2778,6 +2778,19 @@ def is_index_within_slice(index, _slice):
     return _slice.start <= index < _slice.stop
 
 
+def is_index_within_slices(index, slices):
+    '''
+    :type index: int or float
+    :type slices: slice
+    :returns: whether index is within any of the slices.
+    :rtype: bool
+    '''
+    for _slice in slices:
+        if is_index_within_slice(index, _slice):
+            return True
+    return False
+
+
 def filter_slices_duration(slices, duration, frequency=1):
     '''
     Q: Does this need to be updated to use Sections?
@@ -4538,7 +4551,7 @@ def rms_noise(array, ignore_pc=None):
     # for the difference between this sample and the one to the right.
     if len(array.data)==0 or np.ma.ptp(array.data)==0.0:
         #logging.warning('rms noise test has no variation in signal level')
-        return 0.0
+        return None
     diff_left = np.ma.ediff1d(array, to_end=0)
     diff_right = np.ma.array(data=np.roll(diff_left.data,1),
                              mask=np.roll(diff_left.mask,1))
@@ -4629,7 +4642,77 @@ def slice_duration(_slice, hz):
     if _slice.stop is None:
         raise ValueError("Slice stop '%s' is unsupported by slice_duration.",
                          _slice.stop)
-    return (_slice.stop - (_slice.start or 0)) / hz
+    return (_slice.stop - (_slice.start or 0)) / float(hz)
+
+
+def slices_duration(slices, hz):
+    '''
+    Gets the total duration of a list of slices.
+    
+    :param slices: Slices to calculate the total duration of.
+    :type slices: [slice]
+    :param hz: Frequency of slices.
+    :type hz: int or float
+    :returns: Total duration of all slices.
+    :rtype: float
+    '''
+    return sum([slice_duration(_slice, hz) for _slice in slices])
+
+
+def slices_after(slices, index):
+    '''
+    Gets slices truncated to only contain sections after an index.
+    
+    :param slices: Slices to truncate.
+    :type slices: [slice]
+    :param index: Cutoff index.
+    :type index: int or float
+    :returns: Truncated slices.
+    :rtype: [slice]
+    '''
+    truncated_slices = []
+    for _slice in slices:
+        if _slice.stop is None:
+            raise ValueError(
+                'Slice stop being None is not supported in slices_after.')
+        if _slice.start > _slice.stop:
+            raise ValueError(
+                'Reverse slices are not supported in slices_after.')
+        if _slice.stop < index:
+            # Entire slice is before index.
+            continue
+        if (_slice.start or 0) < index:
+            _slice = slice(index, _slice.stop)
+        truncated_slices.append(_slice)
+    return truncated_slices
+
+
+def slices_before(slices, index):
+    '''
+    Gets slices truncated to only contain sections before an index.
+    
+    :param slices: Slices to truncate.
+    :type slices: [slice]
+    :param index: Cutoff index.
+    :type index: int or float
+    :returns: Truncated slices.
+    :rtype: [slice]
+    '''
+    truncated_slices = []
+    for _slice in slices:
+        if _slice.stop is None:
+            raise ValueError(
+                'Slice stop being None is not supported in slices_before.')
+        if _slice.start > _slice.stop:
+            raise ValueError(
+                'Reverse slices are not supported in slices_after.')
+        if _slice.start > index:
+            # Entire slice is before index.
+            continue
+        if _slice.stop > index:
+            _slice = slice(_slice.start, index)
+        truncated_slices.append(_slice)
+    return truncated_slices
 
 
 def slice_midpoint(_slice):

@@ -124,6 +124,7 @@ from analysis_engine.derived_parameters import (
     MagneticVariationFromRunway,
     Pitch,
     RollRate,
+    SlatSurface,
     Speedbrake,
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
@@ -1159,12 +1160,11 @@ class TestAltitudeRadio(unittest.TestCase):
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.25, 1.0),
                        Parameter('Altitude Radio (C)',
                                  np.ma.array([30.0,30.0,30.0,30.0,30.3]), 0.25, 3.0),
-                       None, None, None
-                       )
-        answer = np.ma.array(data=[17.5]*20)
+                       None, None, None, None, None)
+        answer = np.ma.array(data=[17.5]*80, mask=[True] + (79 * [False]))
         ma_test.assert_array_almost_equal(alt_rad.array, answer, decimal=0)
-        self.assertEqual(alt_rad.offset,0.0)
-        self.assertEqual(alt_rad.frequency,1.0)
+        self.assertEqual(alt_rad.offset, 0.0)
+        self.assertEqual(alt_rad.frequency, 4.0)
 
     def test_altitude_radio_737_5_EFIS(self):
         alt_rad = AltitudeRadio()
@@ -1172,11 +1172,12 @@ class TestAltitudeRadio(unittest.TestCase):
                                  np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
-                       None, None, None, None)
-        answer = np.ma.array(data=[ 15.0, 14.9, 14.9, 15.0, 15.0, 14.9, 14.9, 15.0, 15.0, 15.2])
+                       None, None, None, None, None, None)
+        answer = np.ma.array(data=[15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.1, 15.1, 15.1, 15.1, 15.2, 15.2, 15.3, 15.3, 15.4],
+                             mask=[True] + ([False] * 38) + [True])
         ma_test.assert_array_almost_equal(alt_rad.array, answer, decimal=1)
-        self.assertEqual(alt_rad.offset,0.0)
-        self.assertEqual(alt_rad.frequency,1.0)
+        self.assertEqual(alt_rad.offset, 0.0)
+        self.assertEqual(alt_rad.frequency, 4.0)
 
     def test_altitude_radio_737_5_Analogue(self):
         alt_rad = AltitudeRadio()
@@ -1184,11 +1185,29 @@ class TestAltitudeRadio(unittest.TestCase):
                                  np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
                        Parameter('Altitude Radio (B)',
                                  np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
-                       None, None, None, None)
-        answer = np.ma.array(data=[ 15.0, 14.9, 14.9, 15.0, 15.0, 14.9, 14.9, 15.0, 15.0, 15.2])
+                       None, None, None, None, None, None)
+        answer = np.ma.array(data=[
+            15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0,
+            15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0,
+            15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.1, 15.1,
+            15.1, 15.1, 15.2, 15.2, 15.3, 15.3, 15.4], mask=[True] + (38 * [False]) + [False])
         ma_test.assert_array_almost_equal(alt_rad.array, answer, decimal=1)
-        self.assertEqual(alt_rad.offset,0.0)
-        self.assertEqual(alt_rad.frequency,1.0)
+        self.assertEqual(alt_rad.offset, 0.0)
+        self.assertEqual(alt_rad.frequency, 4.0)
+    
+    def test_altitude_radio_787(self):
+        alt_rad = AltitudeRadio()
+        alt_rad.derive(None, None, None,
+                       Parameter('Altitude Radio (L)', 
+                                 np.ma.array([10.0,10.0,10.0,10.0,10.1]), 0.5, 0.0),
+                       Parameter('Altitude Radio (R)',
+                                 np.ma.array([20.0,20.0,20.0,20.0,20.2]), 0.5, 1.0),
+                       None, None, None)
+        answer = np.ma.array(data=[15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.1, 15.1, 15.1, 15.1, 15.2, 15.2, 15.3, 15.3, 15.4],
+                             mask=[True] + (38 * [False]) + [False])
+        ma_test.assert_array_almost_equal(alt_rad.array, answer, decimal=1)
+        self.assertEqual(alt_rad.offset, 0.0)
+        self.assertEqual(alt_rad.frequency, 4.0)
 
 '''
 class TestAltitudeRadioForFlightPhases(unittest.TestCase):
@@ -2093,8 +2112,8 @@ class TestGroundspeedAlongTrack(unittest.TestCase):
         self.assertGreater(np.ma.max(gat.array.data),16)
         # ...and finally decays as the longer washout time constant takes effect.
         self.assertLess(gat.array[199],52.0)
-        
-        
+
+
 class TestHeadingContinuous(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Heading',)]
@@ -3285,16 +3304,52 @@ class TestFlapAngle(unittest.TestCase, NodeTest):
             ('Flap Angle (L)', 'Flap Angle (R)'),
             ('Flap Angle (L) Inboard', 'Flap Angle (R) Inboard'),
             ('Flap Angle (L)', 'Flap Angle (R)', 'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard', 'Frame'),
+            ('Flap Angle (L)', 'Flap Angle (R)', 'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard', 'Slat Surface', 'Frame'),
         ]
+    
+    def test_derive_787(self):
+        flap_angle_l = load(os.path.join(test_data_path,
+                                         '787_flap_angle_l.nod'))
+        flap_angle_r = load(os.path.join(test_data_path,
+                                         '787_flap_angle_r.nod'))
+        slat_l = load(os.path.join(test_data_path, '787_slat_l.nod'))
+        slat_r = load(os.path.join(test_data_path, '787_slat_r.nod'))
+        slat = SlatSurface()
+        slat.derive(slat_l, slat_r)
+        family = A('Family', 'B787')
+        f = FlapAngle()
+        f.derive(flap_angle_l, flap_angle_r, None, None, slat, None, family)
+        # Include transitions.
+        self.assertEqual(f.array[18635], 0.70000000000000007)
+        self.assertEqual(f.array[18650], 1.0)
+        self.assertEqual(f.array[18900], 5.0)
+        # The original Flap data does not always record exact Flap settings.
+        self.assertEqual(f.array[19070], 19.945)
+        self.assertEqual(f.array[19125], 24.945)
+        self.assertEqual(f.array[19125], 24.945)
+        self.assertEqual(f.array[19250], 30.0)
+    
+    def test__combine_flap_set_basic(self):
+        conf_map = {
+            0:    (0, 0),
+            1:    (50, 0),
+            5:    (50, 5),
+            15:   (50, 15),
+            20:   (50, 20),
+            25:   (100, 20),
+            30:   (100, 30),
+        }
+        slat_array = np.ma.array([0, 50, 50, 50, 50, 100, 100])
+        flap_array = np.ma.array([0, 0, 5, 15, 20, 20, 30])
+        flap_slat = FlapAngle._combine_flap_slat(slat_array, flap_array,
+                                                 conf_map)
+        self.assertEqual(flap_slat.tolist(),
+                         [0.0, 1.0, 5.0, 15.0, 20.0, 25.0, 30.0])
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
     def test_hercules(self):
         f = FlapAngle()
-        f.derive(None, None, None, None, A('Frame', 'L382-Hercules'), 
-                 P(array=np.ma.array(range(0, 5000, 100) + range(5000, 0, -200))))
+        f.derive(P(array=np.ma.array(range(0, 5000, 100) + range(5000, 0, -200))),
+                 None, None, None, A('Frame', 'L382-Hercules'))
 
 
 class TestHeadingTrueContinuous(unittest.TestCase):
@@ -3517,11 +3572,23 @@ class TestRollRate(unittest.TestCase):
         expected=np_ma_ones_like(roll.array)*4.0
         ma_test.assert_array_equal(expected[2:4], rr.array[2:4]) # Differential process blurs ends of the array, so just test the core part.
 
+
 class TestSlat(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestSlatSurface(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(
+            SlatSurface.get_operational_combinations(),
+            [('Slat (L)',), ('Slat (R)',), ('Slat (L)', 'Slat (R)')])
+    
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3541,7 +3608,7 @@ class TestSpeedbrake(unittest.TestCase):
     def test_can_operate(self):
         opts = Speedbrake.get_operational_combinations()
         self.assertTrue(('Spoiler (2)', 'Spoiler (7)', 'Frame') in opts)
-        self.assertTrue(('Spoiler (7)', 'Spoiler (1)', 'Frame') in opts)
+        self.assertTrue(('Spoiler (1)', 'Spoiler (14)', 'Frame') in opts)
         self.assertTrue(('Spoiler (4)', 'Spoiler (9)', 'Frame') in opts)
         
     @unittest.skip('Test Not Implemented')

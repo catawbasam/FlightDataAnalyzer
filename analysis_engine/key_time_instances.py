@@ -26,6 +26,7 @@ from settings import (CLIMB_THRESHOLD,
                       NAME_VALUES_DESCENT,
                       NAME_VALUES_ENGINE,
                       NAME_VALUES_FLAP,
+                      NAME_VALUES_SLAT,
                       TAKEOFF_ACCELERATION_THRESHOLD,
                       TRANSITION_ALTITUDE,
                       VERTICAL_SPEED_FOR_LIFTOFF,
@@ -499,6 +500,31 @@ class FlapAlternateArmed(KeyTimeInstanceNode):
             )
 
 
+class FlapSet(KeyTimeInstanceNode):
+    '''
+    '''
+
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Flap %(flap)s Set'
+    NAME_VALUES = NAME_VALUES_FLAP
+    
+    
+    @classmethod
+    def can_operate(cls, available):
+        return 'Flap Lever' in available or 'Flap' in available
+    
+    def derive(self,
+               flap_lever=M('Flap Lever'),
+               flap_synth=M('Flap')):
+        flap = flap_lever or flap_synth
+
+        # Mark all flap changes, and annotate with the new flap position.
+        # Could include "phase=airborne" if we want to eliminate ground flap
+        # changes.
+        self.create_ktis_at_edges(flap.array.raw, direction='all_edges',
+                                  name='flap')
+
+
 class SlatAlternateArmed(KeyTimeInstanceNode):
     '''
     Indicates where slat alternate system has been armed.
@@ -509,6 +535,23 @@ class SlatAlternateArmed(KeyTimeInstanceNode):
             saa.array,
             change='entering'
             )
+
+
+class SlatSet(KeyTimeInstanceNode):
+    '''
+    '''
+
+    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
+    NAME_FORMAT = 'Slat %(slat)s Set'
+    NAME_VALUES = NAME_VALUES_SLAT
+    
+    def derive(self,
+               slat=P('Slat')):
+        # Mark all slat changes, and annotate with the new slat position.
+        # Could include "phase=airborne" if we want to eliminate ground slat
+        # changes.
+        self.create_ktis_at_edges(np.rint(slat.array).astype(np.int),
+                                  direction='all_edges', name='slat')
 
 
 class FlapRetractionWhileAirborne(KeyTimeInstanceNode):
@@ -756,8 +799,7 @@ class Liftoff(KeyTimeInstanceNode):
                     idx = np.ma.argmax(acc_norm.array[to_scan])
                     if acc_norm.array[to_scan][idx]>1.2:
                         index_acc=idx+back_3
-                    
-                            
+            
             if alt_rad:
                 index_rad = index_at_value(alt_rad.array, 0.0, to_scan)
                 
@@ -845,7 +887,7 @@ class Liftoff(KeyTimeInstanceNode):
             plt.clf()
             plt.close()
             '''
-            
+
 
 class LowestAltitudeDuringApproach(KeyTimeInstanceNode):
     '''

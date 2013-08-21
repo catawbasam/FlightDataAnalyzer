@@ -2756,9 +2756,7 @@ class AltitudeAtGearDownSelectionWithFlapDown(KeyPointValueNode):
                flap=M('Flap')):
 
         flap_dns = np.ma.clump_unmasked(np.ma.masked_equal(flap.array, 0.0))
-        flap_dn_gear_downs = []
-        for _slice in flap_dns:
-            flap_dn_gear_downs.extend(gear_downs.get(within_slice=_slice))
+        flap_dn_gear_downs = gear_downs.get(within_slices=flap_dns)
         self.create_kpvs_at_ktis(alt_aal.array, flap_dn_gear_downs)
 
 
@@ -2832,9 +2830,7 @@ class AltitudeAtGearDownSelectionWithFlapUp(KeyPointValueNode):
                flap=M('Flap')):
         
         flap_ups = np.ma.clump_unmasked(np.ma.masked_greater(flap.array, 0))
-        flap_up_gear_downs = []
-        for _slice in flap_ups:
-            flap_up_gear_downs.extend(gear_downs.get(within_slice=_slice))
+        flap_up_gear_downs = gear_downs.get(within_slices=flap_ups)
         self.create_kpvs_at_ktis(alt_aal.array, flap_up_gear_downs)
 
 
