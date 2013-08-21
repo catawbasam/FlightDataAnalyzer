@@ -1035,15 +1035,17 @@ class AltitudeRadio(DerivedParameterNode):
         return any_of([name for name in cls.get_dependency_names() \
                        if name.startswith('Altitude Radio')], available)
 
-    
     def derive(self,
                source_A = P('Altitude Radio (A)'),
                source_B = P('Altitude Radio (B)'),
                source_C = P('Altitude Radio (C)'),
-               source_E = P('Altitude Radio EFIS'),
-               source_L = P('Altitude Radio EFIS (L)'),
-               source_R = P('Altitude Radio EFIS (R)')):
-        sources = [source_A, source_B, source_C, source_E, source_L, source_R]
+               source_L = P('Altitude Radio (L)'),
+               source_R = P('Altitude Radio (R)'),
+               source_efis = P('Altitude Radio EFIS'),
+               source_efis_L = P('Altitude Radio EFIS (L)'),
+               source_efis_R = P('Altitude Radio EFIS (R)')):
+        sources = [source_A, source_B, source_C, source_L, source_R,
+                   source_efis, source_efis_L, source_efis_R]
         self.offset = 0.0
         self.frequency = 4.0
         self.array = blend_parameters(sources,
