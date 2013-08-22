@@ -2383,6 +2383,11 @@ class TestAutobrakeRejectedTakeoffNotSetDuringTakeoff(unittest.TestCase,
         from analysis_engine.key_point_values import \
             AutobrakeRejectedTakeoffNotSetDuringTakeoff
 
+        self.values_array = np.ma.array([1] * 3 + [0] * 6 + [1] * 3)
+        self.expected = [KeyPointValue(
+            index=3, value=4.0,
+            name='Autobrake Rejected Takeoff Not Set During Takeoff')]
+
         self.param_name = 'Autobrake Selected RTO'
         self.phase_name = 'Takeoff'
         self.node_class = AutobrakeRejectedTakeoffNotSetDuringTakeoff
