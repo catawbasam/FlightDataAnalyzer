@@ -2214,8 +2214,9 @@ class AutobrakeRejectedTakeoffNotSetDuringTakeoff(KeyPointValueNode):
                ab_rto=P('Autobrake Selected RTO'),
                takeoff=S('Takeoff')):
 
-        self.create_kpvs_where(ab_rto.array == 'Selected',
+        self.create_kpvs_where(ab_rto.array != 'Selected',
                                ab_rto.hz, phase=takeoff)
+
 
 ##############################################################################
 # Altitude
