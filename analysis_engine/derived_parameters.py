@@ -1798,7 +1798,7 @@ class Eng_TPRMin(DerivedParameterNode):
     '''
     '''
 
-    name = 'Eng (*) TPR Max'
+    name = 'Eng (*) TPR Min'
     align = False
 
     @classmethod
@@ -3356,7 +3356,6 @@ class ILSFrequency(DerivedParameterNode):
     
     def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
                f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency')):
-                
 
         #TODO: Extend to allow for three-receiver installations
 
