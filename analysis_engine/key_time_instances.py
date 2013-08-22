@@ -492,7 +492,7 @@ class FlapAlternateArmed(KeyTimeInstanceNode):
     '''
     Indicates where flap alternate system has been armed.
     '''
-    def derive(self, faa=M('Flap (Alternate) Armed')):
+    def derive(self, faa=M('Flap Alternate Armed')):
         self.create_ktis_on_state_change(
             'Armed',
             faa.array,
@@ -529,7 +529,7 @@ class SlatAlternateArmed(KeyTimeInstanceNode):
     '''
     Indicates where slat alternate system has been armed.
     '''
-    def derive(self, saa=M('Slat (Alternate) Armed')):
+    def derive(self, saa=M('Slat Alternate Armed')):
         self.create_ktis_on_state_change(
             'Armed',
             saa.array,
