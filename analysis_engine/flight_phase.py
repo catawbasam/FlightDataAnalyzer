@@ -307,11 +307,11 @@ class ClimbCruiseDescent(FlightPhaseNode):
         for air in airs:
             altitudes = alt_std.array[air.slice]
             # We squash the altitude signal above 10,000ft so that changes of
-            # altitude to create a new flight phase have to be five times
+            # altitude to create a new flight phase have to be 10 times
             # greater; 500ft changes below 10,000ft are significant, while
-            # above this 2,500ft is more meaningful.
-            alt_squash = np.ma.where(altitudes>10000, 
-                                     (altitudes-10000)/5.0+10000,
+            # above this 5,000ft is more meaningful.
+            alt_squash = np.ma.where(altitudes>10000,
+                                     (altitudes-10000)/10.0+10000,
                                      altitudes
                                      )
             pk_idxs, pk_vals = cycle_finder(alt_squash,
@@ -355,17 +355,12 @@ class CombinedClimb(FlightPhaseNode):
 
         end_list = [x.index for x in toc.get_ordered_by_index()]
         start_list = [y.index for y in [lo.get_first()] + ga.get_ordered_by_index()]
+        assert len(start_list) == len(end_list)
 
-        if len(start_list) == len(end_list):
-            slice_idxs = zip(start_list, end_list)
-            for slice_tuple in slice_idxs:
-                self.create_phase(slice(*slice_tuple))
-        else:
-            #TODO: remove else once ClimbCruiseDescent has been improved
-            self.warning('Differing number of Liftoff/GA vs TOC, using whole flight as Fallback')
-            start = lo.get_first().index
-            end = touchdown.get_last().index
-            self.create_phase(slice(start, end))
+        slice_idxs = zip(start_list, end_list)
+        for slice_tuple in slice_idxs:
+            self.create_phase(slice(*slice_tuple))
+
 
 class Climb(FlightPhaseNode):
     '''
@@ -449,17 +444,11 @@ class CombinedDescent(FlightPhaseNode):
 
         end_list = [x.index for x in bod_set.get_ordered_by_index()]
         start_list = [y.index for y in tod_set.get_ordered_by_index()]
+        assert len(start_list) == len(end_list)
 
-        if len(start_list) == len(end_list):
-            slice_idxs = zip(start_list, end_list)
-            for slice_tuple in slice_idxs:
-                self.create_phase(slice(*slice_tuple))
-        else:
-            #TODO: remove else once ClimbCruiseDescent has been improved
-            self.warning('Differing number of TOD vs BOD, using whole flight as Fallback')
-            start = liftoff.get_first().index
-            end = touchdown.get_last().index
-            self.create_phase(slice(start, end))
+        slice_idxs = zip(start_list, end_list)
+        for slice_tuple in slice_idxs:
+            self.create_phase(slice(*slice_tuple))
 
 
 class Descending(FlightPhaseNode):
