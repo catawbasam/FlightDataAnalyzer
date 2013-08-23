@@ -11,7 +11,6 @@ from flightdatautilities.model_information import (get_aileron_map,
                                                    get_flap_map,
                                                    get_slat_map)
 from flightdatautilities.velocity_speed import get_vspeed_map
-from hdfaccess.parameter import MappedArray
 
 from analysis_engine.exceptions import DataFrameError
 from analysis_engine.node import (
@@ -31,7 +30,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      cas2dp,
                                      coreg,
                                      cycle_finder,
-                                     datetime_of_index,
                                      dp2tas,
                                      dp_over_p2mach,
                                      filter_vor_ils_frequencies,
@@ -41,12 +39,10 @@ from analysis_engine.library import (actuator_mismatch,
                                      ground_track,
                                      ground_track_precise,
                                      hysteresis,
-                                     index_at_value,
                                      integrate,
                                      ils_localizer_align,
-                                     index_closest_value,
+                                     index_at_value,
                                      interpolate,
-                                     is_day,
                                      is_index_within_slice,
                                      last_valid_sample,
                                      latitudes_and_longitudes,
@@ -56,8 +52,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      mask_outside_slices,
                                      match_altitudes,
                                      max_value,
-                                     merge_masks,
-                                     merge_two_parameters,
                                      moving_average,
                                      np_ma_ones_like,
                                      np_ma_masked_zeros_like,
@@ -80,13 +74,11 @@ from analysis_engine.library import (actuator_mismatch,
                                      slices_or,
                                      smooth_track,
                                      step_values,
-                                     straighten_altitudes,
                                      straighten_headings,
                                      second_window,
                                      track_linking,
                                      value_at_index,
-                                     vstack_params,
-                                     vstack_params_where_state)
+                                     vstack_params)
 
 from settings import (AZ_WASHOUT_TC,
                       FEET_PER_NM,
@@ -1055,15 +1047,17 @@ class AltitudeRadio(DerivedParameterNode):
         return any_of([name for name in cls.get_dependency_names() \
                        if name.startswith('Altitude Radio')], available)
 
-    
     def derive(self,
                source_A = P('Altitude Radio (A)'),
                source_B = P('Altitude Radio (B)'),
                source_C = P('Altitude Radio (C)'),
-               source_E = P('Altitude Radio EFIS'),
-               source_L = P('Altitude Radio EFIS (L)'),
-               source_R = P('Altitude Radio EFIS (R)')):
-        sources = [source_A, source_B, source_C, source_E, source_L, source_R]
+               source_L = P('Altitude Radio (L)'),
+               source_R = P('Altitude Radio (R)'),
+               source_efis = P('Altitude Radio EFIS'),
+               source_efis_L = P('Altitude Radio EFIS (L)'),
+               source_efis_R = P('Altitude Radio EFIS (R)')):
+        sources = [source_A, source_B, source_C, source_L, source_R,
+                   source_efis, source_efis_L, source_efis_R]
         self.offset = 0.0
         self.frequency = 4.0
         self.array = blend_parameters(sources,
@@ -1816,7 +1810,7 @@ class Eng_TPRMin(DerivedParameterNode):
     '''
     '''
 
-    name = 'Eng (*) TPR Max'
+    name = 'Eng (*) TPR Min'
     align = False
 
     @classmethod
@@ -1909,7 +1903,7 @@ class Eng_1_FuelBurn(DerivedParameterNode):
 
 
 class Eng_2_FuelBurn(DerivedParameterNode):
-    '''
+    ''''
     Amount of fuel burnt since the start of the data.
     '''
 
@@ -2952,7 +2946,6 @@ class FuelQty(DerivedParameterNode):
         ##else:
             ##raise DataFrameError(self.name, frame.value)
 
-    
 
 class GrossWeightSmoothed(DerivedParameterNode):
     '''
@@ -2983,9 +2976,14 @@ class GrossWeightSmoothed(DerivedParameterNode):
         gw_masked = mask_outside_slices(gw.array, fast.get_slices())
 
         gw_nonzero = gw.array.nonzero()[0]
-
+        
+        flow = repair_mask(ff.array)
+        fuel_to_burn = np.ma.array(integrate(flow / 3600.0, ff.frequency,
+                                             direction='reverse'))
+        
         try:
-            gw_valid_index = gw_masked.nonzero()[0][-1]
+            valid_index = np.ma.intersect1d(gw_masked.nonzero()[0],
+                                            fuel_to_burn.nonzero()[0])[-1]
         except IndexError:
             self.warning(
                 "'%s' had no valid samples within '%s' section, but outside "
@@ -2994,16 +2992,14 @@ class GrossWeightSmoothed(DerivedParameterNode):
             self.array = gw.array
             return
 
-        flow = repair_mask(ff.array)
-        fuel_to_burn = np.ma.array(integrate(flow / 3600.0, ff.frequency,
-                                             direction='reverse'))
-
-        offset = gw_masked[gw_valid_index] - fuel_to_burn[gw_valid_index]
+        offset = gw_masked[valid_index] - fuel_to_burn[valid_index]
 
         self.array = fuel_to_burn + offset
 
         # Test that the resulting array is sensible compared with Gross Weight.
-        test_index = len(gw_nonzero) / 2
+        where_array = np.ma.where(self.array)[0]
+        test_index = where_array[len(where_array) / 2]
+        #test_index = len(gw_nonzero) / 2
         test_difference = \
             abs(gw.array[test_index] - self.array[test_index]) > 1000
         if test_difference > 1000: # Q: Is 1000 too large?
@@ -3062,24 +3058,87 @@ class FlapAngle(DerivedParameterNode):
     units = 'deg'
 
     @classmethod
-    def can_operate(cls, available):
-        return any_of((
+    def can_operate(cls, available, family=A('Family')):
+        flap_angle = any_of((
             'Flap Angle (L)', 'Flap Angle (R)',
             'Flap Angle (L) Inboard', 'Flap Angle (R) Inboard',
         ), available)
+        if family and family.value == 'B787':
+            return flap_angle and 'Slat Surface' in available
+        else:
+            return flap_angle
+    
+    @staticmethod
+    def _combine_flap_slat(slat_array, flap_array, conf_map):
+        '''
+        Example conf map (slat, flap):
+        'B787': {
+            0:    (0, 0),
+            1:    (50, 0),
+            5:    (50, 5),
+            15:   (50, 15),
+            20:   (50, 20),
+            25:   (100, 20),
+            30:   (100, 30),
+        }
+        Creates interpolation params:
+        Slat X: [0, 50, 100]
+        Slat Y: [0, 1, 6]
+        Flap X: [0, 5, 15, 20, 30]
+        Flap Y: [0, 4, 14, 19, 24]
+        '''
+        # Assumes states are strings.
+        previous_state = None
+        previous_slat = None
+        previous_flap = None
+        slat_interp_x = []
+        slat_interp_y = []
+        flap_interp_x = []
+        flap_interp_y = []
+        for index, (current_state, (current_slat, current_flap)) in enumerate(sorted(conf_map.items())):
+            if index == 0:
+                previous_state = current_state
+            state_difference = current_state - previous_state
+            if index == 0 or (previous_slat != current_slat):
+                slat_interp_x.append(current_slat)
+                slat_interp_y.append((slat_interp_y[-1] if slat_interp_y else 0)
+                                     + state_difference)
+                previous_slat = current_slat
+            if index == 0 or (previous_flap != current_flap):
+                flap_interp_x.append(current_flap)
+                flap_interp_y.append((flap_interp_y[-1] if flap_interp_y else 0)
+                                     + state_difference)
+                previous_flap = current_flap
+            previous_state = current_state
+        slat_interp = interp1d(slat_interp_x, slat_interp_y)
+        flap_interp = interp1d(flap_interp_x, flap_interp_y)
+        return slat_interp(slat_array) + flap_interp(flap_array)
 
     def derive(self,
                flap_A=P('Flap Angle (L)'),
                flap_B=P('Flap Angle (R)'),
                flap_A_inboard=P('Flap Angle (L) Inboard'),
                flap_B_inboard=P('Flap Angle (R) Inboard'),
-               frame=A('Frame')):
+               slat=P('Slat Surface'),
+               frame=A('Frame'),
+               family=A('Family')):
 
         frame_name = frame.value if frame else ''
+        family_name = family.value if family else ''
         flap_A = flap_A or flap_A_inboard
         flap_B = flap_B or flap_B_inboard
         
-        if frame_name in ['747-200-GE', '747-200-PW', '747-200-AP-BIB']:
+        if family_name == 'B787':
+            conf_map = get_conf_map(None, family_name)
+            # Flap settings 1 and 25 only affect Slat.
+            # Combine Flap Angle (L) and Flap Angle (R).
+            self.array, self.frequency, self.offset = blend_two_parameters(
+                flap_A, flap_B)
+            # Frequency will be doubled after blending parameters.
+            slat.array = align(slat, self)
+            self.array = self._combine_flap_slat(slat.array, self.array,
+                                                 conf_map)
+        elif frame_name in ['747-200-GE', '747-200-PW', '747-200-AP-BIB']:
             # Only the right inboard flap is instrumented.
             self.array = flap_B.array
         else:
@@ -3116,6 +3175,21 @@ class SlatSurface(DerivedParameterNode):
     s1t = M('Slat (1) In Transit'),
     s1m = M('Slat (1) Mid Extended'),
 '''
+
+class SlatSurface(DerivedParameterNode):
+    '''
+    Combines Slat (L) and Slat (R).
+    
+    TODO: Reconsider naming of Slat parameters for consistency.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return 'Slat (L)' in available or 'Slat (R)' in available
+    
+    def derive(self, slat_l=P('Slat (L)'), slat_r=P('Slat (R)')):
+        self.array, self.frequency, self.offset = blend_two_parameters(slat_l,
+                                                                       slat_r)
+
 
 class Slat(DerivedParameterNode):
     """
@@ -3294,7 +3368,6 @@ class ILSFrequency(DerivedParameterNode):
     
     def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
                f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency')):
-                
 
         #TODO: Extend to allow for three-receiver installations
 
@@ -4022,7 +4095,6 @@ class MagneticVariationFromRunway(DerivedParameterNode):
         # landing variation is more likely to be the same as takeoff than 0
         # degrees (and vice versa).
         self.array = interpolate(dev, extrapolate=True)
-
 
 
 class VerticalSpeedInertial(DerivedParameterNode):
@@ -5070,8 +5142,8 @@ class Speedbrake(DerivedParameterNode):
               which parameters are required.
         '''
         return 'Frame' in available and (
+            all_of(('Spoiler (1)', 'Spoiler (14)'), available) or
             all_of(('Spoiler (2)', 'Spoiler (7)'), available) or
-            all_of(('Spoiler (1)', 'Spoiler (7)'), available) or
             all_of(('Spoiler (4)', 'Spoiler (9)'), available))
     
     def merge_spoiler(self, spoiler_a, spoiler_b):
@@ -5089,9 +5161,10 @@ class Speedbrake(DerivedParameterNode):
         return array, offset
 
     def derive(self,
-            spoiler_2=P('Spoiler (2)'), spoiler_7=P('Spoiler (7)'),
-            spoiler_4=P('Spoiler (4)'), spoiler_9=P('Spoiler (9)'),
-            spoiler_1=P('Spoiler (1)'), frame=A('Frame')):
+            spoiler_1=P('Spoiler (1)'), spoiler_2=P('Spoiler (2)'),
+            spoiler_7=P('Spoiler (7)'), spoiler_4=P('Spoiler (4)'),
+            spoiler_9=P('Spoiler (9)'), spoiler_14=P('Spoiler (14)'),
+            frame=A('Frame')):
         '''
         '''
         frame_name = frame.value if frame else ''
@@ -5105,7 +5178,7 @@ class Speedbrake(DerivedParameterNode):
             self.array, self.offset = self.merge_spoiler(spoiler_2, spoiler_7)
         
         elif frame_name == '787-RR-BCG49-ACMF-RR17':
-            self.array, self.offset = self.merge_spoiler(spoiler_1, spoiler_7)
+            self.array, self.offset = self.merge_spoiler(spoiler_1, spoiler_14)
 
         else:
             raise DataFrameError(self.name, frame_name)
@@ -5547,3 +5620,48 @@ class ElevatorActuatorMismatch(DerivedParameterNode):
         
         self.array = amm
 
+
+class VMOLookup(DerivedParameterNode):
+    '''
+    Maximum operating limit speed.
+    '''
+    name = 'VMO Lookup'
+    units = 'kts'
+
+    @classmethod
+    def can_operate(cls, available, series=A('Series'), family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        return 'Altitude AAL' in available and get_vmo_procedure(
+            series=series.value, family=family.value).vmo
+
+    def derive(self, aal=P('Altitude AAL'), series=A('Series'),
+               family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        proc = get_vmo_procedure(series=series.value, family=family.value)
+        if proc:
+            self.array = proc.get_vmo_mmo_arrays(aal.array)[0]
+
+
+class MMOLookup(DerivedParameterNode):
+    '''
+    Maximum operating limit Mach.
+    '''
+    name = 'MMO Lookup'
+    units = 'Mach'
+
+    @classmethod
+    def can_operate(cls, available, series=A('Series'), family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        return 'Altitude AAL' in available and get_vmo_procedure(
+            series=series.value, family=family.value).mmo
+
+    def derive(self, aal=P('Altitude AAL'), series=A('Series'),
+               family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        proc = get_vmo_procedure(series=series.value, family=family.value)
+        if proc:
+            self.array = proc.get_vmo_mmo_arrays(aal.array)[1]

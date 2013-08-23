@@ -1,21 +1,20 @@
 Changes
 =======
 
-0.0.7
+0.0.6
 -----
-Dependency tree fulfils a full tree structure when requested node is not the end leaf of a tree
 
-???
------
-Dependency tree accounts for cyclic dependencies - very clever!
+ - Support for Beechcraft 1900D.
+ - Improved liftoff detection algorithm.
+
 
 0.0.2
 -----
 
-Support for B757 / B767.
+ - Support for B757 / B767.
 
 0.0.1
 ------
 
-Initial release directed at B737.
+ - Initial release directed at B737.
 

@@ -217,17 +217,13 @@ class Configuration(MultistateDerivedParameterNode):
     }
 
     @classmethod
-    def can_operate(cls, available):
-        # TODO: Implement check for the value of Family for Airbus
+    def can_operate(cls, available, manu=A('Manufacturer')):
+        if manu and manu.value != 'Airbus':
+            return False
         return all_of(('Slat', 'Flap', 'Series', 'Family'), available)
 
     def derive(self, slat=P('Slat'), flap=M('Flap'), flaperon=P('Flaperon'),
-               series=A('Series'), family=A('Family'), manu=A('Manufacturer')):
-
-        if manu and manu.value != 'Airbus':
-            # TODO: remove check once we can check attributes in can_operate
-            self.array = np_ma_masked_zeros_like(flap.array)
-            return
+               series=A('Series'), family=A('Family')):
 
         mapping = get_conf_map(series.value, family.value)
         qty_param = len(mapping.itervalues().next())
@@ -519,11 +515,11 @@ class Flap(MultistateDerivedParameterNode):
             flap_herc = np_ma_zeros_like(alt_aal.array)
 
             # Takeoff is normally with 50% flap382
-            _, toffs = slices_from_to(alt_aal.array, 0.0,1000.0)
+            _, toffs = slices_from_to(alt_aal.array, 0.0, 1000.0)
             flap_herc[:toffs[0].stop] = 50.0
 
             # Assume 50% from 2000 to 1000ft, and 100% thereafter on the approach.
-            _, apps = slices_from_to(alt_aal.array, 2000.0,0.0)
+            _, apps = slices_from_to(alt_aal.array, 2000.0, 0.0)
             flap_herc[apps[-1].start:] = np.ma.where(alt_aal.array[apps[-1].start:]>1000.0,50.0,100.0)
 
             self.array = np.ma.array(flap_herc)
@@ -866,6 +862,38 @@ class ILSOuterMarker(MultistateDerivedParameterNode):
         ).any(axis=0)
 
 
+class KeyVHFCapt(MultistateDerivedParameterNode):
+    
+    name = 'Key VHF (Capt)'
+    values_mapping = {0: '-', 1: 'Keyed'}
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)', 'Key VHF (R) (Capt)'), available)
+
+    def derive(self, key_vhf_l=M('Key VHF (L) (Capt)'),
+               key_vhf_c=M('Key VHF (C) (Capt)'),
+               key_vhf_r=M('Key VHF (R) (Capt)')):
+        arrays = [p.array for p in (key_vhf_l, key_vhf_c, key_vhf_r)]
+        self.array = np.ma.logical_and(*arrays)
+
+
+class KeyVHFFO(MultistateDerivedParameterNode):
+    
+    name = 'Key VHF (FO)'
+    values_mapping = {0: '-', 1: 'Keyed'}
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Key VHF (L) (FO)', 'Key VHF (C) (FO)', 'Key VHF (R) (FO)'), available)
+
+    def derive(self, key_vhf_l=M('Key VHF (L) (FO)'),
+               key_vhf_c=M('Key VHF (C) (FO)'),
+               key_vhf_r=M('Key VHF (R) (FO)')):
+        arrays = [p.array for p in (key_vhf_l, key_vhf_c, key_vhf_r)]
+        self.array = np.ma.logical_and(*arrays)
+
+
 class MasterWarning(MultistateDerivedParameterNode):
     '''
     Combine master warning for captain and first officer.
@@ -1052,6 +1080,20 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
                             'Deployed/Cmd Up', armed)
         return array
 
+    def b787_speedbrake(self, handle):
+        '''
+        Speedbrake Handle Positions for 787, taken from early recordings. The
+        units are unknown - may be inches of transducer or degrees of handle
+        movement, but with -6.18 in the stowed position we anticipate a
+        change in this procedure.
+        '''
+        # Speedbrake Handle only
+        armed = np.ma.where((-4.0 < handle.array) & (handle.array < 0.0),
+                            'Armed/Cmd Dn', 'Stowed')
+        array = np.ma.where(handle.array >= 0.0,
+                            'Deployed/Cmd Up', armed)
+        return array
+
 
     def derive(self,
                deployed=M('Speedbrake Deployed'),
@@ -1075,8 +1117,11 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         elif 'B737' in family_name:
             self.array = self.b737_speedbrake(spdbrk, handle)
 
-        elif family_name in ['B757', 'B767', 'B787']:
+        elif family_name in ['B757', 'B767']:
             self.array = self.b757_767_speedbrake(handle)
+
+        elif family_name in ['B787']:
+            self.array = self.b787_speedbrake(handle)
 
         elif family_name == 'A320':
             self.array = self.a320_speedbrake(armed, spdbrk)

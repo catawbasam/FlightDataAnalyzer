@@ -521,7 +521,7 @@ class AccelerationNormalAtTouchdown(KeyPointValueNode):
             self.create_kpv(*bump(acc_norm, touchdown))
 
 
-class AccelerationNormalLiftoffTo35FtMax(KeyPointValueNode):
+class AccelerationNormalTakeoffMax(KeyPointValueNode):
     '''
     '''
 
@@ -2217,8 +2217,9 @@ class AutobrakeRejectedTakeoffNotSetDuringTakeoff(KeyPointValueNode):
                ab_rto=P('Autobrake Selected RTO'),
                takeoff=S('Takeoff')):
 
-        self.create_kpvs_where(ab_rto.array == 'Selected',
+        self.create_kpvs_where(ab_rto.array != 'Selected',
                                ab_rto.hz, phase=takeoff)
+
 
 ##############################################################################
 # Altitude
@@ -2759,9 +2760,7 @@ class AltitudeAtGearDownSelectionWithFlapDown(KeyPointValueNode):
                flap=M('Flap')):
 
         flap_dns = np.ma.clump_unmasked(np.ma.masked_equal(flap.array, 0.0))
-        flap_dn_gear_downs = []
-        for _slice in flap_dns:
-            flap_dn_gear_downs.extend(gear_downs.get(within_slice=_slice))
+        flap_dn_gear_downs = gear_downs.get(within_slices=flap_dns)
         self.create_kpvs_at_ktis(alt_aal.array, flap_dn_gear_downs)
 
 
@@ -2835,9 +2834,7 @@ class AltitudeAtGearDownSelectionWithFlapUp(KeyPointValueNode):
                flap=M('Flap')):
         
         flap_ups = np.ma.clump_unmasked(np.ma.masked_greater(flap.array, 0))
-        flap_up_gear_downs = []
-        for _slice in flap_ups:
-            flap_up_gear_downs.extend(gear_downs.get(within_slice=_slice))
+        flap_up_gear_downs = gear_downs.get(within_slices=flap_ups)
         self.create_kpvs_at_ktis(alt_aal.array, flap_up_gear_downs)
 
 
@@ -3996,7 +3993,9 @@ class IANGlidepathDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                ian_glide_est = scan_ils('glideslope', ian_glidepath.array, alt_aal.array, band)
+                ian_glide_est = scan_ils('glideslope', ian_glidepath.array,
+                                         alt_aal.array, band,
+                                         ian_glidepath.frequency)
                 if ian_glide_est:
                     ian_est_bands.append(ian_glide_est)
 
@@ -4047,7 +4046,9 @@ class IANFinalApproachCourseDeviationMax(KeyPointValueNode):
 
             ian_est_bands = []
             for band in alt_bands:
-                final_app_course_est = scan_ils('glideslope', ian_final.array, alt_aal.array, band)
+                final_app_course_est = scan_ils('glideslope', ian_final.array,
+                                                alt_aal.array, band,
+                                                ian_final.frequency)
                 if final_app_course_est:
                     ian_est_bands.append(final_app_course_est)
 
@@ -6764,7 +6765,7 @@ class PitchAt35FtDuringClimb(KeyPointValueNode):
                 self.create_kpv(index, value)
 
 
-class PitchLiftoffTo35FtMax(KeyPointValueNode):
+class PitchTakeoffMax(KeyPointValueNode):
     '''
     '''
 
@@ -6772,13 +6773,9 @@ class PitchLiftoffTo35FtMax(KeyPointValueNode):
 
     def derive(self,
                pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL')):
+               takeoffs=S('Takeoff')):
 
-        self.create_kpvs_within_slices(
-            pitch.array,
-            alt_aal.slices_from_to(0, 35),
-            max_value,
-        )
+        self.create_kpvs_within_slices(pitch.array, takeoffs, max_value)
 
 
 class Pitch35To400FtMax(KeyPointValueNode):
@@ -9206,3 +9203,49 @@ class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
                 last_change = changes[-1]
                 time_from_liftoff = (roll_end - last_change) / self.frequency
                 self.create_kpv(last_change, time_from_liftoff)
+
+
+class AirspeedOverVMOMax(KeyPointValueNode):
+    '''
+    Maximum VMO exceeding.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('VMO', 'VMO Lookup'), available) \
+            and 'Airborne' in available
+
+    def derive(self, airspeed=P('Airspeed'), vmo=P('VMO'),
+               vmol=P('VMO Lookup'), airborne=S('Airborne')):
+        if not vmo and vmol:
+            vmo = vmol
+
+        exceedings = airspeed.array - vmo.array
+        exceedings = np.ma.masked_where(exceedings <= 0, exceedings)
+        self.create_kpvs_within_slices(
+            exceedings,
+            airborne,
+            max_value,
+        )
+
+
+class MachOverMMOMax(KeyPointValueNode):
+    '''
+    Maximum MMO exceeding.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('MMO', 'MMO Lookup'), available) \
+            and 'Airborne' in available
+
+    def derive(self, mach=P('Mach'), mmo=P('MMO'), mmol=P('MMO Lookup'),
+               airborne=S('Airborne')):
+        if not mmo and mmol:
+            mmo = mmol
+
+        exceedings = mach.array - mmo.array
+        exceedings = np.ma.masked_where(exceedings <= 0, exceedings)
+        self.create_kpvs_within_slices(
+            exceedings,
+            airborne,
+            max_value,
+        )

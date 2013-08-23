@@ -364,8 +364,14 @@ NAME_VALUES_CONF = {
 }
 
 
+NAME_VALUES_SLAT = {
+    'slat': model_information.get_slat_detents()
+}
+
+
 NAME_VALUES_CLIMB = {
-    'altitude': [10, 20, 35, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000,
+    'altitude': [
+        10, 20, 35, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000,
         1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 9000,
         10000],
 }

@@ -43,6 +43,8 @@ from analysis_engine.multistate_parameters import (
     GearDownSelected,
     GearOnGround,
     GearUpSelected,
+    KeyVHFCapt,
+    KeyVHFFO,
     MasterWarning,
     PackValvesOpen,
     PitchAlternateLaw,
@@ -51,7 +53,7 @@ from analysis_engine.multistate_parameters import (
     StickShaker,
     TAWSAlert,
     ThrustReversers,
-    )
+)
 
 
 test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -212,8 +214,6 @@ class TestAutoland(unittest.TestCase, NodeTest):
         ma_test.assert_array_equal(expected.array, eng.array)
 
 
-
-
 class TestConfiguration(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -230,6 +230,14 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         self.flap = M('Flap', np.tile(np.ma.array(f), 10000),
                       values_mapping={x: str(x) for x in np.ma.unique(f)})
         self.ails = P('Flaperon', np.tile(np.ma.array(a), 10000))
+    
+    def test_can_operate_not_airbus(self):
+        self.assertFalse(self.node_class.can_operate(
+            ['Flap', 'Slat', 'Series', 'Family'],
+            manu=Attribute('Manufacturer', 'Boeing')))
+        self.assertTrue(self.node_class.can_operate(
+            ['Flap', 'Slat', 'Series', 'Family'],
+            manu=Attribute('Manufacturer', 'Airbus')))
 
     def test_conf_for_a330(self):
         # Note: The last state is invalid...
@@ -247,9 +255,8 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         # return masked array
         series = A('Series', 'Global Express XRS')
         family = A('Family', 'Global')
-        manuf = A('Manufacturer', 'Bombardier')
         node = self.node_class()
-        node.derive(self.slat, self.flap, self.ails, series, family, manuf)
+        node.derive(self.slat, self.flap, self.ails, series, family)
         
         self.assertEqual(np.ma.count_masked(node.array), 170000)
         self.assertEqual(np.ma.count(node.array), 0)
@@ -259,6 +266,7 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         timer = Timer(self.test_conf_for_a330)
         time = min(timer.repeat(1, 1))
         self.assertLess(time, 0.3, msg='Took too long: %.3fs' % time)
+
 
 class TestDaylight(unittest.TestCase):
     def test_can_operate(self):
@@ -749,6 +757,40 @@ class TestGearUpSelected(unittest.TestCase):
         up_sel.derive(gdn, redl, redr, redn)
         np.testing.assert_array_equal(up_sel.array,
                                         [0,0,0,1,1,1,1,1,1,0,0,0,0,0])
+
+
+class TestKeyVHFCapt(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertEqual(KeyVHFCapt.get_operational_combinations(),
+                         [('Key VHF (L) (Capt)',),
+                          ('Key VHF (C) (Capt)',),
+                          ('Key VHF (R) (Capt)',),
+                          ('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)'),
+                          ('Key VHF (L) (Capt)', 'Key VHF (R) (Capt)'),
+                          ('Key VHF (C) (Capt)', 'Key VHF (R) (Capt)'),
+                          ('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)', 'Key VHF (R) (Capt)')])
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
+
+
+class TestKeyVHFFO(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertEqual(KeyVHFFO.get_operational_combinations(),
+                         [('Key VHF (L) (FO)',),
+                          ('Key VHF (C) (FO)',),
+                          ('Key VHF (R) (FO)',),
+                          ('Key VHF (L) (FO)', 'Key VHF (C) (FO)'),
+                          ('Key VHF (L) (FO)', 'Key VHF (R) (FO)'),
+                          ('Key VHF (C) (FO)', 'Key VHF (R) (FO)'),
+                          ('Key VHF (L) (FO)', 'Key VHF (C) (FO)', 'Key VHF (R) (FO)')])
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
 
 
 class TestMasterWarning(unittest.TestCase, NodeTest):
