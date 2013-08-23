@@ -262,7 +262,7 @@ class AccelerationLateralWhileTaxiingStraightMax(KeyPointValueNode):
     units = 'g'
 
     def derive(self,
-               acc_lat=P('Acceleration Lateral Offset Removed'),
+               acc_lat=P('Acceleration Lateral Smoothed'),
                taxiing=S('Taxiing'),
                turns=S('Turning On Ground')):
 
@@ -277,12 +277,15 @@ class AccelerationLateralWhileTaxiingTurnMax(KeyPointValueNode):
     can lead to taxiway excursions. Lateral acceleration is used in preference
     to groundspeed as this parameter is available on older aircraft and is
     directly related to comfort.
+    
+    We use the smoothed lateral acceleration which removes spikey signals due
+    to uneven surfaces.
     '''
 
     units = 'g'
 
     def derive(self,
-               acc_lat=P('Acceleration Lateral Offset Removed'),
+               acc_lat=P('Acceleration Lateral Smoothed'),
                taxiing=S('Taxiing'),
                turns=S('Turning On Ground')):
 
