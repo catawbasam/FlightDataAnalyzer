@@ -752,19 +752,28 @@ class Airspeed35To1000FtMin(KeyPointValueNode):
 
 class Airspeed1000To8000FtMax(KeyPointValueNode):
     '''
+    Airspeed from 1000ft above the airfield to a pressure altitude of 8000ft.
+    As we are only interested in the climbing phase, this is used as the
+    normal slices_from_to will not work with two parameters.
     '''
 
     units = 'kt'
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               alt_std=P('Altitude STD Smoothed'),
+               climbs=S('Climb')):
 
-        self.create_kpv_from_slices(
-            air_spd.array,
-            alt_aal.slices_from_to(1000, 8000),
-            max_value,
-        )
+        for climb in climbs:
+            aal=np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array[climb.slice], 1000.0))
+            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_aal.array[climb.slice], 8000.0))
+            scope=shift_slices(slices_and(aal, std), climb.slice.start)
+            self.create_kpv_from_slices(
+                air_spd.array,
+                scope,
+                max_value
+                )
 
 
 class Airspeed8000To10000FtMax(KeyPointValueNode):
@@ -807,19 +816,27 @@ class Airspeed10000To8000FtMax(KeyPointValueNode):
 
 class Airspeed8000To5000FtMax(KeyPointValueNode):
     '''
+    Airspeed from 8000ft pressure altitude to 5000ft above the airfield.
+    As we are only interested in the descending phase, this is used as the
+    normal slices_from_to will not work with two parameters.
     '''
-
     units = 'kt'
-
+     
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude STD Smoothed')):
-
-        self.create_kpv_from_slices(
-            air_spd.array,
-            alt_aal.slices_from_to(8000, 5000),
-            max_value,
-        )
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               alt_std=P('Altitude STD Smoothed'),
+               descends=S('Descent')):
+    
+        for descend in descends:
+            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_aal.array[descend.slice], 8000.0))
+            aal=np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array[descend.slice], 5000.0))
+            scope=shift_slices(slices_and(aal, std), descend.slice.start)
+            self.create_kpv_from_slices(
+                air_spd.array,
+                scope,
+                max_value
+                )
 
 
 class Airspeed5000To3000FtMax(KeyPointValueNode):
