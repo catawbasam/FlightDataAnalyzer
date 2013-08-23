@@ -118,7 +118,19 @@ class AccelerationLateralOffsetRemoved(DerivedParameterNode):
             self.array = acc.array - offset[0].value
         else:
             self.array = acc.array
+            
 
+class AccelerationLateralSmoothed(DerivedParameterNode):
+    '''
+    Apply a moving average for two seconds (9 samples) to smooth out spikes
+    caused by uneven surfaces - especially noticable during cornering.
+    '''
+    units = 'g'
+    
+    def derive(self, acc=P('Acceleration Lateral Offset Removed')):
+        self.window = acc.hz * 2 + 1  # store for ease of testing
+        self.array = moving_average(acc.array, window=self.window)
+    
 
 class AccelerationLongitudinalOffsetRemoved(DerivedParameterNode):
     """
