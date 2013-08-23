@@ -9200,3 +9200,49 @@ class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
                 last_change = changes[-1]
                 time_from_liftoff = (roll_end - last_change) / self.frequency
                 self.create_kpv(last_change, time_from_liftoff)
+
+
+class AirspeedOverVMOMax(KeyPointValueNode):
+    '''
+    Maximum VMO exceeding.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('VMO', 'VMO Lookup'), available) \
+            and 'Airborne' in available
+
+    def derive(self, airspeed=P('Airspeed'), vmo=P('VMO'),
+               vmol=P('VMO Lookup'), airborne=S('Airborne')):
+        if not vmo and vmol:
+            vmo = vmol
+
+        exceedings = airspeed.array - vmo.array
+        exceedings = np.ma.masked_where(exceedings <= 0, exceedings)
+        self.create_kpvs_within_slices(
+            exceedings,
+            airborne,
+            max_value,
+        )
+
+
+class MachOverMMOMax(KeyPointValueNode):
+    '''
+    Maximum MMO exceeding.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('MMO', 'MMO Lookup'), available) \
+            and 'Airborne' in available
+
+    def derive(self, mach=P('Mach'), mmo=P('MMO'), mmol=P('MMO Lookup'),
+               airborne=S('Airborne')):
+        if not mmo and mmol:
+            mmo = mmol
+
+        exceedings = mach.array - mmo.array
+        exceedings = np.ma.masked_where(exceedings <= 0, exceedings)
+        self.create_kpvs_within_slices(
+            exceedings,
+            airborne,
+            max_value,
+        )

@@ -1891,7 +1891,7 @@ class Eng_1_FuelBurn(DerivedParameterNode):
 
 
 class Eng_2_FuelBurn(DerivedParameterNode):
-    '''
+    ''''
     Amount of fuel burnt since the start of the data.
     '''
 
@@ -5608,3 +5608,48 @@ class ElevatorActuatorMismatch(DerivedParameterNode):
         
         self.array = amm
 
+
+class VMOLookup(DerivedParameterNode):
+    '''
+    Maximum operating limit speed.
+    '''
+    name = 'VMO Lookup'
+    units = 'kts'
+
+    @classmethod
+    def can_operate(cls, available, series=A('Series'), family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        return 'Altitude AAL' in available and get_vmo_procedure(
+            series=series.value, family=family.value).vmo
+
+    def derive(self, aal=P('Altitude AAL'), series=A('Series'),
+               family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        proc = get_vmo_procedure(series=series.value, family=family.value)
+        if proc:
+            self.array = proc.get_vmo_mmo_arrays(aal.array)[0]
+
+
+class MMOLookup(DerivedParameterNode):
+    '''
+    Maximum operating limit Mach.
+    '''
+    name = 'MMO Lookup'
+    units = 'Mach'
+
+    @classmethod
+    def can_operate(cls, available, series=A('Series'), family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        return 'Altitude AAL' in available and get_vmo_procedure(
+            series=series.value, family=family.value).mmo
+
+    def derive(self, aal=P('Altitude AAL'), series=A('Series'),
+               family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        proc = get_vmo_procedure(series=series.value, family=family.value)
+        if proc:
+            self.array = proc.get_vmo_mmo_arrays(aal.array)[1]
