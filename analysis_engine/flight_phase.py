@@ -343,6 +343,7 @@ class ClimbCruiseDescent(FlightPhaseNode):
                             n += 1
 
 
+"""
 class CombinedClimb(FlightPhaseNode):
     '''
     Climb phase from liftoff or go around to top of climb
@@ -360,7 +361,7 @@ class CombinedClimb(FlightPhaseNode):
         slice_idxs = zip(start_list, end_list)
         for slice_tuple in slice_idxs:
             self.create_phase(slice(*slice_tuple))
-
+"""
 
 class Climb(FlightPhaseNode):
     '''
@@ -510,6 +511,9 @@ class DescentLowClimb(FlightPhaseNode):
     '''
     Finds where the aircaft descends below the INITIAL_APPROACH_THRESHOLD and
     then climbs out again - an indication of a go-around.
+    
+    TODO: Consider refactoring this based on the Bottom Of Descent KTIs and
+    just check the altitude at each BOD.
     '''
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
         dlc = np.ma.masked_greater(alt_aal.array,

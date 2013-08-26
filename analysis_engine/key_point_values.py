@@ -7188,14 +7188,9 @@ class RateOfClimb35To1000FtMin(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases'),
-               climbs=S('Combined Climb')):
+               climbs=S('Initial Climb')):
 
-        alt_band = np.ma.masked_outside(alt_aal.array, 35, 1000)
-        for climb in climbs:
-            alt_climb_band = mask_outside_slices(alt_band, [climb.slice])
-            alt_climb_sections = np.ma.clump_unmasked(alt_climb_band)
-            self.create_kpv_from_slices(vrt_spd.array, alt_climb_sections, min_value)
+        self.create_kpvs_within_slices(vrt_spd.array, climbs, min_value)
 
 
 class RateOfClimbBelow10000FtMax(KeyPointValueNode):
