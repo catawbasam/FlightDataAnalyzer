@@ -355,11 +355,11 @@ class CombinedClimb(FlightPhaseNode):
 
         end_list = [x.index for x in toc.get_ordered_by_index()]
         start_list = [y.index for y in [lo.get_first()] + ga.get_ordered_by_index()]
-        if len(start_list) == len(end_list):
+        assert len(start_list) == len(end_list)
 
-            slice_idxs = zip(start_list, end_list)
-            for slice_tuple in slice_idxs:
-                self.create_phase(slice(*slice_tuple))
+        slice_idxs = zip(start_list, end_list)
+        for slice_tuple in slice_idxs:
+            self.create_phase(slice(*slice_tuple))
 
 
 class Climb(FlightPhaseNode):
@@ -444,11 +444,11 @@ class CombinedDescent(FlightPhaseNode):
 
         end_list = [x.index for x in bod_set.get_ordered_by_index()]
         start_list = [y.index for y in tod_set.get_ordered_by_index()]
-        if len(start_list) == len(end_list):
+        assert len(start_list) == len(end_list)
 
-            slice_idxs = zip(start_list, end_list)
-            for slice_tuple in slice_idxs:
-                self.create_phase(slice(*slice_tuple))
+        slice_idxs = zip(start_list, end_list)
+        for slice_tuple in slice_idxs:
+            self.create_phase(slice(*slice_tuple))
 
 
 class Descending(FlightPhaseNode):
@@ -510,32 +510,8 @@ class DescentLowClimb(FlightPhaseNode):
     '''
     Finds where the aircaft descends below the INITIAL_APPROACH_THRESHOLD and
     then climbs out again - an indication of a go-around.
-    
-    Note: This process is similar to the Bottom Of Descent KTI.
     '''
-    def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
-               ccd=S('ClimbCruiseDescent')):
-        
-        if len(ccd)<=1:
-            return # With only one climb and descent, there can be no dip.
-        previous_ccd = ccd.get_first()
-        while ccd.get_next(previous_ccd.slice.stop-1):
-            next_ccd = ccd.get_next(previous_ccd.slice.stop-1)
-            dip_ht = alt_aal.array[next_ccd.slice.start]
-            scan_back=slice(previous_ccd.slice.stop,previous_ccd.slice.start,-1)
-            startpoint = index_at_value(alt_aal.array,
-                                        dip_ht+DESCENT_LOW_CLIMB_THRESHOLD,
-                                        scan_back,
-                                        endpoint='closing')
-            endpoint = index_at_value_or_level_off(alt_aal.array, 
-                                                   dip_ht+DESCENT_LOW_CLIMB_THRESHOLD, 
-                                                   next_ccd.slice)
-            self.create_phase(slice(startpoint, endpoint))
-            # Prepare for the next dip...
-            previous_ccd = next_ccd
-        
-
-        """
+    def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
         dlc = np.ma.masked_greater(alt_aal.array,
                                    INITIAL_APPROACH_THRESHOLD)
         for this_dlc in np.ma.clump_unmasked(dlc):
@@ -549,7 +525,6 @@ class DescentLowClimb(FlightPhaseNode):
                     self.create_phase(
                         shift_slice(slice(pk_idxs[n-1], pk_idxs[n+1]),
                                     this_dlc.start))
-        """
 
 
 class Fast(FlightPhaseNode):

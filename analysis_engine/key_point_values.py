@@ -9,12 +9,10 @@ from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
                                       ACCEL_LON_OFFSET_LIMIT,
                                       ACCEL_NORM_OFFSET_LIMIT,
                                       CLIMB_OR_DESCENT_MIN_DURATION,
-                                      CLIMB_THRESHOLD,
                                       CONTROL_FORCE_THRESHOLD,
                                       FEET_PER_NM,
                                       GRAVITY_METRIC,
                                       HYSTERESIS_FPALT,
-                                      INITIAL_CLIMB_THRESHOLD,
                                       KTS_TO_MPS,
                                       NAME_VALUES_CONF,
                                       NAME_VALUES_ENGINE,
@@ -7184,23 +7182,20 @@ class RateOfClimbMax(KeyPointValueNode):
 
 class RateOfClimb35To1000FtMin(KeyPointValueNode):
     '''
-    The range 35ft to 1000 ft is the Initial Climb, hence the height range
-    restriction is covered by just selecting the initial climb phase.
     '''
 
     units = 'fpm'
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               climbs=S('Initial Climb')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               climbs=S('Combined Climb')):
 
-        # This uses the fact that the KPV is covering the initial climb
-        # phase. These assertions are just to ensure the possibility of
-        # inadvertant changes to the settings do not go unnoticecd.
-        assert CLIMB_THRESHOLD==1000
-        assert INITIAL_CLIMB_THRESHOLD==35
-
-        self.create_kpv_from_slices(vrt_spd.array, climbs, min_value)
+        alt_band = np.ma.masked_outside(alt_aal.array, 35, 1000)
+        for climb in climbs:
+            alt_climb_band = mask_outside_slices(alt_band, [climb.slice])
+            alt_climb_sections = np.ma.clump_unmasked(alt_climb_band)
+            self.create_kpv_from_slices(vrt_spd.array, alt_climb_sections, min_value)
 
 
 class RateOfClimbBelow10000FtMax(KeyPointValueNode):
