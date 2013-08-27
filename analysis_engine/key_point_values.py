@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import os
 
 from math import ceil
 from flightdatautilities.geometry import midpoint
@@ -51,6 +52,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      repair_mask,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
+                                     rate_of_change_array,
                                      runs_of_ones,
                                      runway_deviation,
                                      runway_distance_from_end,
@@ -5761,21 +5763,43 @@ class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
     def derive(self,
                tla=P('Throttle Levers'),
                landings=S('Landing'),
-               touchdowns=KTI('Touchdown')):
+               touchdowns=KTI('Touchdown'),
+               eng_n1=P('Eng (*) N1 Avg'),
+               frame=A('Frame')):
 
+        dt = 5/tla.hz # 5 second counter
         for landing in landings:
             for touchdown in touchdowns.get(within_slice=landing.slice):
-                # Seek the throttle lowpoint before thrust reverse is applied:
-                retard_idx = index_at_value(tla.array, 0.0, landing.slice,
-                                            endpoint='closing')
-                # The range of interest is therefore...
-                scan = slice(landing.slice.start - 5 / tla.hz, retard_idx)
+                begin = landing.slice.start-dt
+                # Seek the throttle reduction before thrust reverse is applied:
+                scope = slice(begin, landing.slice.stop)
+                dn1 = rate_of_change_array(eng_n1.array[scope], eng_n1.hz)
+                dtla = rate_of_change_array(tla.array[scope], tla.hz)
+                dboth = dn1*dtla
+                peak_decel = np.ma.argmax(dboth)
+                reduced_scope = slice(begin, landing.slice.start+peak_decel)
                 # Now see where the power is reduced:
-                reduce_idx = peak_curvature(tla.array, scan,
+                reduce_idx = peak_curvature(tla.array, reduced_scope,
                                             curve_sense='Convex', gap=1, ttp=3)
                 if reduce_idx:
-                    value = (reduce_idx - touchdown.index) / tla.hz
-                    self.create_kpv(reduce_idx, value)
+                    
+                    '''
+                    import matplotlib.pyplot as plt
+                    plt.plot(eng_n1.array[scope])
+                    plt.plot(tla.array[scope])
+                    plt.plot(reduce_idx-begin, eng_n1.array[reduce_idx],'db')
+                    output_dir = os.path.join('C:\\Users\\Dave Jesse\\FlightDataRunner\\test_data\\88-Results\\', 
+                                              'Throttle reduction graphs'+frame.name)
+                    if not os.path.exists(output_dir):
+                        os.mkdir(output_dir)
+                    plt.savefig(os.path.join(output_dir, frame.value + ' '+ str(int(reduce_idx)) +'.png'))
+                    plt.clf()
+                    print int(reduce_idx)
+                    '''
+                    
+                    if reduce_idx:
+                        value = (reduce_idx - touchdown.index) / tla.hz
+                        self.create_kpv(reduce_idx, value)
 
 
 ################################################################################
