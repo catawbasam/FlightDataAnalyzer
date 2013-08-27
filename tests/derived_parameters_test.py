@@ -41,6 +41,7 @@ from flight_phase_test import buildsection
 
 from analysis_engine.derived_parameters import (
     #ATEngaged,
+    AccelerationLateralSmoothed,
     AccelerationVertical,
     AccelerationForwards,
     AccelerationSideways,
@@ -226,6 +227,24 @@ class NodeTest(object):
 
 
 ##############################################################################
+
+
+class TestAccelerationLateralSmoothed(unittest.TestCase):
+    def test_can_operate(self):
+        opts = AccelerationLateralSmoothed.get_operational_combinations()
+        self.assertEqual(opts, [('Acceleration Lateral Offset Removed',)])
+        
+    def test_smoothing(self):
+        acc = AccelerationLateralSmoothed()
+        acc.derive(P(array=np.ma.array([0]*20 + [0, 0, 0, 0, 0, 0, 5, 10, 10, 5, 
+                                        25, 10, 5, 5, 0]),
+                     frequency=4))
+        self.assertEqual(acc.window, 9)  # 2secs * 4hz +1
+        self.assertEqual(np.ma.min(acc.array), 0)
+        self.assertAlmostEqual(np.ma.max(acc.array), 8.333, 2)
+                         
+    
+
 
 class TestAccelerationVertical(unittest.TestCase):
     def test_can_operate(self):

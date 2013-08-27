@@ -46,6 +46,23 @@ def sorted_valid_list(x):
 
 
 class BottomOfDescent(KeyTimeInstanceNode):
+    '''
+    '''
+    def derive(self, ccd=S('Climb Cruise Descent'),
+               airs=S('Airborne')):
+        for air in airs:
+            if air.slice.stop:
+                self.create_kti(air.stop_edge)
+        if len(ccd)<=1:
+            return # With only one climb and descent, there can be no dip.
+        previous_ccd = ccd.get_first()
+        while ccd.get_next(previous_ccd.slice.stop-1):
+            next_ccd = ccd.get_next(previous_ccd.slice.stop-1)
+            self.create_kti(previous_ccd.slice.stop)
+            # Prepare for the next dip...
+            previous_ccd = next_ccd
+        
+    """
     def derive(self, alt_std=P('Altitude AAL For Flight Phases'),
                dlc=S('Descent Low Climb'),
                airs=S('Airborne')):
@@ -58,6 +75,7 @@ class BottomOfDescent(KeyTimeInstanceNode):
         for air in airs:
             if air.slice.stop:
                 self.create_kti(air.stop_edge)
+                """
 
 
 # TODO: Determine an altitude peak per climb.

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import os
 
 from math import ceil
 from flightdatautilities.geometry import midpoint
@@ -51,6 +52,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      repair_mask,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
+                                     rate_of_change_array,
                                      runs_of_ones,
                                      runway_deviation,
                                      runway_distance_from_end,
@@ -262,7 +264,7 @@ class AccelerationLateralWhileTaxiingStraightMax(KeyPointValueNode):
     units = 'g'
 
     def derive(self,
-               acc_lat=P('Acceleration Lateral Offset Removed'),
+               acc_lat=P('Acceleration Lateral Smoothed'),
                taxiing=S('Taxiing'),
                turns=S('Turning On Ground')):
 
@@ -277,12 +279,15 @@ class AccelerationLateralWhileTaxiingTurnMax(KeyPointValueNode):
     can lead to taxiway excursions. Lateral acceleration is used in preference
     to groundspeed as this parameter is available on older aircraft and is
     directly related to comfort.
+    
+    We use the smoothed lateral acceleration which removes spikey signals due
+    to uneven surfaces.
     '''
 
     units = 'g'
 
     def derive(self,
-               acc_lat=P('Acceleration Lateral Offset Removed'),
+               acc_lat=P('Acceleration Lateral Smoothed'),
                taxiing=S('Taxiing'),
                turns=S('Turning On Ground')):
 
@@ -749,19 +754,28 @@ class Airspeed35To1000FtMin(KeyPointValueNode):
 
 class Airspeed1000To8000FtMax(KeyPointValueNode):
     '''
+    Airspeed from 1000ft above the airfield to a pressure altitude of 8000ft.
+    As we are only interested in the climbing phase, this is used as the
+    normal slices_from_to will not work with two parameters.
     '''
 
     units = 'kt'
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               alt_std=P('Altitude STD Smoothed'),
+               climbs=S('Climb')):
 
-        self.create_kpv_from_slices(
-            air_spd.array,
-            alt_aal.slices_from_to(1000, 8000),
-            max_value,
-        )
+        for climb in climbs:
+            aal=np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array[climb.slice], 1000.0))
+            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_aal.array[climb.slice], 8000.0))
+            scope=shift_slices(slices_and(aal, std), climb.slice.start)
+            self.create_kpv_from_slices(
+                air_spd.array,
+                scope,
+                max_value
+                )
 
 
 class Airspeed8000To10000FtMax(KeyPointValueNode):
@@ -804,19 +818,27 @@ class Airspeed10000To8000FtMax(KeyPointValueNode):
 
 class Airspeed8000To5000FtMax(KeyPointValueNode):
     '''
+    Airspeed from 8000ft pressure altitude to 5000ft above the airfield.
+    As we are only interested in the descending phase, this is used as the
+    normal slices_from_to will not work with two parameters.
     '''
-
     units = 'kt'
-
+     
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude STD Smoothed')):
-
-        self.create_kpv_from_slices(
-            air_spd.array,
-            alt_aal.slices_from_to(8000, 5000),
-            max_value,
-        )
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               alt_std=P('Altitude STD Smoothed'),
+               descends=S('Descent')):
+    
+        for descend in descends:
+            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_aal.array[descend.slice], 8000.0))
+            aal=np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array[descend.slice], 5000.0))
+            scope=shift_slices(slices_and(aal, std), descend.slice.start)
+            self.create_kpv_from_slices(
+                air_spd.array,
+                scope,
+                max_value
+                )
 
 
 class Airspeed5000To3000FtMax(KeyPointValueNode):
@@ -5741,21 +5763,43 @@ class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
     def derive(self,
                tla=P('Throttle Levers'),
                landings=S('Landing'),
-               touchdowns=KTI('Touchdown')):
+               touchdowns=KTI('Touchdown'),
+               eng_n1=P('Eng (*) N1 Avg'),
+               frame=A('Frame')):
 
+        dt = 5/tla.hz # 5 second counter
         for landing in landings:
             for touchdown in touchdowns.get(within_slice=landing.slice):
-                # Seek the throttle lowpoint before thrust reverse is applied:
-                retard_idx = index_at_value(tla.array, 0.0, landing.slice,
-                                            endpoint='closing')
-                # The range of interest is therefore...
-                scan = slice(landing.slice.start - 5 / tla.hz, retard_idx)
+                begin = landing.slice.start-dt
+                # Seek the throttle reduction before thrust reverse is applied:
+                scope = slice(begin, landing.slice.stop)
+                dn1 = rate_of_change_array(eng_n1.array[scope], eng_n1.hz)
+                dtla = rate_of_change_array(tla.array[scope], tla.hz)
+                dboth = dn1*dtla
+                peak_decel = np.ma.argmax(dboth)
+                reduced_scope = slice(begin, landing.slice.start+peak_decel)
                 # Now see where the power is reduced:
-                reduce_idx = peak_curvature(tla.array, scan,
+                reduce_idx = peak_curvature(tla.array, reduced_scope,
                                             curve_sense='Convex', gap=1, ttp=3)
                 if reduce_idx:
-                    value = (reduce_idx - touchdown.index) / tla.hz
-                    self.create_kpv(reduce_idx, value)
+                    
+                    '''
+                    import matplotlib.pyplot as plt
+                    plt.plot(eng_n1.array[scope])
+                    plt.plot(tla.array[scope])
+                    plt.plot(reduce_idx-begin, eng_n1.array[reduce_idx],'db')
+                    output_dir = os.path.join('C:\\Users\\Dave Jesse\\FlightDataRunner\\test_data\\88-Results\\', 
+                                              'Throttle reduction graphs'+frame.name)
+                    if not os.path.exists(output_dir):
+                        os.mkdir(output_dir)
+                    plt.savefig(os.path.join(output_dir, frame.value + ' '+ str(int(reduce_idx)) +'.png'))
+                    plt.clf()
+                    print int(reduce_idx)
+                    '''
+                    
+                    if reduce_idx:
+                        value = (reduce_idx - touchdown.index) / tla.hz
+                        self.create_kpv(reduce_idx, value)
 
 
 ################################################################################
@@ -7168,14 +7212,9 @@ class RateOfClimb35To1000FtMin(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases'),
-               climbs=S('Combined Climb')):
+               climbs=S('Initial Climb')):
 
-        alt_band = np.ma.masked_outside(alt_aal.array, 35, 1000)
-        for climb in climbs:
-            alt_climb_band = mask_outside_slices(alt_band, [climb.slice])
-            alt_climb_sections = np.ma.clump_unmasked(alt_climb_band)
-            self.create_kpv_from_slices(vrt_spd.array, alt_climb_sections, min_value)
+        self.create_kpvs_within_slices(vrt_spd.array, climbs, min_value)
 
 
 class RateOfClimbBelow10000FtMax(KeyPointValueNode):
@@ -9200,3 +9239,49 @@ class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
                 last_change = changes[-1]
                 time_from_liftoff = (roll_end - last_change) / self.frequency
                 self.create_kpv(last_change, time_from_liftoff)
+
+
+class AirspeedOverVMOMax(KeyPointValueNode):
+    '''
+    Maximum VMO exceeding.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('VMO', 'VMO Lookup'), available) \
+            and 'Airborne' in available
+
+    def derive(self, airspeed=P('Airspeed'), vmo=P('VMO'),
+               vmol=P('VMO Lookup'), airborne=S('Airborne')):
+        if not vmo and vmol:
+            vmo = vmol
+
+        exceedings = airspeed.array - vmo.array
+        exceedings = np.ma.masked_where(exceedings <= 0, exceedings)
+        self.create_kpvs_within_slices(
+            exceedings,
+            airborne,
+            max_value,
+        )
+
+
+class MachOverMMOMax(KeyPointValueNode):
+    '''
+    Maximum MMO exceeding.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('MMO', 'MMO Lookup'), available) \
+            and 'Airborne' in available
+
+    def derive(self, mach=P('Mach'), mmo=P('MMO'), mmol=P('MMO Lookup'),
+               airborne=S('Airborne')):
+        if not mmo and mmol:
+            mmo = mmol
+
+        exceedings = mach.array - mmo.array
+        exceedings = np.ma.masked_where(exceedings <= 0, exceedings)
+        self.create_kpvs_within_slices(
+            exceedings,
+            airborne,
+            max_value,
+        )

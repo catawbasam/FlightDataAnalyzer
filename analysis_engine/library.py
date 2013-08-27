@@ -1428,9 +1428,15 @@ def find_toc_tod(alt_data, ccd_slice, mode='Climb'):
     timebase = np.arange(len(alt_data[section]))
     # Then scale this to the required altitude data slope
     ramp = timebase * slope
-    # For airborne data only, subtract the slope from the climb, then
-    # the peak is at the top of climb or descent.
-    return np.ma.argmax(alt_data[section] - ramp) + section.start
+    # For airborne data only, subtract the slope from the climb, then the
+    # peak is at the top of climb or descent. 
+    
+    # We remove data within 500ft of the lowest level to avoid mising the
+    # endpoint in some cases with extended level flight sections. The logic
+    # here is that all climb and descent phases will have been generated with
+    # at least 500ft changes in altitude.
+    alt_min = np.ma.min(alt_data[section])
+    return np.ma.argmax(np.ma.masked_less(alt_data[section], alt_min+500) - ramp) + section.start
 
 
 def find_edges(array, _slice, direction='rising_edges'):
