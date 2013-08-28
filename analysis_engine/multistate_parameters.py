@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import math
 import numpy as np
 
 from flightdatautilities.model_information import (
@@ -38,6 +39,7 @@ from analysis_engine.library import (#actuator_mismatch,
                                      #dp2tas,
                                      #dp_over_p2mach,
                                      #filter_vor_ils_frequencies,
+                                     find_edges_on_state_change,
                                      #first_valid_sample,
                                      #first_order_lag,
                                      #first_order_washout,
@@ -577,29 +579,20 @@ class FlapLever(MultistateDerivedParameterNode):
     '''
     Rounds the Flap Lever Angle to the selected detent at the start of the
     angle movement.
+    
+    Flap is not used to synthesize Flap Lever as this could be misleading.
+    Instead, all safety Key Point Values will use Flap Lever followed by Flap.
     '''
 
     units = 'deg'
 
-    ##@classmethod
-    ##def can_operate(cls, available):
-        ##return any_of(('Flap Angle'), available) \
-            ##and all_of(('Series', 'Family'), available)
-
     def derive(self, flap_lever=P('Flap Lever Angle'),
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap_lever)
-        # Take the moment the flap starts to move.        
+        # Take the moment the flap starts to move.
         self.array = step_values(flap_lever.array, flap_lever.frequency, 
                                  self.values_mapping.keys(),
                                  step_at='move_start')
-        # Q: Should we allow for flap angle if no flap lever angle?
-        ## Use flap lever position where recorded, otherwise revert to flap surface.
-        ###if flap_lvr:
-            #### Take the moment the lever passes midway between two flap detents.
-            ###self.array = step_values(flap_lvr.array, flap_lvr.frequency, 
-                                     ###flap_steps, step_at='midpoint')
-        ###else:
 
 
 class FuelQty_Low(MultistateDerivedParameterNode):
@@ -715,14 +708,9 @@ class GearDownSelected(MultistateDerivedParameterNode):
     Where 'Gear Down Selected' is recorded, this derived parameter will be
     skipped automatically.
 
-    In ideal cases, 'Gear Up Selected' is available and we just invert this.
-    
-    Red warnings are included as the selection may first be indicated by one
-    of the red warning lights coming on, rather than the gear status
-    changing.
-    
-    TODO: Add a transit delay (~10secs) to the selection to when the gear is
-    down.
+    This is the inverse of 'Gear Up Selected' which does all the hard work
+    for us establishing transitions from 'Gear Down' with the assocaited Red
+    Warnings.
     '''
 
     values_mapping = {
@@ -730,40 +718,12 @@ class GearDownSelected(MultistateDerivedParameterNode):
         1: 'Down',
     }
 
-    @classmethod
-    def can_operate(cls, available):
-
-        return 'Gear Down' in available
-
-    def derive(self,
-               gear_down=M('Gear Down'),
-               gear_up_sel=P('Gear Up Selected'),
-               gear_warn_l=P('Gear (L) Red Warning'),
-               gear_warn_n=P('Gear (N) Red Warning'),
-               gear_warn_r=P('Gear (R) Red Warning')):
-
-        if gear_up_sel:
-            # Invert the recorded gear up selected parameter.
-            self.array = 1-gear_up_sel.array
-            self.frequency = gear_up_sel.frequency
-            self.offset = gear_up_sel.offset
-            return
+    def derive(self, gear_up_sel=P('Gear Up Selected')):
+        # Invert the Gear Up Selected array
+        #Q: which is easier to understand?!
+        #self.array = np.ma.where(gear_up_sel.array == 'Up', 'Down', 'Up')
+        self.array = 1 - gear_up_sel.array.raw
         
-        dn = gear_down.array.raw
-        if gear_warn_l and gear_warn_n and gear_warn_r:
-            # Join available gear parameters and use whichever are available.
-            stack = vstack_params(
-                dn,
-                gear_warn_l.array.raw,
-                gear_warn_n.array.raw,
-                gear_warn_r.array.raw,
-            )
-            wheels_dn = stack.sum(axis=0) > 0
-            self.array = np.ma.where(wheels_dn, self.state['Down'], self.state['Up'])
-        else:
-            self.array = dn
-        self.frequency = gear_down.frequency
-        self.offset = gear_down.offset
 
 
 class GearUpSelected(MultistateDerivedParameterNode):
@@ -775,6 +735,11 @@ class GearUpSelected(MultistateDerivedParameterNode):
     Red warnings are included as the selection may first be indicated by one
     of the red warning lights coming on, rather than the gear status
     changing.
+    
+    This is the basis for 'Gear Down Selected'.
+    
+    TODO: Add a transit delay (~10secs) to the selection to when the gear down.
+    TODO: Derive from "Gear Up" only if recorded.
     '''
 
     values_mapping = {
@@ -784,7 +749,6 @@ class GearUpSelected(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-
         return 'Gear Down' in available
 
     def derive(self,
@@ -792,22 +756,35 @@ class GearUpSelected(MultistateDerivedParameterNode):
                gear_warn_l=P('Gear (L) Red Warning'),
                gear_warn_n=P('Gear (N) Red Warning'),
                gear_warn_r=P('Gear (R) Red Warning')):
-
-        up = 1 - gear_down.array.raw
-        if gear_warn_l and gear_warn_n and gear_warn_r:
+        # use the inverse of the gear down array as a start
+        self.array = gear_down.array != 'Down'  # True for 'Up'
+        if gear_warn_l or gear_warn_n or gear_warn_r:
             # Join available gear parameters and use whichever are available.
-            stack = vstack_params(
-                up,
-                gear_warn_l.array.raw,
-                gear_warn_n.array.raw,
-                gear_warn_r.array.raw,
+            red_warning = vstack_params_where_state(
+                (gear_warn_l, 'Warning'),
+                (gear_warn_n, 'Warning'),
+                (gear_warn_r, 'Warning'),
             )
-            wheels_up = stack.sum(axis=0) > 0
-            self.array = np.ma.where(wheels_up, self.state['Up'], self.state['Down'])
-        else:
-            self.array = up
-        self.frequency = gear_down.frequency
-        self.offset = gear_down.offset
+            any_warning = M(array=red_warning.any(axis=0), values_mapping={
+                True: 'Warning'})
+            start_warning = find_edges_on_state_change('Warning', any_warning.array)
+            last = 0
+            state = 'Down'
+            for start in start_warning:
+                # for clarity, we're only interested in the start of the
+                # transition - so ceiling finds the start
+                start = math.ceil(start)
+                # look for state before gear started moving (back one sample)
+                state = 'Down' if gear_down.array[start-1] == 'Down' else 'Up'
+                self.array[last:start+1] = state
+                last = start
+            else:
+                # finish off the rest of the array with the inverse of the
+                # last state
+                if state == 'Down':
+                    self.array[last:] = 'Up'
+                else:
+                    self.array[last:] = 'Down'
 
 
 class ILSInnerMarker(MultistateDerivedParameterNode):

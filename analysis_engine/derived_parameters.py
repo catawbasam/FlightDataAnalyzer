@@ -110,7 +110,19 @@ class AccelerationLateralOffsetRemoved(DerivedParameterNode):
             self.array = acc.array - offset[0].value
         else:
             self.array = acc.array
+            
 
+class AccelerationLateralSmoothed(DerivedParameterNode):
+    '''
+    Apply a moving average for two seconds (9 samples) to smooth out spikes
+    caused by uneven surfaces - especially noticable during cornering.
+    '''
+    units = 'g'
+    
+    def derive(self, acc=P('Acceleration Lateral Offset Removed')):
+        self.window = acc.hz * 2 + 1  # store for ease of testing
+        self.array = moving_average(acc.array, window=self.window)
+    
 
 class AccelerationLongitudinalOffsetRemoved(DerivedParameterNode):
     """
@@ -1798,7 +1810,7 @@ class Eng_TPRMin(DerivedParameterNode):
     '''
     '''
 
-    name = 'Eng (*) TPR Max'
+    name = 'Eng (*) TPR Min'
     align = False
 
     @classmethod
@@ -1891,7 +1903,7 @@ class Eng_1_FuelBurn(DerivedParameterNode):
 
 
 class Eng_2_FuelBurn(DerivedParameterNode):
-    '''
+    ''''
     Amount of fuel burnt since the start of the data.
     '''
 
@@ -3443,7 +3455,6 @@ class ILSFrequency(DerivedParameterNode):
     
     def derive(self, f1=P('ILS (1) Frequency'),f2=P('ILS (2) Frequency'),
                f1v=P('ILS-VOR (1) Frequency'), f2v=P('ILS-VOR (2) Frequency')):
-                
 
         #TODO: Extend to allow for three-receiver installations
 
@@ -5696,3 +5707,48 @@ class ElevatorActuatorMismatch(DerivedParameterNode):
         
         self.array = amm
 
+
+class VMOLookup(DerivedParameterNode):
+    '''
+    Maximum operating limit speed.
+    '''
+    name = 'VMO Lookup'
+    units = 'kts'
+
+    @classmethod
+    def can_operate(cls, available, series=A('Series'), family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        return 'Altitude AAL' in available and get_vmo_procedure(
+            series=series.value, family=family.value).vmo
+
+    def derive(self, aal=P('Altitude AAL'), series=A('Series'),
+               family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        proc = get_vmo_procedure(series=series.value, family=family.value)
+        if proc:
+            self.array = proc.get_vmo_mmo_arrays(aal.array)[0]
+
+
+class MMOLookup(DerivedParameterNode):
+    '''
+    Maximum operating limit Mach.
+    '''
+    name = 'MMO Lookup'
+    units = 'Mach'
+
+    @classmethod
+    def can_operate(cls, available, series=A('Series'), family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        return 'Altitude AAL' in available and get_vmo_procedure(
+            series=series.value, family=family.value).mmo
+
+    def derive(self, aal=P('Altitude AAL'), series=A('Series'),
+               family=A('Family')):
+        from flightdatautilities.vmo_mmo import get_vmo_procedure
+
+        proc = get_vmo_procedure(series=series.value, family=family.value)
+        if proc:
+            self.array = proc.get_vmo_mmo_arrays(aal.array)[1]

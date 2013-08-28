@@ -412,7 +412,7 @@ from analysis_engine.key_time_instances import (
 )
 from analysis_engine.library import (max_abs_value, max_value, min_value)
 from analysis_engine.flight_phase import Fast
-from flight_phase_test import buildsection
+from flight_phase_test import buildsection, buildsections
 
 debug = sys.gettrace() is not None
 
@@ -1272,7 +1272,8 @@ class TestAirspeed1000To8000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
     def setUp(self):
         self.node_class = Airspeed1000To8000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases')]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases',
+                                          'Altitude STD Smoothed', 'Climb')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (1000, 8000), {})]
 
@@ -1280,6 +1281,20 @@ class TestAirspeed1000To8000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
 
+    def test_basic(self):
+        testline = np.arange(0, 12.6, 0.1)
+        testwave = (np.cos(testline) * -100) + 100
+        spd = P('Airspeed', np.ma.array(testwave))
+        alt_aal = P('Altitude AAL For Flight Phases', np.ma.array(testwave) * 50)
+        alt_std = P('Altitude STD Smoothed', np.ma.array(testwave) * 50 + 2000)
+        climb = buildsections('Climb', [3, 28], [65, 91])
+        event=Airspeed1000To8000FtMax()
+        event.derive(spd, alt_aal, alt_std, climb)
+        self.assertEqual(event[0].index, 22)
+        self.assertEqual(event[1].index, 84)
+        self.assertGreater(event[0].value, 150.0)
+        self.assertGreater(event[1].value, 150.0)
+        
 
 class TestAirspeed8000To10000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
 
@@ -2385,6 +2400,11 @@ class TestAutobrakeRejectedTakeoffNotSetDuringTakeoff(unittest.TestCase,
     def setUp(self):
         from analysis_engine.key_point_values import \
             AutobrakeRejectedTakeoffNotSetDuringTakeoff
+
+        self.values_array = np.ma.array([1] * 3 + [0] * 6 + [1] * 3)
+        self.expected = [KeyPointValue(
+            index=3, value=4.0,
+            name='Autobrake Rejected Takeoff Not Set During Takeoff')]
 
         self.param_name = 'Autobrake Selected RTO'
         self.phase_name = 'Takeoff'
