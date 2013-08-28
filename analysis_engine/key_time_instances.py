@@ -500,31 +500,6 @@ class FlapAlternateArmed(KeyTimeInstanceNode):
             )
 
 
-class FlapSet(KeyTimeInstanceNode):
-    '''
-    '''
-
-    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Flap %(flap)s Set'
-    NAME_VALUES = NAME_VALUES_FLAP
-    
-    
-    @classmethod
-    def can_operate(cls, available):
-        return 'Flap Lever' in available or 'Flap' in available
-    
-    def derive(self,
-               flap_lever=M('Flap Lever'),
-               flap_synth=M('Flap')):
-        flap = flap_lever or flap_synth
-
-        # Mark all flap changes, and annotate with the new flap position.
-        # Could include "phase=airborne" if we want to eliminate ground flap
-        # changes.
-        self.create_ktis_at_edges(flap.array.raw, direction='all_edges',
-                                  name='flap')
-
-
 class SlatAlternateArmed(KeyTimeInstanceNode):
     '''
     Indicates where slat alternate system has been armed.
