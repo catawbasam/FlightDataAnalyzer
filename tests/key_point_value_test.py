@@ -211,6 +211,9 @@ from analysis_engine.key_point_values import (
     EngVibN1Max,
     EngVibN2Max,
     EngVibN3Max,
+    EngVibAMax,
+    EngVibBMax,
+    EngVibCMax,
     FlapAtGearDownSelection,
     FlapAtLiftoff,
     FlapAtTouchdown,
@@ -4922,6 +4925,42 @@ class TestEngVibN3Max(unittest.TestCase, CreateKPVsWithinSlicesTest):
     def setUp(self):
         self.node_class = EngVibN3Max
         self.operational_combinations = [('Eng (*) Vib N3 Max', 'Airborne')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngVibAMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngVibAMax
+        self.operational_combinations = [('Eng (*) Vib A Max', 'Airborne')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngVibBMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngVibBMax
+        self.operational_combinations = [('Eng (*) Vib B Max', 'Airborne')]
+        self.function = max_value
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngVibCMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = EngVibCMax
+        self.operational_combinations = [('Eng (*) Vib C Max', 'Airborne')]
         self.function = max_value
 
     @unittest.skip('Test Not Implemented')

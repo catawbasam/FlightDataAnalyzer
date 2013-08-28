@@ -6048,7 +6048,7 @@ class EngTorque500To50FtMin(KeyPointValueNode):
 
 
 ##############################################################################
-# Engine Vibrations
+# Engine Vibrations (N*)
 
 
 class EngVibN1Max(KeyPointValueNode):
@@ -6091,6 +6091,51 @@ class EngVibN3Max(KeyPointValueNode):
                airborne=S('Airborne')):
 
         self.create_kpvs_within_slices(eng_vib_n3.array, airborne, max_value)
+
+
+# Engine Vibrations (Filters)
+
+
+class EngVibAMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Vib A Max'
+    units = ''
+
+    def derive(self,
+               eng_vib_a=P('Eng (*) Vib A Max'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_within_slices(eng_vib_a.array, airborne, max_value)
+
+
+class EngVibBMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Vib B Max'
+    units = ''
+
+    def derive(self,
+               eng_vib_b=P('Eng (*) Vib B Max'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_within_slices(eng_vib_b.array, airborne, max_value)
+
+
+class EngVibCMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Vib C Max'
+    units = ''
+
+    def derive(self,
+               eng_vib_c=P('Eng (*) Vib C Max'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_within_slices(eng_vib_c.array, airborne, max_value)
 
 
 ##############################################################################
