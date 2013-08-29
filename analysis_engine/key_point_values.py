@@ -6870,7 +6870,7 @@ class PitchAt35FtDuringClimb(KeyPointValueNode):
 
         for climb in climbs:
             value = value_at_index(pitch.array, climb.start_edge)
-            self.create_kpv(index, value)
+            self.create_kpv(climb.start_edge, value)
 
 
 class PitchTakeoffMax(KeyPointValueNode):
