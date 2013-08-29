@@ -5745,3 +5745,4 @@ class MMOLookup(DerivedParameterNode):
         proc = get_vmo_procedure(series=series.value, family=family.value)
         if proc:
             self.array = proc.get_vmo_mmo_arrays(aal.array)[1]
+
