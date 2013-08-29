@@ -536,7 +536,8 @@ class Flap(MultistateDerivedParameterNode):
                 flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
             finally:
                 self.values_mapping = {f: str(f) for f in flap_steps}
-                self.array = step_values(flap.array, flap.frequency, flap_steps)
+                self.array = step_values(flap.array, flap.frequency, flap_steps,
+                                         step_at='move_start')
 
 
 class FlapExcludingTransition(MultistateDerivedParameterNode):
