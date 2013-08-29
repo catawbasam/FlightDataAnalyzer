@@ -3118,6 +3118,12 @@ def trim_slices(slices, seconds, frequency, hdf_duration):
     return trimmed_slices
 
 
+def valid_slices_within_array(array, sections=None):
+    '''
+    returns slices of unmasked data, optionally within section slices.
+    '''
+    array_band = mask_outside_slices(array, [x.slice for x in sections])
+    return np.ma.clump_unmasked(array_band)
 
 
 """

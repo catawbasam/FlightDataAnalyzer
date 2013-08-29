@@ -766,7 +766,7 @@ def scan_ils(beam, ils_dots, height, scan_slice, frequency):
 
     # Find where to start scanning for the point of "Capture", Look for the
     # last time we were within 2.5dots
-    scan_start_idx = index_at_value(ils_abs, 2.5, slice(ils_lost_idx, scan_slice.start, -1))
+    scan_start_idx = index_at_value(ils_abs, 2.5, slice(ils_lost_idx-1, scan_slice.start-1, -1))
 
     if scan_start_idx:
         # Found a point to start scanning from, now look for the ILS goes

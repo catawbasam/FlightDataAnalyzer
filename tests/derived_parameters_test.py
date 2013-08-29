@@ -98,6 +98,9 @@ from analysis_engine.derived_parameters import (
     Eng_VibN1Max,
     Eng_VibN2Max,
     Eng_VibN3Max,
+    Eng_VibAMax,
+    Eng_VibBMax,
+    Eng_VibCMax,
     Eng_1_FuelBurn,
     Eng_2_FuelBurn,
     Eng_3_FuelBurn,
@@ -3303,6 +3306,42 @@ class TestEng_VibN3Max(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = Eng_VibN3Max
+        self.operational_combination_length = 15
+        self.check_operational_combination_length_only = True
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_VibAMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_VibAMax
+        self.operational_combination_length = 15
+        self.check_operational_combination_length_only = True
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_VibBMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_VibBMax
+        self.operational_combination_length = 15
+        self.check_operational_combination_length_only = True
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestEng_VibCMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = Eng_VibCMax
         self.operational_combination_length = 15
         self.check_operational_combination_length_only = True
 
