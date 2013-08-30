@@ -9340,7 +9340,7 @@ class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
         flap = flap_lever or flap_synth
         
         for roll in rolls:
-            changes = find_edges(flap.array, roll.slice, 'all_edges')
+            changes = find_edges(flap.array.raw, roll.slice, 'all_edges')
             if changes:
                 roll_end = roll.slice.stop
                 last_change = changes[-1]
