@@ -536,7 +536,8 @@ class Flap(MultistateDerivedParameterNode):
                 flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
             finally:
                 self.values_mapping = {f: str(f) for f in flap_steps}
-                self.array = step_values(flap.array, flap.frequency, flap_steps)
+                self.array = step_values(flap.array, flap.frequency, flap_steps,
+                                         step_at='move_start')
 
 
 class FlapExcludingTransition(MultistateDerivedParameterNode):
@@ -1255,8 +1256,10 @@ class StableApproach(MultistateDerivedParameterNode):
             #== 2. Landing Flap ==
             # not due to landing gear so try to prove it wasn't due to Landing Flap
             self.array[_slice][stable] = 2
-            landing_flap = last_valid_sample(flap_lever)
-            landing_flap_set = (flap_lever == landing_flap.value)
+            # look for maximum flap used in approach, otherwise go-arounds
+            # can detect the start of flap retracting as the landing flap.
+            landing_flap = np.ma.max(flap_lever)
+            landing_flap_set = (flap_lever == landing_flap)
             stable &= landing_flap_set.filled(True)  # assume stable (flap set)
 
             #== 3. Heading ==

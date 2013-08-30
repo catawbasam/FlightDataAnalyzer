@@ -5086,7 +5086,7 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     stepped_array[low < array] = level
     stepped_array.mask = np.ma.getmaskarray(array)
         
-    if step_at!='midpoint':
+    if step_at != 'midpoint':
         
         # We are being asked to adjust the step point to either the beginning or
         # end of a change period. First find where the changes took place:

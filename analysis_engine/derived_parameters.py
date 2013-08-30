@@ -11,6 +11,7 @@ from flightdatautilities.model_information import (get_aileron_map,
                                                    get_flap_map,
                                                    get_slat_map)
 from flightdatautilities.velocity_speed import get_vspeed_map
+from flightdatautilities.vmo_mmo import get_vmo_procedure
 
 from analysis_engine.exceptions import DataFrameError
 from analysis_engine.node import (
@@ -5717,15 +5718,11 @@ class VMOLookup(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available, series=A('Series'), family=A('Family')):
-        from flightdatautilities.vmo_mmo import get_vmo_procedure
-
         return 'Altitude AAL' in available and get_vmo_procedure(
             series=series.value, family=family.value).vmo
 
     def derive(self, aal=P('Altitude AAL'), series=A('Series'),
                family=A('Family')):
-        from flightdatautilities.vmo_mmo import get_vmo_procedure
-
         proc = get_vmo_procedure(series=series.value, family=family.value)
         if proc:
             self.array = proc.get_vmo_mmo_arrays(aal.array)[0]
@@ -5740,15 +5737,12 @@ class MMOLookup(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available, series=A('Series'), family=A('Family')):
-        from flightdatautilities.vmo_mmo import get_vmo_procedure
-
         return 'Altitude AAL' in available and get_vmo_procedure(
             series=series.value, family=family.value).mmo
 
     def derive(self, aal=P('Altitude AAL'), series=A('Series'),
                family=A('Family')):
-        from flightdatautilities.vmo_mmo import get_vmo_procedure
-
         proc = get_vmo_procedure(series=series.value, family=family.value)
         if proc:
             self.array = proc.get_vmo_mmo_arrays(aal.array)[1]
+
