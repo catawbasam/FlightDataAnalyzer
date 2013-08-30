@@ -250,17 +250,6 @@ class TestConfiguration(unittest.TestCase, NodeTest):
         node.derive(self.slat, self.flap, self.ails, series, family)
         self.assertEqual(list(node.array[:17]), expected)
 
-    def test_conf_for_bombardier(self):
-        # Note: Bombardier does not use configuration settings so should
-        # return masked array
-        series = A('Series', 'Global Express XRS')
-        family = A('Family', 'Global')
-        node = self.node_class()
-        node.derive(self.slat, self.flap, self.ails, series, family)
-        
-        self.assertEqual(np.ma.count_masked(node.array), 170000)
-        self.assertEqual(np.ma.count(node.array), 0)
-
     def test_time_taken(self):
         from timeit import Timer
         timer = Timer(self.test_conf_for_a330)
