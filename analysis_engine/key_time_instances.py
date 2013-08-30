@@ -46,6 +46,23 @@ def sorted_valid_list(x):
 
 
 class BottomOfDescent(KeyTimeInstanceNode):
+    '''
+    '''
+    def derive(self, ccd=S('Climb Cruise Descent'),
+               airs=S('Airborne')):
+        for air in airs:
+            if air.slice.stop:
+                self.create_kti(air.stop_edge)
+        if len(ccd)<=1:
+            return # With only one climb and descent, there can be no dip.
+        previous_ccd = ccd.get_first()
+        while ccd.get_next(previous_ccd.slice.stop-1):
+            next_ccd = ccd.get_next(previous_ccd.slice.stop-1)
+            self.create_kti(previous_ccd.slice.stop)
+            # Prepare for the next dip...
+            previous_ccd = next_ccd
+        
+    """
     def derive(self, alt_std=P('Altitude AAL For Flight Phases'),
                dlc=S('Descent Low Climb'),
                airs=S('Airborne')):
@@ -58,6 +75,7 @@ class BottomOfDescent(KeyTimeInstanceNode):
         for air in airs:
             if air.slice.stop:
                 self.create_kti(air.stop_edge)
+                """
 
 
 # TODO: Determine an altitude peak per climb.
@@ -498,31 +516,6 @@ class FlapAlternateArmed(KeyTimeInstanceNode):
             faa.array,
             change='entering'
             )
-
-
-class FlapSet(KeyTimeInstanceNode):
-    '''
-    '''
-
-    # Note: We must use %s not %d as we've encountered a flap of 17.5 degrees.
-    NAME_FORMAT = 'Flap %(flap)s Set'
-    NAME_VALUES = NAME_VALUES_FLAP
-    
-    
-    @classmethod
-    def can_operate(cls, available):
-        return 'Flap Lever' in available or 'Flap' in available
-    
-    def derive(self,
-               flap_lever=M('Flap Lever'),
-               flap_synth=M('Flap')):
-        flap = flap_lever or flap_synth
-
-        # Mark all flap changes, and annotate with the new flap position.
-        # Could include "phase=airborne" if we want to eliminate ground flap
-        # changes.
-        self.create_ktis_at_edges(flap.array.raw, direction='all_edges',
-                                  name='flap')
 
 
 class SlatAlternateArmed(KeyTimeInstanceNode):

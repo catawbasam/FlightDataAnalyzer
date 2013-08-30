@@ -579,29 +579,20 @@ class FlapLever(MultistateDerivedParameterNode):
     '''
     Rounds the Flap Lever Angle to the selected detent at the start of the
     angle movement.
+    
+    Flap is not used to synthesize Flap Lever as this could be misleading.
+    Instead, all safety Key Point Values will use Flap Lever followed by Flap.
     '''
 
     units = 'deg'
 
-    ##@classmethod
-    ##def can_operate(cls, available):
-        ##return any_of(('Flap Angle'), available) \
-            ##and all_of(('Series', 'Family'), available)
-
     def derive(self, flap_lever=P('Flap Lever Angle'),
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap_lever)
-        # Take the moment the flap starts to move.        
+        # Take the moment the flap starts to move.
         self.array = step_values(flap_lever.array, flap_lever.frequency, 
                                  self.values_mapping.keys(),
                                  step_at='move_start')
-        # Q: Should we allow for flap angle if no flap lever angle?
-        ## Use flap lever position where recorded, otherwise revert to flap surface.
-        ###if flap_lvr:
-            #### Take the moment the lever passes midway between two flap detents.
-            ###self.array = step_values(flap_lvr.array, flap_lvr.frequency, 
-                                     ###flap_steps, step_at='midpoint')
-        ###else:
 
 
 class FuelQty_Low(MultistateDerivedParameterNode):

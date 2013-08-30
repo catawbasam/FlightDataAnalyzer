@@ -343,6 +343,7 @@ class ClimbCruiseDescent(FlightPhaseNode):
                             n += 1
 
 
+"""
 class CombinedClimb(FlightPhaseNode):
     '''
     Climb phase from liftoff or go around to top of climb
@@ -360,7 +361,7 @@ class CombinedClimb(FlightPhaseNode):
         slice_idxs = zip(start_list, end_list)
         for slice_tuple in slice_idxs:
             self.create_phase(slice(*slice_tuple))
-
+"""
 
 class Climb(FlightPhaseNode):
     '''
@@ -510,6 +511,9 @@ class DescentLowClimb(FlightPhaseNode):
     '''
     Finds where the aircaft descends below the INITIAL_APPROACH_THRESHOLD and
     then climbs out again - an indication of a go-around.
+    
+    TODO: Consider refactoring this based on the Bottom Of Descent KTIs and
+    just check the altitude at each BOD.
     '''
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
         dlc = np.ma.masked_greater(alt_aal.array,
@@ -762,7 +766,7 @@ def scan_ils(beam, ils_dots, height, scan_slice, frequency):
 
     # Find where to start scanning for the point of "Capture", Look for the
     # last time we were within 2.5dots
-    scan_start_idx = index_at_value(ils_abs, 2.5, slice(ils_lost_idx, scan_slice.start, -1))
+    scan_start_idx = index_at_value(ils_abs, 2.5, slice(ils_lost_idx-1, scan_slice.start-1, -1))
 
     if scan_start_idx:
         # Found a point to start scanning from, now look for the ILS goes

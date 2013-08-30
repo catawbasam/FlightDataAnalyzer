@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import os
 
 from math import ceil
 from flightdatautilities.geometry import midpoint
@@ -51,6 +52,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      repair_mask,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
+                                     rate_of_change_array,
                                      runs_of_ones,
                                      runway_deviation,
                                      runway_distance_from_end,
@@ -65,6 +67,7 @@ from analysis_engine.library import (ambiguous_runway,
                                      slices_and,
                                      slices_remove_small_slices,
                                      trim_slices,
+                                     valid_slices_within_array,
                                      value_at_index,
                                      vspeed_lookup,
                                      vstack_params,
@@ -724,13 +727,15 @@ class Airspeed35To1000FtMax(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               initial_climb=S('Initial Climb')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 35, 1000)
+        alt_climb_sections = valid_slices_within_array(alt_band, initial_climb)
         self.create_kpvs_within_slices(
             air_spd.array,
-            alt_aal.slices_from_to(35, 1000),
-            max_value,
-        )
+            alt_climb_sections,
+            max_value)
 
 
 class Airspeed35To1000FtMin(KeyPointValueNode):
@@ -741,30 +746,42 @@ class Airspeed35To1000FtMin(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               initial_climb=S('Initial Climb')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 35, 1000)
+        alt_climb_sections = valid_slices_within_array(alt_band, initial_climb)
         self.create_kpvs_within_slices(
             air_spd.array,
-            alt_aal.slices_from_to(35, 1000),
+            alt_climb_sections,
             min_value,
         )
 
 
 class Airspeed1000To8000FtMax(KeyPointValueNode):
     '''
+    Airspeed from 1000ft above the airfield to a pressure altitude of 8000ft.
+    As we are only interested in the climbing phase, this is used as the
+    normal slices_from_to will not work with two parameters.
     '''
 
     units = 'kt'
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               alt_std=P('Altitude STD Smoothed'),
+               climbs=S('Climb')):
 
-        self.create_kpv_from_slices(
-            air_spd.array,
-            alt_aal.slices_from_to(1000, 8000),
-            max_value,
-        )
+        for climb in climbs:
+            aal=np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array[climb.slice], 1000.0))
+            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_aal.array[climb.slice], 8000.0))
+            scope=shift_slices(slices_and(aal, std), climb.slice.start)
+            self.create_kpv_from_slices(
+                air_spd.array,
+                scope,
+                max_value
+                )
 
 
 class Airspeed8000To10000FtMax(KeyPointValueNode):
@@ -775,11 +792,14 @@ class Airspeed8000To10000FtMax(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude STD Smoothed')):
+               alt_std=P('Altitude STD Smoothed'),
+               climb=S('Climb')):
 
-        self.create_kpv_from_slices(
+        alt_band = np.ma.masked_outside(alt_std.array, 8000, 10000)
+        alt_climb_sections = valid_slices_within_array(alt_band, climb)
+        self.create_kpvs_within_slices(
             air_spd.array,
-            alt_aal.slices_from_to(8000, 10000),
+            alt_climb_sections,
             max_value,
         )
 
@@ -796,30 +816,41 @@ class Airspeed10000To8000FtMax(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude STD Smoothed')):
+               alt_std=P('Altitude STD Smoothed'),
+               descent=S('Descent')):
 
-        self.create_kpv_from_slices(
+        alt_band = np.ma.masked_outside(alt_std.array, 10000, 8000)
+        alt_descent_sections = valid_slices_within_array(alt_band, descent)
+        self.create_kpvs_within_slices(
             air_spd.array,
-            alt_aal.slices_from_to(10000, 8000),
+            alt_descent_sections,
             max_value,
         )
 
 
 class Airspeed8000To5000FtMax(KeyPointValueNode):
     '''
+    Airspeed from 8000ft pressure altitude to 5000ft above the airfield.
+    As we are only interested in the descending phase, this is used as the
+    normal slices_from_to will not work with two parameters.
     '''
-
     units = 'kt'
-
+     
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude STD Smoothed')):
-
-        self.create_kpv_from_slices(
-            air_spd.array,
-            alt_aal.slices_from_to(8000, 5000),
-            max_value,
-        )
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               alt_std=P('Altitude STD Smoothed'),
+               descends=S('Descent')):
+    
+        for descend in descends:
+            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_aal.array[descend.slice], 8000.0))
+            aal=np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array[descend.slice], 5000.0))
+            scope=shift_slices(slices_and(aal, std), descend.slice.start)
+            self.create_kpv_from_slices(
+                air_spd.array,
+                scope,
+                max_value
+                )
 
 
 class Airspeed5000To3000FtMax(KeyPointValueNode):
@@ -830,11 +861,14 @@ class Airspeed5000To3000FtMax(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               descent=S('Descent')):
 
-        self.create_kpv_from_slices(
+        alt_band = np.ma.masked_outside(alt_aal.array, 5000, 3000)
+        alt_descent_sections = valid_slices_within_array(alt_band, descent)
+        self.create_kpvs_within_slices(
             air_spd.array,
-            alt_aal.slices_from_to(5000, 3000),
+            alt_descent_sections,
             max_value,
         )
 
@@ -847,11 +881,14 @@ class Airspeed3000To1000FtMax(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               init_app=S('Initial Approach')):
 
-        self.create_kpv_from_slices(
+        alt_band = np.ma.masked_outside(alt_aal.array, 3000, 1000)
+        alt_descent_sections = valid_slices_within_array(alt_band, init_app)
+        self.create_kpvs_within_slices(
             air_spd.array,
-            alt_aal.slices_from_to(3000, 1000),
+            alt_descent_sections,
             max_value,
         )
 
@@ -864,11 +901,14 @@ class Airspeed1000To500FtMax(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               final_app=S('Final Approach')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 1000, 500)
+        alt_descent_sections = valid_slices_within_array(alt_band, final_app)
         self.create_kpvs_within_slices(
             air_spd.array,
-            alt_aal.slices_from_to(1000, 500),
+            alt_descent_sections,
             max_value,
         )
 
@@ -881,11 +921,14 @@ class Airspeed1000To500FtMin(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               final_app=S('Final Approach')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 1000, 500)
+        alt_descent_sections = valid_slices_within_array(alt_band, final_app)
         self.create_kpvs_within_slices(
             air_spd.array,
-            alt_aal.slices_from_to(1000, 500),
+            alt_descent_sections,
             min_value,
         )
 
@@ -5744,21 +5787,43 @@ class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
     def derive(self,
                tla=P('Throttle Levers'),
                landings=S('Landing'),
-               touchdowns=KTI('Touchdown')):
+               touchdowns=KTI('Touchdown'),
+               eng_n1=P('Eng (*) N1 Avg'),
+               frame=A('Frame')):
 
+        dt = 5/tla.hz # 5 second counter
         for landing in landings:
             for touchdown in touchdowns.get(within_slice=landing.slice):
-                # Seek the throttle lowpoint before thrust reverse is applied:
-                retard_idx = index_at_value(tla.array, 0.0, landing.slice,
-                                            endpoint='closing')
-                # The range of interest is therefore...
-                scan = slice(landing.slice.start - 5 / tla.hz, retard_idx)
+                begin = landing.slice.start-dt
+                # Seek the throttle reduction before thrust reverse is applied:
+                scope = slice(begin, landing.slice.stop)
+                dn1 = rate_of_change_array(eng_n1.array[scope], eng_n1.hz)
+                dtla = rate_of_change_array(tla.array[scope], tla.hz)
+                dboth = dn1*dtla
+                peak_decel = np.ma.argmax(dboth)
+                reduced_scope = slice(begin, landing.slice.start+peak_decel)
                 # Now see where the power is reduced:
-                reduce_idx = peak_curvature(tla.array, scan,
+                reduce_idx = peak_curvature(tla.array, reduced_scope,
                                             curve_sense='Convex', gap=1, ttp=3)
                 if reduce_idx:
-                    value = (reduce_idx - touchdown.index) / tla.hz
-                    self.create_kpv(reduce_idx, value)
+                    
+                    '''
+                    import matplotlib.pyplot as plt
+                    plt.plot(eng_n1.array[scope])
+                    plt.plot(tla.array[scope])
+                    plt.plot(reduce_idx-begin, eng_n1.array[reduce_idx],'db')
+                    output_dir = os.path.join('C:\\Users\\Dave Jesse\\FlightDataRunner\\test_data\\88-Results\\', 
+                                              'Throttle reduction graphs'+frame.name)
+                    if not os.path.exists(output_dir):
+                        os.mkdir(output_dir)
+                    plt.savefig(os.path.join(output_dir, frame.value + ' '+ str(int(reduce_idx)) +'.png'))
+                    plt.clf()
+                    print int(reduce_idx)
+                    '''
+                    
+                    if reduce_idx:
+                        value = (reduce_idx - touchdown.index) / tla.hz
+                        self.create_kpv(reduce_idx, value)
 
 
 ################################################################################
@@ -6052,7 +6117,7 @@ class EngTorque500To50FtMin(KeyPointValueNode):
 
 
 ##############################################################################
-# Engine Vibrations
+# Engine Vibrations (N*)
 
 
 class EngVibN1Max(KeyPointValueNode):
@@ -6095,6 +6160,51 @@ class EngVibN3Max(KeyPointValueNode):
                airborne=S('Airborne')):
 
         self.create_kpvs_within_slices(eng_vib_n3.array, airborne, max_value)
+
+
+# Engine Vibrations (Filters)
+
+
+class EngVibAMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Vib A Max'
+    units = ''
+
+    def derive(self,
+               eng_vib_a=P('Eng (*) Vib A Max'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_within_slices(eng_vib_a.array, airborne, max_value)
+
+
+class EngVibBMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Vib B Max'
+    units = ''
+
+    def derive(self,
+               eng_vib_b=P('Eng (*) Vib B Max'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_within_slices(eng_vib_b.array, airborne, max_value)
+
+
+class EngVibCMax(KeyPointValueNode):
+    '''
+    '''
+
+    name = 'Eng Vib C Max'
+    units = ''
+
+    def derive(self,
+               eng_vib_c=P('Eng (*) Vib C Max'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_within_slices(eng_vib_c.array, airborne, max_value)
 
 
 ##############################################################################
@@ -6755,14 +6865,12 @@ class PitchAt35FtDuringClimb(KeyPointValueNode):
 
     def derive(self,
                pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL')):
+               alt_aal=P('Altitude AAL'),
+               climbs=S('Initial Climb')):
 
-        # Q: Should we create a KPV method for this?
-        for climb in alt_aal.slices_from_to(1, 100):
-            index = index_at_value(alt_aal.array, 35.0, climb)
-            if index:
-                value = value_at_index(pitch.array, index)
-                self.create_kpv(index, value)
+        for climb in climbs:
+            value = value_at_index(pitch.array, climb.start_edge)
+            self.create_kpv(climb.start_edge, value)
 
 
 class PitchTakeoffMax(KeyPointValueNode):
@@ -6786,11 +6894,14 @@ class Pitch35To400FtMax(KeyPointValueNode):
 
     def derive(self,
                pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               climbs=S('Initial Climb')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 35, 400)
+        alt_climb_sections = valid_slices_within_array(alt_band, climbs)
         self.create_kpvs_within_slices(
             pitch.array,
-            alt_aal.slices_from_to(35, 400),
+            alt_climb_sections,
             max_value,
         )
 
@@ -6803,11 +6914,14 @@ class Pitch35To400FtMin(KeyPointValueNode):
 
     def derive(self,
                pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               climbs=S('Initial Climb')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 35, 400)
+        alt_climb_sections = valid_slices_within_array(alt_band, climbs)
         self.create_kpvs_within_slices(
             pitch.array,
-            alt_aal.slices_from_to(35, 400),
+            alt_climb_sections,
             min_value,
         )
 
@@ -6820,11 +6934,14 @@ class Pitch400To1000FtMax(KeyPointValueNode):
 
     def derive(self,
                pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               climbs=S('Initial Climb')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 400, 1000)
+        alt_climb_sections = valid_slices_within_array(alt_band, climbs)
         self.create_kpvs_within_slices(
             pitch.array,
-            alt_aal.slices_from_to(400, 1000),
+            alt_climb_sections,
             max_value,
         )
 
@@ -6837,11 +6954,14 @@ class Pitch400To1000FtMin(KeyPointValueNode):
 
     def derive(self,
                pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               climbs=S('Initial Climb')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 400, 1000)
+        alt_climb_sections = valid_slices_within_array(alt_band, climbs)
         self.create_kpvs_within_slices(
             pitch.array,
-            alt_aal.slices_from_to(400, 1000),
+            alt_climb_sections,
             min_value,
         )
 
@@ -6854,11 +6974,14 @@ class Pitch1000To500FtMax(KeyPointValueNode):
 
     def derive(self,
                pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               fin_app=S('Final Approach')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 1000, 500)
+        alt_app_sections = valid_slices_within_array(alt_band, fin_app)
         self.create_kpvs_within_slices(
             pitch.array,
-            alt_aal.slices_from_to(1000, 500),
+            alt_app_sections,
             max_value,
         )
 
@@ -6871,11 +6994,14 @@ class Pitch1000To500FtMin(KeyPointValueNode):
 
     def derive(self,
                pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               fin_app=S('Final Approach')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 1000, 500)
+        alt_app_sections = valid_slices_within_array(alt_band, fin_app)
         self.create_kpvs_within_slices(
             pitch.array,
-            alt_aal.slices_from_to(1000, 500),
+            alt_app_sections,
             min_value,
         )
 
@@ -6888,11 +7014,14 @@ class Pitch500To50FtMax(KeyPointValueNode):
 
     def derive(self,
                pitch=P('Pitch'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               fin_app=S('Final Approach')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 500, 50)
+        alt_app_sections = valid_slices_within_array(alt_band, fin_app)
         self.create_kpvs_within_slices(
             pitch.array,
-            alt_aal.slices_from_to(500, 50),
+            alt_app_sections,
             max_value,
         )
 
@@ -7171,14 +7300,9 @@ class RateOfClimb35To1000FtMin(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude AAL For Flight Phases'),
-               climbs=S('Combined Climb')):
+               climbs=S('Initial Climb')):
 
-        alt_band = np.ma.masked_outside(alt_aal.array, 35, 1000)
-        for climb in climbs:
-            alt_climb_band = mask_outside_slices(alt_band, [climb.slice])
-            alt_climb_sections = np.ma.clump_unmasked(alt_climb_band)
-            self.create_kpv_from_slices(vrt_spd.array, alt_climb_sections, min_value)
+        self.create_kpvs_within_slices(vrt_spd.array, climbs, min_value)
 
 
 class RateOfClimbBelow10000FtMax(KeyPointValueNode):
@@ -7187,7 +7311,7 @@ class RateOfClimbBelow10000FtMax(KeyPointValueNode):
     "Airborne Conflict (Mid-Air Collision) Excessive rates of climb/descent
     (>3,000FPM) within a TMA (defined as < 10,000ft)"
     '''
-
+    #Q: Should this exclude go-around and climb out as defined below?
     units = 'fpm'
 
     def derive(self,
@@ -7246,12 +7370,10 @@ class RateOfDescentTopOfDescentTo10000FtMax(KeyPointValueNode):
                vrt_spd=P('Vertical Speed'),
                alt_aal=P('Altitude STD Smoothed'),
                descents=S('Combined Descent')):
-        alt_band = np.ma.masked_less(alt_aal.array, 10000)
-        for descent in descents:
-            alt_descent_band = mask_outside_slices(alt_band, [descent.slice])
-            alt_descent_sections = np.ma.clump_unmasked(alt_descent_band)
-            self.create_kpv_from_slices(vrt_spd.array, alt_descent_sections, min_value)
 
+        alt_band = np.ma.masked_less(alt_aal.array, 10000)
+        alt_descent_sections = valid_slices_within_array(alt_band, descents)
+        self.create_kpvs_within_slices(vrt_spd.array, alt_descent_sections, min_value)
 
 
 class RateOfDescentBelow10000FtMax(KeyPointValueNode):
@@ -7265,13 +7387,15 @@ class RateOfDescentBelow10000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude STD Smoothed'),
+               alt_std=P('Altitude STD Smoothed'),
                descents=S('Combined Descent')):
-        alt_band = np.ma.masked_outside(alt_aal.array, 0, 10000)
-        for descent in descents:
-            alt_descent_band = mask_outside_slices(alt_band, [descent.slice])
-            alt_descent_sections = np.ma.clump_unmasked(alt_descent_band)
-            self.create_kpv_from_slices(vrt_spd.array, alt_descent_sections, min_value)
+        alt_band = np.ma.masked_outside(alt_std.array, 0, 10000)
+        alt_descent_sections = valid_slices_within_array(alt_band, descents)
+        self.create_kpvs_within_slices(
+            vrt_spd.array,
+            alt_descent_sections,
+            min_value
+        )
 
 
 class RateOfDescent10000To5000FtMax(KeyPointValueNode):
@@ -7282,13 +7406,16 @@ class RateOfDescent10000To5000FtMax(KeyPointValueNode):
 
     def derive(self,
                vrt_spd=P('Vertical Speed'),
-               alt_aal=P('Altitude STD Smoothed'),
-               descents=S('Combined Descent')):
-        alt_band = np.ma.masked_outside(alt_aal.array, 5000, 10000)
-        for descent in descents:
-            alt_descent_band = mask_outside_slices(alt_band, [descent.slice])
-            alt_descent_sections = np.ma.clump_unmasked(alt_descent_band)
-            self.create_kpv_from_slices(vrt_spd.array, alt_descent_sections, min_value)
+               alt_std=P('Altitude STD Smoothed'),
+               descent=S('Descent')):
+
+        alt_band = np.ma.masked_outside(alt_std.array, 10000, 5000)
+        alt_descent_sections = valid_slices_within_array(alt_band, descent)
+        self.create_kpvs_within_slices(
+            vrt_spd.array,
+            alt_descent_sections,
+            min_value
+        )
 
 
 class RateOfDescent5000To3000FtMax(KeyPointValueNode):
@@ -7300,13 +7427,15 @@ class RateOfDescent5000To3000FtMax(KeyPointValueNode):
     def derive(self,
                vrt_spd=P('Vertical Speed'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               descents=S('Combined Descent')):
+               descent=S('Descent')):
 
-        alt_band = np.ma.masked_outside(alt_aal.array, 3000, 5000)
-        for descent in descents:
-            alt_desc_band = mask_outside_slices(alt_band, [descent.slice])
-            alt_desc_sections = np.ma.clump_unmasked(alt_desc_band)
-            self.create_kpv_from_slices(vrt_spd.array, alt_desc_sections, min_value)
+        alt_band = np.ma.masked_outside(alt_aal.array, 5000, 3000)
+        alt_descent_sections = valid_slices_within_array(alt_band, descent)
+        self.create_kpvs_within_slices(
+            vrt_spd.array,
+            alt_descent_sections,
+            min_value
+        )
 
 
 class RateOfDescent3000To2000FtMax(KeyPointValueNode):
@@ -7318,13 +7447,15 @@ class RateOfDescent3000To2000FtMax(KeyPointValueNode):
     def derive(self,
                vrt_spd=P('Vertical Speed'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               descents=S('Combined Descent')):
+               init_app=S('Initial Approach')):
 
-        alt_band = np.ma.masked_outside(alt_aal.array, 2000, 3000)
-        for descent in descents:
-            alt_desc_band = mask_outside_slices(alt_band, [descent.slice])
-            alt_desc_sections = np.ma.clump_unmasked(alt_desc_band)
-            self.create_kpv_from_slices(vrt_spd.array, alt_desc_sections, min_value)
+        alt_band = np.ma.masked_outside(alt_aal.array, 3000, 2000)
+        alt_app_sections = valid_slices_within_array(alt_band, init_app)
+        self.create_kpvs_within_slices(
+            vrt_spd.array,
+            alt_app_sections,
+            min_value
+        )
 
 
 class RateOfDescent2000To1000FtMax(KeyPointValueNode):
@@ -7336,13 +7467,15 @@ class RateOfDescent2000To1000FtMax(KeyPointValueNode):
     def derive(self,
                vrt_spd=P('Vertical Speed'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               descents=S('Combined Descent')):
+               init_app=S('Initial Approach')):
 
-        alt_band = np.ma.masked_outside(alt_aal.array, 1000, 2000)
-        for descent in descents:
-            alt_desc_band = mask_outside_slices(alt_band, [descent.slice])
-            alt_desc_sections = np.ma.clump_unmasked(alt_desc_band)
-            self.create_kpv_from_slices(vrt_spd.array, alt_desc_sections, min_value)
+        alt_band = np.ma.masked_outside(alt_aal.array, 2000, 1000)
+        alt_app_sections = valid_slices_within_array(alt_band, init_app)
+        self.create_kpvs_within_slices(
+            vrt_spd.array,
+            alt_app_sections,
+            min_value
+        )
 
 
 class RateOfDescent1000To500FtMax(KeyPointValueNode):
@@ -7354,13 +7487,15 @@ class RateOfDescent1000To500FtMax(KeyPointValueNode):
     def derive(self,
                vrt_spd=P('Vertical Speed'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               descents=S('Combined Descent')):
+               fin_app=S('Final Approach')):
 
         alt_band = np.ma.masked_outside(alt_aal.array, 1000, 500)
-        for descent in descents:
-            alt_desc_band = mask_outside_slices(alt_band, [descent.slice])
-            alt_desc_sections = np.ma.clump_unmasked(alt_desc_band)
-            self.create_kpv_from_slices(vrt_spd.array, alt_desc_sections, min_value)
+        alt_app_sections = valid_slices_within_array(alt_band, fin_app)
+        self.create_kpvs_within_slices(
+            vrt_spd.array,
+            alt_app_sections,
+            min_value
+        )
 
 
 class RateOfDescent500To50FtMax(KeyPointValueNode):
@@ -7372,13 +7507,15 @@ class RateOfDescent500To50FtMax(KeyPointValueNode):
     def derive(self,
                vrt_spd=P('Vertical Speed'),
                alt_aal=P('Altitude AAL For Flight Phases'),
-               descents=S('Combined Descent')):
+               fin_app=S('Final Approach')):
 
-        alt_band = np.ma.masked_outside(alt_aal.array, 50, 500)
-        for descent in descents:
-            alt_desc_band = mask_outside_slices(alt_band, [descent.slice])
-            alt_desc_sections = np.ma.clump_unmasked(alt_desc_band)
-            self.create_kpv_from_slices(vrt_spd.array, alt_desc_sections, min_value)
+        alt_band = np.ma.masked_outside(alt_aal.array, 500, 50)
+        alt_app_sections = valid_slices_within_array(alt_band, fin_app)
+        self.create_kpvs_within_slices(
+            vrt_spd.array,
+            alt_app_sections,
+            min_value
+        )
 
 
 class RateOfDescent50FtToTouchdownMax(KeyPointValueNode):
@@ -7495,12 +7632,15 @@ class Roll400To1000FtMax(KeyPointValueNode):
 
     def derive(self,
                roll=P('Roll'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               init_climb=S('Initial Climb')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 400, 1000)
+        alt_climb_sections = valid_slices_within_array(alt_band, init_climb)
         self.create_kpvs_within_slices(
             roll.array,
-            alt_aal.slices_from_to(400, 1000),
-            max_abs_value,
+            alt_climb_sections,
+            max_abs_value
         )
 
 
@@ -7529,11 +7669,14 @@ class Roll1000To300FtMax(KeyPointValueNode):
 
     def derive(self,
                roll=P('Roll'),
-               alt_aal=P('Altitude AAL For Flight Phases')):
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               fin_app=S('Final Approach')):
 
+        alt_band = np.ma.masked_outside(alt_aal.array, 1000, 300)
+        alt_app_sections = valid_slices_within_array(alt_band, fin_app)
         self.create_kpvs_within_slices(
             roll.array,
-            alt_aal.slices_from_to(1000, 300),
+            alt_app_sections,
             max_abs_value,
         )
 
