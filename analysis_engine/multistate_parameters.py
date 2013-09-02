@@ -1010,8 +1010,7 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         array = np.ma.where(spdbrk.array > 1.0,
                             'Deployed/Cmd Up', armed.array)
         return array
-        
-        
+    
     def b737_speedbrake(self, spdbrk, handle):
         '''
         Speedbrake Handle Positions for 737-x:
@@ -1377,8 +1376,8 @@ class StickShaker(MultistateDerivedParameterNode):
 
         else:
             raise NotImplementedError
-        
-        
+
+
 class ThrustReversers(MultistateDerivedParameterNode):
     '''
     A single parameter with multi-state mapping as below.
