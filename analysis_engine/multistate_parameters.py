@@ -861,13 +861,18 @@ class KeyVHFCapt(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)', 'Key VHF (R) (Capt)'), available)
+        return any_of(('Key VHF (1) (Capt)',
+                       'Key VHF (2) (Capt)',
+                       'Key VHF (3) (Capt)'), available)
 
-    def derive(self, key_vhf_l=M('Key VHF (L) (Capt)'),
-               key_vhf_c=M('Key VHF (C) (Capt)'),
-               key_vhf_r=M('Key VHF (R) (Capt)')):
-        arrays = [p.array for p in (key_vhf_l, key_vhf_c, key_vhf_r)]
-        self.array = np.ma.logical_and(*arrays)
+    def derive(self, key_vhf_1=M('Key VHF (1) (Capt)'),
+               key_vhf_2=M('Key VHF (2) (Capt)'),
+               key_vhf_3=M('Key VHF (3) (Capt)')):
+        self.array = vstack_params_where_state(
+            (key_vhf_1, 'Keyed'),
+            (key_vhf_2, 'Keyed'),
+            (key_vhf_3, 'Keyed'),
+        ).any(axis=0)
 
 
 class KeyVHFFO(MultistateDerivedParameterNode):
@@ -877,13 +882,18 @@ class KeyVHFFO(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Key VHF (L) (FO)', 'Key VHF (C) (FO)', 'Key VHF (R) (FO)'), available)
+        return any_of(('Key VHF (1) (FO)',
+                       'Key VHF (2) (FO)',
+                       'Key VHF (3) (FO)'), available)
 
-    def derive(self, key_vhf_l=M('Key VHF (L) (FO)'),
-               key_vhf_c=M('Key VHF (C) (FO)'),
-               key_vhf_r=M('Key VHF (R) (FO)')):
-        arrays = [p.array for p in (key_vhf_l, key_vhf_c, key_vhf_r)]
-        self.array = np.ma.logical_and(*arrays)
+    def derive(self, key_vhf_1=M('Key VHF (1) (FO)'),
+               key_vhf_2=M('Key VHF (2) (FO)'),
+               key_vhf_3=M('Key VHF (3) (FO)')):
+        self.array = vstack_params_where_state(
+            (key_vhf_1, 'Keyed'),
+            (key_vhf_2, 'Keyed'),
+            (key_vhf_3, 'Keyed'),
+        ).any(axis=0)
 
 
 class MasterWarning(MultistateDerivedParameterNode):

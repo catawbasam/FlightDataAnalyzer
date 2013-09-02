@@ -746,13 +746,13 @@ class TestKeyVHFCapt(unittest.TestCase):
     
     def test_can_operate(self):
         self.assertEqual(KeyVHFCapt.get_operational_combinations(),
-                         [('Key VHF (L) (Capt)',),
-                          ('Key VHF (C) (Capt)',),
-                          ('Key VHF (R) (Capt)',),
-                          ('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)'),
-                          ('Key VHF (L) (Capt)', 'Key VHF (R) (Capt)'),
-                          ('Key VHF (C) (Capt)', 'Key VHF (R) (Capt)'),
-                          ('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)', 'Key VHF (R) (Capt)')])
+                         [('Key VHF (1) (Capt)',),
+                          ('Key VHF (2) (Capt)',),
+                          ('Key VHF (3) (Capt)',),
+                          ('Key VHF (1) (Capt)', 'Key VHF (2) (Capt)'),
+                          ('Key VHF (1) (Capt)', 'Key VHF (3) (Capt)'),
+                          ('Key VHF (2) (Capt)', 'Key VHF (3) (Capt)'),
+                          ('Key VHF (1) (Capt)', 'Key VHF (2) (Capt)', 'Key VHF (3) (Capt)')])
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -763,13 +763,13 @@ class TestKeyVHFFO(unittest.TestCase):
     
     def test_can_operate(self):
         self.assertEqual(KeyVHFFO.get_operational_combinations(),
-                         [('Key VHF (L) (FO)',),
-                          ('Key VHF (C) (FO)',),
-                          ('Key VHF (R) (FO)',),
-                          ('Key VHF (L) (FO)', 'Key VHF (C) (FO)'),
-                          ('Key VHF (L) (FO)', 'Key VHF (R) (FO)'),
-                          ('Key VHF (C) (FO)', 'Key VHF (R) (FO)'),
-                          ('Key VHF (L) (FO)', 'Key VHF (C) (FO)', 'Key VHF (R) (FO)')])
+                         [('Key VHF (1) (FO)',),
+                          ('Key VHF (2) (FO)',),
+                          ('Key VHF (3) (FO)',),
+                          ('Key VHF (1) (FO)', 'Key VHF (2) (FO)'),
+                          ('Key VHF (1) (FO)', 'Key VHF (3) (FO)'),
+                          ('Key VHF (2) (FO)', 'Key VHF (3) (FO)'),
+                          ('Key VHF (1) (FO)', 'Key VHF (2) (FO)', 'Key VHF (3) (FO)')])
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
