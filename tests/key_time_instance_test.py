@@ -1376,6 +1376,12 @@ class TestTransmit(unittest.TestCase):
             ('Key HF (1)',),
             ('Key HF (2)',),
             ('Key HF (3)',),
+            ('Key HF (1) (Capt)',),
+            ('Key HF (2) (Capt)',),
+            ('Key HF (3) (Capt)',),
+            ('Key HF (1) (FO)',),
+            ('Key HF (2) (FO)',),
+            ('Key HF (3) (FO)',),
             ('Key Satcom',),
             ('Key Satcom (1)',),
             ('Key Satcom (2)',),
@@ -1383,6 +1389,12 @@ class TestTransmit(unittest.TestCase):
             ('Key VHF (1)',),
             ('Key VHF (2)',),
             ('Key VHF (3)',),
+            ('Key VHF (1) Capt',),
+            ('Key VHF (2) Capt',),
+            ('Key VHF (3) Capt',),
+            ('Key VHF (1) FO',),
+            ('Key VHF (2) FO',),
+            ('Key VHF (3) FO',),
         ])
         # All possible combinations of `expected` are allowed, so we only check
         # if all of them are included in the result
