@@ -3118,6 +3118,12 @@ def trim_slices(slices, seconds, frequency, hdf_duration):
     return trimmed_slices
 
 
+def valid_slices_within_array(array, sections=None):
+    '''
+    returns slices of unmasked data, optionally within section slices.
+    '''
+    array_band = mask_outside_slices(array, [x.slice for x in sections])
+    return np.ma.clump_unmasked(array_band)
 
 
 """
@@ -5080,7 +5086,7 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     stepped_array[low < array] = level
     stepped_array.mask = np.ma.getmaskarray(array)
         
-    if step_at!='midpoint':
+    if step_at != 'midpoint':
         
         # We are being asked to adjust the step point to either the beginning or
         # end of a change period. First find where the changes took place:

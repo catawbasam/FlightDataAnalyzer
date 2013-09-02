@@ -11,6 +11,7 @@ from flightdatautilities.model_information import (get_aileron_map,
                                                    get_flap_map,
                                                    get_slat_map)
 from flightdatautilities.velocity_speed import get_vspeed_map
+from flightdatautilities.vmo_mmo import get_vmo_procedure
 
 from analysis_engine.exceptions import DataFrameError
 from analysis_engine.node import (
@@ -2872,6 +2873,93 @@ class Eng_VibBroadbandMax(DerivedParameterNode):
 
 
 ################################################################################
+# Engine Vibration (A)
+
+
+class Eng_VibAMax(DerivedParameterNode):
+    '''
+    This derived parameter condenses all the available first shaft order
+    vibration measurements into a single consolidated value.
+    '''
+
+    name = 'Eng (*) Vib A Max'
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) Vib (A)'),
+               eng2=P('Eng (2) Vib (A)'),
+               eng3=P('Eng (3) Vib (A)'),
+               eng4=P('Eng (4) Vib (A)')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+
+
+################################################################################
+# Engine Vibration (B)
+
+
+class Eng_VibBMax(DerivedParameterNode):
+    '''
+    This derived parameter condenses all the available second shaft order
+    vibration measurements into a single consolidated value.
+    '''
+
+    name = 'Eng (*) Vib B Max'
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) Vib (B)'),
+               eng2=P('Eng (2) Vib (B)'),
+               eng3=P('Eng (3) Vib (B)'),
+               eng4=P('Eng (4) Vib (B)')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+
+
+################################################################################
+# Engine Vibration (C)
+
+
+class Eng_VibCMax(DerivedParameterNode):
+    '''
+    This derived parameter condenses all the available third shaft order
+    vibration measurements into a single consolidated value.
+    '''
+
+    name = 'Eng (*) Vib C Max'
+    align = False
+
+    @classmethod
+    def can_operate(cls, available):
+
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               eng1=P('Eng (1) Vib (C)'),
+               eng2=P('Eng (2) Vib (C)'),
+               eng3=P('Eng (3) Vib (C)'),
+               eng4=P('Eng (4) Vib (C)')):
+
+        engines = vstack_params(eng1, eng2, eng3, eng4)
+        self.array = np.ma.max(engines, axis=0)
+        self.offset = offset_select('mean', [eng1, eng2, eng3, eng4])
+
+
+################################################################################
 
 
 class FuelQty(DerivedParameterNode):
@@ -5172,8 +5260,8 @@ class Speedbrake(DerivedParameterNode):
         if frame_name in ['737-3', '737-3A', '737-3B', '737-3C', '737-7']:
             self.array, self.offset = self.merge_spoiler(spoiler_4, spoiler_9)
 
-        elif frame_name in ['737-4', '737-5', '737-5_NON-EIS', '737-6',
-                            '737-6_NON-EIS', '737-2227000-335A',
+        elif frame_name in ['737-4', '737-4_NON-EIS', '737-5', '737-5_NON-EIS',
+                            '737-6', '737-6_NON-EIS', '737-2227000-335A',
                             'A320_SFIM_ED45_CFM']:
             self.array, self.offset = self.merge_spoiler(spoiler_2, spoiler_7)
         
@@ -5630,15 +5718,11 @@ class VMOLookup(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available, series=A('Series'), family=A('Family')):
-        from flightdatautilities.vmo_mmo import get_vmo_procedure
-
         return 'Altitude AAL' in available and get_vmo_procedure(
             series=series.value, family=family.value).vmo
 
     def derive(self, aal=P('Altitude AAL'), series=A('Series'),
                family=A('Family')):
-        from flightdatautilities.vmo_mmo import get_vmo_procedure
-
         proc = get_vmo_procedure(series=series.value, family=family.value)
         if proc:
             self.array = proc.get_vmo_mmo_arrays(aal.array)[0]
@@ -5653,15 +5737,12 @@ class MMOLookup(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available, series=A('Series'), family=A('Family')):
-        from flightdatautilities.vmo_mmo import get_vmo_procedure
-
         return 'Altitude AAL' in available and get_vmo_procedure(
             series=series.value, family=family.value).mmo
 
     def derive(self, aal=P('Altitude AAL'), series=A('Series'),
                family=A('Family')):
-        from flightdatautilities.vmo_mmo import get_vmo_procedure
-
         proc = get_vmo_procedure(series=series.value, family=family.value)
         if proc:
             self.array = proc.get_vmo_mmo_arrays(aal.array)[1]
+

@@ -536,7 +536,8 @@ class Flap(MultistateDerivedParameterNode):
                 flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
             finally:
                 self.values_mapping = {f: str(f) for f in flap_steps}
-                self.array = step_values(flap.array, flap.frequency, flap_steps)
+                self.array = step_values(flap.array, flap.frequency, flap_steps,
+                                         step_at='move_start')
 
 
 class FlapExcludingTransition(MultistateDerivedParameterNode):
@@ -579,29 +580,20 @@ class FlapLever(MultistateDerivedParameterNode):
     '''
     Rounds the Flap Lever Angle to the selected detent at the start of the
     angle movement.
+    
+    Flap is not used to synthesize Flap Lever as this could be misleading.
+    Instead, all safety Key Point Values will use Flap Lever followed by Flap.
     '''
 
     units = 'deg'
 
-    ##@classmethod
-    ##def can_operate(cls, available):
-        ##return any_of(('Flap Angle'), available) \
-            ##and all_of(('Series', 'Family'), available)
-
     def derive(self, flap_lever=P('Flap Lever Angle'),
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap_lever)
-        # Take the moment the flap starts to move.        
+        # Take the moment the flap starts to move.
         self.array = step_values(flap_lever.array, flap_lever.frequency, 
                                  self.values_mapping.keys(),
                                  step_at='move_start')
-        # Q: Should we allow for flap angle if no flap lever angle?
-        ## Use flap lever position where recorded, otherwise revert to flap surface.
-        ###if flap_lvr:
-            #### Take the moment the lever passes midway between two flap detents.
-            ###self.array = step_values(flap_lvr.array, flap_lvr.frequency, 
-                                     ###flap_steps, step_at='midpoint')
-        ###else:
 
 
 class FuelQty_Low(MultistateDerivedParameterNode):
@@ -1264,8 +1256,10 @@ class StableApproach(MultistateDerivedParameterNode):
             #== 2. Landing Flap ==
             # not due to landing gear so try to prove it wasn't due to Landing Flap
             self.array[_slice][stable] = 2
-            landing_flap = last_valid_sample(flap_lever)
-            landing_flap_set = (flap_lever == landing_flap.value)
+            # look for maximum flap used in approach, otherwise go-arounds
+            # can detect the start of flap retracting as the landing flap.
+            landing_flap = np.ma.max(flap_lever)
+            landing_flap_set = (flap_lever == landing_flap)
             stable &= landing_flap_set.filled(True)  # assume stable (flap set)
 
             #== 3. Heading ==
