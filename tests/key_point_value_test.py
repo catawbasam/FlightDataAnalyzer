@@ -8075,7 +8075,7 @@ class TestLastFlapChangeToTakeoffRollEndDuration(unittest.TestCase, NodeTest):
 
     def test_derive(self):
         flap_array = np.ma.array([15, 15, 20, 20, 15, 15])
-        flap_lever = P(
+        flap_lever = M(
             name='Flap Lever', array=flap_array,
             values_mapping={f: str(f) for f in np.ma.unique(flap_array)},
         )
@@ -8088,9 +8088,10 @@ class TestLastFlapChangeToTakeoffRollEndDuration(unittest.TestCase, NodeTest):
                 name='Last Flap Change To Takeoff Roll End Duration')
         ]
         self.assertEqual(list(node), expected)
-        flap = P(
+        flap = M(
             name='Flap',
             array=np.ma.array([15, 15, 20, 15, 15, 15]),
+            values_mapping={f: str(f) for f in np.ma.unique(flap_array)},
         )
         node = self.node_class()
         node.derive(None, flap, takeoff_roll)
