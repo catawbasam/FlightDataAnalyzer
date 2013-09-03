@@ -53,7 +53,7 @@ from analysis_engine.library import (#actuator_mismatch,
                                      #interpolate,
                                      is_day,
                                      #is_index_within_slice,
-                                     last_valid_sample,
+                                     #last_valid_sample,
                                      #latitudes_and_longitudes,
                                      #localizer_scale,
                                      #machtat2sat,
@@ -1554,3 +1554,123 @@ class TAWSAlert(MultistateDerivedParameterNode):
         if airs:
             for air in airs:
                 self.array[air.slice] = res[air.slice]
+
+
+class TAWSDontSink(MultistateDerivedParameterNode):
+    name = 'TAWS Dont Sink'
+    
+    values_mapping = {
+        0: '-',
+        1: 'Warning',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('TAWS (L) Dont Sink' in available) or \
+               ('TAWS (R) Dont Sink' in available)
+    
+    def derive(self, taws_l_dont_sink=M('TAWS (L) Dont Sink'),
+               taws_r_dont_sink=M('TAWS (R) Dont Sink')):
+        self.array = vstack_params_where_state(
+            (taws_l_dont_sink, 'Warning'),
+            (taws_r_dont_sink, 'Warning'),
+        ).any(axis=0)
+
+
+class TAWSGlideslopeCancel(MultistateDerivedParameterNode):
+    name = 'TAWS Glideslope Cancel'
+    
+    values_mapping = {
+        0: '-',
+        1: 'Warning',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('TAWS (L) Glideslope Cancel' in available) or \
+               ('TAWS (R) Glideslope Cancel' in available)
+    
+    def derive(self, taws_l_gs=M('TAWS (L) Glideslope Cancel'),
+               taws_r_gs=M('TAWS (R) Glideslope Cancel')):
+        self.array = vstack_params_where_state(
+            (taws_l_gs, 'Warning'),
+            (taws_r_gs, 'Warning'),
+        ).any(axis=0)
+
+
+class TAWSTooLowGear(MultistateDerivedParameterNode):
+    name = 'TAWS Too Low Gear'
+        
+    values_mapping = {
+        0: '-',
+        1: 'Warning',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('TAWS (L) Too Low Gear' in available) or \
+               ('TAWS (R) Too Low Gear' in available)
+    
+    def derive(self, taws_l_gear=M('TAWS (L) Too Low Gear'),
+               taws_r_gear=M('TAWS (R) Too Low Gear')):
+        self.array = vstack_params_where_state(
+            (taws_l_gear, 'Warning'),
+            (taws_r_gear, 'Warning'),
+        ).any(axis=0)
+
+
+class TakeoffConfigurationWarning(MultistateDerivedParameterNode):
+    '''
+    Merging all available Takeoff Configuration Warning signals into a single
+    parameter for subsequent monitoring.
+    '''
+    values_mapping = {
+        0: '-',
+        1: 'Warning',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(['Takeoff Configuration Stabilizer Warning',
+                       'Takeoff Configuration Parking Brake Warning',
+                       'Takeoff Configuration Flap Warning',
+                       'Takeoff Configuration Gear Warning',
+                       'Takeoff Configuration Rudder Warning',
+                       'Takeoff Configuration Spoiler Warning'],
+                      available)
+    
+    def derive(self, stabilizer=M('Takeoff Configuration Stabilizer Warning'),
+               parking_brake=M('Takeoff Configuration Parking Brake Warning'),
+               flap=M('Takeoff Configuration Flap Warning'),
+               gear=M('Takeoff Configuration Gear Warning'),
+               rudder=M('Takeoff Configuration Rudder Warning'),
+               spoiler=M('Takeoff Configuration Rudder Warning')):
+        params_state = vstack_params_where_state(
+            ('Takeoff Configuration Stabilizer Warning', 'Warning'),
+            ('Takeoff Configuration Parking Brake Warning', 'Warning'),
+            ('Takeoff Configuration Flap Warning', 'Warning'),
+            ('Takeoff Configuration Gear Warning', 'Warning'),
+            ('Takeoff Configuration Rudder Warning', 'Warning'),
+            ('Takeoff Configuration Spoiler Warning', 'Warning'))
+        self.array = params_state.any(axis=0)
+
+
+class TCASFailure(MultistateDerivedParameterNode):
+    name = 'TCAS Failure'
+        
+    values_mapping = {
+        0: '-',
+        1: 'Failed',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('TCAS (L) Failure' in available) or \
+               ('TCAS (R) Failure' in available)
+    
+    def derive(self, tcas_l_failure=M('TCAS (L) Failure'),
+               tcas_r_failure=M('TCAS (R) Failure')):
+        self.array = vstack_params_where_state(
+            (tcas_l_failure, 'Failed'),
+            (tcas_r_failure, 'Failed'),
+        ).any(axis=0)
