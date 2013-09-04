@@ -5531,7 +5531,6 @@ class WheelSpeedLeft(DerivedParameterNode):
         self.array = blend_parameters(sources, self.offset, self.frequency)
 
 
-
 class WheelSpeedRight(DerivedParameterNode):
     '''
     Merge the various recorded wheel speed signals from the right hand bogie.

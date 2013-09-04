@@ -1584,7 +1584,7 @@ class TAWSGlideslopeCancel(MultistateDerivedParameterNode):
     
     values_mapping = {
         0: '-',
-        1: 'Warning',
+        1: 'Cancel',
     }
     
     @classmethod
@@ -1595,8 +1595,8 @@ class TAWSGlideslopeCancel(MultistateDerivedParameterNode):
     def derive(self, taws_l_gs=M('TAWS (L) Glideslope Cancel'),
                taws_r_gs=M('TAWS (R) Glideslope Cancel')):
         self.array = vstack_params_where_state(
-            (taws_l_gs, 'Warning'),
-            (taws_r_gs, 'Warning'),
+            (taws_l_gs, 'Cancel'),
+            (taws_r_gs, 'Cancel'),
         ).any(axis=0)
 
 
