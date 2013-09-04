@@ -1330,6 +1330,8 @@ class StableApproach(MultistateDerivedParameterNode):
             # extend the stability at the end of the altitude threshold through to landing
             stable_engine[altitude < 50] = stable_engine[index_at_50]
             stable &= stable_engine.filled(True)
+            
+            # TODO: Use Engine TPR instead of EPR if available.
 
             #== 9. Stable ==
             # Congratulations; whatever remains in this approach is stable!
