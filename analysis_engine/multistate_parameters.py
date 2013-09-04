@@ -1646,12 +1646,12 @@ class TakeoffConfigurationWarning(MultistateDerivedParameterNode):
                rudder=M('Takeoff Configuration Rudder Warning'),
                spoiler=M('Takeoff Configuration Rudder Warning')):
         params_state = vstack_params_where_state(
-            ('Takeoff Configuration Stabilizer Warning', 'Warning'),
-            ('Takeoff Configuration Parking Brake Warning', 'Warning'),
-            ('Takeoff Configuration Flap Warning', 'Warning'),
-            ('Takeoff Configuration Gear Warning', 'Warning'),
-            ('Takeoff Configuration Rudder Warning', 'Warning'),
-            ('Takeoff Configuration Spoiler Warning', 'Warning'))
+            (stabilizer, 'Warning'),
+            (parking_brake, 'Warning'),
+            (flap, 'Warning'),
+            (gear, 'Warning'),
+            (rudder, 'Warning'),
+            (spoiler, 'Warning'))
         self.array = params_state.any(axis=0)
 
 
