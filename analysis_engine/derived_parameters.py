@@ -1663,11 +1663,21 @@ class Drift(DerivedParameterNode):
 
     align = False
     units = 'deg'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return (('Drift (1)' in available or 'Drift (2)' in available) or
+                ('Track' in available and 'Heading' in available))
 
-    def derive(self, drift_1=P('Drift (1)'), drift_2=P('Drift (2)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(drift_1, drift_2)
-
+    def derive(self, drift_1=P('Drift (1)'), drift_2=P('Drift (2)'),
+               track=P('Track'), heading=P('Heading')):
+        if drift_1 or drift_2:
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(drift_1, drift_2)
+        else:
+            self.frequency = track.frequency
+            self.offset = track.offset
+            self.array = track.array - align(heading, track)
 
 
 ################################################################################
@@ -5547,19 +5557,9 @@ class WindDirection(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(wind_1, wind_2)
         else:
+            self.frequency = wind_true.frequency
+            self.offset = wind_true.offset
             self.array = (wind_true.array - align(mag_var, wind_true)) % 360.0
-
-
-class WindDirectionTrue(DerivedParameterNode):
-    """
-    Compensates for magnetic variation, which will have been computed
-    previously based on the magnetic declanation at the aircraft's location.
-    """
-    units = 'deg'
-    
-    def derive(self, wind_true=P('Wind Direction True'),
-               mag_var=P('Magnetic Variation')):
-        self.array = (wind_true.array + mag_var.array) % 360.0
 
 
 class WheelSpeedLeft(DerivedParameterNode):

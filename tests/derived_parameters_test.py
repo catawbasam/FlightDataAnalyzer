@@ -74,6 +74,7 @@ from analysis_engine.derived_parameters import (
     DescendForFlightPhases,
     DistanceTravelled,
     DistanceToLanding,
+    Drift,
     Elevator,
     ElevatorLeft,
     ElevatorRight,
@@ -1491,6 +1492,19 @@ class TestDistanceTravelled(unittest.TestCase):
         DistanceTravelled().derive(gndspeed)
         integrate.assert_called_once_with(gndspeed.array, gndspeed.frequency,
                                           scale=1.0 / 3600)
+
+
+class TestDrift(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertTrue(Drift.can_operate(('Drift (1)',)))
+        self.assertTrue(Drift.can_operate(('Drift (2)',)))
+        self.assertTrue(Drift.can_operate(('Drift (1)', 'Drift (2)')))
+        self.assertTrue(Drift.can_operate(('Track', 'Heading')))
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_EPRAvg(unittest.TestCase, NodeTest):
