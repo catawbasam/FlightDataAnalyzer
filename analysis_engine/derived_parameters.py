@@ -964,7 +964,7 @@ class AltitudeAAL(DerivedParameterNode):
         '''
         
         self.array = alt_aal
-        
+
 
 def link_baro_rad_fwd(baro_section, ralt_section, alt_rad, alt_std, alt_result):
     begin_index = baro_section.start
@@ -1010,6 +1010,7 @@ def link_baro_rad_rev(baro_section, ralt_section, alt_rad, alt_std, alt_result):
         alt_result[:end_index] = \
             alt_std[:end_index] - up_diff
 
+
 class AltitudeAALForFlightPhases(DerivedParameterNode):
     name = 'Altitude AAL For Flight Phases'
     units = 'ft'
@@ -1021,8 +1022,6 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
 
     def derive(self, alt_aal=P('Altitude AAL')):
         self.array = repair_mask(alt_aal.array, repair_duration=None)
-
-
 
 
 class AltitudeRadio(DerivedParameterNode):
@@ -5528,7 +5527,7 @@ class WindDirection(DerivedParameterNode):
     Either combines two separate Wind Direction parameters.
     The Embraer 135-145 data frame includes two sources.
     '''
-
+    
     align = False
     units = 'deg'
     
@@ -5548,7 +5547,7 @@ class WindDirection(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(wind_1, wind_2)
         else:
-            self.array = (wind_true.array - mag_var.array) % 360.0
+            self.array = (wind_true.array - align(mag_var, wind_true)) % 360.0
 
 
 class WindDirectionTrue(DerivedParameterNode):
