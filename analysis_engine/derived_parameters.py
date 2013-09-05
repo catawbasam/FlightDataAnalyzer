@@ -3393,7 +3393,7 @@ class HeadingTrueContinuous(DerivedParameterNode):
 class Heading(DerivedParameterNode):
     """
     Compensates for magnetic variation, which will have been computed
-    previously based on the magnetic declanation at the aricraft's location.
+    previously based on the magnetic declanation at the aircraft's location.
     """
     units = 'deg'
     
@@ -5498,18 +5498,69 @@ class WindSpeed(DerivedParameterNode):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(wind_1, wind_2)
 
+
+class WindDirectionTrue(DerivedParameterNode):
+    """
+    Compensates for magnetic variation, which will have been computed
+    previously.
+    """
+    units = 'deg'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return 'Wind Direction' in available and \
+               any_of(('Magnetic Variation From Runway', 'Magnetic Variation'),
+                      available)
+        
+    def derive(self, wind=P('Wind Direction'),
+               rwy_var=P('Magnetic Variation From Runway'),
+               mag_var=P('Magnetic Variation')):
+        if rwy_var and np.ma.count(rwy_var.array):
+            # use this in preference
+            var = rwy_var.array
+        else:
+            var = mag_var.array
+        self.array = (wind.array + var) % 360.0
+
+
 class WindDirection(DerivedParameterNode):
     '''
-    The Embraer 135-145 data frame includes two sources
+    Either combines two separate Wind Direction parameters.
+    The Embraer 135-145 data frame includes two sources.
     '''
 
     align = False
     units = 'deg'
-
+    
+    @classmethod
+    def can_operate(cls, available):
+        return (('Wind Direction (1)' in available or
+                 'Wind Direction (2)' in available) or
+                ('Wind Direction True' in available and 
+                 'Magnetic Variation' in available))
+    
     def derive(self, wind_1=P('Wind Direction (1)'),
-                       wind_2=P('Wind Direction (2)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(wind_1, wind_2)
+               wind_2=P('Wind Direction (2)'),
+               wind_true=P('Wind Direction True'),
+               mag_var=P('Magnetic Variation')):
+        
+        if wind_1 or wind_2:
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(wind_1, wind_2)
+        else:
+            self.array = (wind_true.array - mag_var.array) % 360.0
+
+
+class WindDirectionTrue(DerivedParameterNode):
+    """
+    Compensates for magnetic variation, which will have been computed
+    previously based on the magnetic declanation at the aircraft's location.
+    """
+    units = 'deg'
+    
+    def derive(self, wind_true=P('Wind Direction True'),
+               mag_var=P('Magnetic Variation')):
+        self.array = (wind_true.array + mag_var.array) % 360.0
 
 
 class WheelSpeedLeft(DerivedParameterNode):
@@ -5675,6 +5726,9 @@ class TrackDeviationFromRunway(DerivedParameterNode):
         if to_rwy:
             self._track_deviation(track.array, takeoff[0].slice, to_rwy.value,
                                   magnetic)
+
+
+
 
 
 class ElevatorActuatorMismatch(DerivedParameterNode):
