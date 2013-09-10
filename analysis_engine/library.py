@@ -5782,6 +5782,15 @@ def vstack_params_where_state(*param_states):
     '''
     Create a multi-dimensional masked array with a dimension for each param,
     where the state is equal to that provided.
+    
+    res = vstack_params_where_state(
+        (tcas_adv_up, 'Up'),
+        (tcas_combined_control, 'Down'),
+        )
+    # looks like this:
+    [[0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],  # 'Up'
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]  # 'Down'
+    
 
     :param param_states: tuples containing params or array and multistate value to match with. Allows None parameters.
     :type param_states: np.ma.array or Parameter object or None
