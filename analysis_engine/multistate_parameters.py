@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import math
+import logging
+
 import numpy as np
 
 from flightdatautilities.model_information import (
@@ -103,6 +105,9 @@ from analysis_engine.library import (#actuator_mismatch,
                       #METRES_TO_FEET,
                       #METRES_TO_NM,
                       #VERTICAL_SPEED_LAG_TC)
+
+
+logger = logging.getLogger(name=__name__)
 
 
 class APEngaged(MultistateDerivedParameterNode):
@@ -1268,8 +1273,16 @@ class StableApproach(MultistateDerivedParameterNode):
             # look for maximum flap used in approach, otherwise go-arounds
             # can detect the start of flap retracting as the landing flap.
             landing_flap = np.ma.max(flap_lever)
-            landing_flap_set = (flap_lever == landing_flap)
-            stable &= landing_flap_set.filled(True)  # assume stable (flap set)
+            if landing_flap is not np.ma.masked:
+                landing_flap_set = (flap_lever == landing_flap)
+                # assume stable (flap set)
+                stable &= landing_flap_set.filled(True)
+            else:
+                # All landing flap is masked, assume stable
+                logger.warning(
+                    'StableApproach: the landing flap is all masked in '
+                    'the approach.')
+                stable &= True
 
             #== 3. Heading ==
             self.array[_slice][stable] = 3
