@@ -2258,7 +2258,7 @@ class AutobrakeRejectedTakeoffNotSetDuringTakeoff(KeyPointValueNode):
 
     def derive(self,
                ab_rto=P('Autobrake Selected RTO'),
-               takeoff=S('Takeoff')):
+               takeoff=S('Takeoff Roll')):
 
         self.create_kpvs_where(ab_rto.array != 'Selected',
                                ab_rto.hz, phase=takeoff)

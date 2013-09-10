@@ -804,25 +804,31 @@ class ILSLocalizerEstablished(FlightPhaseNode):
                apps=S('Approach And Landing'),
                ils_freq=P('ILS Frequency'),):
         
+        def create_ils_phases(slices):
+            for _slice in slices:
+                ils_slice = scan_ils('localizer', ils_loc.array, alt_aal.array,
+                                   _slice, ils_loc.frequency)
+                if ils_slice is not None:
+                    self.create_phase(ils_slice)
+        
         slices = apps.get_slices()
 
-        if ils_freq and np.ma.count(ils_freq.array):
-            # If we have ILS frequency tuned in check for multiple frequencies
-            # useing around as 110.7 == 110.7 is not always the case when
-            # dealing with floats
-            ils_freq_repaired = nearest_neighbour_mask_repair(ils_freq.array)
-            frequency_changes = np.ma.diff(np.ma.around(ils_freq_repaired, decimals=2))
-            # Create slices for each ILS frequency so they are scanned separately
-            frequency_slices = runs_of_ones(frequency_changes == 0)
-            if frequency_slices:
-                slices = slices_and(slices, frequency_slices)
-
-        for _slice in slices:
-            ils_slice = scan_ils('localizer', ils_loc.array, alt_aal.array,
-                               _slice, ils_loc.frequency)
-            if ils_slice is not None:
-                self.create_phase(ils_slice)
-
+        if ils_freq:
+            if np.ma.count(ils_freq.array):
+                # If we have ILS frequency tuned in check for multiple frequencies
+                # using around as 110.7 == 110.7 is not always the case when
+                # dealing with floats
+                ils_freq_repaired = nearest_neighbour_mask_repair(ils_freq.array)
+                frequency_changes = np.ma.diff(np.ma.around(ils_freq_repaired, decimals=2))
+                # Create slices for each ILS frequency so they are scanned separately
+                frequency_slices = runs_of_ones(frequency_changes == 0)
+                if frequency_slices:
+                    slices = slices_and(slices, frequency_slices)
+                # If we have a frequency source, only create slices if we have some valid frequencies.
+                create_ils_phases(slices)
+        else:
+            # If we don't have a frequency source, just scan the signal and hope it was for this runway!
+            create_ils_phases(slices)
 
 '''
 class ILSApproach(FlightPhaseNode):
