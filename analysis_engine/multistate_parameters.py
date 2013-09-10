@@ -724,7 +724,6 @@ class GearDownSelected(MultistateDerivedParameterNode):
         #Q: which is easier to understand?!
         #self.array = np.ma.where(gear_up_sel.array == 'Up', 'Down', 'Up')
         self.array = 1 - gear_up_sel.array.raw
-        
 
 
 class GearUpSelected(MultistateDerivedParameterNode):

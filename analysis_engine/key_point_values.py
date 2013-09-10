@@ -5827,7 +5827,7 @@ class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
 
 
 ################################################################################
-# Engine TPR
+# Engine Vib Broadband
 
 
 class EngVibBroadbandMax(KeyPointValueNode):
