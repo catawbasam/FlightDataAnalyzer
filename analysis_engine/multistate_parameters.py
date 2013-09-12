@@ -790,21 +790,12 @@ class GearUpSelected(MultistateDerivedParameterNode):
 
     def derive(self,
                gear_down=M('Gear Down'),
-               gear_warn_l=P('Gear (L) Red Warning'),
-               gear_warn_n=P('Gear (N) Red Warning'),
-               gear_warn_r=P('Gear (R) Red Warning')):
+               gear_warn=M('Gear (*) Red Warning')):
         # use the inverse of the gear down array as a start
         self.array = gear_down.array != 'Down'  # True for 'Up'
-        if gear_warn_l or gear_warn_n or gear_warn_r:
-            # Join available gear parameters and use whichever are available.
-            red_warning = vstack_params_where_state(
-                (gear_warn_l, 'Warning'),
-                (gear_warn_n, 'Warning'),
-                (gear_warn_r, 'Warning'),
-            )
-            any_warning = M(array=red_warning.any(axis=0), values_mapping={
-                True: 'Warning'})
-            start_warning = find_edges_on_state_change('Warning', any_warning.array)
+        if gear_warn:
+            start_warning = find_edges_on_state_change(
+                'Warning', gear_warn.array)
             last = 0
             state = 'Down'
             for start in start_warning:
@@ -822,6 +813,44 @@ class GearUpSelected(MultistateDerivedParameterNode):
                     self.array[last:] = 'Up'
                 else:
                     self.array[last:] = 'Down'
+
+
+class Gear_RedWarning(MultistateDerivedParameterNode):
+    '''
+    Merges all the Red Warning systems for Nose, Left and Right gears.
+    Ensures that false warnings on the ground are ignored.
+    '''
+    name = 'Gear (*) Red Warning'
+    values_mapping = {0: '-',
+                      1: 'Warning'}
+    #store in hdf = False! glimpse into the future ;)
+    
+    @classmethod
+    def can_operate(self, available):
+        return 'Airborne' in available and any_of(
+            ('Gear (L) Red Warning', 'Gear (N) Red Warning', 
+             'Gear (R) Red Warning'), available)
+    
+    def derive(self, 
+               gear_warn_l=M('Gear (L) Red Warning'),
+               gear_warn_n=M('Gear (N) Red Warning'),
+               gear_warn_r=M('Gear (R) Red Warning'),
+               airs=S('Airborne')):
+        # Join available gear parameters and use whichever are available.
+        red_warning = vstack_params_where_state(
+            (gear_warn_l, 'Warning'),
+            (gear_warn_n, 'Warning'),
+            (gear_warn_r, 'Warning'),
+        )
+        in_air = np.zeros(len(red_warning[0]), dtype=np.bool)
+        for air in airs:
+            in_air[air.slice] = 1
+        # ensure that the red warnings were in the air
+        ##gear_warn = M(array=red_warning.any(axis=0), values_mapping={
+            ##True: 'Warning'})
+        red_air = red_warning.any(axis=0) & in_air
+        # creating mapped array is probably not be required due to __setattr__
+        self.array = MappedArray(red_air, values_mapping=self.values_mapping)
 
 
 class ILSInnerMarker(MultistateDerivedParameterNode):
