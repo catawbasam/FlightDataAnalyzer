@@ -3279,25 +3279,6 @@ class SlatSurface(DerivedParameterNode):
                                                                        slat_r)
 
 
-class Slat(DerivedParameterNode):
-    """
-    Steps raw Slat angle into detents.
-    
-    # TODO: Move to multistates
-    """
-    def derive(self, slat=P('Slat Surface'), series=A('Series'), family=A('Family')):
-        try:
-            slat_steps = get_slat_map(series.value, family.value)
-        except KeyError:
-            # no slats mapping, round to nearest 5 degrees
-            self.warning("No slat settings - rounding to nearest 5")
-            # round to nearest 5 degrees
-            self.array = round_to_nearest(slat.array, 5.0)
-        else:
-            self.array = step_values(slat.array, slat_steps, slat.hz, 
-                                     step_at='move_start')
-
-
 class SlopeToLanding(DerivedParameterNode):
     """
     This parameter was developed as part of the Artificical Intelligence

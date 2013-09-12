@@ -8,7 +8,7 @@ from flightdatautilities.model_information import (
     get_conf_map,
     get_flap_map,
     get_flap_values_mapping,
-    #get_slat_map
+    get_slat_map,
 )
 
 from hdfaccess.parameter import MappedArray
@@ -651,6 +651,7 @@ class FuelQty_Low(MultistateDerivedParameterNode):
         )
         self.array = warning.any(axis=0)
 
+
 class GearDown(MultistateDerivedParameterNode):
     '''
     This Multi-State parameter uses "majority voting" to decide whether the
@@ -998,6 +999,31 @@ class PitchAlternateLaw(MultistateDerivedParameterNode):
         ).any(axis=0)
 
 
+class Slat(MultistateDerivedParameterNode):
+    """
+    Steps raw Slat angle into detents.
+    """
+
+    @classmethod
+    def can_operate(cls, available, series=A('Series'), family=A('Family')):
+        try:
+            get_slat_map(series.value, family.value)
+        except KeyError:
+            return False
+        return all_of(['Slat Surface', 'Series', 'Family'], available)
+    
+    def derive(self, slat=P('Slat Surface'), series=A('Series'), family=A('Family')):
+        slat_steps = get_slat_map(series.value, family.value)
+        # No longer support rounding to nearest
+        ##except KeyError:
+            ### no slats mapping, round to nearest 5 degrees
+            ##self.warning("No slat settings - rounding to nearest 5")
+            ### round to nearest 5 degrees
+            ##self.array = round_to_nearest(slat.array, 5.0)
+        self.values_mapping = {int(f): str(f) for f in slat_steps}
+        self.array = step_values(slat.array, slat_steps,
+                                 slat.hz, step_at='move_start')
+            
 class SpeedbrakeSelected(MultistateDerivedParameterNode):
     '''
     Determines the selected state of the speedbrake.
@@ -1576,3 +1602,5 @@ class TAWSAlert(MultistateDerivedParameterNode):
         if airs:
             for air in airs:
                 self.array[air.slice] = res[air.slice]
+
+                

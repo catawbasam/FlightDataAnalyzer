@@ -38,8 +38,8 @@ from analysis_engine.multistate_parameters import (
     Eng_4_Fire,
     Eng_Fire,
     Flap,
-    FlapExcludingTransition,
-    FlapIncludingTransition,
+    #FlapExcludingTransition,
+    #FlapIncludingTransition,
     FlapLever,
     Flaperon,
     FuelQty_Low,
@@ -52,6 +52,7 @@ from analysis_engine.multistate_parameters import (
     MasterWarning,
     PackValvesOpen,
     PitchAlternateLaw,
+    Slat,
     SpeedbrakeSelected,
     StableApproach,
     StickShaker,
@@ -874,6 +875,32 @@ class TestPitchAlternateLaw(unittest.TestCase, NodeTest):
         np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
 
 
+class TestSlat(unittest.TestCase):
+    def test_can_operate(self):
+        #TODO: Improve get_operational_combinations to support optional args
+        ##opts = Slat.get_operational_combinations()
+        ##self.assertEqual(opts, [('Slat Surface', 'Series', 'Family')])
+        self.assertFalse(Slat.can_operate(['Slat Surface'], 
+                                          A('Series', None),
+                                          A('Family', None)))
+        self.assertFalse(Slat.can_operate(['Slat Surface'], 
+                                          A('Series', 'A318-BJ'),
+                                          A('Family', 'A318')))
+
+    def test_derive_A300B4F(self):
+        # slats are 0, 16, 25
+        slat = Slat()
+        slat.derive(P('Slat Surface', [0]*5 + range(50)),
+                    A('Series', 'A300B4(F)'),
+                    A('Family', 'A300'))
+        res = unique_values(list(slat.array.raw))
+        self.assertEqual(res,
+                         [(0, 6), (16, 16), (25, 33)])
+        
+        self.assertEqual(slat.values_mapping,
+                         {0: '0', 16: '16', 25: '25'})
+        
+        
 class TestSpeedbrakeSelected(unittest.TestCase):
 
     def test_can_operate(self):
