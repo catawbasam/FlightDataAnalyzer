@@ -5170,6 +5170,36 @@ def step_values(array, steps, hz=1, step_at='midpoint', rate_threshold=0.5):
         # our work here is done
         return stepped_array
     
+    '''
+    A note about how this works:
+    
+    We've found the midpoints of each transition and we have an array which
+    has forced the array to the nearest steps. We now need to move forward or
+    backward from the midpoint to find the start of the transition
+    'move_start' or the end of the transition 'move_stop'.
+    
+    Where possible, we use the rate of change of the parameter to determine
+    where the transition to the next step starts / stops. Sometimes this
+    isn't very effective (for very progressive state changes with low rate of
+    change), in which case we seek for where the state crossed the next step
+    value (see next paragraph). Failing both of these options, we use the
+    flap midpoint determined as the first step to ensure we don't go beyond
+    two steps changes worth.
+    
+    Depending on the direction of travel (increasing / decreasing) determines
+    how close to the next setting we will get (5% of the difference between
+    flap settings under for increasing steps, 5% over for decreasing). This
+    is why you may see slightly early transitions, however this value was
+    found to be the perfect balance of accounting for parameters that do not
+    sit at the desired value and accounting for the slight transition delay.
+    
+    If increasing we step early for 'including_transition' and step late for
+    decreasing so that the entire next step and the transition period are
+    included as the next step.
+    
+    The opposite happens for 'excluding_transition' so that the transitions
+    are ignored until the next step is fully established.
+    '''
     # create new array, initialised with first flap setting
     new_array = np_ma_ones_like(array) * first_valid_sample(stepped_array).value
     
