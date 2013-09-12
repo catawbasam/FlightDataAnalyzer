@@ -132,6 +132,7 @@ from analysis_engine.derived_parameters import (
     RudderPedal,
     SlatSurface,
     Speedbrake,
+    Spoiler,
     VerticalSpeed,
     VerticalSpeedForFlightPhases,
     RateOfTurn,
@@ -3705,7 +3706,23 @@ class TestSpeedbrake(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
-     
+
+
+class TestSpoiler(unittest.TestCase):
+    def test_can_operate(self):
+        family = Attribute('Family', 'B787')
+        self.assertTrue(Spoiler.can_operate(('Spoiler (1)',), family=family))
+        self.assertTrue(Spoiler.can_operate(('Spoiler (14)',), family=family))
+        self.assertTrue(Spoiler.can_operate(('Spoiler (1)', 'Spoiler (14)'),
+                                            family=family))
+        family = Attribute('Family', 'A320')
+        self.assertFalse(Spoiler.can_operate(('Spoiler (1)', 'Spoiler (14)'),
+                                             family=family))
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
 
 class TestSAT(unittest.TestCase):
     # Note: the core function machtat2sat is tested by the library test.

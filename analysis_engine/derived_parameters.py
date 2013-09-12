@@ -5303,6 +5303,21 @@ class Speedbrake(DerivedParameterNode):
             raise DataFrameError(self.name, frame_name)
 
 
+class Spoiler(DerivedParameterNode):
+    align = False
+    
+    @classmethod
+    def can_operate(cls, available, family=A('Family')):
+        return family and family.value == 'B787' and (
+            'Spoiler (1)' in available or 'Spoiler (14)' in available)
+    
+    def derive(self,
+               spoiler_1=P('Spoiler (1)'),
+               spoiler_14=P('Spoiler (14)')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(spoiler_1, spoiler_14)
+
+
 class SpeedbrakeHandle(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available):
