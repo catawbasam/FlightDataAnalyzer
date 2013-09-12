@@ -153,6 +153,7 @@ class Node(object):
       self.frequency and self.offset can be overidden within the derive method.
     '''
     __metaclass__ = ABCMeta
+    node_type_abbr = 'Node'
 
     name = ''  # Optional, default taken from ClassName
     align = True
@@ -201,7 +202,7 @@ class Node(object):
         # XXX: May break if we adopt multi-inheritance or a different class
         # hierarchy.
         return self.__class__.__base__
-
+    
     @classmethod
     def get_name(cls):
         """ class My2BNode -> 'My2B Node'
@@ -473,6 +474,8 @@ class DerivedParameterNode(Node):
     # The units which the derived parameter's array is measured in. It is in
     # lower case to be consistent with the HDFAccess Parameter class and
     # therefore written as an attribute to the HDF file.
+    node_type_abbr = 'Parameter'
+    
     units = None
     data_type = 'Derived'
     lfl = False
@@ -663,7 +666,8 @@ class MultistateDerivedParameterNode(DerivedParameterNode):
     '''
     MappedArray stored as array will be of integer dtype
     '''
-    data_type = 'Derived Multi-state'
+    data_type = 'Derived Multistate'
+    node_type_abbr = 'Multistate'    
 
     def __init__(self, name='', array=np.ma.array([], dtype=int), frequency=1, offset=0,
                  data_type=None, values_mapping={}, *args, **kwargs):
@@ -798,6 +802,8 @@ class SectionNode(Node, list):
     Is a list of Section namedtuples, each with attributes .name, .slice,
     .start_edge and .stop_edge
     '''
+    node_type_abbr = 'Phase'
+    
     def __init__(self, *args, **kwargs):
         '''
         List of slices where this phase is active. Has a frequency and offset.
@@ -1361,6 +1367,8 @@ class KeyTimeInstanceNode(FormattedNameNode):
             # ...
 
     '''
+    node_type_abbr = 'KTI'
+    
     def __init__(self, *args, **kwargs):
         # place holder
         super(KeyTimeInstanceNode, self).__init__(*args, **kwargs)
@@ -1517,6 +1525,8 @@ class KeyTimeInstanceNode(FormattedNameNode):
 
 
 class KeyPointValueNode(FormattedNameNode):
+    node_type_abbr = 'KPV'
+    
     def __init__(self, *args, **kwargs):
         super(KeyPointValueNode, self).__init__(*args, **kwargs)
 
@@ -1954,6 +1964,7 @@ class ApproachNode(ListNode):
     '''
     Stores Approach objects within a list.
     '''
+    node_type_abbr = 'Approach'    
 
     @staticmethod
     def _check_type(_type):
@@ -2201,13 +2212,10 @@ class NodeManager(object):
         return node_clazz.__base__
 
 
-# The following acronyms are intended to be used as placeholder values
-# for kwargs in Node derive methods. Cannot instantiate Node subclass without
-# implementing derive.
 @total_ordering
 class Attribute(object):
 
-    __hash__ = None  # Fix assertItemsEqual in unit tests!
+    __hash__ = None  # Fix assertItemsEqual in unit tests!    
 
     def __init__(self, name, value=None):
         '''
@@ -2269,6 +2277,9 @@ class Attribute(object):
         return self
 
 
+# The following acronyms are intended to be used as placeholder values
+# for kwargs in Node derive methods. Cannot instantiate Node subclass without
+# implementing derive.
 A = Attribute
 P = Parameter
 # NB: Names can be confusing as they are aliases of the Nodes but are

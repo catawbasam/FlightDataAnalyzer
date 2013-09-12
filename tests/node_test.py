@@ -1911,6 +1911,29 @@ class TestMultistateDerivedParameterNode(unittest.TestCase):
         expected = [np.ma.masked, 'two', 'one', 'two', 'one', 'two', 'one', 'two', 'one', np.ma.masked]
         self.assertEqual(list(res.array), expected)
         os.remove(dest)
+        
+class TestNodeTypeAbbreviation(unittest.TestCase):
+    def test_node_type_abbr_attribute(self):
+        class NAME(DerivedParameterNode):
+            pass
+        self.assertEqual(NAME.node_type_abbr, 'Parameter')
+        self.assertEqual(NAME().node_type_abbr, 'Parameter')
+        
+        class NAME(MultistateDerivedParameterNode):
+            pass
+        self.assertEqual(NAME.node_type_abbr, 'Multistate')
+        
+        class NAME(KeyPointValueNode):
+            pass
+        self.assertEqual(NAME.node_type_abbr, 'KPV')
+        
+        class NAME(KeyTimeInstanceNode):
+            pass
+        self.assertEqual(NAME.node_type_abbr, 'KTI')
+        
+        class NAME(ApproachNode):
+            pass
+        self.assertEqual(NAME.node_type_abbr, 'Approach')
 
 
 if __name__ == '__main__':
