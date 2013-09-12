@@ -1498,7 +1498,7 @@ def find_toc_tod(alt_data, ccd_slice, mode='Climb'):
     return np.ma.argmax(np.ma.masked_less(alt_data[section], alt_min+500) - ramp) + section.start
 
 
-def find_edges(array, _slice, direction='rising_edges'):
+def find_edges(array, _slice=slice(None), direction='rising_edges'):
     '''
     Edge finding low level routine, called by create_ktis_at_edges (and
     historically create_kpvs_at_edges). Also useful within algorithms
