@@ -8412,6 +8412,7 @@ class TAWSCautionObstacleDuration(KeyPointValueNode):
 
 class TAWSCautionTerrainDuration(KeyPointValueNode):
     '''
+    TAWS Caution Terrain is sourced from GPWS
     '''
 
     name = 'TAWS Caution Terrain Duration'
@@ -8425,6 +8426,7 @@ class TAWSCautionTerrainDuration(KeyPointValueNode):
 
 class TAWSTerrainCautionDuration(KeyPointValueNode):
     '''
+    TAWS Terrain Caution is sourced from EGPWS.
     '''
 
     name = 'TAWS Terrain Caution Duration'
