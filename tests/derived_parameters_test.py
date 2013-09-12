@@ -3606,16 +3606,6 @@ class TestRollRate(unittest.TestCase):
         ma_test.assert_array_equal(expected[2:4], rr.array[2:4]) # Differential process blurs ends of the array, so just test the core part.
 
 
-class TestSlat(unittest.TestCase):
-    @unittest.skip('Test Not Implemented')
-    def test_can_operate(self):
-        self.assertTrue(False, msg='Test not implemented.')
-        
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
 class TestSlatSurface(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
