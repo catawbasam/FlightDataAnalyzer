@@ -485,6 +485,33 @@ class EngThrustModeRequired(MultistateDerivedParameterNode):
         self.array = array
 
 
+class EventMarker(MultistateDerivedParameterNode):
+    '''
+    Combine Event Marker from multiple sources where recorded separately.
+    '''
+    values_mapping = {0: '-', 1: 'Event'}
+    name = 'Event Marker'
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(cls.get_dependency_names(), available)
+
+    def derive(self,
+               event_marker_1=M('Event Marker (1)'),
+               event_marker_2=M('Event Marker (2)'),
+               event_marker_3=M('Event Marker (3)'),
+               event_marker_capt=M('Event Marker (Capt)'),
+               event_marker_fo=M('Event Marker (FO)')):
+
+        self.array = vstack_params_where_state(
+            (event_marker_1, 'Event'),
+            (event_marker_2, 'Event'),
+            (event_marker_3, 'Event'),
+            (event_marker_capt, 'Event'),
+            (event_marker_fo, 'Event'),
+        ).any(axis=0)
+
+
 class Flap(MultistateDerivedParameterNode):
     '''
     Steps raw Flap angle from surface into detents.

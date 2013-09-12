@@ -34,6 +34,7 @@ from analysis_engine.multistate_parameters import (
     Eng_3_Fire,
     Eng_4_Fire,
     Eng_Fire,
+    EventMarker,
     Flap,
     FlapExcludingTransition,
     FlapIncludingTransition,
@@ -398,6 +399,25 @@ class TestEng_4_Fire(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(fire_gnd, fire_air)
         np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
+
+
+class TestEventMarker(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertTrue(EventMarker.can_operate(('Event Marker (1)',)))
+        self.assertTrue(EventMarker.can_operate(('Event Marker (2)',)))
+        self.assertTrue(EventMarker.can_operate(('Event Marker (3)',)))
+        self.assertTrue(EventMarker.can_operate(('Event Marker (Capt)',)))
+        self.assertTrue(EventMarker.can_operate(('Event Marker (FO)',)))
+        self.assertTrue(EventMarker.can_operate(('Event Marker (1)',
+                                                 'Event Marker (2)',
+                                                 'Event Marker (3)')))
+        self.assertTrue(EventMarker.can_operate(('Event Marker (Capt)',
+                                                 'Event Marker (FO)')))
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_Fire(unittest.TestCase, NodeTest):
