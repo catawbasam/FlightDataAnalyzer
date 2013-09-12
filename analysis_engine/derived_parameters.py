@@ -3282,6 +3282,8 @@ class SlatSurface(DerivedParameterNode):
 class Slat(DerivedParameterNode):
     """
     Steps raw Slat angle into detents.
+    
+    # TODO: Move to multistates
     """
     def derive(self, slat=P('Slat Surface'), series=A('Series'), family=A('Family')):
         try:
@@ -5028,40 +5030,6 @@ class Aileron(DerivedParameterNode):
             self.array = ail.array
 
             
-class Flaperon(DerivedParameterNode):
-    '''
-    Where Ailerons move together and used as Flaps, these are known as
-    "Flaperon" control.
-    
-    Flaperons are measured where both Left and Right Ailerons move down,
-    which on the left creates possitive roll but on the right causes negative
-    roll. The difference of the two signals is the Flaperon control.
-    
-    The Flaperon is stepped into nearest aileron detents, e.g. 0, 5, 10 deg
-    
-    Note: This is used for Airbus models and does not necessarily mean as
-    much to other aircraft types.
-    '''
-    @classmethod
-    def can_operate(cls, available, series=A('Series'), family=A('Family')):
-        try:
-            get_aileron_map(series.value, family.value)
-        except KeyError:
-            return False
-        return 'Aileron (L)' in available and 'Aileron (R)' in available
-    
-    # TODO: Multistate
-    def derive(self, al=P('Aileron (L)'), ar=P('Aileron (R)'),
-               series=A('Series'), family=A('Family')):
-        # Take the difference of the two signals (which should cancel each
-        # other out when rolling) and divide the range by two (to account for
-        # the left going negative and right going positive when flaperons set)
-        flaperon_angle = (al.array - ar.array) / 2
-        ail_steps = get_aileron_map(series.value, family.value)
-        self.array = step_values(flaperon_angle, ail_steps, 
-                                 al.hz, step_at='move_start')
-
-
 class AileronLeft(DerivedParameterNode):
     # See ElevatorLeft for explanation
     name = 'Aileron (L)'
