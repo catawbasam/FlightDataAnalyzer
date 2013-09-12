@@ -516,8 +516,7 @@ class DescentLowClimb(FlightPhaseNode):
     just check the altitude at each BOD.
     '''
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
-        dlc = np.ma.masked_greater(alt_aal.array,
-                                   INITIAL_APPROACH_THRESHOLD)
+        dlc = np.ma.masked_greater(alt_aal.array, INITIAL_APPROACH_THRESHOLD)
         for this_dlc in np.ma.clump_unmasked(dlc):
             pk_idxs, pk_vals = cycle_finder(
                 dlc[this_dlc], min_step=DESCENT_LOW_CLIMB_THRESHOLD)
@@ -892,45 +891,6 @@ class ILSGlideslopeEstablished(FlightPhaseNode):
                     self.create_phase(gs_est)
 
 
-        """
-        for ils_loc_est in ils_loc_ests:
-            # Reduce the duration of the ILS localizer established period
-            # down to minimum altitude. TODO: replace 100ft by variable ILS
-            # category minima, possibly variable by operator.
-            min_index = index_closest_value(alt_aal.array, 100, ils_loc_est.slice)
-
-            # ^^^
-            #TODO: limit this to 100ft min if the ILS Glideslope established threshold is reduced.
-
-            # Truncate the ILS establiched phase.
-            ils_loc_2_min = slice(ils_loc_est.slice.start,
-                                  min(ils_loc_est.slice.stop,min_index))
-            gs = repair_mask(ils_gs.array[ils_loc_2_min]) # prepare gs data
-            gsm = np.ma.masked_outside(gs,-1,1)  # mask data more than 1 dot
-            ends = np.ma.flatnotmasked_edges(gsm)  # find the valid endpoints
-            if ends is None:
-                self.debug("Did not establish localiser within +-1dot")
-                continue
-            elif ends[0] == 0 and ends[1] == -1:  # TODO: Pythonese this line !
-                # All the data is within one dot, so the phase is already known
-                self.create_phase(ils_loc_2_min)
-            else:
-                # Create the reduced duration phase
-                reduced_phase = shift_slice(slice(ends[0],ends[1]),ils_loc_est.slice.start)
-                # Cases where the aircraft shoots across the glidepath can
-                # result in one or two samples within the range, in which
-                # case the reduced phase will be None.
-                if reduced_phase:
-                    self.create_phase(reduced_phase)
-            ##this_slice = ils_loc_est.slice
-            ##on_slopes = np.ma.clump_unmasked(
-                ##np.ma.masked_outside(repair_mask(ils_gs.array)[this_slice],-1,1))
-            ##for on_slope in on_slopes:
-                ##if slice_duration(on_slope, ils_gs.hz)>10:
-                    ##self.create_phase(shift_slice(on_slope,this_slice.start))
-
-
-
 class InitialApproach(FlightPhaseNode):
     def derive(self, alt_AAL=P('Altitude AAL For Flight Phases'),
                app_lands=S('Approach')):
@@ -946,8 +906,7 @@ class InitialApproach(FlightPhaseNode):
                 pit = np.ma.argmin(ini_app[phase]) + begin
                 if ini_app[pit] < ini_app[begin] :
                     self.create_phases(shift_slices([slice(begin, pit)],
-                                                   app_land.slice.start))
-"""
+                                                    app_land.slice.start))
 
 
 class InitialClimb(FlightPhaseNode):
