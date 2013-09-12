@@ -3028,6 +3028,22 @@ class TestNearestNeighbourMaskRepair(unittest.TestCase):
         self.assertEqual(len(res), 30)
         self.assertEqual(list(res[:10]), [10]*10)
         self.assertEqual(list(res[-3:]), [27,27,27])
+        
+    def test_nn_mask_repair_limited_rolls(self):
+        array = np.ma.array([101.5]*10 + [0]*10 + [107.4]*10)
+        array[10:20] = np.ma.masked
+        self.assertEqual(np.ma.count(array), 20)
+        res = nearest_neighbour_mask_repair(array, repair_gap_size=4)
+        self.assertEqual(np.ma.count(res), 24)
+
+    # the extrapolating is effective enough.
+    ##def test_nn_mask_repair_doesnt_roll_edges(self):
+        ##array = np.ma.array([101.5]*10 + [0]*10 + [107.4]*10 + [0]*3)
+        ##array[10:20] = np.ma.masked
+        ##array[30:34] = np.ma.masked
+        ##self.assertEqual(np.ma.count(array), 20)
+        ##res = nearest_neighbour_mask_repair(array, repair_gap_size=2)
+        ##self.assertEqual(np.ma.count(res), 24)
 
 
 class TestNormalise(unittest.TestCase):
