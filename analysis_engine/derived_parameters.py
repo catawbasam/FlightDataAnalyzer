@@ -1594,36 +1594,35 @@ class ControlWheel(DerivedParameterNode):
     
     On the ATR42 there is the option of potentiometer or synchro input.
     '''
+    align = False
+    units = 'deg'
+
     @classmethod
     def can_operate(cls, available):
         return all_of(('Control Wheel (Capt)','Control Wheel (FO)'), available)\
                or\
                any_of(('Control Wheel Synchro','Control Wheel Potentiometer'), available)
 
-    align = False
-    units = 'deg'
-
     def derive(self,
                posn_capt=P('Control Wheel (Capt)'),
                posn_fo=P('Control Wheel (FO)'),
-               pot=P('Control Wheel Potentiometer'),
-               synchro=P('Control Wheel Synchro')):
+               synchro=P('Control Wheel Synchro'),
+               pot=P('Control Wheel Potentiometer')):
 
         # Usually we are blending two sensors
         if posn_capt and posn_fo:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(posn_capt, posn_fo)
-            
+            return
         # Less commonly we are selecting from a single source
-        else:
-            synchro_samples = 0
-            if synchro:
-                synchro_samples = np.ma.count(synchro.array)
-                self.array = synchro.array
-            if pot:
-                pot_samples = np.ma.count(pot.array)
-                if pot_samples>synchro_samples:
-                    self.array = pot.array
+        synchro_samples = 0
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
         
 class DistanceToLanding(DerivedParameterNode):
     """
@@ -3294,22 +3293,6 @@ class SlatSurface(DerivedParameterNode):
     def derive(self, slat_l=P('Slat (L)'), slat_r=P('Slat (R)')):
         self.array, self.frequency, self.offset = blend_two_parameters(slat_l,
                                                                        slat_r)
-
-
-class Slat(DerivedParameterNode):
-    """
-    Steps raw Slat angle into detents.
-    """
-    def derive(self, slat=P('Slat Surface'), series=A('Series'), family=A('Family')):
-        try:
-            slat_steps = get_slat_map(series.value, family.value)
-        except KeyError:
-            # no slats mapping, round to nearest 5 degrees
-            self.warning("No slat settings - rounding to nearest 5")
-            # round to nearest 5 degrees
-            self.array = round_to_nearest(slat.array, 5.0)
-        else:
-            self.array = step_values(slat.array, slat.frequency, slat_steps)
 
 
 class SlopeToLanding(DerivedParameterNode):
@@ -5038,6 +5021,8 @@ class Aileron(DerivedParameterNode):
     Note: This requires that both Aileron signals have positive sign for
     positive (right) rolling moment. That is, port aileron down and starboard
     aileron up have positive sign.
+    
+    Note: This is NOT a multistate parameter - see Flaperon.
     '''
     align = True
     units = 'deg'
@@ -5058,39 +5043,6 @@ class Aileron(DerivedParameterNode):
             self.array = ail.array
 
             
-class Flaperon(DerivedParameterNode):
-    '''
-    Where Ailerons move together and used as Flaps, these are known as
-    "Flaperon" control.
-    
-    Flaperons are measured where both Left and Right Ailerons move down,
-    which on the left creates possitive roll but on the right causes negative
-    roll. The difference of the two signals is the Flaperon control.
-    
-    The Flaperon is stepped into nearest aileron detents, e.g. 0, 5, 10 deg
-    
-    Note: This is used for Airbus models and does not necessarily mean as
-    much to other aircraft types.
-    '''
-    @classmethod
-    def can_operate(cls, available, series=A('Series'), family=A('Family')):
-        try:
-            get_aileron_map(series.value, family.value)
-        except KeyError:
-            return False
-        return 'Aileron (L)' in available and 'Aileron (R)' in available
-    
-    # TODO: Multistate
-    def derive(self, al=P('Aileron (L)'), ar=P('Aileron (R)'),
-               series=A('Series'), family=A('Family')):
-        # Take the difference of the two signals (which should cancel each
-        # other out when rolling) and divide the range by two (to account for
-        # the left going negative and right going positive when flaperons set)
-        flaperon_angle = (al.array - ar.array) / 2
-        ail_steps = get_aileron_map(series.value, family.value)
-        self.array = step_values(flaperon_angle, self.frequency, ail_steps)
-
-
 class AileronLeft(DerivedParameterNode):
     # See ElevatorLeft for explanation
     name = 'Aileron (L)'
@@ -5119,7 +5071,8 @@ class AileronLeft(DerivedParameterNode):
             self.array = ali.array
         elif alo:
             self.array = alo.array
-        
+
+
 class AileronRight(DerivedParameterNode):
     # See ElevatorLeft for explanation
     name = 'Aileron (R)'
@@ -5149,6 +5102,7 @@ class AileronRight(DerivedParameterNode):
             self.array = ari.array
         elif aro:
             self.array = aro.array        
+
 
 class AileronTrim(DerivedParameterNode): # RollTrim
     '''
@@ -5216,7 +5170,8 @@ class ElevatorLeft(DerivedParameterNode):
             pot_samples = np.ma.count(pot.array)
             if pot_samples>synchro_samples:
                 self.array = pot.array
-        
+
+
 class ElevatorRight(DerivedParameterNode):
     # See ElevatorLeft for explanation
     name = 'Elevator (R)'

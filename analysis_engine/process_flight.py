@@ -64,9 +64,8 @@ def _timestamp(start_datetime, item_list):
 
 def derive_parameters(hdf, node_mgr, process_order):
     '''
-    Derives the parameter values and if limits are available, applies
-    parameter validation upon each param before storing the resulting masked
-    array back into the hdf file.
+    Derives parameters in process_order. Dependencies are sourced via the
+    node_mgr.
     
     :param hdf: Data file accessor used to get and save parameter data and attributes
     :type hdf: hdf_file

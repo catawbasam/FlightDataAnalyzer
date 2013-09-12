@@ -6,11 +6,11 @@ import logging
 import numpy as np
 
 from flightdatautilities.model_information import (
-    #get_aileron_map,
+    get_aileron_map,
     get_conf_map,
     get_flap_map,
     get_flap_values_mapping,
-    #get_slat_map
+    get_slat_map,
 )
 
 from hdfaccess.parameter import MappedArray
@@ -556,20 +556,18 @@ class Flap(MultistateDerivedParameterNode):
 
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
-
-        elif flap:
-            try:
-                flap_steps = get_flap_map(series.value, family.value)
-            except KeyError:
-                # no flaps mapping, round to nearest 5 degrees
-                self.warning("No flap settings - rounding to nearest 5")
-                # round to nearest 5 degrees
-                array = round_to_nearest(flap.array, 5.0)
-                flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
-            finally:
-                self.values_mapping = {f: str(f) for f in flap_steps}
-                self.array = step_values(flap.array, flap.frequency, flap_steps,
-                                         step_at='move_start')
+            return
+        try:
+            flap_steps = get_flap_map(series.value, family.value)
+        except KeyError:
+            # no flaps mapping, round to nearest 5 degrees
+            self.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            array = round_to_nearest(flap.array, 5.0)
+            flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
+        self.values_mapping = {f: str(f) for f in flap_steps}
+        self.array = step_values(flap.array, flap_steps, 
+                                 flap.hz, step_at='move_start')
 
 
 class FlapExcludingTransition(MultistateDerivedParameterNode):
@@ -584,9 +582,8 @@ class FlapExcludingTransition(MultistateDerivedParameterNode):
     def derive(self, flap=P('Flap Angle'), 
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap)
-        self.array = step_values(flap.array, flap.frequency, 
-                                 self.values_mapping.keys(),
-                                 step_at='excluding_transition')
+        self.array = step_values(flap.array, self.values_mapping.keys(),
+                                 flap.hz, step_at='excluding_transition')
 
 
 class FlapIncludingTransition(MultistateDerivedParameterNode):
@@ -603,9 +600,8 @@ class FlapIncludingTransition(MultistateDerivedParameterNode):
     def derive(self, flap=P('Flap Angle'), 
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap)
-        self.array = step_values(flap.array, flap.frequency, 
-                                 self.values_mapping.keys(),
-                                 step_at='including_transition')
+        self.array = step_values(flap.array, self.values_mapping.keys(),
+                                 flap.hz, step_at='including_transition')
             
             
 class FlapLever(MultistateDerivedParameterNode):
@@ -614,7 +610,8 @@ class FlapLever(MultistateDerivedParameterNode):
     angle movement.
     
     Flap is not used to synthesize Flap Lever as this could be misleading.
-    Instead, all safety Key Point Values will use Flap Lever followed by Flap.
+    Instead, all safety Key Point Values will use Flap Lever followed by Flap 
+    if Flap Lever is not available.
     '''
 
     units = 'deg'
@@ -623,9 +620,43 @@ class FlapLever(MultistateDerivedParameterNode):
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap_lever)
         # Take the moment the flap starts to move.
-        self.array = step_values(flap_lever.array, flap_lever.frequency, 
-                                 self.values_mapping.keys(),
-                                 step_at='move_start')
+        self.array = step_values(flap_lever.array, self.values_mapping.keys(),
+                                 flap_lever.hz, step_at='move_start')
+
+
+class Flaperon(MultistateDerivedParameterNode):
+    '''
+    Where Ailerons move together and used as Flaps, these are known as
+    "Flaperon" control.
+    
+    Flaperons are measured where both Left and Right Ailerons move down,
+    which on the left creates possitive roll but on the right causes negative
+    roll. The difference of the two signals is the Flaperon control.
+    
+    The Flaperon is stepped at the start of movement into the nearest aileron 
+    detents, e.g. 0, 5, 10 deg
+    
+    Note: This is used for Airbus models and does not necessarily mean as
+    much to other aircraft types.
+    '''
+    @classmethod
+    def can_operate(cls, available, series=A('Series'), family=A('Family')):
+        try:
+            get_aileron_map(series.value, family.value)
+        except KeyError:
+            return False
+        return 'Aileron (L)' in available and 'Aileron (R)' in available
+    
+    def derive(self, al=P('Aileron (L)'), ar=P('Aileron (R)'),
+               series=A('Series'), family=A('Family')):
+        # Take the difference of the two signals (which should cancel each
+        # other out when rolling) and divide the range by two (to account for
+        # the left going negative and right going positive when flaperons set)
+        flaperon_angle = (al.array - ar.array) / 2
+        ail_steps = get_aileron_map(series.value, family.value)
+        self.values_mapping = {int(f): str(f) for f in ail_steps}
+        self.array = step_values(flaperon_angle, ail_steps,
+                                 al.hz, step_at='move_start')
 
 
 class FuelQty_Low(MultistateDerivedParameterNode):
@@ -651,6 +682,7 @@ class FuelQty_Low(MultistateDerivedParameterNode):
             (fqty2, 'Warning'),
         )
         self.array = warning.any(axis=0)
+
 
 class GearDown(MultistateDerivedParameterNode):
     '''
@@ -1008,6 +1040,31 @@ class PitchAlternateLaw(MultistateDerivedParameterNode):
         ).any(axis=0)
 
 
+class Slat(MultistateDerivedParameterNode):
+    """
+    Steps raw Slat angle into detents.
+    """
+
+    @classmethod
+    def can_operate(cls, available, series=A('Series'), family=A('Family')):
+        try:
+            get_slat_map(series.value, family.value)
+        except KeyError:
+            return False
+        return all_of(['Slat Surface', 'Series', 'Family'], available)
+    
+    def derive(self, slat=P('Slat Surface'), series=A('Series'), family=A('Family')):
+        slat_steps = get_slat_map(series.value, family.value)
+        # No longer support rounding to nearest
+        ##except KeyError:
+            ### no slats mapping, round to nearest 5 degrees
+            ##self.warning("No slat settings - rounding to nearest 5")
+            ### round to nearest 5 degrees
+            ##self.array = round_to_nearest(slat.array, 5.0)
+        self.values_mapping = {int(f): str(f) for f in slat_steps}
+        self.array = step_values(slat.array, slat_steps,
+                                 slat.hz, step_at='move_start')
+            
 class SpeedbrakeSelected(MultistateDerivedParameterNode):
     '''
     Determines the selected state of the speedbrake.

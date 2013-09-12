@@ -7,6 +7,9 @@ import unittest
 from hdfaccess.parameter import MappedArray
 from flightdatautilities import masked_array_testutils as ma_test
 
+from analysis_engine.library import (
+    unique_values,
+)
 from analysis_engine.node import (
     Attribute,
     A,
@@ -36,9 +39,10 @@ from analysis_engine.multistate_parameters import (
     Eng_Fire,
     EventMarker,
     Flap,
-    FlapExcludingTransition,
-    FlapIncludingTransition,
+    #FlapExcludingTransition,
+    #FlapIncludingTransition,
     FlapLever,
+    Flaperon,
     FuelQty_Low,
     GearDown,
     GearDownSelected,
@@ -49,6 +53,7 @@ from analysis_engine.multistate_parameters import (
     MasterWarning,
     PackValvesOpen,
     PitchAlternateLaw,
+    Slat,
     SpeedbrakeSelected,
     StableApproach,
     StickShaker,
@@ -511,10 +516,9 @@ class TestFlap(unittest.TestCase):
         flap = P('Flap Angle', np.ma.arange(50))
         node = Flap()
         node.derive(flap, A('Series', None), A('Family', None))
-        expected = [0] * 3 + [5] * 2 + [10] * 5 + [15] * 5
-        self.assertEqual(node.array.raw[:15].tolist(), expected)
-        expected = [45] * 2 + [50] * 5
-        self.assertEqual(node.array.raw[-7:].tolist(), expected)
+        expected = [0] + [5]*5 + [10]*5 + [15]*5 + [20]*5 + [25]*5 + [30]*5 + \
+                   [35]*5 + [40]*5 + [45]*5 + [50]*4
+        self.assertEqual(list(node.array.raw), expected)
         self.assertEqual(
             node.values_mapping,
             {0: '0', 35: '35', 5: '5', 40: '40', 10: '10', 45: '45', 15: '15',
@@ -522,7 +526,7 @@ class TestFlap(unittest.TestCase):
 
         flap = P('Flap Angle', np.ma.array(range(20), mask=[True] * 10 + [False] * 10))
         node.derive(flap, A('Series', None), A('Family', None))
-        expected = [-1] * 10 + [15] * 5 + [20] * 5
+        expected = [-1]*10 + [10] + [15]*5 + [20]*4
         self.assertEqual(np.ma.filled(node.array, fill_value=-1).tolist(),
                          expected)
         self.assertEqual(node.values_mapping, {10: '10', 20: '20', 15: '15'})
@@ -552,14 +556,15 @@ class TestFlap(unittest.TestCase):
             #[13, 0],               # odd float values
             #[-999] * 2,            # masked values
         #])
-        expected = np.ma.array(
-            ([0] * 7) + ([13] * 6) + ([20] * 7) + ([25] * 5) + ([30] * 5) + 
-            ([40] * 10) + ([0] * 15) + [13] + ([0] * 3),
-            mask=[False, True] + ([False] * 55) + [True, True]
-        )
+        ##expected = np.ma.array(
+            ##([0] * 7) + ([13] * 7) + ([20] * 7) + ([25] * 5) + ([30] * 5) + 
+            ##([40] * 10) + ([0] * 15) + [13] + ([0] * 3),
+            ##mask=[False, True] + ([False] * 55) + [True, True]
+        ##)
 
         self.assertEqual(node.array.size, 59)
-        self.assertEqual(node.array.tolist(), expected.tolist())
+        self.assertEqual(list(node.array.raw.data),
+            [0]*7 + [13]*7 + [20]*7 + [25]*5 + [30]*5 + [40]*19 + [0]*5 + [13] + [0]*3)
         self.assertEqual(
             node.values_mapping,
             {0: '0', 40: '40', 13: '13', 20: '20', 25: '25', 30: '30'})
@@ -569,8 +574,8 @@ class TestFlap(unittest.TestCase):
     def test_time_taken(self):
         from timeit import Timer
         timer = Timer(self.test_flap_using_md82_settings)
-        time = min(timer.repeat(2, 100))
-        self.assertLess(time, 2, msg='Took too long: %.3fs' % time)
+        time = min(timer.repeat(2, 50))
+        self.assertLess(time, 1.2, msg='Took too long: %.3fs' % time)
         
     def test_decimal_flap_settings(self):
         # Beechcraft has a flap 17.5
@@ -583,7 +588,7 @@ class TestFlap(unittest.TestCase):
         self.assertEqual(flap.values_mapping,
                          {0: '0', 17.5: '17.5', 35: '35'})
         ma_test.assert_array_equal(
-            flap.array, ['0', '0', '0', '17.5', '17.5', '35', '35', '35'])
+            flap.array, ['0', '17.5', '17.5', '17.5', '17.5', '17.5', '35', '35'])
         
     def test_flap_settings_for_hercules(self):
         # No flap recorded; ensure it converts exactly the same
@@ -594,7 +599,7 @@ class TestFlap(unittest.TestCase):
         self.assertEqual(flap.values_mapping,
                          {0: '0', 50: '50', 100: '100'})
         ma_test.assert_array_equal(
-            flap.array, ['0', '0', '0', '50', '50', '100', '100'])
+            flap.array, ['0', '0', '0', '50', '50', '50', '100'])
 
 
 class TestFlapLever(unittest.TestCase, NodeTest):
@@ -609,6 +614,26 @@ class TestFlapLever(unittest.TestCase, NodeTest):
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
+
+class TestFlaperon(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(Flaperon.can_operate(
+            ('Aileron (L)', 'Aileron (R)'),
+            series=Attribute('Series', 'A330-200'),
+            family=Attribute('Family', 'A330')))
+        
+    def test_derive(self):
+        al = load(os.path.join(test_data_path, 'aileron_left.nod'))
+        ar = load(os.path.join(test_data_path, 'aileron_right.nod'))
+        series = A('Series', 'A330-200')
+        family = A('Family', 'A330')
+        flaperon = Flaperon()
+        flaperon.derive(al, ar, series, family)
+        # ensure values are grouped into aileron settings accordingly
+        # flaperon is now step at movement start
+        self.assertEqual(unique_values(flaperon.array.astype(int)),
+                         [(0, 22056), (5, 291), (10, 1205)])
+        
 
 class TestFuelQtyLow(unittest.TestCase):
     def test_can_operate(self):
@@ -889,6 +914,32 @@ class TestPitchAlternateLaw(unittest.TestCase, NodeTest):
         np.testing.assert_array_equal(node.array, [0, 0, 1, 1, 1, 1])
 
 
+class TestSlat(unittest.TestCase):
+    def test_can_operate(self):
+        #TODO: Improve get_operational_combinations to support optional args
+        ##opts = Slat.get_operational_combinations()
+        ##self.assertEqual(opts, [('Slat Surface', 'Series', 'Family')])
+        self.assertFalse(Slat.can_operate(['Slat Surface'], 
+                                          A('Series', None),
+                                          A('Family', None)))
+        self.assertFalse(Slat.can_operate(['Slat Surface'], 
+                                          A('Series', 'A318-BJ'),
+                                          A('Family', 'A318')))
+
+    def test_derive_A300B4F(self):
+        # slats are 0, 16, 25
+        slat = Slat()
+        slat.derive(P('Slat Surface', [0]*5 + range(50)),
+                    A('Series', 'A300B4(F)'),
+                    A('Family', 'A300'))
+        res = unique_values(list(slat.array.raw))
+        self.assertEqual(res,
+                         [(0, 6), (16, 16), (25, 33)])
+        
+        self.assertEqual(slat.values_mapping,
+                         {0: '0', 16: '16', 25: '25'})
+        
+        
 class TestSpeedbrakeSelected(unittest.TestCase):
 
     def test_can_operate(self):
