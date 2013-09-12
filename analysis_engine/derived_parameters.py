@@ -1596,36 +1596,35 @@ class ControlWheel(DerivedParameterNode):
     
     On the ATR42 there is the option of potentiometer or synchro input.
     '''
+    align = False
+    units = 'deg'
+
     @classmethod
     def can_operate(cls, available):
         return all_of(('Control Wheel (Capt)','Control Wheel (FO)'), available)\
                or\
                any_of(('Control Wheel Synchro','Control Wheel Potentiometer'), available)
 
-    align = False
-    units = 'deg'
-
     def derive(self,
                posn_capt=P('Control Wheel (Capt)'),
                posn_fo=P('Control Wheel (FO)'),
-               pot=P('Control Wheel Potentiometer'),
-               synchro=P('Control Wheel Synchro')):
+               synchro=P('Control Wheel Synchro'),
+               pot=P('Control Wheel Potentiometer')):
 
         # Usually we are blending two sensors
         if posn_capt and posn_fo:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(posn_capt, posn_fo)
-            
+            return
         # Less commonly we are selecting from a single source
-        else:
-            synchro_samples = 0
-            if synchro:
-                synchro_samples = np.ma.count(synchro.array)
-                self.array = synchro.array
-            if pot:
-                pot_samples = np.ma.count(pot.array)
-                if pot_samples>synchro_samples:
-                    self.array = pot.array
+        synchro_samples = 0
+        if synchro:
+            synchro_samples = np.ma.count(synchro.array)
+            self.array = synchro.array
+        if pot:
+            pot_samples = np.ma.count(pot.array)
+            if pot_samples>synchro_samples:
+                self.array = pot.array
         
 class DistanceToLanding(DerivedParameterNode):
     """
@@ -4991,6 +4990,8 @@ class Aileron(DerivedParameterNode):
     Note: This requires that both Aileron signals have positive sign for
     positive (right) rolling moment. That is, port aileron down and starboard
     aileron up have positive sign.
+    
+    Note: This is NOT a multistate parameter - see Flaperon.
     '''
     align = True
     units = 'deg'

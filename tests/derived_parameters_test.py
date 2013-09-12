@@ -105,7 +105,6 @@ from analysis_engine.derived_parameters import (
     Eng_2_FuelBurn,
     Eng_3_FuelBurn,
     Eng_4_FuelBurn,
-    Flaperon,
     FlapAngle,
     FuelQty,
     GrossWeightSmoothed,
@@ -1426,11 +1425,14 @@ class TestControlWheel(unittest.TestCase):
     def test_can_operate(self):
         expected = ('Control Wheel (Capt)', 
                     'Control Wheel (FO)', 
-                    'Control Wheel Potentiometer', 
-                    'Control Wheel Synchro')
+                    'Control Wheel Synchro',
+                    'Control Wheel Potentiometer')
         opts = ControlWheel.get_operational_combinations()
+        self.assertIn(('Control Wheel Synchro',), opts)
+        self.assertIn(('Control Wheel Potentiometer',), opts)
+        self.assertIn(('Control Wheel (Capt)', 'Control Wheel (FO)'), opts)
         self.assertEqual(opts[-1], expected)
-        self.assertEqual(len(opts),6)
+        self.assertEqual(len(opts), 13)
 
     @patch('analysis_engine.derived_parameters.blend_two_parameters')
     def test_control_wheel(self, blend_two_parameters):
