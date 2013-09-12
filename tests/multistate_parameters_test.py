@@ -56,7 +56,12 @@ from analysis_engine.multistate_parameters import (
     SpeedbrakeSelected,
     StableApproach,
     StickShaker,
+    TakeoffConfigurationWarning,
     TAWSAlert,
+    TAWSDontSink,
+    TAWSGlideslopeCancel,
+    TAWSTooLowGear,
+    TCASFailure,
     ThrustReversers,
 )
 
@@ -466,6 +471,20 @@ class TestEngThrustModeRequired(unittest.TestCase):
                         values_mapping=EngThrustModeRequired.values_mapping).tolist())
 
 
+class TestFlapExcludingTransition(unittest.TestCase):
+        
+    def test_can_operate(self):
+        self.assertTrue(FlapExcludingTransition.can_operate(
+            ('Flap Angle', 'Series', 'Family',)))
+
+
+class TestFlapIncludingTransition(unittest.TestCase):
+        
+    def test_can_operate(self):
+        self.assertTrue(FlapIncludingTransition.can_operate(
+            ('Flap Angle', 'Series', 'Family',)))
+
+
 class TestFlap(unittest.TestCase):
         
     def test_can_operate(self):
@@ -771,13 +790,13 @@ class TestKeyVHFCapt(unittest.TestCase):
     
     def test_can_operate(self):
         self.assertEqual(KeyVHFCapt.get_operational_combinations(),
-                         [('Key VHF (L) (Capt)',),
-                          ('Key VHF (C) (Capt)',),
-                          ('Key VHF (R) (Capt)',),
-                          ('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)'),
-                          ('Key VHF (L) (Capt)', 'Key VHF (R) (Capt)'),
-                          ('Key VHF (C) (Capt)', 'Key VHF (R) (Capt)'),
-                          ('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)', 'Key VHF (R) (Capt)')])
+                         [('Key VHF (1) (Capt)',),
+                          ('Key VHF (2) (Capt)',),
+                          ('Key VHF (3) (Capt)',),
+                          ('Key VHF (1) (Capt)', 'Key VHF (2) (Capt)'),
+                          ('Key VHF (1) (Capt)', 'Key VHF (3) (Capt)'),
+                          ('Key VHF (2) (Capt)', 'Key VHF (3) (Capt)'),
+                          ('Key VHF (1) (Capt)', 'Key VHF (2) (Capt)', 'Key VHF (3) (Capt)')])
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -788,13 +807,13 @@ class TestKeyVHFFO(unittest.TestCase):
     
     def test_can_operate(self):
         self.assertEqual(KeyVHFFO.get_operational_combinations(),
-                         [('Key VHF (L) (FO)',),
-                          ('Key VHF (C) (FO)',),
-                          ('Key VHF (R) (FO)',),
-                          ('Key VHF (L) (FO)', 'Key VHF (C) (FO)'),
-                          ('Key VHF (L) (FO)', 'Key VHF (R) (FO)'),
-                          ('Key VHF (C) (FO)', 'Key VHF (R) (FO)'),
-                          ('Key VHF (L) (FO)', 'Key VHF (C) (FO)', 'Key VHF (R) (FO)')])
+                         [('Key VHF (1) (FO)',),
+                          ('Key VHF (2) (FO)',),
+                          ('Key VHF (3) (FO)',),
+                          ('Key VHF (1) (FO)', 'Key VHF (2) (FO)'),
+                          ('Key VHF (1) (FO)', 'Key VHF (3) (FO)'),
+                          ('Key VHF (2) (FO)', 'Key VHF (3) (FO)'),
+                          ('Key VHF (1) (FO)', 'Key VHF (2) (FO)', 'Key VHF (3) (FO)')])
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -1222,6 +1241,34 @@ class TestThrustReversers(unittest.TestCase):
         np.testing.assert_equal(self.thrust_reversers.array.data, result)
 
 
+class TestTakeoffConfigurationWarning(unittest.TestCase):
+
+    def test_can_operate(self):
+        self.assertTrue(TakeoffConfigurationWarning.can_operate(
+            ('Takeoff Configuration Stabilizer Warning',)))
+        self.assertTrue(TakeoffConfigurationWarning.can_operate(
+            ('Takeoff Configuration Parking Brake Warning',)))
+        self.assertTrue(TakeoffConfigurationWarning.can_operate(
+            ('Takeoff Configuration Flap Warning',)))
+        self.assertTrue(TakeoffConfigurationWarning.can_operate(
+            ('Takeoff Configuration Gear Warning',)))
+        self.assertTrue(TakeoffConfigurationWarning.can_operate(
+            ('Takeoff Configuration Rudder Warning',)))
+        self.assertTrue(TakeoffConfigurationWarning.can_operate(
+            ('Takeoff Configuration Spoiler Warning',)))
+        self.assertTrue(TakeoffConfigurationWarning.can_operate(
+            ('Takeoff Configuration Stabilizer Warning',
+             'Takeoff Configuration Parking Brake Warning',
+             'Takeoff Configuration Flap Warning',
+             'Takeoff Configuration Gear Warning',
+             'Takeoff Configuration Rudder Warning',
+             'Takeoff Configuration Spoiler Warning',)))
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive_basic(self):
+        pass
+
+
 class TestTAWSAlert(unittest.TestCase):
     def test_can_operate(self):
         parameters = ['TAWS Caution Terrain',
@@ -1254,7 +1301,7 @@ class TestTAWSAlert(unittest.TestCase):
         self.taws_alert = TAWSAlert()
 
     def test_derive(self):
-        result =        [ 0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
+        result = [ 0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
 
         self.taws_alert.get_derived((self.airs,
                                 None,
@@ -1275,7 +1322,7 @@ class TestTAWSAlert(unittest.TestCase):
         np.testing.assert_equal(self.taws_alert.array.data, result)
 
     def test_derive_masked_values(self):
-        result =        [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
+        result = [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
         self.terrain.array[8] = np.ma.masked
         self.terrain.array[10] = np.ma.masked
 
@@ -1322,3 +1369,56 @@ class TestTAWSAlert(unittest.TestCase):
                                 None,
                                 None,))
         np.testing.assert_equal(self.taws_alert.array.data, result)
+
+
+class TestTAWSDontSink(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertEqual(TAWSDontSink.get_operational_combinations(),
+                         [('TAWS (L) Dont Sink',),
+                          ('TAWS (R) Dont Sink',),
+                          ('TAWS (L) Dont Sink', 'TAWS (R) Dont Sink')])
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
+
+
+class TestTAWSGlideslopeCancel(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertEqual(TAWSGlideslopeCancel.get_operational_combinations(),
+                         [('TAWS (L) Glideslope Cancel',),
+                          ('TAWS (R) Glideslope Cancel',),
+                          ('TAWS (L) Glideslope Cancel', 'TAWS (R) Glideslope Cancel')])
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
+
+
+class TestTAWSTooLowGear(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertEqual(TAWSTooLowGear.get_operational_combinations(),
+                         [('TAWS (L) Too Low Gear',),
+                          ('TAWS (R) Too Low Gear',),
+                          ('TAWS (L) Too Low Gear', 'TAWS (R) Too Low Gear')])
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
+
+
+class TestTCASFailure(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertEqual(TCASFailure.get_operational_combinations(),
+                         [('TCAS (L) Failure',),
+                          ('TCAS (R) Failure',),
+                          ('TCAS (L) Failure', 'TCAS (R) Failure')])
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        pass
+

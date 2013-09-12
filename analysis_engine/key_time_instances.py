@@ -178,14 +178,28 @@ class Transmit(KeyTimeInstanceNode):
             hf1=M('Key HF (1)'),
             hf2=M('Key HF (2)'),
             hf3=M('Key HF (3)'),
+            hf1_capt=M('Key HF (1) (Capt)'),
+            hf2_capt=M('Key HF (2) (Capt)'),
+            hf3_capt=M('Key HF (3) (Capt)'),
+            hf1_fo=M('Key HF (1) (FO)'),
+            hf2_fo=M('Key HF (2) (FO)'),
+            hf3_fo=M('Key HF (3) (FO)'),
             sc=M('Key Satcom'),
             sc1=M('Key Satcom (1)'),
             sc2=M('Key Satcom (2)'),
             vhf=M('Key VHF'),
             vhf1=M('Key VHF (1)'),
             vhf2=M('Key VHF (2)'),
-            vhf3=M('Key VHF (3)')):
-        for p in [hf, hf1, hf2, hf3, sc, sc1, sc2, vhf, vhf1, vhf2, vhf3]:
+            vhf3=M('Key VHF (3)'),
+            vhf1_capt=M('Key VHF (1) (Capt)'),
+            vhf2_capt=M('Key VHF (2) (Capt)'),
+            vhf3_capt=M('Key VHF (3) (Capt)'),
+            vhf1_fo=M('Key VHF (1) (FO)'),
+            vhf2_fo=M('Key VHF (2) (FO)'),
+            vhf3_fo=M('Key VHF (3) (FO)')):
+        for p in [hf, hf1, hf2, hf3, hf1_capt, hf2_capt, hf3_capt,
+                  hf1_fo, hf2_fo, hf3_fo, sc, sc1, sc2, vhf, vhf1, vhf2, vhf3,
+                  vhf1_capt, vhf2_capt, vhf3_capt, vhf1_fo, vhf2_fo, vhf3_fo]:
             if p:
                 self.create_ktis_on_state_change(
                     'Keyed',
@@ -657,7 +671,7 @@ class TAWSGlideslopeCancelPressed(KeyTimeInstanceNode):
     def derive(self, tgc=P('TAWS Glideslope Cancel'), airborne=S('Airborne')):
         # Monitor only while airborne, in case this is triggered pre-flight.
         self.create_ktis_on_state_change('Cancel', tgc.array,
-                                         change='entering', phase=airborne)        
+                                         change='entering', phase=airborne)
 
 
 ##############################################################################

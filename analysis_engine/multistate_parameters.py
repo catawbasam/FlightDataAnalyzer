@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import math
+import logging
+
 import numpy as np
 
 from flightdatautilities.model_information import (
@@ -53,7 +55,7 @@ from analysis_engine.library import (#actuator_mismatch,
                                      #interpolate,
                                      is_day,
                                      #is_index_within_slice,
-                                     last_valid_sample,
+                                     #last_valid_sample,
                                      #latitudes_and_longitudes,
                                      #localizer_scale,
                                      #machtat2sat,
@@ -103,6 +105,9 @@ from analysis_engine.library import (#actuator_mismatch,
                       #METRES_TO_FEET,
                       #METRES_TO_NM,
                       #VERTICAL_SPEED_LAG_TC)
+
+
+logger = logging.getLogger(name=__name__)
 
 
 class APEngaged(MultistateDerivedParameterNode):
@@ -756,7 +761,6 @@ class GearDownSelected(MultistateDerivedParameterNode):
         #Q: which is easier to understand?!
         #self.array = np.ma.where(gear_up_sel.array == 'Up', 'Down', 'Up')
         self.array = 1 - gear_up_sel.array.raw
-        
 
 
 class GearUpSelected(MultistateDerivedParameterNode):
@@ -893,13 +897,18 @@ class KeyVHFCapt(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Key VHF (L) (Capt)', 'Key VHF (C) (Capt)', 'Key VHF (R) (Capt)'), available)
+        return any_of(('Key VHF (1) (Capt)',
+                       'Key VHF (2) (Capt)',
+                       'Key VHF (3) (Capt)'), available)
 
-    def derive(self, key_vhf_l=M('Key VHF (L) (Capt)'),
-               key_vhf_c=M('Key VHF (C) (Capt)'),
-               key_vhf_r=M('Key VHF (R) (Capt)')):
-        arrays = [p.array for p in (key_vhf_l, key_vhf_c, key_vhf_r)]
-        self.array = np.ma.logical_and(*arrays)
+    def derive(self, key_vhf_1=M('Key VHF (1) (Capt)'),
+               key_vhf_2=M('Key VHF (2) (Capt)'),
+               key_vhf_3=M('Key VHF (3) (Capt)')):
+        self.array = vstack_params_where_state(
+            (key_vhf_1, 'Keyed'),
+            (key_vhf_2, 'Keyed'),
+            (key_vhf_3, 'Keyed'),
+        ).any(axis=0)
 
 
 class KeyVHFFO(MultistateDerivedParameterNode):
@@ -909,13 +918,18 @@ class KeyVHFFO(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Key VHF (L) (FO)', 'Key VHF (C) (FO)', 'Key VHF (R) (FO)'), available)
+        return any_of(('Key VHF (1) (FO)',
+                       'Key VHF (2) (FO)',
+                       'Key VHF (3) (FO)'), available)
 
-    def derive(self, key_vhf_l=M('Key VHF (L) (FO)'),
-               key_vhf_c=M('Key VHF (C) (FO)'),
-               key_vhf_r=M('Key VHF (R) (FO)')):
-        arrays = [p.array for p in (key_vhf_l, key_vhf_c, key_vhf_r)]
-        self.array = np.ma.logical_and(*arrays)
+    def derive(self, key_vhf_1=M('Key VHF (1) (FO)'),
+               key_vhf_2=M('Key VHF (2) (FO)'),
+               key_vhf_3=M('Key VHF (3) (FO)')):
+        self.array = vstack_params_where_state(
+            (key_vhf_1, 'Keyed'),
+            (key_vhf_2, 'Keyed'),
+            (key_vhf_3, 'Keyed'),
+        ).any(axis=0)
 
 
 class MasterWarning(MultistateDerivedParameterNode):
@@ -1057,8 +1071,7 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         array = np.ma.where(spdbrk.array > 1.0,
                             'Deployed/Cmd Up', armed.array)
         return array
-        
-        
+    
     def b737_speedbrake(self, spdbrk, handle):
         '''
         Speedbrake Handle Positions for 737-x:
@@ -1316,8 +1329,16 @@ class StableApproach(MultistateDerivedParameterNode):
             # look for maximum flap used in approach, otherwise go-arounds
             # can detect the start of flap retracting as the landing flap.
             landing_flap = np.ma.max(flap_lever)
-            landing_flap_set = (flap_lever == landing_flap)
-            stable &= landing_flap_set.filled(True)  # assume stable (flap set)
+            if landing_flap is not np.ma.masked:
+                landing_flap_set = (flap_lever == landing_flap)
+                # assume stable (flap set)
+                stable &= landing_flap_set.filled(True)
+            else:
+                # All landing flap is masked, assume stable
+                logger.warning(
+                    'StableApproach: the landing flap is all masked in '
+                    'the approach.')
+                stable &= True
 
             #== 3. Heading ==
             self.array[_slice][stable] = 3
@@ -1378,6 +1399,8 @@ class StableApproach(MultistateDerivedParameterNode):
             # extend the stability at the end of the altitude threshold through to landing
             stable_engine[altitude < 50] = stable_engine[index_at_50]
             stable &= stable_engine.filled(True)
+            
+            # TODO: Use Engine TPR instead of EPR if available.
 
             #== 9. Stable ==
             # Congratulations; whatever remains in this approach is stable!
@@ -1424,8 +1447,8 @@ class StickShaker(MultistateDerivedParameterNode):
 
         else:
             raise NotImplementedError
-        
-        
+
+
 class ThrustReversers(MultistateDerivedParameterNode):
     '''
     A single parameter with multi-state mapping as below.
@@ -1603,4 +1626,122 @@ class TAWSAlert(MultistateDerivedParameterNode):
             for air in airs:
                 self.array[air.slice] = res[air.slice]
 
-                
+
+class TAWSDontSink(MultistateDerivedParameterNode):
+    name = 'TAWS Dont Sink'
+    
+    values_mapping = {
+        0: '-',
+        1: 'Warning',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('TAWS (L) Dont Sink' in available) or \
+               ('TAWS (R) Dont Sink' in available)
+    
+    def derive(self, taws_l_dont_sink=M('TAWS (L) Dont Sink'),
+               taws_r_dont_sink=M('TAWS (R) Dont Sink')):
+        self.array = vstack_params_where_state(
+            (taws_l_dont_sink, 'Warning'),
+            (taws_r_dont_sink, 'Warning'),
+        ).any(axis=0)
+
+
+class TAWSGlideslopeCancel(MultistateDerivedParameterNode):
+    name = 'TAWS Glideslope Cancel'
+    
+    values_mapping = {
+        0: '-',
+        1: 'Cancel',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('TAWS (L) Glideslope Cancel' in available) or \
+               ('TAWS (R) Glideslope Cancel' in available)
+    
+    def derive(self, taws_l_gs=M('TAWS (L) Glideslope Cancel'),
+               taws_r_gs=M('TAWS (R) Glideslope Cancel')):
+        self.array = vstack_params_where_state(
+            (taws_l_gs, 'Cancel'),
+            (taws_r_gs, 'Cancel'),
+        ).any(axis=0)
+
+
+class TAWSTooLowGear(MultistateDerivedParameterNode):
+    name = 'TAWS Too Low Gear'
+        
+    values_mapping = {
+        0: '-',
+        1: 'Warning',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('TAWS (L) Too Low Gear' in available) or \
+               ('TAWS (R) Too Low Gear' in available)
+    
+    def derive(self, taws_l_gear=M('TAWS (L) Too Low Gear'),
+               taws_r_gear=M('TAWS (R) Too Low Gear')):
+        self.array = vstack_params_where_state(
+            (taws_l_gear, 'Warning'),
+            (taws_r_gear, 'Warning'),
+        ).any(axis=0)
+
+
+class TakeoffConfigurationWarning(MultistateDerivedParameterNode):
+    '''
+    Merging all available Takeoff Configuration Warning signals into a single
+    parameter for subsequent monitoring.
+    '''
+    values_mapping = {
+        0: '-',
+        1: 'Warning',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(['Takeoff Configuration Stabilizer Warning',
+                       'Takeoff Configuration Parking Brake Warning',
+                       'Takeoff Configuration Flap Warning',
+                       'Takeoff Configuration Gear Warning',
+                       'Takeoff Configuration Rudder Warning',
+                       'Takeoff Configuration Spoiler Warning'],
+                      available)
+    
+    def derive(self, stabilizer=M('Takeoff Configuration Stabilizer Warning'),
+               parking_brake=M('Takeoff Configuration Parking Brake Warning'),
+               flap=M('Takeoff Configuration Flap Warning'),
+               gear=M('Takeoff Configuration Gear Warning'),
+               rudder=M('Takeoff Configuration Rudder Warning'),
+               spoiler=M('Takeoff Configuration Rudder Warning')):
+        params_state = vstack_params_where_state(
+            (stabilizer, 'Warning'),
+            (parking_brake, 'Warning'),
+            (flap, 'Warning'),
+            (gear, 'Warning'),
+            (rudder, 'Warning'),
+            (spoiler, 'Warning'))
+        self.array = params_state.any(axis=0)
+
+
+class TCASFailure(MultistateDerivedParameterNode):
+    name = 'TCAS Failure'
+        
+    values_mapping = {
+        0: '-',
+        1: 'Failed',
+    }
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('TCAS (L) Failure' in available) or \
+               ('TCAS (R) Failure' in available)
+    
+    def derive(self, tcas_l_failure=M('TCAS (L) Failure'),
+               tcas_r_failure=M('TCAS (R) Failure')):
+        self.array = vstack_params_where_state(
+            (tcas_l_failure, 'Failed'),
+            (tcas_r_failure, 'Failed'),
+        ).any(axis=0)

@@ -276,7 +276,14 @@ def graph_nodes(node_mgr):
     }
     derived_nodes = []
     for name, node in derived_minus_lfl.items():
-        node_info = (name, {'color': colors[node.__base__],
+        # the default is gray, if you see it, something is wrong
+        color = '#888888'
+        for base in node.__bases__:
+            if base in colors:
+                color = colors[base]
+                break
+
+        node_info = (name, {'color': color,
                             'node_type': node.__base__.__name__})
         derived_nodes.append(node_info)
     gr_all.add_nodes_from(derived_nodes)

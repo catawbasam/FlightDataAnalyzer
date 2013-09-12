@@ -74,6 +74,7 @@ from analysis_engine.derived_parameters import (
     DescendForFlightPhases,
     DistanceTravelled,
     DistanceToLanding,
+    Drift,
     Elevator,
     ElevatorLeft,
     ElevatorRight,
@@ -145,6 +146,8 @@ from analysis_engine.derived_parameters import (
     WheelSpeedLeft,
     WheelSpeedRight,
     WindAcrossLandingRunway,
+    WindDirection,
+    WindDirectionTrue,
 )
 
 debug = sys.gettrace() is not None
@@ -1491,6 +1494,19 @@ class TestDistanceTravelled(unittest.TestCase):
         DistanceTravelled().derive(gndspeed)
         integrate.assert_called_once_with(gndspeed.array, gndspeed.frequency,
                                           scale=1.0 / 3600)
+
+
+class TestDrift(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertTrue(Drift.can_operate(('Drift (1)',)))
+        self.assertTrue(Drift.can_operate(('Drift (2)',)))
+        self.assertTrue(Drift.can_operate(('Drift (1)', 'Drift (2)')))
+        self.assertTrue(Drift.can_operate(('Track', 'Heading')))
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestEng_EPRAvg(unittest.TestCase, NodeTest):
@@ -3796,6 +3812,33 @@ class TestWindDirectionContinuous(unittest.TestCase):
     def test_can_operate(self):
         self.assertTrue(False, msg='Test not implemented.')
         
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestWindDirection(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertTrue(WindDirection.can_operate(('Wind Direction (1)',)))
+        self.assertTrue(WindDirection.can_operate(('Wind Direction (2)',)))
+        self.assertTrue(WindDirection.can_operate(('Wind Direction (1)',
+                                                   'Wind Direction (2)',)))
+        self.assertTrue(WindDirection.can_operate(('Wind Direction True',
+                                                   'Magnetic Variation',)))
+        self.assertTrue(WindDirection.can_operate((
+            'Wind Direction (1)', 'Wind Direction (2)', 'Wind Direction True',
+            'Magnetic Variation')))
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestWindDirectionTrue(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(WindDirectionTrue.get_operational_combinations(),
+                         [('Wind Direction True', 'Magnetic Variation')])
+    
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')

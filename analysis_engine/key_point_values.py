@@ -1975,11 +1975,10 @@ class AOAWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
     name = 'AOA With Flap Max'
     units = 'deg'
 
-    def derive(self, flap=M('Flap'), aoa=P('AOA'), scope=S('Fast')):
+    def derive(self, flap=M('Flap'), aoa=P('AOA'), scope=S('Airborne')):
         '''
         '''
-        # Fast scope traps flap changes very late on the approach and raising
-        # flaps before 80 kts on the landing run.
+        # Airborne scope avoids triggering during the takeoff or landing runs.
         data = self.flap_or_conf_max_or_min(flap, aoa, max_value,
                                      scope=scope, include_zero=True)
         for index, value, detent in data:
@@ -2258,7 +2257,7 @@ class AutobrakeRejectedTakeoffNotSetDuringTakeoff(KeyPointValueNode):
 
     def derive(self,
                ab_rto=P('Autobrake Selected RTO'),
-               takeoff=S('Takeoff')):
+               takeoff=S('Takeoff Roll')):
 
         self.create_kpvs_where(ab_rto.array != 'Selected',
                                ab_rto.hz, phase=takeoff)
@@ -5827,7 +5826,7 @@ class ThrottleReductionToTouchdownDuration(KeyPointValueNode):
 
 
 ################################################################################
-# Engine TPR
+# Engine Vib Broadband
 
 
 class EngVibBroadbandMax(KeyPointValueNode):
@@ -9340,7 +9339,7 @@ class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
         flap = flap_lever or flap_synth
         
         for roll in rolls:
-            changes = find_edges(flap.array, roll.slice, 'all_edges')
+            changes = find_edges(flap.array.raw, roll.slice, 'all_edges')
             if changes:
                 roll_end = roll.slice.stop
                 last_change = changes[-1]

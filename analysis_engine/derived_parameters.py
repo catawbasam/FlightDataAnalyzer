@@ -427,7 +427,6 @@ class AirspeedReferenceLookup(DerivedParameterNode):
         # FIXME: Replace the flaky logic for small propeller aircraft which do
         #        not record gross weight, cannot provide achieved flight
         #        records and will be using a fixed value for processing.
-
         return (airbus or boeing) # or propeller
 
     @staticmethod
@@ -965,7 +964,7 @@ class AltitudeAAL(DerivedParameterNode):
         '''
         
         self.array = alt_aal
-        
+
 
 def link_baro_rad_fwd(baro_section, ralt_section, alt_rad, alt_std, alt_result):
     begin_index = baro_section.start
@@ -1011,6 +1010,7 @@ def link_baro_rad_rev(baro_section, ralt_section, alt_rad, alt_std, alt_result):
         alt_result[:end_index] = \
             alt_std[:end_index] - up_diff
 
+
 class AltitudeAALForFlightPhases(DerivedParameterNode):
     name = 'Altitude AAL For Flight Phases'
     units = 'ft'
@@ -1022,8 +1022,6 @@ class AltitudeAALForFlightPhases(DerivedParameterNode):
 
     def derive(self, alt_aal=P('Altitude AAL')):
         self.array = repair_mask(alt_aal.array, repair_duration=None)
-
-
 
 
 class AltitudeRadio(DerivedParameterNode):
@@ -1664,11 +1662,21 @@ class Drift(DerivedParameterNode):
 
     align = False
     units = 'deg'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return (('Drift (1)' in available or 'Drift (2)' in available) or
+                ('Track' in available and 'Heading' in available))
 
-    def derive(self, drift_1=P('Drift (1)'), drift_2=P('Drift (2)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(drift_1, drift_2)
-
+    def derive(self, drift_1=P('Drift (1)'), drift_2=P('Drift (2)'),
+               track=P('Track'), heading=P('Heading')):
+        if drift_1 or drift_2:
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(drift_1, drift_2)
+        else:
+            self.frequency = track.frequency
+            self.offset = track.offset
+            self.array = track.array - align(heading, track)
 
 
 ################################################################################
@@ -3377,7 +3385,7 @@ class HeadingTrueContinuous(DerivedParameterNode):
 class Heading(DerivedParameterNode):
     """
     Compensates for magnetic variation, which will have been computed
-    previously based on the magnetic declanation at the aricraft's location.
+    previously based on the magnetic declanation at the aircraft's location.
     """
     units = 'deg'
     
@@ -5215,8 +5223,8 @@ class Speedbrake(DerivedParameterNode):
         if frame_name in ['737-3', '737-3A', '737-3B', '737-3C', '737-7']:
             self.array, self.offset = self.merge_spoiler(spoiler_4, spoiler_9)
 
-        elif frame_name in ['737-4', '737-5', '737-5_NON-EIS', '737-6',
-                            '737-6_NON-EIS', '737-2227000-335A',
+        elif frame_name in ['737-4', '737-4_NON-EIS', '737-5', '737-5_NON-EIS',
+                            '737-6', '737-6_NON-EIS', '737-2227000-335A',
                             'A320_SFIM_ED45_CFM']:
             self.array, self.offset = self.merge_spoiler(spoiler_2, spoiler_7)
         
@@ -5454,18 +5462,59 @@ class WindSpeed(DerivedParameterNode):
         self.array, self.frequency, self.offset = \
             blend_two_parameters(wind_1, wind_2)
 
+
+class WindDirectionTrue(DerivedParameterNode):
+    """
+    Compensates for magnetic variation, which will have been computed
+    previously.
+    """
+    units = 'deg'
+    
+    @classmethod
+    def can_operate(cls, available):
+        return 'Wind Direction' in available and \
+               any_of(('Magnetic Variation From Runway', 'Magnetic Variation'),
+                      available)
+        
+    def derive(self, wind=P('Wind Direction'),
+               rwy_var=P('Magnetic Variation From Runway'),
+               mag_var=P('Magnetic Variation')):
+        if rwy_var and np.ma.count(rwy_var.array):
+            # use this in preference
+            var = rwy_var.array
+        else:
+            var = mag_var.array
+        self.array = (wind.array + var) % 360.0
+
+
 class WindDirection(DerivedParameterNode):
     '''
-    The Embraer 135-145 data frame includes two sources
+    Either combines two separate Wind Direction parameters.
+    The Embraer 135-145 data frame includes two sources.
     '''
-
+    
     align = False
     units = 'deg'
-
+    
+    @classmethod
+    def can_operate(cls, available):
+        return (('Wind Direction (1)' in available or
+                 'Wind Direction (2)' in available) or
+                ('Wind Direction True' in available and 
+                 'Magnetic Variation' in available))
+    
     def derive(self, wind_1=P('Wind Direction (1)'),
-                       wind_2=P('Wind Direction (2)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(wind_1, wind_2)
+               wind_2=P('Wind Direction (2)'),
+               wind_true=P('Wind Direction True'),
+               mag_var=P('Magnetic Variation')):
+        
+        if wind_1 or wind_2:
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(wind_1, wind_2)
+        else:
+            self.frequency = wind_true.frequency
+            self.offset = wind_true.offset
+            self.array = (wind_true.array - align(mag_var, wind_true)) % 360.0
 
 
 class WheelSpeedLeft(DerivedParameterNode):
@@ -5485,7 +5534,6 @@ class WheelSpeedLeft(DerivedParameterNode):
         self.offset = 0.0
         self.frequency = 4.0
         self.array = blend_parameters(sources, self.offset, self.frequency)
-
 
 
 class WheelSpeedRight(DerivedParameterNode):
@@ -5632,6 +5680,9 @@ class TrackDeviationFromRunway(DerivedParameterNode):
         if to_rwy:
             self._track_deviation(track.array, takeoff[0].slice, to_rwy.value,
                                   magnetic)
+
+
+
 
 
 class ElevatorActuatorMismatch(DerivedParameterNode):

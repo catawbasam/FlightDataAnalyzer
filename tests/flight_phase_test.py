@@ -8,6 +8,7 @@ from analysis_engine.flight_phase import (Airborne,
                                           Approach,
                                           ApproachAndLanding,
                                           BouncedLanding,
+                                          #CombinedClimb,
                                           ClimbCruiseDescent,
                                           Climbing,
                                           Cruise,
@@ -343,6 +344,18 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         # Slightly daft choice of ils array makes exact equality impossible!
         self.assertAlmostEqual(establish.get_first().start_edge,
                                expected.get_first().start_edge)
+
+    def test_ils_localizer_no_frequency(self):
+        ils = P('ILS Localizer',np.ma.arange(-3, 0, 0.3))
+        alt_aal = P('Alttiude AAL For Flight Phases',
+                    np.ma.arange(1000, 0, -100))
+        app = S(items=[Section('Approach', slice(0, 10), 0, 10)])
+        # Tuned to a VOR frequency, the function filter_vor_ils_frequencies
+        # will have masked this as not an ILS signal.
+        freq = P('ILS Frequency',np.ma.array(data=[108.05]*10,mask=[True]*10))
+        establish = ILSLocalizerEstablished()
+        establish.derive(ils, alt_aal, app, freq)
+        self.assertAlmostEqual(establish.get_first(),None)
 
     def test_ils_localizer_established_masked_preamble(self):
         '''
