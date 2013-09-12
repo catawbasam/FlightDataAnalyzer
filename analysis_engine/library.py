@@ -4,7 +4,7 @@ import numpy as np
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
-from itertools import izip
+from itertools import izip, izip_longest
 from math import asin, atan2, ceil, cos, degrees, floor, radians, sin, sqrt
 from scipy import interpolate as scipy_interpolate, optimize
 
@@ -4427,7 +4427,7 @@ def rate_of_change_array(to_diff, hz, width=None, method='two_points'):
                     "returned")
         return np_ma_zeros_like(to_diff)
     
-    if method=='two_points':
+    if method == 'two_points':
         input_mask = np.ma.getmaskarray(to_diff)
         # Set up an array of masked zeros for extending arrays.
         slope = np.ma.copy(to_diff)
@@ -4441,18 +4441,18 @@ def rate_of_change_array(to_diff, hz, width=None, method='two_points'):
             slope.mask[i:] = np.logical_or(input_mask[:-i], slope.mask[i:])
         return slope    
 
-    elif method=='regression':
+    elif method == 'regression':
         # Neat solution; works well, but for height data smoothing the raw
         # values works better and for pitch and roll attitudes the
         # improvement was small and would result in more masked results than
         # the preceding technique.
         
         # The fit will be for equi-spaced samples around the midpoint.
-        x=np.arange(-hw,hw+1) 
+        x = np.arange(-hw,hw+1) 
         # Scaling is given by:
-        sx2_hz=np.sum(x*x)/hz 
+        sx2_hz = np.sum(x*x)/hz 
         # We extended data array to allow for convolution overruns.
-        z=np.array([to_diff[0]]*hw+list(to_diff)+[to_diff[-1]]*hw) 
+        z = np.array([to_diff[0]]*hw+list(to_diff)+[to_diff[-1]]*hw) 
         # The compute the least squares fit for each point over the required
         # range and re-scale to allow for width and sample rate.
         return np.convolve(z,-x,'same')[hw:-hw]/sx2_hz 
@@ -5099,42 +5099,63 @@ def step_local_cusp(array, span):
                 
     
     
-def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_threshold=0.5):
+def step_values(array, steps, hz=1, step_at='midpoint', rate_threshold=0.5):
     """
-    Note: ---------------
-    This algorithm is being extended to cater for aircraft that do not record
-    flap lever position separately.
+    Rounds each value in the array to the nearest step, depending upon the
+    step_at method.
     
-    At the same time, extensions to step_values to reflect the different
-    needs of safety and maintenance organisations are being included, so for
-    the present version the step_at keyword should not be used.
-    /Note: ---------------
+    Primarily written for flap movements, although slat, ailerons and others
+    can make good use of this stepping system.
     
+    Maintains the original array's mask.
 
-    Rounds each value in array to nearest step. Maintains the
-    original array mask.
+    NOTE: If "skip" is to be supported again, simply merge step changes which
+    occur within 3 to 5 samples of each other!
+
+    
+    step_at options
+    ===============
+    
+    midpoint:
+    * simply change flap in the middle of transitions
+    
+    move_start:
+    * transition at the start of movements (like flap lever)
+    
+    move_stop:
+    * transition at the end of movements
+
+    including_transition:
+    * all transition movements are included as the next step (early on 
+      increase, late on decrease). Normally more safety cautious.
+    
+    excluding_transition:
+    * transition movements are excluded from the next step until transtion has
+      finished. Used by those wishing for minimal time at the next step level 
+      e.g. this is likely to reduce flap overspeed measurements.
+
 
     :param array: Masked array to step
     :type array: np.ma.array
-    :param array_hz: array sample rate
-    :type array_hz: float
     :param steps: Steps to round to nearest value
     :type steps: list of integers
+    :param hz: If 'midpoint' steps not in use, required for rate of change calc
+    :type hz: float
     :param step_at: Step conversion mode
-    :type step_at: String, default='midpoint', options'move_start', 'move_end', 'excluding_transition', 'including_transition'
-    :param skip: Selects whether steps that are passed straight through should be mapped or not. Only relates to 'move_start' or 'move_end' options.
-    :type skip: logical, default = False
+    :type step_at: String, default='midpoint', options are listed above.
     :param rate_threshold: rate of change threshold for non-moving control
     :type rate_threshold: float, default 0.5 is suitable for flap operation.
-    
     :returns: Stepped masked array
     :rtype: np.ma.array
     """
+    if step_at.lower() not in ('midpoint', 'move_start', 'move_stop',
+           'including_transition', 'excluding_transition'):
+        raise ValueError("Incorrect step_at choice argument '%s'" % step_at)
+    step_at = step_at.lower()
     steps = sorted(steps)  # ensure steps are in ascending order
     stepping_points = np.ediff1d(steps, to_end=[0])/2.0 + steps
     stepped_array = np_ma_zeros_like(array)
     low = None
-    rt = rate_threshold/array_hz
     for level, high in zip(steps, stepping_points):
         if low is None:
             stepped_array[(-high < array) & (array <= high)] = level
@@ -5144,85 +5165,181 @@ def step_values(array, array_hz, steps, step_at='midpoint', skip=False, rate_thr
     # all the remaining values are above the top step level
     stepped_array[low < array] = level
     stepped_array.mask = np.ma.getmaskarray(array)
-        
-    if step_at != 'midpoint':
-        
-        # We are being asked to adjust the step point to either the beginning or
-        # end of a change period. First find where the changes took place:
-        spans = np.ma.clump_unmasked(np.ma.masked_inside(np.ediff1d(array),-rt,rt))
-        if skip:
-            # We change to cover the movements of the output array
-            for span in spans:
-                if step_at == 'move_start':
-                    stepped_array[span] = stepped_array[span.stop+1]
-                else:
-                    stepped_array[span] = stepped_array[span.start-1]
+    
+    if step_at == 'midpoint':
+        # our work here is done
+        return stepped_array
+    
+    # create new array, initialised with first flap setting
+    new_array = np_ma_ones_like(array) * first_valid_sample(stepped_array).value
+    
+    # create a list of tuples with index of midpoint change and direction of travel
+    flap_increase = find_edges(stepped_array, direction='rising_edges')
+    flap_decrease = find_edges(stepped_array, direction='falling_edges')
+    transitions = [(idx, 'increase') for idx in flap_increase] + \
+                  [(idx, 'decrease') for idx in flap_decrease]
+    # sort based on index
+    sorted_transitions = sorted(transitions, key=lambda v: v[0])
+    flap_changes = [idx for idx, direction in sorted_transitions]
+
+    roc = rate_of_change_array(array, hz)
+
+    for prev_midpoint, (flap_midpoint, direction), next_midpoint in izip_longest(
+        [0] + flap_changes[0:-1], sorted_transitions, flap_changes[1:]):
+        prev_flap = stepped_array[floor(flap_midpoint)]
+        next_flap = stepped_array[ceil(flap_midpoint)]
+        if direction == 'increase':
+            # looking for where positive change reduces to this value
+            roc_to_seek_for = 0.1
         else:
-            # We change to cover the movements of the stepped array
-            #spans = np.ma.clump_unmasked(np.ma.masked_equal(np.ediff1d(stepped_array),0.0))
+            # looking for negative roc reduces to this value
+            roc_to_seek_for = -0.1
+            
+        # allow a change to be 5% before the flap is reached
+        flap_tolerance = (abs(prev_flap - next_flap) * 0.05)
 
-            # Compute the slices between change points.
-            
-            # We are being asked to adjust the step point to either the beginning or
-            # end of a change period. First find where the changes took place,
-            # including endpoints to the array to allow indexing of the start and end
-            # cases.
-            changes = [0] + \
-                list(np.ediff1d(stepped_array, to_end=0.0).nonzero()[0]) + \
-                [len(stepped_array)]
-            
-            #spans = []
-            for i in range(1, len(changes)-1):
-                if step_at == 'move_start' or\
-                   step_at == 'excluding_transition' and stepped_array[changes[i]+1]<stepped_array[changes[i]] or\
-                   step_at == 'including_transition' and stepped_array[changes[i]+1]>stepped_array[changes[i]]:
-                    mode = 'backwards'
-                    span = slice(changes[i], changes[i-1], -1)
-                else:
-                    mode='forwards'
-                    span = slice(changes[i], changes[i+1], +1)
-
-                to_chg = step_local_cusp(array, span)
-            
-                if to_chg==0:
-                    # Continuous movement, so change at the step value if this passes through a step.
-                    big = np.ma.max(array[span])
-                    little = np.ma.min(array[span])
-                    # See if the step in question is within this range:
-                    this_step = None
-                    for step in steps:
-                        if step<=big and step>=little:
-                            this_step = step
-                            break
-                    if this_step:
-                        # Find where we passed through this value...
-                        idx = index_at_value(array, this_step, span)
-                        if idx:
-                            if mode == 'backwards':
-                                stepped_array[ceil(idx):span.start+1] = stepped_array[span.start+1]
-                            else:
-                                stepped_array[span.start:floor(idx)] = stepped_array[span.start]
-                    else:
-                        # OK - just ran from one step to another without dwelling, so fill with the start or end values.
-                        if mode == 'backwards':
-                            stepped_array[span] = first_valid_sample(stepped_array[span]).value
-                        else:
-                            stepped_array[span] = first_valid_sample(stepped_array[span]).value
+        if step_at == 'move_start' \
+           or direction == 'increase' and step_at == 'including_transition'\
+           or direction == 'decrease' and step_at == 'excluding_transition':
+            #TODO: support within 0.1 rather than 90%
+            # prev_midpoint (scan stop) should be after the other scan transition...
+            scan_rev = slice(flap_midpoint, prev_midpoint, -1)
+            ### 0.975 is within 0.1 of flap 40 and 0.
+            ##idx = index_at_value_or_level_off(array, prev_flap, scan_rev,
+                                              ##abs_threshold=0.2)
+            if direction == 'decrease':
+                flap_tolerance *= -1
                 
-                elif mode == 'backwards':
-                    stepped_array[span][:to_chg] = stepped_array[span.start+1]
-                else:
-                    stepped_array[span][:to_chg] = stepped_array[span.start]
-    '''
-    import matplotlib.pyplot as plt
-    one = np_ma_ones_like(array)
-    for step in steps:
-        plt.plot(one*step)
-    plt.plot(array, '-b')
-    plt.plot(stepped_array, '-k')
-    plt.show()
-    '''
-    return np.ma.array(stepped_array, mask=array.mask)
+            roc_idx = index_at_value(roc, roc_to_seek_for, scan_rev, endpoint='closest')
+            val_idx = index_at_value(array, prev_flap + flap_tolerance, scan_rev, endpoint='closest') #???
+            idx = max(val_idx, roc_idx) or flap_midpoint
+            
+        elif step_at == 'move_stop' \
+             or direction == 'increase' and step_at == 'excluding_transition'\
+             or direction == 'decrease' and step_at == 'including_transition':
+            scan_fwd = slice(flap_midpoint, next_midpoint, +1)
+            ##idx = index_at_value_or_level_off(array, next_flap, scan_fwd,
+                                              ##abs_threshold=0.2)
+            
+            if direction == 'increase':
+                flap_tolerance *= -1            
+            
+            roc_idx = index_at_value(roc, roc_to_seek_for, scan_fwd, endpoint='closest')
+            val_idx = index_at_value(array, next_flap + flap_tolerance, scan_fwd, endpoint='closest') #???
+            # Rate of change is preferred when the parameter flattens out,
+            # value is used when transitioning between two states and the
+            # parameter does not level.
+            idx = min(x for x in (val_idx, roc_idx) if x is not None) or flap_midpoint
+            
+        # floor +1 to ensure transitions start at the next sample
+        new_array[floor(idx)+1:] = next_flap
+    
+    # Reapply mask
+    #Q: must we maintain the mask?
+    new_array.mask = np.ma.getmaskarray(array)
+    return new_array    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    ##if step_at != 'midpoint':
+        
+        ### We are being asked to adjust the step point to either the beginning or
+        ### end of a change period. First find where the changes took place:
+        ##spans = np.ma.clump_unmasked(np.ma.masked_inside(np.ediff1d(array),-rt,rt))
+        ##if skip:
+            ### We change to cover the movements of the output array
+            ##for span in spans:
+                ##if step_at == 'move_start':
+                    ##stepped_array[span] = stepped_array[span.stop+1]
+                ##else:
+                    ##stepped_array[span] = stepped_array[span.start-1]
+        ##else:
+            ### We change to cover the movements of the stepped array
+            ###spans = np.ma.clump_unmasked(np.ma.masked_equal(np.ediff1d(stepped_array),0.0))
+
+            ### Compute the slices between change points.
+            
+            ### We are being asked to adjust the step point to either the beginning or
+            ### end of a change period. First find where the changes took place,
+            ### including endpoints to the array to allow indexing of the start and end
+            ### cases.
+            ##changes = [0] + \
+                ##list(np.ediff1d(stepped_array, to_end=0.0).nonzero()[0]) + \
+                ##[len(stepped_array)]
+            
+            ###spans = []
+            ##for i in range(len(changes) - 1):
+                ##if step_at == 'move_start' or\
+                   ##step_at == 'excluding_transition' and stepped_array[changes[i]+1]<stepped_array[changes[i]] or\
+                   ##step_at == 'including_transition' and stepped_array[changes[i]+1]>stepped_array[changes[i]]:
+                    ##mode = 'backwards'
+                    ##span = slice(changes[i], changes[i-1], -1)
+                ##else:
+                    ##mode='forwards'
+                    ##span = slice(changes[i], changes[i+1], +1)
+
+                ##to_chg = step_local_cusp(array, span)
+            
+                ##if to_chg==0:
+                    ### Continuous movement, so change at the step value if this passes through a step.
+                    ##big = np.ma.max(array[span])
+                    ##little = np.ma.min(array[span])
+                    ### See if the step in question is within this range:
+                    ##this_step = None
+                    ##for step in steps:
+                        ##if little <= step <= big:
+                            ##this_step = step
+                            ##break
+                    ##if this_step is None:
+                        ### Is this transition to an increasing/decreasing flap
+                        ##if mode == 'backwards':
+                            ##array[span.start+1] else array[ceil(span.stop)-1]
+                        ### Find where we passed through this value...
+                        ##idx = index_at_value(array, this_step+0.1, span)  # or -0.1 if we're going down?
+                        ### if we passed through the value and the value 
+                        ##if idx: ## and this_step+0.1 > big:
+                            ##if mode == 'backwards':
+                                ##stepped_array[ceil(idx):span.start+1] = stepped_array[span.start+1]
+                            ##else:
+                                ##stepped_array[span.start:floor(idx)] = stepped_array[span.start]
+                    ##else:
+                        ### OK - just ran from one step to another without dwelling, so fill with the start or end values.
+                        ##if mode == 'backwards':
+                            ##stepped_array[span] = first_valid_sample(stepped_array[span]).value
+                        ##else:
+                            ##stepped_array[span] = first_valid_sample(stepped_array[span]).value
+                
+                ##elif mode == 'backwards':
+                    ##stepped_array[span][:to_chg] = stepped_array[span.start+1]
+                ##else:
+                    ##stepped_array[span][:to_chg] = stepped_array[span.start]
+    ##'''
+    ##import matplotlib.pyplot as plt
+    ##one = np_ma_ones_like(array)
+    ##for step in steps:
+        ##plt.plot(one*step)
+    ##plt.plot(array, '-b')
+    ##plt.plot(stepped_array, '-k')
+    ##plt.show()
+    ##'''
+    ##return np.ma.array(stepped_array, mask=array.mask)
 
 
 def touchdown_inertial(land, roc, alt):
@@ -5647,11 +5764,11 @@ def index_at_value(array, threshold, _slice=slice(None), endpoint='exact'):
     return (begin + step * (n + r))
 
 
-def index_at_value_or_level_off(array, threshold, _slice):
+def index_at_value_or_level_off(array, value, _slice, abs_threshold=None):
     '''
-    Find the index closest to the value unless it doesn't get
-    within 10% of that value in which case find the point of
-    level off.
+    Find the index closest to the value unless it doesn't get within 10% of
+    that value or the value +/- the abs_threshold, in which case find the
+    point of level off.
     
     Designed for finding sections around Go Arounds where the
     _slice region defines the area to search within.
@@ -5660,16 +5777,20 @@ def index_at_value_or_level_off(array, threshold, _slice):
     
     :param array: Normally an Altitude based array.
     :type array: np.ma.array
-    :param threshold: Value to seek to
-    :type threshold: Float
+    :param value: Value to seek to
+    :type value: Float
     :param _slice: Constraint within array to search until
     :type _slice: slice
+    :param abs_threshold: The absolute threshold which the value must be within.
+    :type abs_threshold: float
     :returns: Index at closest value or at level off
     :rtype: Int
     '''
-    index = index_at_value(array, threshold, _slice, 'nearest')
+    index = index_at_value(array, value, _slice, 'nearest')
     # did we get within 90% of the threshold?
-    if index is not None and array[index] > threshold * 0.9:
+    if abs_threshold is None:
+        abs_threshold = value * 0.1
+    if index is not None and abs(value_at_index(array, index) - value) < abs_threshold:
         return index
     else:
         # we never got quite close enough to 2000ft above the

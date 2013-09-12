@@ -552,9 +552,8 @@ class FlapExcludingTransition(MultistateDerivedParameterNode):
     def derive(self, flap=P('Flap Angle'), 
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap)
-        self.array = step_values(flap.array, flap.frequency, 
-                                 self.values_mapping.keys(),
-                                 step_at='excluding_transition')
+        self.array = step_values(flap.array, self.values_mapping.keys(),
+                                 flap.hz, step_at='excluding_transition')
 
 
 class FlapIncludingTransition(MultistateDerivedParameterNode):
@@ -571,9 +570,8 @@ class FlapIncludingTransition(MultistateDerivedParameterNode):
     def derive(self, flap=P('Flap Angle'), 
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap)
-        self.array = step_values(flap.array, flap.frequency, 
-                                 self.values_mapping.keys(),
-                                 step_at='including_transition')
+        self.array = step_values(flap.array, self.values_mapping.keys(),
+                                 flap.hz, step_at='including_transition')
             
             
 class FlapLever(MultistateDerivedParameterNode):
