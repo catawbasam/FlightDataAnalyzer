@@ -1025,10 +1025,9 @@ class V2VariationMax(KeyPointValueNode):
 
         v2_differences = v2_rec.array - v2_table.array
         self.create_kpv_from_slices(
-                    v2_differences,
-                    [slice(0, len(v2_rec.array)),],
-                    max_abs_value,
-                )
+            v2_differences,
+            [slice(0, len(v2_rec.array)),],
+            max_abs_value)
 
 
 ########################################
@@ -8406,6 +8405,7 @@ class TAWSCautionObstacleDuration(KeyPointValueNode):
 
 class TAWSCautionTerrainDuration(KeyPointValueNode):
     '''
+    TAWS Caution Terrain is sourced from GPWS
     '''
 
     name = 'TAWS Caution Terrain Duration'
@@ -8419,6 +8419,7 @@ class TAWSCautionTerrainDuration(KeyPointValueNode):
 
 class TAWSTerrainCautionDuration(KeyPointValueNode):
     '''
+    TAWS Terrain Caution is sourced from EGPWS.
     '''
 
     name = 'TAWS Terrain Caution Duration'

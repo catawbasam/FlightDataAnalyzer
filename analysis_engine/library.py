@@ -5262,18 +5262,15 @@ def step_values(array, steps, hz=1, step_at='midpoint', rate_threshold=0.5):
                                               ##abs_threshold=0.2)
             
             if direction == 'increase':
-                flap_tolerance *= -1            
+                flap_tolerance *= -1
             
             roc_idx = index_at_value(roc, roc_to_seek_for, scan_fwd, endpoint='closest')
             val_idx = index_at_value(array, next_flap + flap_tolerance, scan_fwd, endpoint='closest') #???
             # Rate of change is preferred when the parameter flattens out,
             # value is used when transitioning between two states and the
             # parameter does not level.
-            points = [x for x in (val_idx, roc_idx) if x is not None]
-            if points:
-                idx = min(points)
-            else:
-                idx = flap_midpoint
+            idxs = [x for x in (val_idx, roc_idx) if x is not None]
+            idx = (idxs and min(idxs)) or flap_midpoint
             
         # floor +1 to ensure transitions start at the next sample
         new_array[floor(idx)+1:] = next_flap

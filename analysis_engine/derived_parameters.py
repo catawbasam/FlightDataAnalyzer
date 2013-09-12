@@ -3166,6 +3166,8 @@ class FlapAngle(DerivedParameterNode):
     @staticmethod
     def _combine_flap_slat(slat_array, flap_array, conf_map):
         '''
+        Combines Flap and Slat parameters and returns a Flap Angle array.
+        
         Example conf map (slat, flap):
         'B787': {
             0:    (0, 0),
@@ -3181,6 +3183,13 @@ class FlapAngle(DerivedParameterNode):
         Slat Y: [0, 1, 6]
         Flap X: [0, 5, 15, 20, 30]
         Flap Y: [0, 4, 14, 19, 24]
+        
+        :param slat_array: Slat parameter array.
+        :type slat_array: np.ma.masked_array
+        :param flap_array: Flap parameter array.
+        :type flap_array: np.ma.masked_array
+        :param conf_map: Configuration map from model information.
+        :type conf_map: {int: (int, int)}
         '''
         # Assumes states are strings.
         previous_state = None
@@ -4627,21 +4636,35 @@ class RudderPedal(DerivedParameterNode):
     '''
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Rudder Pedal Potentiometer', 
-                       'Rudder Pedal Synchro'), available)
+        return any_of((
+            'Rudder Pedal (L)',
+            'Rudder Pedal (R)',
+            'Rudder Pedal Potentiometer', 
+            'Rudder Pedal Synchro',
+            ), available)
     
-    def derive(self, pot=P('Rudder Pedal Potentiometer'),
+    def derive(self, rudder_pedal_l=P('Rudder Pedal (L)'),
+               rudder_pedal_r=P('Rudder Pedal (R)'),
+               pot=P('Rudder Pedal Potentiometer'),
                synchro=P('Rudder Pedal Synchro')):
-
+        
+        if rudder_pedal_l or rudder_pedal_r:
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(rudder_pedal_l, rudder_pedal_r)
+        
         synchro_samples = 0
         
         if synchro:
             synchro_samples = np.ma.count(synchro.array)
+            self.frequency = synchro.frequency
+            self.offset = synchro.offset
             self.array = synchro.array
             
         if pot:
             pot_samples = np.ma.count(pot.array)
-            if pot_samples>synchro_samples:
+            if pot_samples > synchro_samples:
+                self.frequency = pot.frequency
+                self.offset = pot.offset
                 self.array = pot.array
         
 
@@ -5233,6 +5256,21 @@ class Speedbrake(DerivedParameterNode):
 
         else:
             raise DataFrameError(self.name, frame_name)
+
+
+class Spoiler(DerivedParameterNode):
+    align = False
+    
+    @classmethod
+    def can_operate(cls, available, family=A('Family')):
+        return family and family.value == 'B787' and (
+            'Spoiler (1)' in available or 'Spoiler (14)' in available)
+    
+    def derive(self,
+               spoiler_1=P('Spoiler (1)'),
+               spoiler_14=P('Spoiler (14)')):
+        self.array, self.frequency, self.offset = \
+            blend_two_parameters(spoiler_1, spoiler_14)
 
 
 class SpeedbrakeHandle(DerivedParameterNode):

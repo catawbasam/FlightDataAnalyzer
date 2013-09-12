@@ -508,7 +508,7 @@ class FlapExtensionWhileAirborne(KeyTimeInstanceNode):
         self.create_ktis_at_edges(flap.array.raw, phase=airborne)
 
 
-class FlapLoadRelief(KeyTimeInstanceNode):
+class FlapLoadReliefSet(KeyTimeInstanceNode):
     '''
     Indicates where flap load relief has taken place.
     '''
@@ -520,7 +520,7 @@ class FlapLoadRelief(KeyTimeInstanceNode):
             )
 
 
-class FlapAlternateArmed(KeyTimeInstanceNode):
+class FlapAlternateArmedSet(KeyTimeInstanceNode):
     '''
     Indicates where flap alternate system has been armed.
     '''
@@ -532,7 +532,7 @@ class FlapAlternateArmed(KeyTimeInstanceNode):
             )
 
 
-class SlatAlternateArmed(KeyTimeInstanceNode):
+class SlatAlternateArmedSet(KeyTimeInstanceNode):
     '''
     Indicates where slat alternate system has been armed.
     '''

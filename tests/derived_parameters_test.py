@@ -3624,6 +3624,32 @@ class TestRollRate(unittest.TestCase):
         ma_test.assert_array_equal(expected[2:4], rr.array[2:4]) # Differential process blurs ends of the array, so just test the core part.
 
 
+class TestRudderPedal(unittest.TestCase):
+    def test_can_operate(self):
+        opts = RudderPedal.get_operational_combinations()
+        self.assertTrue(('Rudder Pedal (L)',) in opts)
+        self.assertTrue(('Rudder Pedal (R)',) in opts)
+        self.assertTrue(('Rudder Pedal (L)', 'Rudder Pedal (R)') in opts)
+        self.assertTrue(('Rudder Pedal Potentiometer',) in opts)
+        self.assertTrue(('Rudder Pedal Synchro',) in opts)
+        self.assertTrue(('Rudder Pedal Potentiometer', 'Rudder Pedal Synchro') in opts)
+        
+        
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestSlat(unittest.TestCase):
+    @unittest.skip('Test Not Implemented')
+    def test_can_operate(self):
+        self.assertTrue(False, msg='Test not implemented.')
+        
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestSlatSurface(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(
@@ -3655,7 +3681,23 @@ class TestSpeedbrake(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
-     
+
+
+class TestSpoiler(unittest.TestCase):
+    def test_can_operate(self):
+        family = Attribute('Family', 'B787')
+        self.assertTrue(Spoiler.can_operate(('Spoiler (1)',), family=family))
+        self.assertTrue(Spoiler.can_operate(('Spoiler (14)',), family=family))
+        self.assertTrue(Spoiler.can_operate(('Spoiler (1)', 'Spoiler (14)'),
+                                            family=family))
+        family = Attribute('Family', 'A320')
+        self.assertFalse(Spoiler.can_operate(('Spoiler (1)', 'Spoiler (14)'),
+                                             family=family))
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
 
 class TestSAT(unittest.TestCase):
     # Note: the core function machtat2sat is tested by the library test.

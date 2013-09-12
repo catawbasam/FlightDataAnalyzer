@@ -25,15 +25,15 @@ from analysis_engine.key_time_instances import (
     ExitHold,
     FirstFlapExtensionWhileAirborne,
     FlapExtensionWhileAirborne,
-    FlapLoadRelief,
     FlapSet,
+    FlapAlternateArmedSet,
+    FlapLoadReliefSet,
+    FlapRetractionWhileAirborne,
+    FlapRetractionDuringGoAround,
     GearDownSelection,
     GearUpSelection,
     GearUpSelectionDuringGoAround,
     GoAround,
-    FlapAlternateArmed,
-    FlapRetractionWhileAirborne,
-    FlapRetractionDuringGoAround,
     InitialClimbStart,
     LandingDecelerationEnd,
     LandingStart,
@@ -44,7 +44,7 @@ from analysis_engine.key_time_instances import (
     LowestAltitudeDuringApproach,
     MinsToTouchdown,
     SecsToTouchdown,
-    SlatAlternateArmed,
+    SlatAlternateArmedSet,
     SlatSet,
     TakeoffAccelerationStart,
     TakeoffPeakAcceleration,
@@ -852,13 +852,13 @@ class TestExitHold(unittest.TestCase):
 ##############################################################################
 # Flap & Slat
 
-class TestSlatAlternateArmed(unittest.TestCase):
+class TestSlatAlternateArmedSet(unittest.TestCase):
     def test_derive(self):
         saa = M('Slat Alternate Armed', ['-', '-', 'Armed', 'Armed', 'Armed', '-', '-'],
                values_mapping={0: '-', 1: 'Armed'})
-        armed = SlatAlternateArmed()
+        armed = SlatAlternateArmedSet()
         armed.derive(saa) # Get the pun !
-        expected = [KeyTimeInstance(index=1.5, name='Slat Alternate Armed')]
+        expected = [KeyTimeInstance(index=1.5, name='Slat Alternate Armed Set')]
         self.assertEqual(armed, expected)
 
 
@@ -866,19 +866,19 @@ class TestFlapAlternateArmed(unittest.TestCase):
     def test_derive(self):
         faa = M('Flap Alternate Armed', ['-', '-', '-', 'Armed', 'Armed', 'Armed', '-'],
                values_mapping={0: '-', 1: 'Armed'})
-        armed = FlapAlternateArmed()
+        armed = FlapAlternateArmedSet()
         armed.derive(faa) # Get the pun !
-        expected = [KeyTimeInstance(index=2.5, name='Flap Alternate Armed')]
+        expected = [KeyTimeInstance(index=2.5, name='Flap Alternate Armed Set')]
         self.assertEqual(armed, expected)
 
 
-class TestFlapLoadRelief(unittest.TestCase):
+class TestFlapLoadReliefSet(unittest.TestCase):
     def test_derive(self):
         flr = M('Flap Load Relief', ['-', '-', '-', 'Load Relief', 'Load Relief', '-', '-'],
                values_mapping={0: '-', 1: 'Load Relief'})
-        loaded = FlapLoadRelief()
+        loaded = FlapLoadReliefSet()
         loaded.derive(flr)
-        expected = [KeyTimeInstance(index=2.5, name='Flap Load Relief')]
+        expected = [KeyTimeInstance(index=2.5, name='Flap Load Relief Set')]
         self.assertEqual(loaded, expected)
 
 
