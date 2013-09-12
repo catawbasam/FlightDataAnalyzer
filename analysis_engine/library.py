@@ -1278,6 +1278,65 @@ def clump_multistate(array, state, _slices, condition=True):
     return clumps
 
 
+def unique_values(array):
+    '''
+    Count the number of unique values found within an array.
+    
+    :param array: Array to count occurrences of values within
+    :type array: np.array
+    :returns: [(val, count), (val2, count2)]
+    :rtype: List of tuples
+    '''
+    counts = np.bincount(array)
+    vals = np.nonzero(counts)[0]
+    return zip(vals, counts[vals])
+
+
+def compress_iter_repr(iterable, cast=None, join='+'):
+    '''
+    Groups list or tuple iterables and finds repeating values. Useful for
+    building compressed lists of repeating values.
+    
+    Uses the objects repr if possible, otherwise it's cast to %s (__str__)
+    
+    'cast' keyword argument can force casting to another type, e.g. int
+    
+    >>> print compress_iter_repr([0,0,1,0,2,2,2])
+    [0]*2 + [1] + [0] + [2]*3
+    >>> print compress_iter_repr(['a', 'a'])
+    ['a']*2
+    
+    :param iterable: iterable to compress
+    :type iterable: list or tuple
+    :param cast: function to apply to value before calling repr, e.g. str, int
+    :type cast: function or None
+    :param join: to adjust the space between + join symbols e.g. join=' + '
+    :type join: str
+    '''
+    prev_v = None
+    res = []
+    for v in iterable:
+        if cast:
+            v = cast(v)
+        if v != prev_v:
+            if prev_v != None:
+                res.append((prev_v, count))
+            count = 1
+        else:# v == prev_v:
+            count += 1
+        prev_v = v
+    else:
+        # end of loop, add last item to res
+        if prev_v != None:
+            res.append((prev_v, count))
+    entries = []
+    for val, cnt in res:
+        v = val.__repr__() if hasattr(val, '__repr__') else val
+        c = '*%d' % cnt if cnt > 1 else ''
+        entries.append('[%s]%s' % (v, c))
+    return join.join(entries)
+
+
 def filter_vor_ils_frequencies(array, navaid):
     '''
     This function passes valid ils or vor frequency data and masks all other data.
