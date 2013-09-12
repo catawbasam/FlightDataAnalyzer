@@ -476,10 +476,9 @@ class TestFlap(unittest.TestCase):
         flap = P('Flap Angle', np.ma.arange(50))
         node = Flap()
         node.derive(flap, A('Series', None), A('Family', None))
-        expected = [0] * 3 + [5] * 2 + [10] * 5 + [15] * 5
-        self.assertEqual(node.array.raw[:15].tolist(), expected)
-        expected = [45] * 2 + [50] * 5
-        self.assertEqual(node.array.raw[-7:].tolist(), expected)
+        expected = [0] + [5]*5 + [10]*5 + [15]*5 + [20]*5 + [25]*5 + [30]*5 + \
+                   [35]*5 + [40]*5 + [45]*5 + [50]*4
+        self.assertEqual(list(node.array.raw), expected)
         self.assertEqual(
             node.values_mapping,
             {0: '0', 35: '35', 5: '5', 40: '40', 10: '10', 45: '45', 15: '15',
@@ -487,7 +486,7 @@ class TestFlap(unittest.TestCase):
 
         flap = P('Flap Angle', np.ma.array(range(20), mask=[True] * 10 + [False] * 10))
         node.derive(flap, A('Series', None), A('Family', None))
-        expected = [-1] * 10 + [15] * 5 + [20] * 5
+        expected = [-1]*10 + [10] + [15]*5 + [20]*4
         self.assertEqual(np.ma.filled(node.array, fill_value=-1).tolist(),
                          expected)
         self.assertEqual(node.values_mapping, {10: '10', 20: '20', 15: '15'})
@@ -517,14 +516,15 @@ class TestFlap(unittest.TestCase):
             #[13, 0],               # odd float values
             #[-999] * 2,            # masked values
         #])
-        expected = np.ma.array(
-            ([0] * 7) + ([13] * 6) + ([20] * 7) + ([25] * 5) + ([30] * 5) + 
-            ([40] * 10) + ([0] * 15) + [13] + ([0] * 3),
-            mask=[False, True] + ([False] * 55) + [True, True]
-        )
+        ##expected = np.ma.array(
+            ##([0] * 7) + ([13] * 7) + ([20] * 7) + ([25] * 5) + ([30] * 5) + 
+            ##([40] * 10) + ([0] * 15) + [13] + ([0] * 3),
+            ##mask=[False, True] + ([False] * 55) + [True, True]
+        ##)
 
         self.assertEqual(node.array.size, 59)
-        self.assertEqual(node.array.tolist(), expected.tolist())
+        self.assertEqual(list(node.array.raw.data),
+            [0]*7 + [13]*7 + [20]*7 + [25]*5 + [30]*5 + [40]*19 + [0]*5 + [13] + [0]*3)
         self.assertEqual(
             node.values_mapping,
             {0: '0', 40: '40', 13: '13', 20: '20', 25: '25', 30: '30'})
@@ -534,8 +534,8 @@ class TestFlap(unittest.TestCase):
     def test_time_taken(self):
         from timeit import Timer
         timer = Timer(self.test_flap_using_md82_settings)
-        time = min(timer.repeat(2, 100))
-        self.assertLess(time, 2, msg='Took too long: %.3fs' % time)
+        time = min(timer.repeat(2, 50))
+        self.assertLess(time, 1.2, msg='Took too long: %.3fs' % time)
         
     def test_decimal_flap_settings(self):
         # Beechcraft has a flap 17.5
@@ -548,7 +548,7 @@ class TestFlap(unittest.TestCase):
         self.assertEqual(flap.values_mapping,
                          {0: '0', 17.5: '17.5', 35: '35'})
         ma_test.assert_array_equal(
-            flap.array, ['0', '0', '0', '17.5', '17.5', '35', '35', '35'])
+            flap.array, ['0', '17.5', '17.5', '17.5', '17.5', '17.5', '35', '35'])
         
     def test_flap_settings_for_hercules(self):
         # No flap recorded; ensure it converts exactly the same
@@ -559,7 +559,7 @@ class TestFlap(unittest.TestCase):
         self.assertEqual(flap.values_mapping,
                          {0: '0', 50: '50', 100: '100'})
         ma_test.assert_array_equal(
-            flap.array, ['0', '0', '0', '50', '50', '100', '100'])
+            flap.array, ['0', '0', '0', '50', '50', '50', '100'])
 
 
 class TestFlapLever(unittest.TestCase, NodeTest):
