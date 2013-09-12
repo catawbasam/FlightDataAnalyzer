@@ -5269,7 +5269,11 @@ def step_values(array, steps, hz=1, step_at='midpoint', rate_threshold=0.5):
             # Rate of change is preferred when the parameter flattens out,
             # value is used when transitioning between two states and the
             # parameter does not level.
-            idx = min(x for x in (val_idx, roc_idx) if x is not None) or flap_midpoint
+            points = [x for x in (val_idx, roc_idx) if x is not None]
+            if points:
+                idx = min(points)
+            else:
+                idx = flap_midpoint
             
         # floor +1 to ensure transitions start at the next sample
         new_array[floor(idx)+1:] = next_flap
