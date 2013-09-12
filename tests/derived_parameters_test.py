@@ -129,6 +129,7 @@ from analysis_engine.derived_parameters import (
     MagneticVariationFromRunway,
     Pitch,
     RollRate,
+    RudderPedal,
     SlatSurface,
     Speedbrake,
     VerticalSpeed,
@@ -3645,6 +3646,22 @@ class TestRollRate(unittest.TestCase):
         rr.derive(roll)
         expected=np_ma_ones_like(roll.array)*4.0
         ma_test.assert_array_equal(expected[2:4], rr.array[2:4]) # Differential process blurs ends of the array, so just test the core part.
+
+
+class TestRudderPedal(unittest.TestCase):
+    def test_can_operate(self):
+        opts = RudderPedal.get_operational_combinations()
+        self.assertTrue(('Rudder Pedal (L)',) in opts)
+        self.assertTrue(('Rudder Pedal (R)',) in opts)
+        self.assertTrue(('Rudder Pedal (L)', 'Rudder Pedal (R)') in opts)
+        self.assertTrue(('Rudder Pedal Potentiometer',) in opts)
+        self.assertTrue(('Rudder Pedal Synchro',) in opts)
+        self.assertTrue(('Rudder Pedal Potentiometer', 'Rudder Pedal Synchro') in opts)
+        
+        
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
 
 
 class TestSlat(unittest.TestCase):

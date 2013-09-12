@@ -4653,21 +4653,35 @@ class RudderPedal(DerivedParameterNode):
     '''
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Rudder Pedal Potentiometer', 
-                       'Rudder Pedal Synchro'), available)
+        return any_of((
+            'Rudder Pedal (L)',
+            'Rudder Pedal (R)',
+            'Rudder Pedal Potentiometer', 
+            'Rudder Pedal Synchro',
+            ), available)
     
-    def derive(self, pot=P('Rudder Pedal Potentiometer'),
+    def derive(self, rudder_pedal_l=P('Rudder Pedal (L)'),
+               rudder_pedal_r=P('Rudder Pedal (R)'),
+               pot=P('Rudder Pedal Potentiometer'),
                synchro=P('Rudder Pedal Synchro')):
-
+        
+        if rudder_pedal_l or rudder_pedal_r:
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(rudder_pedal_l, rudder_pedal_r)
+        
         synchro_samples = 0
         
         if synchro:
             synchro_samples = np.ma.count(synchro.array)
+            self.frequency = synchro.frequency
+            self.offset = synchro.offset
             self.array = synchro.array
             
         if pot:
             pot_samples = np.ma.count(pot.array)
-            if pot_samples>synchro_samples:
+            if pot_samples > synchro_samples:
+                self.frequency = pot.frequency
+                self.offset = pot.offset
                 self.array = pot.array
         
 
