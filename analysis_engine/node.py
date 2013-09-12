@@ -255,6 +255,9 @@ def can_operate(cls, available):
     @classmethod
     def get_operational_combinations(cls):
         """
+        TODO: Support additional requested arguments (series/family)
+        e.g. Slat(MultistateDerivedParameter)
+        
         :returns: Every operational combination of dependencies.
         :rtype: [str]
         """
