@@ -3403,7 +3403,7 @@ class TestFlapAngle(unittest.TestCase, NodeTest):
         self.assertEqual(f.array[19125], 24.945)
         self.assertEqual(f.array[19250], 30.0)
     
-    def test__combine_flap_set_basic(self):
+    def test__combine_flap_slat_basic(self):
         conf_map = {
             0:    (0, 0),
             1:    (50, 0),
