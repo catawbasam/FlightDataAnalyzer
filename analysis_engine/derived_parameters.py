@@ -3292,7 +3292,8 @@ class Slat(DerivedParameterNode):
             # round to nearest 5 degrees
             self.array = round_to_nearest(slat.array, 5.0)
         else:
-            self.array = step_values(slat.array, slat.frequency, slat_steps)
+            self.array = step_values(slat.array, slat_steps, slat.hz, 
+                                     step_at='move_start')
 
 
 class SlopeToLanding(DerivedParameterNode):
@@ -5057,7 +5058,8 @@ class Flaperon(DerivedParameterNode):
         # the left going negative and right going positive when flaperons set)
         flaperon_angle = (al.array - ar.array) / 2
         ail_steps = get_aileron_map(series.value, family.value)
-        self.array = step_values(flaperon_angle, self.frequency, ail_steps)
+        self.array = step_values(flaperon_angle, ail_steps, 
+                                 al.hz, step_at='move_start')
 
 
 class AileronLeft(DerivedParameterNode):
@@ -5088,7 +5090,8 @@ class AileronLeft(DerivedParameterNode):
             self.array = ali.array
         elif alo:
             self.array = alo.array
-        
+
+
 class AileronRight(DerivedParameterNode):
     # See ElevatorLeft for explanation
     name = 'Aileron (R)'
@@ -5118,6 +5121,7 @@ class AileronRight(DerivedParameterNode):
             self.array = ari.array
         elif aro:
             self.array = aro.array        
+
 
 class AileronTrim(DerivedParameterNode): # RollTrim
     '''
@@ -5185,7 +5189,8 @@ class ElevatorLeft(DerivedParameterNode):
             pot_samples = np.ma.count(pot.array)
             if pot_samples>synchro_samples:
                 self.array = pot.array
-        
+
+
 class ElevatorRight(DerivedParameterNode):
     # See ElevatorLeft for explanation
     name = 'Elevator (R)'

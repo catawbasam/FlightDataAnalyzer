@@ -524,20 +524,18 @@ class Flap(MultistateDerivedParameterNode):
 
             self.array = np.ma.array(flap_herc)
             self.frequency, self.offset = alt_aal.frequency, alt_aal.offset
-
-        elif flap:
-            try:
-                flap_steps = get_flap_map(series.value, family.value)
-            except KeyError:
-                # no flaps mapping, round to nearest 5 degrees
-                self.warning("No flap settings - rounding to nearest 5")
-                # round to nearest 5 degrees
-                array = round_to_nearest(flap.array, 5.0)
-                flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
-            finally:
-                self.values_mapping = {f: str(f) for f in flap_steps}
-                self.array = step_values(flap.array, flap.frequency, flap_steps,
-                                         step_at='move_start')
+            return
+        try:
+            flap_steps = get_flap_map(series.value, family.value)
+        except KeyError:
+            # no flaps mapping, round to nearest 5 degrees
+            self.warning("No flap settings - rounding to nearest 5")
+            # round to nearest 5 degrees
+            array = round_to_nearest(flap.array, 5.0)
+            flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
+        self.values_mapping = {f: str(f) for f in flap_steps}
+        self.array = step_values(flap.array, flap_steps, 
+                                 flap.hz, step_at='move_start')
 
 
 class FlapExcludingTransition(MultistateDerivedParameterNode):
@@ -580,7 +578,8 @@ class FlapLever(MultistateDerivedParameterNode):
     angle movement.
     
     Flap is not used to synthesize Flap Lever as this could be misleading.
-    Instead, all safety Key Point Values will use Flap Lever followed by Flap.
+    Instead, all safety Key Point Values will use Flap Lever followed by Flap 
+    if Flap Lever is not available.
     '''
 
     units = 'deg'
@@ -589,9 +588,8 @@ class FlapLever(MultistateDerivedParameterNode):
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap_lever)
         # Take the moment the flap starts to move.
-        self.array = step_values(flap_lever.array, flap_lever.frequency, 
-                                 self.values_mapping.keys(),
-                                 step_at='move_start')
+        self.array = step_values(flap_lever.array, self.values_mapping.keys(),
+                                 flap_lever.hz, step_at='move_start')
 
 
 class FuelQty_Low(MultistateDerivedParameterNode):

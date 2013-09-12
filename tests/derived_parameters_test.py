@@ -18,7 +18,8 @@ from analysis_engine.library import (align,
                                      max_value,
                                      np_ma_masked_zeros,
                                      np_ma_masked_zeros_like,
-                                     np_ma_ones_like)
+                                     np_ma_ones_like,
+                                     unique_values)
 
 from analysis_engine.node import (Attribute,
                                   A,
@@ -2865,14 +2866,10 @@ class TestFlaperon(unittest.TestCase):
         family = A('Family', 'A330')
         flaperon = Flaperon()
         flaperon.derive(al, ar, series, family)
-        def unique_values(array):
-            y = np.bincount(array)
-            ii = np.nonzero(y)[0]
-            return zip(ii,y[ii])
-        
         # ensure values are grouped into aileron settings accordingly
+        # flaperon is now step at movement start
         self.assertEqual(unique_values(flaperon.array.astype(int)),
-                         [(0, 22123), (5, 278), (10, 1151)])
+                         [(0, 22056), (5, 291), (10, 1205)])
         
         
 
