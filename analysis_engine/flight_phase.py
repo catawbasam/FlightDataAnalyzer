@@ -577,105 +577,79 @@ class FinalApproach(FlightPhaseNode):
 
 
 class GearExtending(FlightPhaseNode):
-    """
+    '''
     Gear extending and retracting are section nodes, as they last for a
-    finite period.
+    finite period. Based on the Gear Red Warnings.
 
     For some aircraft no parameters to identify the transit are recorded, so
     a nominal period of 5 seconds at gear down and gear up is included to
     allow for exceedance of gear transit limits.
-    """
+    '''
     @classmethod
     def can_operate(cls, available):
         return 'Gear Down' in available and 'Airborne' in available
 
-    def derive(self, gear_down=M('Gear Down'),
-               gear_warn_l=P('Gear (L) Red Warning'),
-               gear_warn_n=P('Gear (N) Red Warning'),
-               gear_warn_r=P('Gear (R) Red Warning'),
-               frame=A('Frame'), airs=S('Airborne')):
-        if all((gear_warn_l, gear_warn_n, gear_warn_r)):
-            ### Aircraft with red warning captions to show travelling
-            ##if not all((gear_warn_l, gear_warn_n, gear_warn_r)):
-                ##frame_name = frame.value if frame else None
-                ### some, but not all are available. Q: allow for any combination
-                ### rather than raising exception
-                ##raise DataFrameError(self.name, frame_name)
-            gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
-            gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
-            slices = _ezclump(gear_warn)
-            if first_valid_sample(gear_warn).value == False:
-                gear_moving = slices[1::2]
-            else:
-                gear_moving = slices[::2]
-            for air in airs:
-                gear_moves = slices_and([air.slice], gear_moving)
-                for gear_move in gear_moves:
-                    if gear_down.array[gear_move.start - 1] == \
-                            gear_down.array.state['Up']:
-                        self.create_phase(gear_move)
-
-        else:
-            # Aircraft without red warning captions for travelling
-            edge_list = []
-            for air in airs:
-                edge_list.append(find_edges(gear_down.array.raw, air.slice))
-            # We now have a list of lists and this trick flattens the result.
-            for edge in sum(edge_list, []):
-                # We have no transition state, so allow 5 seconds for the
-                # gear to extend.
-                begin = edge
-                end = edge + (5.0 * gear_down.frequency)
-                self.create_phase(slice(begin, end))
+    def derive(self, gear_warn=M('Gear (*) Red Warning'),
+               gear_down=M('Gear Down'), airs=S('Airborne')):
+        if gear_warn:
+            red_periods = runs_of_ones(gear_warn.array == 'Warning')
+            for gear_move in red_periods:
+                if gear_down.array[gear_move.stop + 1] == 'Down':
+                    # we are extending towards gear-down position
+                    self.create_phase(gear_move)                
+                else:
+                    # we were retracting
+                    continue
+            return
+        
+        # Aircraft without red warning captions for travelling
+        edge_list = []
+        for air in airs:
+            edge_list.append(find_edges(gear_down.array.raw, air.slice))
+        # We now have a list of lists and this trick flattens the result.
+        for edge in sum(edge_list, []):
+            # We have no transition state, so allow 5 seconds for the
+            # gear to extend.
+            begin = edge
+            end = edge + (5.0 * gear_down.frequency)
+            self.create_phase(slice(begin, end))
 
 
 class GearExtended(FlightPhaseNode):
     '''
-    Simple phase to avoid repetition elsewhere.
+    Simple phase translation of the Gear Down parameter.
     '''
     def derive(self, gear_down=M('Gear Down')):
-        slice_list = np.ma.clump_unmasked(np.ma.masked_equal(gear_down.array,0))
-        # Untidy trap for slices that match the array boundary.
-        # TODO: Someone think of a better solution than this?
-        if slice_list[-1].stop == len(gear_down.array):
-            slice_list[-1]=slice(slice_list[-1].start,slice_list[-1].stop-1)
-        self.create_phases(slice_list)
+        repaired = repair_mask(gear_down.array, gear_down.frequency, 
+                               repair_duration=120, extrapolate=True)
+        self.create_phases(runs_of_ones(repaired == 'Down'))
 
 
 class GearRetracting(FlightPhaseNode):
     '''
-    See Gear Extending for comments.
+    Gear extending and retracting are section nodes, as they last for a
+    finite period. Based on the Gear Red Warnings.
+
+    For some aircraft no parameters to identify the transit are recorded, so
+    a nominal period of 5 seconds at gear down and gear up is included to
+    allow for exceedance of gear transit limits.
     '''
     @classmethod
     def can_operate(cls, available):
         return 'Gear Down' in available and 'Airborne' in available
 
-    def derive(self, gear_down=M('Gear Down'),
-               gear_warn_l=P('Gear (L) Red Warning'),
-               gear_warn_n=P('Gear (N) Red Warning'),
-               gear_warn_r=P('Gear (R) Red Warning'),
-               frame=A('Frame'), airs=S('Airborne')):
-        if all((gear_warn_l, gear_warn_n, gear_warn_r)):
-            ### Aircraft with red warning captions to show travelling
-            ##if not all((gear_warn_l, gear_warn_n, gear_warn_r)):
-                ##frame_name = frame.value if frame else None
-                ### some, but not all are available. Q: allow for any combination
-                ### rather than raising exception
-                ##raise DataFrameError(self.name, frame_name)
-            gear_warn = ((gear_warn_l.array == 'Warning') |
-                         (gear_warn_r.array == 'Warning') |
-                         (gear_warn_n.array == 'Warning'))
-            ##gear_warn = gear_warn == 'Warning' | gear_warn_n == 'Warning'
-            slices = _ezclump(gear_warn)
-            if first_valid_sample(gear_warn).value == False:
-                gear_moving = slices[1::2]
-            else:
-                gear_moving = slices[::2]
-            for air in airs:
-                gear_moves = slices_and([air.slice], gear_moving)
-                for gear_move in gear_moves:
-                    if gear_down.array[gear_move.start - 1] == 'Down':
-                        self.create_phase(gear_move)
+    def derive(self, gear_warn=M('Gear (*) Red Warning'),
+               gear_down=M('Gear Down'), airs=S('Airborne')):
+        if gear_warn:
+            red_periods = runs_of_ones(gear_warn.array == 'Warning')
+            for gear_move in red_periods:
+                if gear_down.array[gear_move.start - 1] == 'Down':
+                    # we were down so are now retracting gear upwards
+                    self.create_phase(gear_move)
+                else:
+                    # we were extending, skip
+                    continue
+            return
         else:
             # Aircraft without red warning captions for travelling
             edge_list = []
@@ -693,11 +667,13 @@ class GearRetracting(FlightPhaseNode):
 
 class GearRetracted(FlightPhaseNode):
     '''
-    Simple phase to avoid repetition elsewhere.
+    Simple phase translation of the Gear Down parameter to show gear Up.
     '''
     def derive(self, gear_down=M('Gear Down')):
-        self.create_phases(np.ma.clump_unmasked(
-            np.ma.masked_equal(gear_down.array,1)))
+        #TODO: self = 1 - 'Gear Extended'
+        repaired = repair_mask(gear_down.array, gear_down.frequency, 
+                               repair_duration=120, extrapolate=True)
+        self.create_phases(runs_of_ones(repaired == 'Up'))
 
 
 def scan_ils(beam, ils_dots, height, scan_slice, frequency):
