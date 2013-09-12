@@ -3167,6 +3167,8 @@ class FlapAngle(DerivedParameterNode):
     @staticmethod
     def _combine_flap_slat(slat_array, flap_array, conf_map):
         '''
+        Combines Flap and Slat parameters and returns a Flap Angle array.
+        
         Example conf map (slat, flap):
         'B787': {
             0:    (0, 0),
@@ -3182,6 +3184,13 @@ class FlapAngle(DerivedParameterNode):
         Slat Y: [0, 1, 6]
         Flap X: [0, 5, 15, 20, 30]
         Flap Y: [0, 4, 14, 19, 24]
+        
+        :param slat_array: Slat parameter array.
+        :type slat_array: np.ma.masked_array
+        :param flap_array: Flap parameter array.
+        :type flap_array: np.ma.masked_array
+        :param conf_map: Configuration map from model information.
+        :type conf_map: {int: (int, int)}
         '''
         # Assumes states are strings.
         previous_state = None
