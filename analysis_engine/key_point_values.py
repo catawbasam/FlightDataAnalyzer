@@ -1025,10 +1025,9 @@ class V2VariationMax(KeyPointValueNode):
 
         v2_differences = v2_rec.array - v2_table.array
         self.create_kpv_from_slices(
-                    v2_differences,
-                    [slice(0, len(v2_rec.array)),],
-                    max_abs_value,
-                )
+            v2_differences,
+            [slice(0, len(v2_rec.array)),],
+            max_abs_value)
 
 
 ########################################
