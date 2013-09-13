@@ -1617,8 +1617,8 @@ class AirspeedRelativeWithFlapDuringDescentMin(KeyPointValueNode, FlapOrConfigur
 
 class AirspeedAtFirstFlapExtensionWhileAirborne(KeyPointValueNode):
     '''
+    Airspeed measured at the point of Flap Extension while airborne.
     '''
-    
     units = 'kt'
     
     def derive(self, airspeed=P('Airspeed'),
@@ -1634,6 +1634,7 @@ class AirspeedAtFirstFlapExtensionWhileAirborne(KeyPointValueNode):
 
 class AirspeedWithGearDownMax(KeyPointValueNode):
     '''
+    Maximum airspeed observed while the landing gear down.
     '''
 
     units = 'kt'
@@ -1652,62 +1653,56 @@ class AirspeedWithGearDownMax(KeyPointValueNode):
 
 class AirspeedWhileGearRetractingMax(KeyPointValueNode):
     '''
+    Maximum airspeed observed while the landing gear was retracting.
     '''
-
     units = 'kt'
 
-    def derive(self,
-               air_spd=P('Airspeed'),
+    def derive(self, air_spd=P('Airspeed'),
                gear_ret=S('Gear Retracting')):
-
         self.create_kpvs_within_slices(air_spd.array, gear_ret, max_value)
 
 
 class AirspeedWhileGearExtendingMax(KeyPointValueNode):
     '''
+    Maximum airspeed observed while the landing gear was extending.
     '''
-
     units = 'kt'
 
-    def derive(self,
-               air_spd=P('Airspeed'),
+    def derive(self, air_spd=P('Airspeed'),
                gear_ext=S('Gear Extending')):
-
         self.create_kpvs_within_slices(air_spd.array, gear_ext, max_value)
 
 
 class AirspeedAtGearUpSelection(KeyPointValueNode):
     '''
+    Airspeed measurment at the point of Gear Up Selection.
     '''
-
     units = 'kt'
 
-    def derive(self,
-               air_spd=P('Airspeed'),
+    def derive(self, air_spd=P('Airspeed'),
                gear_up_sel=KTI('Gear Up Selection')):
-
         self.create_kpvs_at_ktis(air_spd.array, gear_up_sel)
 
 
 class AirspeedAtGearDownSelection(KeyPointValueNode):
     '''
+    Airspeed measurment at the point of Gear Down Selection
     '''
-
     units = 'kt'
 
-    def derive(self,
-               air_spd=P('Airspeed'),
+    def derive(self, air_spd=P('Airspeed'),
                gear_dn_sel=KTI('Gear Down Selection')):
-
         self.create_kpvs_at_ktis(air_spd.array, gear_dn_sel)
 
 
 class MainGearOnGroundToNoseGearOnGroundDuration(KeyPointValueNode):
+    '''
+    The time duration between the main gear touching the ground and the nose
+    gear touching the ground.
+    '''
     units = 's'
 
-    def derive(self,
-               gog=P('Gear On Ground'),
-               gogn=P('Gear (N) On Ground'),
+    def derive(self, gog=P('Gear On Ground'), gogn=P('Gear (N) On Ground'),
                landings=S('Landing')):
 
         for landing in landings:

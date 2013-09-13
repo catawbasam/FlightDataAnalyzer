@@ -41,6 +41,7 @@ from analysis_engine.flight_phase import (Airborne,
                                           TurningOnGround,
                                           TwoDegPitchTo35Ft,
                                           )
+from analysis_engine.multistate_parameters import Gear_RedWarning
 from analysis_engine.key_time_instances import TopOfClimb, TopOfDescent
 from analysis_engine.library import integrate
 from analysis_engine.node import (A, KTI, KeyTimeInstance,
@@ -937,28 +938,11 @@ class TestFinalApproach(unittest.TestCase):
 
 
 class TestGearRetracting(unittest.TestCase):
-    '''
-    The Gear Extending and Gear Retracting flight phases were written when
-    these were integer arrays, but now they are multistate arrays the flight
-    phases themselves need to be rewritten before tests are created.
-
-    As a result of this change, the KPVs AirspeedAsGearRetractingMax,
-    AirspeedAsGearExtendingMax, MachAsGearRetractingMax &
-    MachAsGearExtendingMax are currently inoperative.
-    '''
-
     def test_can_operate(self):
         opts = GearRetracting.get_operational_combinations()
-        self.assertTrue(all(['Gear Down' for o in opts]))
-        expected = [('Gear Down', 'Gear (L) Red Warning',),
-                    ('Gear Down', 'Gear (N) Red Warning',),
-                    ('Gear Down', 'Gear (R) Red Warning',),
-                    ('Gear Down', 'Frame',),
-                    ('Gear Down', 'Airborne',),
-                    ('Gear Down', 'Gear (L) Red Warning',
-                     'Gear (N) Red Warning', 'Gear (R) Red Warning', 'Frame',
-                     'Airborne'),]
-        self.assertTrue([e in opts for e in expected])
+        self.assertEqual(opts,[
+                         ('Gear Down', 'Airborne'),
+                         ('Gear (*) Red Warning', 'Gear Down', 'Airborne')])
 
     def test_737_3C(self):
         gear_down = M('Gear Down', np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1]),
@@ -973,10 +957,13 @@ class TestGearRetracting(unittest.TestCase):
                         np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]),
                         values_mapping={1:'Warning', 0:'False'})
         frame = A('Frame', value='737-3C')
-        airs=buildsection('Airborne', 1, 11)
+        airs = buildsection('Airborne', 1, 11)
+        gear_warn = Gear_RedWarning()
+        gear_warn.derive(gear_warn_l, gear_warn_n, gear_warn_r, airs)
+        
         gr = GearRetracting()
-        gr.derive(gear_down, gear_warn_l, gear_warn_n, gear_warn_r, frame, airs)
-        expected=buildsection('Gear Retracting', 3, 6)
+        gr.derive(gear_warn, gear_down, airs)
+        expected = buildsection('Gear Retracting', 3, 6)
         self.assertEqual(list(gr), list(expected))
 
 
@@ -993,10 +980,12 @@ class TestGearRetracting(unittest.TestCase):
         gear_warn_r = M('Gear (R) Red Warning',
                         np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]),
                         values_mapping={1:'Warning', 0:'False'})
-        frame = A('Frame', value='737-3C')
-        airs=buildsection('Airborne', 1, 11)
+        airs = buildsection('Airborne', 1, 11)
+        gear_warn = Gear_RedWarning()
+        gear_warn.derive(gear_warn_l, gear_warn_n, gear_warn_r, airs)
+        
         gr = GearRetracting()
-        gr.derive(gear_down, gear_warn_l, gear_warn_n, gear_warn_r, frame, airs)
+        gr.derive(gear_warn, gear_down, airs)
         expected=buildsection('Gear Retracting', 3, 6)
         self.assertEqual(list(gr), list(expected))
 
@@ -1464,27 +1453,56 @@ class TestDescentToFlare(unittest.TestCase):
 
 
 class TestGearExtending(unittest.TestCase):
-    '''
-    The Gear Extending and Gear Retracting flight phases were written when
-    these were integer arrays, but now they are multistate arrays the flight
-    phases themselves need to be rewritten before tests are created.
-
-    As a result of this change, the KPVs AirspeedAsGearRetractingMax,
-    AirspeedAsGearExtendingMax, MachAsGearRetractingMax &
-    MachAsGearExtendingMax are currently inoperative.
-    '''
     def test_can_operate(self):
-        combinations = GearExtending.get_operational_combinations()
-        self.assertTrue(
-            all('Gear Down' in c and 'Airborne' in c for c in combinations))
-        self.assertTrue(('Gear Down', 'Airborne') in combinations)
-        self.assertTrue((
-            'Gear Down', 'Gear (L) Red Warning', 'Gear (N) Red Warning',
-            'Gear (R) Red Warning', 'Frame', 'Airborne') in combinations)
+        opts = GearExtending.get_operational_combinations()
+        self.assertEqual(opts,[
+                         ('Gear Down', 'Airborne'),
+                         ('Gear (*) Red Warning', 'Gear Down', 'Airborne')])
 
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+    def test_737_3C(self):
+        gear_down = M('Gear Down', np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1]),
+                      values_mapping={0:'Up', 1:'Down'})
+        gear_warn_l = M('Gear (L) Red Warning',
+                        np.ma.array([0,0,0,1,0,0,0,0,0,1,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        gear_warn_n = M('Gear (N) Red Warning',
+                        np.ma.array([0,0,0,0,1,0,0,0,1,0,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        gear_warn_r = M('Gear (R) Red Warning',
+                        np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        airs = buildsection('Airborne', 1, 11)
+        gear_warn = Gear_RedWarning()
+        gear_warn.derive(gear_warn_l, gear_warn_n, gear_warn_r, airs)
+        
+        gr = GearExtending()
+        gr.derive(gear_warn, gear_down, airs)
+        expected = buildsection('Gear Extending', 7, 10)
+        self.assertEqual(list(gr), list(expected))
+
+
+    def test_derive_with_mask(self):
+        gear_down = M('Gear Down', np.ma.array([1,1,1,0,0,0,0,0,0,0,0,1,1]),
+                      values_mapping={0:'Up', 1:'Down'})
+        gear_warn_l = M('Gear (L) Red Warning',
+                        np.ma.array([0,0,0,1,0,0,0,0,0,1,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        gear_warn_l.array[0] = np.ma.masked
+        gear_warn_n = M('Gear (N) Red Warning',
+                        np.ma.array([0,0,0,0,1,0,0,0,1,0,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        gear_warn_r = M('Gear (R) Red Warning',
+                        np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]),
+                        values_mapping={1:'Warning', 0:'False'})
+        airs = buildsection('Airborne', 1, 11)
+        gear_warn = Gear_RedWarning()
+        gear_warn.derive(gear_warn_l, gear_warn_n, gear_warn_r, airs)
+        
+        gr = GearExtending()
+        gr.derive(gear_warn, gear_down, airs)
+        expected=buildsection('Gear Extending', 7, 10)
+        self.assertEqual(list(gr), list(expected))
+
 
 class TestGearExtended(unittest.TestCase):
     def test_can_operate(self):
@@ -1496,7 +1514,7 @@ class TestGearExtended(unittest.TestCase):
             name='Gear Down',
             array=np.ma.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]),
             values_mapping={0: 'Up', 1: 'Down'})
-        gear_ext=GearExtended()
+        gear_ext = GearExtended()
         gear_ext.derive(gear)
         self.assertEqual(gear_ext[0].slice, slice(0, 5))
         self.assertEqual(gear_ext[1].slice, slice(14,16))

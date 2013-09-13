@@ -3987,12 +3987,22 @@ def moving_average(array, window=9, weightings=None, pad=True):
         return averaged
 
 
-def nearest_neighbour_mask_repair(array, copy=True):
+def nearest_neighbour_mask_repair(array, copy=True, repair_gap_size=None):
     """
+    Repairs gaps in data by replacing it with the nearest neighbour from
+    either side until the gaps are filled. Designed for lots of fairly short 
+    gaps.
+    
+    Restrict the gap repairing using repair_gap_size which determines how
+    many samples in gaps to fill over.
+    
+    NOTE: The start and end are extrapolated with the first / last valid
+    sample in all cases.
+    
     WARNING: Currently wraps, so masked items at start will be filled with
     values from end of array.
 
-    TODO: Avoid wrapping from start /end and use first value to preceed values.
+    TODO: Avoid wrapping from start /end and use first value to preceed values. (extrapolate)
 
     Ref: http://stackoverflow.com/questions/3662361/fill-in-missing-values-with-nearest-neighbour-in-python-numpy-masked-arrays
     """
@@ -4009,7 +4019,7 @@ def nearest_neighbour_mask_repair(array, copy=True):
             yield x
             yield -x
             x += 1
-    # if first or last masked, repair now
+    # if first or last masked, repair now (extrapolate)
     start, stop = np.ma.notmasked_edges(array)
     if start > 0:
         array[:start] = array[start]
@@ -4018,8 +4028,8 @@ def nearest_neighbour_mask_repair(array, copy=True):
 
     neighbours = next_neighbour()
     a_copy = array.copy()
-    for shift in neighbours:
-        if not np.any(array.mask):
+    for n, shift in enumerate(neighbours):
+        if not np.any(array.mask) or repair_gap_size and n >= repair_gap_size:
             break
         a_shifted = np.roll(a_copy,shift=shift)
         idx = ~a_shifted.mask * array.mask

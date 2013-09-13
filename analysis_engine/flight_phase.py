@@ -576,105 +576,79 @@ class FinalApproach(FlightPhaseNode):
 
 
 class GearExtending(FlightPhaseNode):
-    """
+    '''
     Gear extending and retracting are section nodes, as they last for a
-    finite period.
+    finite period. Based on the Gear Red Warnings.
 
     For some aircraft no parameters to identify the transit are recorded, so
     a nominal period of 5 seconds at gear down and gear up is included to
     allow for exceedance of gear transit limits.
-    """
+    '''
     @classmethod
     def can_operate(cls, available):
         return 'Gear Down' in available and 'Airborne' in available
 
-    def derive(self, gear_down=M('Gear Down'),
-               gear_warn_l=P('Gear (L) Red Warning'),
-               gear_warn_n=P('Gear (N) Red Warning'),
-               gear_warn_r=P('Gear (R) Red Warning'),
-               frame=A('Frame'), airs=S('Airborne')):
-        if all((gear_warn_l, gear_warn_n, gear_warn_r)):
-            ### Aircraft with red warning captions to show travelling
-            ##if not all((gear_warn_l, gear_warn_n, gear_warn_r)):
-                ##frame_name = frame.value if frame else None
-                ### some, but not all are available. Q: allow for any combination
-                ### rather than raising exception
-                ##raise DataFrameError(self.name, frame_name)
-            gear_warn = np.ma.logical_or(gear_warn_l.array, gear_warn_r.array)
-            gear_warn = np.ma.logical_or(gear_warn, gear_warn_n.array)
-            slices = _ezclump(gear_warn)
-            if first_valid_sample(gear_warn).value == False:
-                gear_moving = slices[1::2]
-            else:
-                gear_moving = slices[::2]
-            for air in airs:
-                gear_moves = slices_and([air.slice], gear_moving)
-                for gear_move in gear_moves:
-                    if gear_down.array[gear_move.start - 1] == \
-                            gear_down.array.state['Up']:
-                        self.create_phase(gear_move)
-
-        else:
-            # Aircraft without red warning captions for travelling
-            edge_list = []
-            for air in airs:
-                edge_list.append(find_edges(gear_down.array.raw, air.slice))
-            # We now have a list of lists and this trick flattens the result.
-            for edge in sum(edge_list, []):
-                # We have no transition state, so allow 5 seconds for the
-                # gear to extend.
-                begin = edge
-                end = edge + (5.0 * gear_down.frequency)
-                self.create_phase(slice(begin, end))
+    def derive(self, gear_warn=M('Gear (*) Red Warning'),
+               gear_down=M('Gear Down'), airs=S('Airborne')):
+        if gear_warn:
+            red_periods = runs_of_ones(gear_warn.array == 'Warning')
+            for gear_move in red_periods:
+                if gear_down.array[gear_move.stop + 1] == 'Down':
+                    # we are extending towards gear-down position
+                    self.create_phase(gear_move)                
+                else:
+                    # we were retracting
+                    continue
+            return
+        
+        # Aircraft without red warning captions for travelling
+        edge_list = []
+        for air in airs:
+            edge_list.append(find_edges(gear_down.array.raw, air.slice))
+        # We now have a list of lists and this trick flattens the result.
+        for edge in sum(edge_list, []):
+            # We have no transition state, so allow 5 seconds for the
+            # gear to extend.
+            begin = edge
+            end = edge + (5.0 * gear_down.frequency)
+            self.create_phase(slice(begin, end))
 
 
 class GearExtended(FlightPhaseNode):
     '''
-    Simple phase to avoid repetition elsewhere.
+    Simple phase translation of the Gear Down parameter.
     '''
     def derive(self, gear_down=M('Gear Down')):
-        slice_list = np.ma.clump_unmasked(np.ma.masked_equal(gear_down.array,0))
-        # Untidy trap for slices that match the array boundary.
-        # TODO: Someone think of a better solution than this?
-        if slice_list[-1].stop == len(gear_down.array):
-            slice_list[-1]=slice(slice_list[-1].start,slice_list[-1].stop-1)
-        self.create_phases(slice_list)
+        repaired = repair_mask(gear_down.array, gear_down.frequency, 
+                               repair_duration=120, extrapolate=True)
+        self.create_phases(runs_of_ones(repaired == 'Down'))
 
 
 class GearRetracting(FlightPhaseNode):
     '''
-    See Gear Extending for comments.
+    Gear extending and retracting are section nodes, as they last for a
+    finite period. Based on the Gear Red Warnings.
+
+    For some aircraft no parameters to identify the transit are recorded, so
+    a nominal period of 5 seconds at gear down and gear up is included to
+    allow for exceedance of gear transit limits.
     '''
     @classmethod
     def can_operate(cls, available):
         return 'Gear Down' in available and 'Airborne' in available
 
-    def derive(self, gear_down=M('Gear Down'),
-               gear_warn_l=P('Gear (L) Red Warning'),
-               gear_warn_n=P('Gear (N) Red Warning'),
-               gear_warn_r=P('Gear (R) Red Warning'),
-               frame=A('Frame'), airs=S('Airborne')):
-        if all((gear_warn_l, gear_warn_n, gear_warn_r)):
-            ### Aircraft with red warning captions to show travelling
-            ##if not all((gear_warn_l, gear_warn_n, gear_warn_r)):
-                ##frame_name = frame.value if frame else None
-                ### some, but not all are available. Q: allow for any combination
-                ### rather than raising exception
-                ##raise DataFrameError(self.name, frame_name)
-            gear_warn = ((gear_warn_l.array == 'Warning') |
-                         (gear_warn_r.array == 'Warning') |
-                         (gear_warn_n.array == 'Warning'))
-            ##gear_warn = gear_warn == 'Warning' | gear_warn_n == 'Warning'
-            slices = _ezclump(gear_warn)
-            if first_valid_sample(gear_warn).value == False:
-                gear_moving = slices[1::2]
-            else:
-                gear_moving = slices[::2]
-            for air in airs:
-                gear_moves = slices_and([air.slice], gear_moving)
-                for gear_move in gear_moves:
-                    if gear_down.array[gear_move.start - 1] == 'Down':
-                        self.create_phase(gear_move)
+    def derive(self, gear_warn=M('Gear (*) Red Warning'),
+               gear_down=M('Gear Down'), airs=S('Airborne')):
+        if gear_warn:
+            red_periods = runs_of_ones(gear_warn.array == 'Warning')
+            for gear_move in red_periods:
+                if gear_down.array[gear_move.start - 1] == 'Down':
+                    # we were down so are now retracting gear upwards
+                    self.create_phase(gear_move)
+                else:
+                    # we were extending, skip
+                    continue
+            return
         else:
             # Aircraft without red warning captions for travelling
             edge_list = []
@@ -692,11 +666,13 @@ class GearRetracting(FlightPhaseNode):
 
 class GearRetracted(FlightPhaseNode):
     '''
-    Simple phase to avoid repetition elsewhere.
+    Simple phase translation of the Gear Down parameter to show gear Up.
     '''
     def derive(self, gear_down=M('Gear Down')):
-        self.create_phases(np.ma.clump_unmasked(
-            np.ma.masked_equal(gear_down.array,1)))
+        #TODO: self = 1 - 'Gear Extended'
+        repaired = repair_mask(gear_down.array, gear_down.frequency, 
+                               repair_duration=120, extrapolate=True)
+        self.create_phases(runs_of_ones(repaired == 'Up'))
 
 
 def scan_ils(beam, ils_dots, height, scan_slice, frequency):
@@ -810,24 +786,42 @@ class ILSLocalizerEstablished(FlightPhaseNode):
                 if ils_slice is not None:
                     self.create_phase(ils_slice)
         
-        slices = apps.get_slices()
+        if not ils_freq:
+            # If we don't have a frequency source, just scan the signal and
+            # hope it was for this runway!
+            create_ils_phases(apps.get_slices())
+            self.info("No ILS Frequency used. Created %d established phases" % len(self))
+            return
+        if np.ma.count(ils_freq.array) < 10:
+            # ILS frequency tells us that no localizer was established
+            self.info("ILS Frequency has no valid data. No established phases created")
+            return
+        '''
+        Note: You can be tuned onto multiple frequencies or the same
+              frequency multiple times during each approach.
+        '''
+        # If we have ILS frequency tuned in check for multiple frequencies
+        # using np.ma.around as 110.7 == 110.7 is not always the case when
+        # dealing with floats
+        frequency_slices = []
+        for app_slice in apps.get_slices():
+            # Repair data (without interpolating) during each approach.
+            # nn_repair will extrapolate each signal to the start and end of
+            # the approach, and we'll fill in the gaps for up to 8 samples
+            # from each end (16 repairs in total). Gaps bigger than this will
+            # not count towards being established on the ILS.
+            ils_freq_repaired = nearest_neighbour_mask_repair(
+                ils_freq.array[app_slice], repair_gap_size=16)
+            # Look for the changes or when it was not tuned
+            frequency_changes = np.ma.diff(np.ma.around(ils_freq_repaired, decimals=2))
+            # Create slices for each ILS frequency so they are scanned separately
+            app_freq_slices = shift_slices(runs_of_ones(frequency_changes == 0), app_slice.start)
+            frequency_slices.extend(app_freq_slices)
 
-        if ils_freq:
-            if np.ma.count(ils_freq.array):
-                # If we have ILS frequency tuned in check for multiple frequencies
-                # using around as 110.7 == 110.7 is not always the case when
-                # dealing with floats
-                ils_freq_repaired = nearest_neighbour_mask_repair(ils_freq.array)
-                frequency_changes = np.ma.diff(np.ma.around(ils_freq_repaired, decimals=2))
-                # Create slices for each ILS frequency so they are scanned separately
-                frequency_slices = runs_of_ones(frequency_changes == 0)
-                if frequency_slices:
-                    slices = slices_and(slices, frequency_slices)
-                # If we have a frequency source, only create slices if we have some valid frequencies.
-                create_ils_phases(slices)
-        else:
-            # If we don't have a frequency source, just scan the signal and hope it was for this runway!
-            create_ils_phases(slices)
+        # If we have a frequency source, only create slices if we have some valid frequencies.
+        create_ils_phases(frequency_slices)
+        self.info("ILS Frequency has valid data. Created %d established phases" % len(self))        
+
 
 '''
 class ILSApproach(FlightPhaseNode):

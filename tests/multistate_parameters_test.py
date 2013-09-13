@@ -39,8 +39,8 @@ from analysis_engine.multistate_parameters import (
     Eng_Fire,
     EventMarker,
     Flap,
-    #FlapExcludingTransition,
-    #FlapIncludingTransition,
+    FlapExcludingTransition,
+    FlapIncludingTransition,
     FlapLever,
     Flaperon,
     FuelQty_Low,
@@ -48,6 +48,7 @@ from analysis_engine.multistate_parameters import (
     GearDownSelected,
     GearOnGround,
     GearUpSelected,
+    Gear_RedWarning,
     KeyVHFCapt,
     KeyVHFFO,
     MasterWarning,
@@ -767,11 +768,8 @@ class TestGearOnGround(unittest.TestCase):
 class TestGearUpSelected(unittest.TestCase):
     def test_can_operate(self):
         opts = GearUpSelected.get_operational_combinations()
-        self.assertEqual(opts[0], ('Gear Down',))
-        self.assertEqual(opts[1], ('Gear Down', 'Gear (L) Red Warning'))
-        self.assertEqual(opts[-1], ('Gear Down', 'Gear (L) Red Warning', 
-                                    'Gear (N) Red Warning',
-                                    'Gear (R) Red Warning'))
+        self.assertEqual(opts, [('Gear Down',),
+                                ('Gear Down', 'Gear (*) Red Warning')])
         
     def test_gear_up_selected_basic(self):
         gdn = M(array=np.ma.array(data=[1,1,1,0,0,0]),
@@ -780,7 +778,7 @@ class TestGearUpSelected(unittest.TestCase):
                    frequency=1, 
                    offset=0.1)
         up_sel = GearUpSelected()
-        up_sel.derive(gdn, None, None, None)
+        up_sel.derive(gdn, None)
         np.testing.assert_array_equal(up_sel.array, [0,0,0,1,1,1])
 
     def test_gear_up_selected_with_warnings(self):
@@ -800,12 +798,46 @@ class TestGearUpSelected(unittest.TestCase):
                 name='Gear (N) Red Warning', 
                 frequency=1, 
                 offset=0.6)
+        # fully airborne sample
+        airs = S(items=[Section('Airborne', slice(None), None, None)])
+        gear_warn = Gear_RedWarning()
+        gear_warn.derive(redl, redn, redr, airs) 
+        # gear selected
         up_sel = GearUpSelected()
-        up_sel.derive(gdn, redl, redr, redn)
+        up_sel.derive(gdn, gear_warn)
         np.testing.assert_array_equal(up_sel.array,
                                         [0,0,0,1,1,1,1,1,1,0,0,0,0,0])
 
 
+class TestGear_RedWarning(unittest.TestCase):
+    
+    def test_can_operate(self):
+        opts = Gear_RedWarning.get_operational_combinations()
+        self.assertEqual(len(opts), 7)
+        self.assertIn(('Gear (L) Red Warning', 'Airborne'), opts)
+        self.assertIn(('Gear (L) Red Warning', 
+                       'Gear (N) Red Warning', 
+                       'Gear (R) Red Warning',
+                       'Airborne'), opts)
+    
+    def test_derive(self):
+        gear_warn_l = M('Gear (L) Red Warning',
+                        np.ma.array([0,0,0,1,0,0,0,0,0,1,0,0]),
+                        values_mapping={1:'Warning', 0:'-'})
+        gear_warn_l.array[0] = np.ma.masked
+        gear_warn_n = M('Gear (N) Red Warning',
+                        np.ma.array([0,1,0,0,1,0,0,0,1,0,0,0]),
+                        values_mapping={1:'Warning', 0:'-'})
+        gear_warn_r = M('Gear (R) Red Warning',
+                        np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]),
+                        values_mapping={1:'Warning', 0:'-'})
+        airs = S(items=[Section('Airborne', slice(2, 11), 2, 10)])
+        gear_warn = Gear_RedWarning()
+        gear_warn.derive(gear_warn_l, gear_warn_n, gear_warn_r, airs)
+        self.assertEqual(list(gear_warn.array),
+                         ['-', '-', '-', 'Warning', 'Warning', 'Warning',
+                          '-', 'Warning', 'Warning', 'Warning', '-', '-'])
+    
 class TestKeyVHFCapt(unittest.TestCase):
     
     def test_can_operate(self):
