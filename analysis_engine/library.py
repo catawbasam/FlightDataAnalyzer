@@ -5208,6 +5208,11 @@ def step_values(array, steps, hz=1, step_at='midpoint', rate_threshold=0.5):
     flap_decrease = find_edges(stepped_array, direction='falling_edges')
     transitions = [(idx, 'increase') for idx in flap_increase] + \
                   [(idx, 'decrease') for idx in flap_decrease]
+    
+    if not transitions:
+        logger.warning("No changes between steps could be found in step_values.")
+        return new_array
+    
     # sort based on index
     sorted_transitions = sorted(transitions, key=lambda v: v[0])
     flap_changes = [idx for idx, direction in sorted_transitions]
@@ -5268,7 +5273,7 @@ def step_values(array, steps, hz=1, step_at='midpoint', rate_threshold=0.5):
     # Reapply mask
     #Q: must we maintain the mask?
     new_array.mask = np.ma.getmaskarray(array)
-    return new_array    
+    return new_array
 
     
     
