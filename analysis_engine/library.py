@@ -1002,7 +1002,7 @@ def datetime_of_index(start_datetime, index, frequency=1):
     '''
     index_in_seconds = index / frequency
     offset = timedelta(seconds=index_in_seconds)
-    return start_datetime + offset
+    return (start_datetime or 0) + offset
 
 
 def delay(array, period, hz=1.0):

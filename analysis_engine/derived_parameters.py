@@ -3493,20 +3493,14 @@ class ILSLocalizer(DerivedParameterNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        return any_of(('ILS (1) Localizer', 'ILS (2) Localizer'), available)\
-               or\
-               any_of(('ILS Localizer (Capt)', 'ILS Localizer (Azimuth)'), available)
+        return any_of(('ILS (1) Localizer', 'ILS (2) Localizer'), available)
 
     name = "ILS Localizer"
     units = 'dots'
     align = False
 
-    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer'),
-               loc_c=P('ILS Localizer (Capt)'),loc_az=P('ILS Localizer (Azimuth)')):
-        if loc_1 or loc_2:
-            self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
-        else:
-            self.array, self.frequency, self.offset = blend_two_parameters(loc_c, loc_az)
+    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
+        self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
 
 
 class ILSGlideslope(DerivedParameterNode):
@@ -4093,7 +4087,14 @@ class MagneticVariation(DerivedParameterNode):
         lon = lon or lon_coarse
         mag_var_frequency = 64 * self.frequency
         mag_vars = []
-        start_date = start_datetime.value.date()
+        if start_datetime.value:
+            start_date = start_datetime.value.date()
+        else:
+            import datetime
+            start_date = datetime.date.today()
+            # logger.warn('Start date time set to today')
+
+
         # TODO: Optimize.
         for lat_val, lon_val, alt_aal_val in zip(lat.array[::mag_var_frequency],
                                                  lon.array[::mag_var_frequency],
