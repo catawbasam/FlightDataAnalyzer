@@ -170,13 +170,13 @@ def derive_parameters(hdf, node_mgr, process_order):
                 one_hz = Section(one_hz.name, slice_, start_edge, stop_edge)
                 aligned_section[index] = one_hz
                 
-                if not (0 <= start <= duration and 0 <= stop <= duration + 1):
+                if not (0 <= start <= duration and 0 <= stop <= duration + 2):
                     msg = "Section '%s' (%.2f, %.2f) not between 0 and %d"
                     raise IndexError(msg % (one_hz.name, start, stop, duration))
                 if not 0 <= start_edge <= duration:
                     msg = "Section '%s' start_edge (%.2f) not between 0 and %d"
                     raise IndexError(msg % (one_hz.name, start_edge, duration))
-                if not 0 <= stop_edge <= duration + 1:
+                if not 0 <= stop_edge <= duration + 2:
                     msg = "Section '%s' stop_edge (%.2f) not between 0 and %d"
                     raise IndexError(msg % (one_hz.name, stop_edge, duration))
                 section_list.append(one_hz)
