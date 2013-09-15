@@ -8533,7 +8533,7 @@ class TAWSWindshearSirenBelow1500FtDuration(KeyPointValueNode):
 
     def derive(self, taws_windshear=M('TAWS Windshear Siren'),
                alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_kpvs_where(taws_windshear.array == 'Warning',
+        self.create_kpvs_where(taws_windshear.array == 'Siren',
                                taws_windshear.hz,
                                alt_aal.slices_from_to(1500, 0))
 
