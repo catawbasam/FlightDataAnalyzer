@@ -805,21 +805,21 @@ class ILSLocalizerEstablished(FlightPhaseNode):
         # dealing with floats
         frequency_slices = []
         for app_slice in apps.get_slices():
-            if np.ma.count(ils_freq.array[app_slice]):
-                # Repair data (without interpolating) during each approach.
-                # nn_repair will extrapolate each signal to the start and end of
-                # the approach, and we'll fill in the gaps for up to 8 samples
-                # from each end (16 repairs in total). Gaps bigger than this will
-                # not count towards being established on the ILS.
-                ils_freq_repaired = nearest_neighbour_mask_repair(
-                    ils_freq.array[app_slice], repair_gap_size=16)
-                # Look for the changes or when it was not tuned
-                frequency_changes = np.ma.diff(np.ma.around(ils_freq_repaired, decimals=2))
-                # Create slices for each ILS frequency so they are scanned separately
-                app_freq_slices = shift_slices(runs_of_ones(frequency_changes == 0), app_slice.start)
-                frequency_slices.extend(app_freq_slices)
-            else:
-                pass # No valid frequency data at all in this slice.
+            if not np.ma.count(ils_freq.array[app_slice]):
+                # No valid frequency data at all in this slice.
+                continue
+            # Repair data (without interpolating) during each approach.
+            # nn_repair will extrapolate each signal to the start and end of
+            # the approach, and we'll fill in the gaps for up to 8 samples
+            # from each end (16 repairs in total). Gaps bigger than this will
+            # not count towards being established on the ILS.
+            ils_freq_repaired = nearest_neighbour_mask_repair(
+                ils_freq.array[app_slice], repair_gap_size=16)
+            # Look for the changes or when it was not tuned
+            frequency_changes = np.ma.diff(np.ma.around(ils_freq_repaired, decimals=2))
+            # Create slices for each ILS frequency so they are scanned separately
+            app_freq_slices = shift_slices(runs_of_ones(frequency_changes == 0), app_slice.start)
+            frequency_slices.extend(app_freq_slices)
 
         # If we have a frequency source, only create slices if we have some valid frequencies.
         create_ils_phases(frequency_slices)
