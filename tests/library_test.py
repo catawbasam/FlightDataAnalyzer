@@ -5170,7 +5170,24 @@ class TestDpOverP2mach(unittest.TestCase):
         Truth = np.ma.array(data=[0.8, 0.999, 1.0], mask=[False, False, True])
         ma_test.assert_almost_equal(Value,Truth, decimal=3)
 
-
+        
+class TestPress2Alt(unittest.TestCase):
+    def test_01(self):
+        Value = press2alt(np.ma.array([14.696, 10.108, 4.3727, 2.1490]))
+        Truth = np.ma.array(data=[0.0, 10000, 30000, 45000])
+        ma_test.assert_almost_equal(Value,Truth, decimal=-3)
+##Tests used to prove low level functions for press2alt
+##class TestPress2AltGradient(unittest.TestCase):
+    ##def test_01(self):
+        ##Value = press2alt_gradient(np.ma.array([1013.25,  696.817, 300.896]))
+        ##Truth = np.ma.array(data=[0.0, 10000, 30000])
+        ##ma_test.assert_almost_equal(Value,Truth, decimal=1)
+##class TestPress2AltIsothermal(unittest.TestCase):
+    ##def test_01(self):
+        ##Value = press2alt_isothermal(np.ma.array([188.23, 148.17]))
+        ##Truth = np.ma.array(data=[40000, 45000])
+        ##ma_test.assert_almost_equal(Value,Truth, decimal=-3)
+        
 class TestIsDay(unittest.TestCase):
     # Solstice times for 2012 at Stonehenge.
     # Sunset on Wednesday 20th June 2012 is at 2126 hrs (9.26pm BST)

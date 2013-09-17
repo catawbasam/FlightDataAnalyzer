@@ -59,6 +59,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      np_ma_zeros_like,
                                      offset_select,
                                      peak_curvature,
+                                     press2alt,
                                      rate_of_change,
                                      repair_mask,
                                      rms_noise,
@@ -1470,6 +1471,24 @@ class AltitudeTail(DerivedParameterNode):
 ##############################################################################
 # Automated Systems
 
+
+
+class CabinAltitude(DerivedParameterNode):
+    """
+    Some aircraft record the cabin altitude in feet, while others record the
+    cabin pressure (normally in psi). This function converts the pressure
+    reading to altitude equivalent, so that the KPVs can operate only in
+    altitude units. After all, the crew set the cabin altitude, not the
+    pressure.
+    
+    Typically aircraft also have the 'Cabin Altitude Warning' discrete parameter.
+    """
+    units = 'ft'
+    
+    def derive(self, cp=P('Cabin Press')):
+        # assert cp.units=='psi' # Would like to assert units as 'psi'
+        self.array = press2alt(cp.array)
+    
 
 class ClimbForFlightPhases(DerivedParameterNode):
     """

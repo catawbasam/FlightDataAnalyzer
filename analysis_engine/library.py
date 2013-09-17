@@ -6139,7 +6139,7 @@ Rd = 287.05307     # Gas constant for dry air, J/kg K
 H1 = 36089.0       # Transition from Troposphere to Stratosphere
 
 # Values at 11km:
-T11 =  T0 + 11000 * L0
+T11 =  T0 + 11000 * METRES_TO_FEET * L0
 PR11 = (T11 / T0) ** ((-g) / (Rd * L0))
 P11 = PR11 * P0
 
@@ -6238,6 +6238,27 @@ def _alt2press_ratio_gradient(H):
 def _alt2press_ratio_isothermal(H):
     # FIXME: FloatingPointError: overflow encountered in exp
     return 0.223361 * np.ma.exp((36089.0-H)/20806.0)
+
+
+def press2alt(P):
+    """
+    Return the altitude corresponding to the pressure.
+    
+    Pressure is assumed to be in psi, and height is returned in feet.
+    """
+    Pmb = P * 68.947
+    H = np.ma.where(Pmb > P11, 
+                    _press2alt_gradient(Pmb),
+                    _press2alt_isothermal(Pmb)
+                    )
+        
+    return H
+
+def _press2alt_gradient(Pmb):
+    return 145442 * (1.0 - np.ma.power(Pmb/P0, 1.0/5.255876))
+
+def _press2alt_isothermal(Pmb):
+    return 36089 - np.ma.log((Pmb/P0)/0.223361)*20806
 
 def is_day(when, latitude, longitude, twilight='civil'):
     """
