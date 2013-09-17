@@ -8493,7 +8493,7 @@ class TAWSTerrainAheadPullUpDuration(KeyPointValueNode):
     name = 'TAWS Terrain Ahead Pull Up Duration'
     units = 's'
 
-    def derive(self, taws_terrain_ahead_pu=M('TAWS Terrain Pull Up Ahead'),
+    def derive(self, taws_terrain_ahead_pu=M('TAWS Terrain Ahead Pull Up'),
                airborne=S('Airborne')):
         self.create_kpvs_where(taws_terrain_ahead_pu.array == 'Warning',
                                taws_terrain_ahead_pu.hz, phase=airborne)
