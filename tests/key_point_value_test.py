@@ -6935,6 +6935,21 @@ class TestRudderPedalForceMax(unittest.TestCase, NodeTest):
                     index=3.0, value=47.0,
                     name='Rudder Pedal Force Max')]))
 
+    def test_big_left_boot(self):
+        ccf = P(
+            name='Rudder Pedal Force',
+            array=np.ma.array(data=range(30, -50, -5), dtype=float),
+        )
+        phase_fast = buildsection('Fast', 3, 13)
+        node = self.node_class()
+        node.derive(ccf, phase_fast)
+        self.assertEqual(
+            node,
+            KPV('Rudder Pedal Force Max',
+                items=[KeyPointValue(
+                    index=12.0, value=-30.0,
+                    name='Rudder Pedal Force Max')]))
+
 
 ##############################################################################
 # Speedbrake

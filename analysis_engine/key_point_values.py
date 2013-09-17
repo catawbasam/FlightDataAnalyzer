@@ -7841,6 +7841,9 @@ class RudderReversalAbove50Ft(KeyPointValueNode):
 
 
 class RudderPedalForceMax(KeyPointValueNode):
+    '''
+    Maximum rudder pedal force (irrespective of which foot is used !)
+    '''
     units = 'lbf'
 
     def derive(self,
@@ -7848,7 +7851,7 @@ class RudderPedalForceMax(KeyPointValueNode):
                fast=S('Fast')):
         self.create_kpvs_within_slices(
             force.array, fast.get_slices(),
-            max_value)
+            max_abs_value)
 
 
 ##############################################################################
