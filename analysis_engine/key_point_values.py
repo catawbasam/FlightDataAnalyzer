@@ -2416,13 +2416,13 @@ class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
                         self.create_kpv(idx, undershoot)
 
 
-class AltitudeAtCabinPressureLowWarningDuration(KeyPointValueNode):
+class CabinAltitudeWarningDuration(KeyPointValueNode):
     '''
     '''
     units = 's'
 
     def derive(self,
-               cab_alt=P('Cabin Altitude'),
+               cab_alt=P('Cabin Altitude Warning'),
                airborne=S('Airborne')):
 
         self.create_kpvs_where(cab_alt.array == 'Warning',
