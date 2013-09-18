@@ -2418,15 +2418,48 @@ class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
 
 class CabinAltitudeWarningDuration(KeyPointValueNode):
     '''
+    The duration of the Cabin Altitude Warning signal.
     '''
     units = 's'
 
     def derive(self,
+               cab_warn=P('Cabin Altitude Warning'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_where(cab_warn.array == 'Warning',
+                               cab_warn.hz, phase=airborne)
+
+class AltitudeAtCabinPressureLowWarning(KeyPointValueNode):
+    '''
+    The maximum aircraft altitude when the Cabin Altitude Warning was sounding.
+    '''
+    units = 'ft'
+
+    def derive(self,
+               cab_warn=P('Cabin Altitude Warning'),
+               airborne=S('Airborne'),
+               alt=P('Altitude STD')):
+
+        warns = np.ma.clump_unmasked(np.ma.masked_equal(cab_warn.array,0))
+        air_warns = slices_and(warns, airborne)
+        self.create_kpvs_within_slices(alt.array, air_warns, max_value)
+        
+class MaximumCabinAltitude(KeyPointValueNode):
+    '''
+    The maximum Cabin Altitude - applies on every flight.
+    '''
+    units = 'ft'
+
+    def derive(self,
+               cab_alt=P('Cabin Altitude'),
                cab_alt=P('Cabin Altitude Warning'),
                airborne=S('Airborne')):
 
-        self.create_kpvs_where(cab_alt.array == 'Warning',
-                               cab_alt.hz, phase=airborne)
+        self.create_kpvs_within_slices(cab_alt.array, 
+                                       airborne,
+                                       max_value)
+
+
 
 ########################################
 # Altitude: Flap
