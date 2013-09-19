@@ -4,7 +4,7 @@ import os
 import sys
 import unittest
 
-from analysis_engine.node import (KeyTimeInstance, load, Parameter, P, Section, S, M)
+from analysis_engine.node import (KeyTimeInstance, KTI, load, Parameter, P, Section, S, M)
 
 from analysis_engine.flight_phase import Climbing
 
@@ -18,6 +18,7 @@ from analysis_engine.key_time_instances import (
     ATEngagedSelection,
     BottomOfDescent,
     ClimbStart,
+    ClimbThrustDerateDeselected,
     EngFireExtinguishSwitchPulled,
     EngStart,
     EngStop,
@@ -116,13 +117,13 @@ class TestBottomOfDescent(unittest.TestCase):
         expected = [KeyTimeInstance(index=31, name='Bottom Of Descent'),
                     KeyTimeInstance(index=50, name='Bottom Of Descent')]        
         self.assertEqual(bod, expected)
-        
-        
+
+
 class TestClimbStart(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude AAL', 'Climbing')]
         opts = ClimbStart.get_operational_combinations()
-        self.assertEqual(opts, expected)        
+        self.assertEqual(opts, expected)
 
     def test_climb_start_basic(self):
         vert_spd = Parameter('Vertical Speed', np.ma.array([1200]*8))
@@ -147,11 +148,32 @@ class TestClimbStart(unittest.TestCase):
         self.assertEqual(kpi, expected)
 
 
+class TestClimbThrustDerateDeselected(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('AT Climb 1 Derate', 'AT Climb 2 Derate')]
+        opts = ClimbThrustDerateDeselected.get_operational_combinations()
+        self.assertEqual(opts, expected)
+    
+    def test_derive_basic(self):
+        values_mapping = {0: 'Not Latched', 1: 'Latched'}
+        climb_derate_1 = M('AT Climb 1 Derate',
+                           array=np.ma.array([0,0,1,1,0,0,0,1,0,0]),
+                           values_mapping=values_mapping)
+        climb_derate_2 = M('AT Climb 2 Derate',
+                           array=np.ma.array([0,0,0,1,1,0,0,0,0,0]),
+                           values_mapping=values_mapping)
+        node = ClimbThrustDerateDeselected()
+        node.derive(climb_derate_1, climb_derate_2)
+        self.assertEqual(node, [KeyTimeInstance(index=4.5, name='Climb Thrust Derate Deselected'),
+                                KeyTimeInstance(index=7.5, name='Climb Thrust Derate Deselected')])
+
+
 class TestGoAround(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(GoAround.get_operational_combinations(),
                     [('Descent Low Climb', 'Altitude AAL For Flight Phases'),
-                     ('Descent Low Climb', 'Altitude AAL For Flight Phases', 'Altitude Radio')])
+                     ('Descent Low Climb', 'Altitude AAL For Flight Phases',
+                      'Altitude Radio')])
 
     def test_go_around_basic(self):
         dlc = [Section('Descent Low Climb',slice(10,18),10,18)]

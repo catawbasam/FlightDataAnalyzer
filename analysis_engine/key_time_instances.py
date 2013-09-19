@@ -11,6 +11,7 @@ from analysis_engine.library import (all_of,
                                      hysteresis,
                                      index_at_value,
                                      max_value,
+                                     min_value,
                                      minimum_unmasked,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
@@ -217,6 +218,21 @@ class ClimbStart(KeyTimeInstanceNode):
             # above CLIMB_THRESHOLD. In this case no kti is created.
             if initial_climb_index:
                 self.create_kti(initial_climb_index)
+
+
+class ClimbThrustDerateDeselected(KeyTimeInstanceNode):
+    '''
+    Creates KTIs where both climb thrust derates are deselected.
+    Specific to 787 operations.
+    '''
+    
+    def derive(self, climb_derate_1=P('AT Climb 1 Derate'),
+               climb_derate_2=P('AT Climb 2 Derate'),):
+        self.create_ktis_on_state_change(
+            'Latched',
+            climb_derate_1.array | climb_derate_2.array,
+            change='leaving',
+        )
 
 
 class EngStart(KeyTimeInstanceNode):

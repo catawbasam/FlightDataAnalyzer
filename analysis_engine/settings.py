@@ -279,6 +279,10 @@ METRES_TO_NM = 1852.0
 # Minimum core speed for engine to sustain operation.
 MIN_CORE_SUSTAINABLE = 50.0 # %
 
+# Threshold for Longitudinal Acceleration Offset Removed dropping to after
+# a Takeoff Acceleration Start.
+REJECTED_TAKEOFF_THRESHOLD = 0
+
 '''
 See experimental KTP LandingStopLimitPointPoorBraking et seq.
 # Mu values for good, medium and poor braking action (Boeing definition).
