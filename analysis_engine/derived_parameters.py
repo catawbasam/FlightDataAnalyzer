@@ -59,6 +59,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      np_ma_zeros_like,
                                      offset_select,
                                      peak_curvature,
+                                     press2alt,
                                      rate_of_change,
                                      repair_mask,
                                      rms_noise,
@@ -1470,6 +1471,24 @@ class AltitudeTail(DerivedParameterNode):
 ##############################################################################
 # Automated Systems
 
+
+
+class CabinAltitude(DerivedParameterNode):
+    """
+    Some aircraft record the cabin altitude in feet, while others record the
+    cabin pressure (normally in psi). This function converts the pressure
+    reading to altitude equivalent, so that the KPVs can operate only in
+    altitude units. After all, the crew set the cabin altitude, not the
+    pressure.
+    
+    Typically aircraft also have the 'Cabin Altitude Warning' discrete parameter.
+    """
+    units = 'ft'
+    
+    def derive(self, cp=P('Cabin Press')):
+        # assert cp.units=='psi' # Would like to assert units as 'psi'
+        self.array = press2alt(cp.array)
+    
 
 class ClimbForFlightPhases(DerivedParameterNode):
     """
@@ -3493,20 +3512,14 @@ class ILSLocalizer(DerivedParameterNode):
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        return any_of(('ILS (1) Localizer', 'ILS (2) Localizer'), available)\
-               or\
-               any_of(('ILS Localizer (Capt)', 'ILS Localizer (Azimuth)'), available)
+        return any_of(('ILS (1) Localizer', 'ILS (2) Localizer'), available)
 
     name = "ILS Localizer"
     units = 'dots'
     align = False
 
-    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer'),
-               loc_c=P('ILS Localizer (Capt)'),loc_az=P('ILS Localizer (Azimuth)')):
-        if loc_1 or loc_2:
-            self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
-        else:
-            self.array, self.frequency, self.offset = blend_two_parameters(loc_c, loc_az)
+    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
+        self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
 
 
 class ILSGlideslope(DerivedParameterNode):
@@ -4093,7 +4106,14 @@ class MagneticVariation(DerivedParameterNode):
         lon = lon or lon_coarse
         mag_var_frequency = 64 * self.frequency
         mag_vars = []
-        start_date = start_datetime.value.date()
+        if start_datetime.value:
+            start_date = start_datetime.value.date()
+        else:
+            import datetime
+            start_date = datetime.date.today()
+            # logger.warn('Start date time set to today')
+
+
         # TODO: Optimize.
         for lat_val, lon_val, alt_aal_val in zip(lat.array[::mag_var_frequency],
                                                  lon.array[::mag_var_frequency],

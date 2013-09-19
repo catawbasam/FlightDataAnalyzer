@@ -66,6 +66,7 @@ from analysis_engine.derived_parameters import (
     #AltitudeSTD,
     AltitudeTail,
     ApproachRange,
+    CabinAltitude,
     ClimbForFlightPhases,
     ControlColumn,
     ControlColumnForce,
@@ -1361,6 +1362,23 @@ class TestAltitudeTail(unittest.TestCase):
         answer = np.ma.array(data=[10, 5 - 0.815594803123],
                              dtype=np.float, mask=False)
         np.testing.assert_array_almost_equal(result.data, answer.data)
+
+
+class TestCabinAltitude(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Cabin Press',)]
+        opts = CabinAltitude.get_operational_combinations()
+        self.assertEqual(opts,expected)
+        
+    def test_basic(self):
+        cp = P(name='Cabin Press', 
+               array=np.ma.array([14.696, 10.108, 4.3727, 2.1490]), 
+               units='psi')
+        ca = CabinAltitude()
+        ca.derive(cp)
+        expected = np.ma.array([0.0, 10000, 30000, 45000])
+        ma_test.assert_almost_equal(ca.array, expected, decimal=-3)
+        
 
 class TestClimbForFlightPhases(unittest.TestCase):
     def test_can_operate(self):

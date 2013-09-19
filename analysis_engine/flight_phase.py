@@ -803,6 +803,9 @@ class ILSLocalizerEstablished(FlightPhaseNode):
         # dealing with floats
         frequency_slices = []
         for app_slice in apps.get_slices():
+            if not np.ma.count(ils_freq.array[app_slice]):
+                # No valid frequency data at all in this slice.
+                continue
             # Repair data (without interpolating) during each approach.
             # nn_repair will extrapolate each signal to the start and end of
             # the approach, and we'll fill in the gaps for up to 8 samples

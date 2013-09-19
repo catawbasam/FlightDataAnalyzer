@@ -2416,17 +2416,52 @@ class AltitudeOvershootAtSuspectedLevelBust(KeyPointValueNode):
                         self.create_kpv(idx, undershoot)
 
 
-class AltitudeAtCabinPressureLowWarningDuration(KeyPointValueNode):
+class CabinAltitudeWarningDuration(KeyPointValueNode):
     '''
+    The duration of the Cabin Altitude Warning signal.
     '''
     units = 's'
+
+    def derive(self,
+               cab_warn=M('Cabin Altitude Warning'),
+               airborne=S('Airborne')):
+
+        self.create_kpvs_where(cab_warn.array == 'Warning',
+                               cab_warn.hz, phase=airborne)
+
+
+class AltitudeDuringCabinAltitudeWarningMax(KeyPointValueNode):
+    '''
+    The maximum aircraft altitude when the Cabin Altitude Warning was sounding.
+    '''
+    units = 'ft'
+
+    def derive(self,
+               cab_warn=M('Cabin Altitude Warning'),
+               airborne=S('Airborne'),
+               alt=P('Altitude STD')):
+        # Grr... no test case and use of incorrect state
+        #todo: warns = runs_of_ones(cab_warn.array == 'Warning')
+        warns = np.ma.clump_unmasked(np.ma.masked_equal(cab_warn.array,0))
+        air_warns = slices_and(warns, airborne.get_slices())
+        self.create_kpvs_within_slices(alt.array, air_warns, max_value)
+
+
+class CabinAltitudeMax(KeyPointValueNode):
+    '''
+    The maximum Cabin Altitude - applies on every flight.
+    '''
+    units = 'ft'
 
     def derive(self,
                cab_alt=P('Cabin Altitude'),
                airborne=S('Airborne')):
 
-        self.create_kpvs_where(cab_alt.array == 'Warning',
-                               cab_alt.hz, phase=airborne)
+        self.create_kpvs_within_slices(cab_alt.array, 
+                                       airborne,
+                                       max_value)
+
+
 
 ########################################
 # Altitude: Flap
@@ -7857,6 +7892,9 @@ class RudderReversalAbove50Ft(KeyPointValueNode):
 
 
 class RudderPedalForceMax(KeyPointValueNode):
+    '''
+    Maximum rudder pedal force (irrespective of which foot is used !)
+    '''
     units = 'lbf'
 
     def derive(self,
@@ -7864,7 +7902,7 @@ class RudderPedalForceMax(KeyPointValueNode):
                fast=S('Fast')):
         self.create_kpvs_within_slices(
             force.array, fast.get_slices(),
-            max_value)
+            max_abs_value)
 
 
 ##############################################################################
@@ -8506,7 +8544,7 @@ class TAWSTerrainAheadPullUpDuration(KeyPointValueNode):
     name = 'TAWS Terrain Ahead Pull Up Duration'
     units = 's'
 
-    def derive(self, taws_terrain_ahead_pu=M('TAWS Terrain Pull Up Ahead'),
+    def derive(self, taws_terrain_ahead_pu=M('TAWS Terrain Ahead Pull Up'),
                airborne=S('Airborne')):
         self.create_kpvs_where(taws_terrain_ahead_pu.array == 'Warning',
                                taws_terrain_ahead_pu.hz, phase=airborne)
@@ -8549,7 +8587,7 @@ class TAWSWindshearSirenBelow1500FtDuration(KeyPointValueNode):
 
     def derive(self, taws_windshear=M('TAWS Windshear Siren'),
                alt_aal=P('Altitude AAL For Flight Phases')):
-        self.create_kpvs_where(taws_windshear.array == 'Warning',
+        self.create_kpvs_where(taws_windshear.array == 'Siren',
                                taws_windshear.hz,
                                alt_aal.slices_from_to(1500, 0))
 
