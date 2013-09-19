@@ -11,6 +11,7 @@ from analysis_engine.flight_phase import (Airborne,
                                           #CombinedClimb,
                                           ClimbCruiseDescent,
                                           Climbing,
+                                          #CombinedClimb,
                                           Cruise,
                                           Descending,
                                           DescentLowClimb,
@@ -27,6 +28,7 @@ from analysis_engine.flight_phase import (Airborne,
                                           Holding,
                                           ILSGlideslopeEstablished,
                                           ILSLocalizerEstablished,
+                                          InitialApproach,
                                           Landing,
                                           LevelFlight,
                                           Mobile,
@@ -45,8 +47,7 @@ from analysis_engine.flight_phase import (Airborne,
 from analysis_engine.multistate_parameters import Gear_RedWarning
 from analysis_engine.key_time_instances import TopOfClimb, TopOfDescent
 from analysis_engine.library import integrate
-from analysis_engine.node import (A, KTI, KeyTimeInstance,
-                                  M, Parameter, P, S,
+from analysis_engine.node import (KTI, KeyTimeInstance, M, Parameter, P, S,
                                   Section, SectionNode, load)
 from analysis_engine.process_flight import process_flight
 
@@ -482,7 +483,6 @@ class TestInitialApproach(unittest.TestCase):
     def test_initial_approach_phase_over_high_ground(self):
         alt_aal = np.ma.array(range(0,4000,500)+range(4000,0,-500))
         # Raising the ground makes the radio altitude trigger one sample sooner.
-        alt_rad = alt_aal - 600
         app = InitialApproach()
         alt_aal = Parameter('Altitude AAL For Flight Phases',alt_aal)
         app_land = SectionNode('Approach',
@@ -503,30 +503,30 @@ class TestInitialApproach(unittest.TestCase):
         self.assertEqual(app, expected)
 
 
-class TestCombinedClimb(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Top Of Climb', 'Go Around', 'Liftoff', 'Touchdown')]
-        opts = CombinedClimb.get_operational_combinations()
-        self.assertEqual(opts, expected)
+#class TestCombinedClimb(unittest.TestCase):
+    #def test_can_operate(self):
+        #expected = [('Top Of Climb', 'Go Around', 'Liftoff', 'Touchdown')]
+        #opts = CombinedClimb.get_operational_combinations()
+        #self.assertEqual(opts, expected)
 
-    def test_derive(self):
-        toc_name = 'Top Of Climb'
-        toc = KTI(toc_name, items=[KeyTimeInstance(4344, toc_name),
-                                   KeyTimeInstance(5496, toc_name),
-                                   KeyTimeInstance(7414, toc_name)])
-        ga_name = 'Go Around'
-        ga = KTI(ga_name, items=[KeyTimeInstance(5404.4375, ga_name),
-                                       KeyTimeInstance(6314.9375, ga_name)])
-        lo = KTI('Liftoff', items=[KeyTimeInstance(3988.9375, 'Liftoff')])
-        node = CombinedClimb()
-        node.derive(toc, ga, lo)
-        climb_name = 'Combined Climb'
-        expected = [Section(name='Combined Climb', slice=slice(3988.9375, 4344, None), start_edge=3988.9375, stop_edge=4344),
-                    Section(name='Combined Climb', slice=slice(5404.4375, 5496, None), start_edge=5404.4375, stop_edge=5496),
-                    Section(name='Combined Climb', slice=slice(6314.9375, 7414, None), start_edge=6314.9375, stop_edge=7414)
-                    ]
+    #def test_derive(self):
+        #toc_name = 'Top Of Climb'
+        #toc = KTI(toc_name, items=[KeyTimeInstance(4344, toc_name),
+                                   #KeyTimeInstance(5496, toc_name),
+                                   #KeyTimeInstance(7414, toc_name)])
+        #ga_name = 'Go Around'
+        #ga = KTI(ga_name, items=[KeyTimeInstance(5404.4375, ga_name),
+                                       #KeyTimeInstance(6314.9375, ga_name)])
+        #lo = KTI('Liftoff', items=[KeyTimeInstance(3988.9375, 'Liftoff')])
+        #node = CombinedClimb()
+        #node.derive(toc, ga, lo)
+        #climb_name = 'Combined Climb'
+        #expected = [Section(name='Combined Climb', slice=slice(3988.9375, 4344, None), start_edge=3988.9375, stop_edge=4344),
+                    #Section(name='Combined Climb', slice=slice(5404.4375, 5496, None), start_edge=5404.4375, stop_edge=5496),
+                    #Section(name='Combined Climb', slice=slice(6314.9375, 7414, None), start_edge=6314.9375, stop_edge=7414)
+                    #]
 
-        self.assertEqual(list(node), expected)
+        #self.assertEqual(list(node), expected)
 
 
 class TestClimbCruiseDescent(unittest.TestCase):
@@ -957,7 +957,6 @@ class TestGearRetracting(unittest.TestCase):
         gear_warn_r = M('Gear (R) Red Warning',
                         np.ma.array([0,0,0,0,0,1,0,1,0,0,0,0]),
                         values_mapping={1:'Warning', 0:'False'})
-        frame = A('Frame', value='737-3C')
         airs = buildsection('Airborne', 1, 11)
         gear_warn = Gear_RedWarning()
         gear_warn.derive(gear_warn_l, gear_warn_n, gear_warn_r, airs)
