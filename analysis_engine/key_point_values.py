@@ -2440,9 +2440,10 @@ class AltitudeDuringCabinAltitudeWarningMax(KeyPointValueNode):
                cab_warn=M('Cabin Altitude Warning'),
                airborne=S('Airborne'),
                alt=P('Altitude STD')):
-
+        # Grr... no test case and use of incorrect state
+        #todo: warns = runs_of_ones(cab_warn.array == 'Warning')
         warns = np.ma.clump_unmasked(np.ma.masked_equal(cab_warn.array,0))
-        air_warns = slices_and(warns, airborne)
+        air_warns = slices_and(warns, airborne.get_slices())
         self.create_kpvs_within_slices(alt.array, air_warns, max_value)
 
 
