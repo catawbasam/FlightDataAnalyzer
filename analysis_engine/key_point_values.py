@@ -2763,6 +2763,23 @@ class AltitudeAtFirstFlapRetraction(KeyPointValueNode):
             self.create_kpv(flap_ret.index, alt_aal.array[flap_ret.index])
 
 
+class AltitudeAtClimbThrustDerateDeselectedDuringClimbBelow33000Ft(KeyPointValueNode):
+    '''
+    Specific to 787 operations.
+    '''
+    
+    units = 'ft'
+    
+    def derive(self, alt_aal=P('Altitude AAL'),
+               derate_deselecteds=KTI('Climb Thrust Derate Deselected'),
+               climbs=S('Climbing')):
+        for derate_deselected in derate_deselecteds.get(within_slices=climbs.get_slices()):
+            alt_aal_value = value_at_index(alt_aal.array,
+                                           derate_deselected.index)
+            if alt_aal_value < 33000:
+                self.create_kpv(derate_deselected.index, alt_aal_value)
+
+
 ########################################
 # Altitude: Gear
 
@@ -7775,7 +7792,7 @@ class RollCyclesNotDuringFinalApproach(KeyPointValueNode):
 class RudderDuringTakeoffMax(KeyPointValueNode):
     '''
     FDS developed this KPV to support the UK CAA Significant Seven programme.
-    "Excursions - Take-Off (Lateral) Rudder kick/oscillations. Difficult due
+    "Excursions - Take-Off (Lateral) Rudder kick/oscillations. Difficult due to
     gusts and effect of buildings."
     '''
 

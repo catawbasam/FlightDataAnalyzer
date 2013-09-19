@@ -103,12 +103,13 @@ from analysis_engine.key_point_values import (
     AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
     AirspeedWithSpoilerDeployedMax,
+    AltitudeAtClimbThrustDerateDeselectedDuringClimbBelow33000Ft,
     AltitudeAtFirstFlapChangeAfterLiftoff,
     AltitudeAtGearUpSelectionDuringGoAround,
     AltitudeDuringGoAroundMin,
     AltitudeAtLastFlapChangeBeforeTouchdown,
     AltitudeAtMachMax,
-    AltitudeOvershootAtSuspectedLevelBust,
+    AltitudeAtClimbThrustDerateDeselectedDuringClimbBelow33000Ft,
     AltitudeAtGearDownSelection,
     AltitudeAtGearDownSelectionWithFlapUp,
     AltitudeAtGearDownSelectionWithFlapDown,
@@ -118,17 +119,18 @@ from analysis_engine.key_point_values import (
     AltitudeAtATDisengagedSelection,
     AltitudeAtATEngagedSelection,
     AltitudeAtVNAVModeAndEngThrustModeRequired,
-    AltitudeFirstStableDuringApproachBeforeGoAround,
-    AltitudeFirstStableDuringLastApproach,
-    AltitudeAtFlapExtension,
-    AltitudeAtFlapExtensionWithGearDown,
     AltitudeAtFirstAPEngagedAfterLiftoff,
     AltitudeAtFirstFlapExtensionAfterLiftoff,
     AltitudeAtFirstFlapRetraction,
     AltitudeAtFirstFlapRetractionDuringGoAround,
+    AltitudeAtFlapExtension,
+    AltitudeAtFlapExtensionWithGearDown,
     AltitudeAtLastAPDisengagedDuringApproach,
+    AltitudeFirstStableDuringApproachBeforeGoAround,
+    AltitudeFirstStableDuringLastApproach,
     AltitudeLastUnstableDuringApproachBeforeGoAround,
     AltitudeLastUnstableDuringLastApproach,
+    AltitudeOvershootAtSuspectedLevelBust,
     AltitudeSTDAtTouchdown,
     AltitudeSTDAtLiftoff,
     AltitudeQNHAtTouchdown,
@@ -2951,6 +2953,30 @@ class TestAltitudeAtFirstFlapRetraction(unittest.TestCase, NodeTest):
         node = AltitudeAtFirstFlapRetractionDuringGoAround()
         node.derive(self.alt_aal, flap_rets)
         self.assertEqual(node, [])
+
+
+class TestAltitudeAtClimbThrustDerateDeselectedDuringClimbBelow33000Ft(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = AltitudeAtClimbThrustDerateDeselectedDuringClimbBelow33000Ft
+        self.operational_combinations = [('Altitude AAL',
+                                          'Climb Thrust Derate Deselected',
+                                          'Climbing')]
+    
+    def test_derive_basic(self):
+        alt_aal_array = np.ma.concatenate(
+            [np.ma.arange(0, 40000, 4000), [40000] * 10,
+             np.ma.arange(40000, 0, -4000)])
+        alt_aal = P('Altitude AAL', array=alt_aal_array)
+        climb_thrust_derate = KTI('Climb Thrust Derate Deselected', items=[
+            KeyTimeInstance(5, 'Climb Thrust Derate Deselected'),
+            KeyTimeInstance(12, 'Climb Thrust Derate Deselected'),
+            KeyTimeInstance(17, 'Climb Thrust Derate Deselected')])
+        climbs = buildsection('Climbing', 0, 14)
+        node = self.node_class()
+        node.derive(alt_aal, climb_thrust_derate, climbs)
+        self.assertEqual(node, [
+            KeyPointValue(5, 20000.0, 'Altitude At Climb Thrust Derate Deselected During Climb Below 33000 Ft')])
 
 
 ########################################
