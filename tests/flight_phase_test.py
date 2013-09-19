@@ -474,21 +474,21 @@ class TestInitialApproach(unittest.TestCase):
         app = InitialApproach()
         alt_aal = Parameter('Altitude AAL For Flight Phases',alt)
         app_land = SectionNode('Approach',
-            items=[Section('Approach', slice(2, 8, None))])
+            items=[Section('Approach', slice(2, 8), 2, 8)])
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(alt_aal, app_land)
-        expected = [Section('Initial Approach', slice(2, 6, None))]
+        expected = [Section('Initial Approach', slice(2, 6,), 2, 6)]
         self.assertEqual(app, expected)
 
     def test_initial_approach_phase_over_high_ground(self):
-        alt_aal = np.ma.array(range(0,4000,500)+range(4000,0,-500))
+        alt_aal = np.ma.array(range(0,4000,500) + range(4000,0,-500))
         # Raising the ground makes the radio altitude trigger one sample sooner.
         app = InitialApproach()
         alt_aal = Parameter('Altitude AAL For Flight Phases',alt_aal)
         app_land = SectionNode('Approach',
-            items=[Section('Approach', slice(10, 16, None))])
+            items=[Section('Approach', slice(10, 16, None), 10, 16)])
         app.derive(alt_aal, app_land)
-        expected = [Section(name='Initial Approach', slice=slice(10, 14, None))]
+        expected = [Section('Initial Approach', slice(10, 14), 10, 14)]
         self.assertEqual(app, expected)
 
     def test_initial_approach_phase_with_go_around(self):
@@ -496,10 +496,10 @@ class TestInitialApproach(unittest.TestCase):
         app = InitialApproach()
         alt_aal = Parameter('Altitude AAL For Flight Phases',alt)
         app_land = SectionNode('Approach',
-            items=[Section('Approach', slice(2, 5, None))])
+            items=[Section('Approach', slice(2, 5), 2, 5)])
         # Pretend we are flying over flat ground, so the altitudes are equal.
         app.derive(alt_aal, app_land)
-        expected = [Section(name='Initial Approach', slice=slice(2, 4, None))]
+        expected = [Section('Initial Approach', slice(2, 4), 2, 4)]
         self.assertEqual(app, expected)
 
 
@@ -1366,11 +1366,11 @@ class TestTakeoff(unittest.TestCase):
 
 class TestTaxiOut(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Grounded', 'Takeoff')]
+        expected = [('Mobile', 'Takeoff')]
         self.assertEqual(TaxiOut.get_operational_combinations(), expected)
 
     def test_taxi_out(self):
-        gnd = buildsection('Grounded',3, 8)
+        gnd = buildsection('Mobile',3, 8)
         toff = buildsection('Takeoff', 6, 12)
         tout = TaxiOut()
         tout.derive(gnd, toff)
@@ -1379,11 +1379,11 @@ class TestTaxiOut(unittest.TestCase):
 
 class TestTaxiIn(unittest.TestCase):
     def test_can_operate(self):
-        expected = [('Grounded', 'Landing')]
+        expected = [('Mobile', 'Landing')]
         self.assertEqual(TaxiIn.get_operational_combinations(), expected)
 
     def test_taxi_in(self):
-        gnd = buildsection('Grounded',7,14)
+        gnd = buildsection('Mobile',7,14)
         toff = buildsection('Landing', 5,12)
         t_in = TaxiIn()
         t_in.derive(gnd, toff)
