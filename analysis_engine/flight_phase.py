@@ -1,11 +1,7 @@
 import math
 import numpy as np
-# _ezclump clumps bool arrays into slices. Normally called by clump_masked
-# and clump_unmasked but used here to clump discrete arrays.
-from numpy.ma.extras import _ezclump
 
 from analysis_engine import settings
-from analysis_engine.exceptions import DataFrameError
 
 from analysis_engine.library import (
     all_of,
@@ -21,6 +17,7 @@ from analysis_engine.library import (
     is_index_within_slice,
     is_slice_within_slice,
     last_valid_sample,
+    min_value,
     moving_average,
     nearest_neighbour_mask_repair,
     rate_of_change,
@@ -37,7 +34,7 @@ from analysis_engine.library import (
     slices_remove_small_slices,
 )
 
-from analysis_engine.node import FlightPhaseNode, A, P, S, KTI, M
+from analysis_engine.node import FlightPhaseNode, P, S, KTI, M
 
 from analysis_engine.settings import (
     AIRBORNE_THRESHOLD_TIME,
@@ -56,10 +53,11 @@ from analysis_engine.settings import (
     INITIAL_APPROACH_THRESHOLD,
     KTS_TO_MPS,
     LANDING_THRESHOLD_HEIGHT,
+    RATE_OF_TURN_FOR_FLIGHT_PHASES,
+    RATE_OF_TURN_FOR_TAXI_TURNS,
+    REJECTED_TAKEOFF_THRESHOLD,
     VERTICAL_SPEED_FOR_CLIMB_PHASE,
     VERTICAL_SPEED_FOR_DESCENT_PHASE,
-    RATE_OF_TURN_FOR_FLIGHT_PHASES,
-    RATE_OF_TURN_FOR_TAXI_TURNS
 )
 
 
@@ -1096,6 +1094,40 @@ class LandingRoll(FlightPhaseNode):
                 # due to masked values, use land.start in place
                 begin = land.slice.start
             self.create_phase(slice(begin, end), begin=begin, end=end)
+
+
+class RejectedTakeoff(FlightPhaseNode):
+    '''
+    '''
+    
+    def derive(self, accel_lon=P('Acceleration Longitudinal Offset Removed'),
+               takeoff_accel_starts=KTI('Takeoff Acceleration Start'),
+               liftoffs=KTI('Liftoff')):
+        
+        for takeoff_accel_start in takeoff_accel_starts:
+            liftoff = liftoffs.get_next(takeoff_accel_start.index)
+            
+            if not liftoff:
+                # Liftoff did not follow Takeoff Acceleration Start, therefore
+                # there must have been a Rejected Takeoff.
+                accel_end_index = min_value(
+                    accel_lon.array, _slice=slice(takeoff_accel_start.index,
+                                                  None)).index
+                self.create_phase(slice(takeoff_accel_start.index,
+                                        accel_end_index))
+                
+                continue
+            
+            accel_end_index = index_at_value(
+                accel_lon.array, REJECTED_TAKEOFF_THRESHOLD,
+                _slice=slice(takeoff_accel_start.index, liftoff.index))
+            
+            if not accel_end_index:
+                # Acceleration does not fall below REJECTED_TAKEOFF_THRESHOLD,
+                # therefore it is not a Rejected Takeoff.
+                continue
+            
+            self.create_phase(slice(takeoff_accel_start.index, accel_end_index))
 
 
 class Takeoff(FlightPhaseNode):

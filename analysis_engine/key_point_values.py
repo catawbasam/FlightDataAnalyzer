@@ -2585,11 +2585,11 @@ class AirspeedRelativeAtFirstFlapRetraction(KeyPointValueNode):
 
     units = 'kts'
 
-    def derive (self, airspeed=P('Airspeed'),
-                gw=P('Gross Weight Smoothed'),
-                alt_retract=KPV('Altitude At First Flap Change After Liftoff'),
-                series=A('Series'),
-                engine=A('Engine Type')):
+    def derive(self, airspeed=P('Airspeed'),
+               gw=P('Gross Weight Smoothed'),
+               alt_retract=KPV('Altitude At First Flap Change After Liftoff'),
+               series=A('Series'),
+               engine=A('Engine Type')):
 
         if series.value not in ['B757-200(F)', 'B767-300F(ER)']:
             return
@@ -2703,7 +2703,6 @@ class AltitudeAtFirstFlapChangeAfterLiftoff(KeyPointValueNode):
 class AltitudeAtLastFlapChangeBeforeTouchdown(KeyPointValueNode):
     '''
     '''
-
     units = 'ft'
     
     @classmethod

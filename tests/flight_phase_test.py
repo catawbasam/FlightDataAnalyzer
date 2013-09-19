@@ -30,6 +30,7 @@ from analysis_engine.flight_phase import (Airborne,
                                           Landing,
                                           LevelFlight,
                                           Mobile,
+                                          RejectedTakeoff,
                                           Takeoff,
                                           Takeoff5MinRating,
                                           TakeoffRoll,
@@ -1299,9 +1300,38 @@ class TestLevelFlight(unittest.TestCase, NodeTest):
         self.assertEqual(level, [
             Section('Level Flight', slice(120, 200, None), 120, 200)
         ])
+
+
+class TestRejectedTakeoff(unittest.TestCase):
+    def test_can_operate(self):
+        expected = [('Acceleration Longitudinal Offset Removed',
+                     'Takeoff Acceleration Start', 'Liftoff')]
+        self.assertEqual(
+            expected,
+            RejectedTakeoff.get_operational_combinations())
+
+    def test_derive_basic(self):
+        accel_lon = P('Acceleration Longitudinal Offset Removed',
+                      np.ma.array([0] * 3 + [2, 5, 10, 0, -17,] + [0] * 7 +
+                                  [20, 40, 100] + [10] * 4 + [0] * 6 + [-200] +
+                                  [0] * 5 + [2, 5, 1, 1, 1, 1]))
+        takeoff_accel_starts = KTI('Takeoff Acceleration Start', items=[
+            KeyTimeInstance(index=3, name='Takeoff Acceleration Start'),
+            KeyTimeInstance(index=15, name='Takeoff Acceleration Start'),
+            KeyTimeInstance(index=34, name='Takeoff Acceleration Start'),
+        ])
+        liftoffs = KTI('Takeoff Acceleration Start',
+                       items=[KeyTimeInstance(index=20, name='Liftoff')])
         
-        
-        
+        node = RejectedTakeoff()
+        node.derive(accel_lon, takeoff_accel_starts, liftoffs)
+        self.assertEqual(
+            node,
+            [Section('Rejected Takeoff', slice(3, 6), 3, 6),
+             Section('Rejected Takeoff', slice(34, 36), 34, 36),]
+        )
+
+
 class TestTakeoff(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(Takeoff.get_operational_combinations(),
