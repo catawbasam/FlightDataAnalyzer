@@ -1094,6 +1094,71 @@ class Slat(MultistateDerivedParameterNode):
         self.array = step_values(slat.array, slat_steps,
                                  slat.hz, step_at='move_start')
             
+
+class StickPusher(MultistateDerivedParameterNode):
+    '''
+    Merge left and right stick pushers where fitted.
+    '''
+
+    values_mapping = {
+        0: '-',
+        1: 'Push'
+    }
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Stick Pusher (L)',
+                       'Stick Pusher (R)'
+                       ),available)
+    
+    def derive(self, spl = M('Stick Pusher (L)'),
+               spr=M('Stick Pusher (R)')):
+        
+        available = [par for par in [spl, spr] if par]
+        if len(available) > 1:
+            self.array = blend_parameters(
+                available, self.offset, self.frequency)
+        elif len(available) == 1:
+            self.array = available[0]
+
+
+class StickShaker(MultistateDerivedParameterNode):
+    '''
+    Merge left and right stick shakers where fitted.
+    '''
+
+    values_mapping = {
+        0: '-',
+        1: 'Shake'
+    }
+
+    @classmethod
+    def can_operate(cls, available):
+        return any_of(('Stick Shaker (L)',
+                       'Stick Shaker (R)',
+                       'Stick Shaker (1)',
+                       'Stick Shaker (2)',
+                       'Stick Shaker (3)',
+                       'Stick Shaker (4)',
+                       ),available)
+    
+    def derive(self, ssl = M('Stick Shaker (L)'),
+               ssr=M('Stick Shaker (R)'),
+               ss1=M('Stick Shaker (1)'),
+               ss2=M('Stick Shaker (2)'),
+               ss3=M('Stick Shaker (3)'),
+               ss4=M('Stick Shaker (4)'),
+               ):
+        
+        available = [par for par in [ssl, ssr, ss1, ss2, ss3, ss4] if par]
+        if len(available) > 1:
+            self.array = blend_parameters(
+                available, self.offset, self.frequency)
+        elif len(available) == 1:
+            self.array = available[0]
+        
+
+
 class SpeedbrakeSelected(MultistateDerivedParameterNode):
     '''
     Determines the selected state of the speedbrake.
