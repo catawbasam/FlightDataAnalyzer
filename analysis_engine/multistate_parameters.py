@@ -32,7 +32,7 @@ from analysis_engine.library import (#actuator_mismatch,
                                      #alt2sat,
                                      #bearing_and_distance,
                                      #bearings_and_distances,
-                                     #blend_parameters,
+                                     blend_parameters,
                                      #blend_two_parameters,
                                      #cas2dp,
                                      #coreg,
@@ -63,6 +63,7 @@ from analysis_engine.library import (#actuator_mismatch,
                                      #mask_outside_slices,
                                      #max_value,
                                      merge_masks,
+                                     merge_sources,
                                      merge_two_parameters,
                                      moving_average,
                                      #np_ma_ones_like,
@@ -1124,12 +1125,16 @@ class StickPusher(MultistateDerivedParameterNode):
 
 class StickShaker(MultistateDerivedParameterNode):
     '''
-    Merge left and right stick shakers where fitted.
+    This accounts for the different types of stick shaker system. Where two
+    systems are recorded the results are OR'd to make a single parameter which
+    operates in response to either system triggering. Hence the removal of
+    automatic alignment of the signals.
     '''
 
+    align = False
     values_mapping = {
         0: '-',
-        1: 'Shake'
+        1: 'Shake',
     }
 
     @classmethod
@@ -1140,6 +1145,11 @@ class StickShaker(MultistateDerivedParameterNode):
                        'Stick Shaker (2)',
                        'Stick Shaker (3)',
                        'Stick Shaker (4)',
+                       'Frame',
+                       #'Stick Shaker (L) (1)',
+                       #'Stick Shaker (L) (2)',
+                       #'Stick Shaker (R) (1)',
+                       #'Stick Shaker (R) (2)',
                        ),available)
     
     def derive(self, ssl = M('Stick Shaker (L)'),
@@ -1148,14 +1158,30 @@ class StickShaker(MultistateDerivedParameterNode):
                ss2=M('Stick Shaker (2)'),
                ss3=M('Stick Shaker (3)'),
                ss4=M('Stick Shaker (4)'),
+               frame=A('Frame'),
+               #b777_L1=M('Stick Shaker (L) (1)'),
+               #b777_L2=M('Stick Shaker (L) (2)'),
+               #b777_R1=M('Stick Shaker (R) (1)'),
+               #b777_R2=M('Stick Shaker (R) (2)'),
                ):
         
-        available = [par for par in [ssl, ssr, ss1, ss2, ss3, ss4] if par]
+        if frame.value=='B777':
+            #Provision has been included for Boeing 777 type, but until this has been
+            #evaluated in detail it raises an exception because there are two bits per
+            #shaker, and their operation is not obvious from the documentation.
+            raise ValueError
+        
+        available = [par for par in [ssl, ssr, ss1, ss2, ss3, ss4,
+                                     #b777_L1, b777_L2, b777_R1, b777_R2,
+                                     ] if par]
         if len(available) > 1:
-            self.array = blend_parameters(
-                available, self.offset, self.frequency)
+            self.array = merge_sources(*[a.array for a in available])
+            self.offset = min([a.offset for a in available])
+            self.frequency = available[0].frequency*len(available)
         elif len(available) == 1:
             self.array = available[0]
+            self.offset = available[0].offset
+            self.frequency = available[0].frequency
         
 
 
@@ -1531,10 +1557,11 @@ class StableApproach(MultistateDerivedParameterNode):
         return
 
 
+"""
 class StickShaker(MultistateDerivedParameterNode):
     '''
     This accounts for the different types of stick shaker system. Where two
-    systems are recorded the results are OR'd to make a single parameter which
+    systems are recorded the results are ORed to make a single parameter which
     operates in response to either system triggering. Hence the removal of
     automatic alignment of the signals.
     '''
@@ -1568,7 +1595,7 @@ class StickShaker(MultistateDerivedParameterNode):
 
         else:
             raise NotImplementedError
-
+"""
 
 class ThrustReversers(MultistateDerivedParameterNode):
     '''

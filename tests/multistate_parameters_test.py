@@ -1176,18 +1176,30 @@ class TestStickShaker(unittest.TestCase):
 
     def test_can_operate(self):
         opts = StickShaker.get_operational_combinations()
-        self.assertEqual(opts, [
-            ('Stick Shaker (L)',),
-            ('Shaker Activation',), 
-            ('Stick Shaker (L)', 'Stick Shaker (R)'),
-            ('Stick Shaker (L)', 'Shaker Activation'),
-            ('Stick Shaker (R)', 'Shaker Activation'), 
-            ('Stick Shaker (L)', 'Stick Shaker (R)', 'Shaker Activation')])
+        self.assertEqual(len(opts), 127)
+                         
         
-    @unittest.skip('Test Not Implemented')
     def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
+        left=M('Stick Shaker (L)',np.ma.array([0,1,0,0,0,0]),
+               offset=0.7, frequency=2.0,
+               values_mapping = {0: '-',1: 'Shake',})
+        right=M('Stick Shaker (R)',np.ma.array([0,0,0,0,1,0]),
+                offset=0.2, frequency=2.0,
+                values_mapping = {0: '-',1: 'Shake',})
+        ss=StickShaker()
+        merged = ss.derive(left, right, None, None, None, None)
+        expected = np.ma.array([0,1,0,0,0,0])
+        self.assertEqual(merged.array, expected)
 
+    def test_not_777(self):
+        left=M('Stick Shaker (L)',np.ma.array([0,1,0,0,0,0]),
+                       offset=0.7, frequency=2.0,
+                       values_mapping = {0: '-',1: 'Shake',})
+        ss=StickShaker()
+        self.assertRaises(ValueError, ss.derive, 
+                          left, None, None, None, None, None, 
+                          A('Frame', 'B777'))
+        
 
 class TestThrustReversers(unittest.TestCase):
 
