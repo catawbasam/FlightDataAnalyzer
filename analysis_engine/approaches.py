@@ -243,19 +243,27 @@ class ApproachInformation(ApproachNode):
             # via API calls:
             gs_est = None
             if gs_ests:
-                gs_est = gs_ests.get_first(
+                # If the aircraft was established on the glideslope more than
+                # once during this approach, we take the last segment for the
+                # approach as this is must be the one that included (or was
+                # closest to) the landing
+                gs_est = gs_ests.get_last(
                     within_slice=_slice, within_use='any')
                 if gs_est:
                     gs_est = gs_est.slice
             loc_est = None
             if loc_ests:
-                loc_est = loc_ests.get_first(
+                # As for the glidepath, we take the last localizer phase as
+                # this avoids working off an earlier segment if the aircraft
+                # carries out a teardrop approach. See approach plate for
+                # TOS 19 when approaching from the South.
+                loc_est = loc_ests.get_last(
                     within_slice=_slice, within_use='any')
                 if loc_est:
                     loc_est = loc_est.slice
 
             # Add further details to save hunting when we need them later.
-            ils_freq_kpv = (appr_ils_freq.get_first(within_slice=_slice)
+            ils_freq_kpv = (appr_ils_freq.get_lastj(within_slice=_slice)
                            if appr_ils_freq else None)
             ils_freq = ils_freq_kpv.value if ils_freq_kpv else None
 
