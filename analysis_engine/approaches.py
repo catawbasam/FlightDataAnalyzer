@@ -263,7 +263,7 @@ class ApproachInformation(ApproachNode):
                     loc_est = loc_est.slice
 
             # Add further details to save hunting when we need them later.
-            ils_freq_kpv = (appr_ils_freq.get_lastj(within_slice=_slice)
+            ils_freq_kpv = (appr_ils_freq.get_last(within_slice=_slice)
                            if appr_ils_freq else None)
             ils_freq = ils_freq_kpv.value if ils_freq_kpv else None
 
