@@ -775,7 +775,7 @@ class Airspeed1000To8000FtMax(KeyPointValueNode):
 
         for climb in climbs:
             aal=np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array[climb.slice], 1000.0))
-            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_aal.array[climb.slice], 8000.0))
+            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_std.array[climb.slice], 8000.0))
             scope=shift_slices(slices_and(aal, std), climb.slice.start)
             self.create_kpv_from_slices(
                 air_spd.array,
@@ -843,7 +843,7 @@ class Airspeed8000To5000FtMax(KeyPointValueNode):
                descends=S('Descent')):
     
         for descend in descends:
-            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_aal.array[descend.slice], 8000.0))
+            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_std.array[descend.slice], 8000.0))
             aal=np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array[descend.slice], 5000.0))
             scope=shift_slices(slices_and(aal, std), descend.slice.start)
             self.create_kpv_from_slices(
