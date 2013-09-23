@@ -107,6 +107,7 @@ from analysis_engine.derived_parameters import (
     Eng_2_FuelBurn,
     Eng_3_FuelBurn,
     Eng_4_FuelBurn,
+    EngTPRLimitDifference,
     FlapAngle,
     FuelQty,
     GrossWeightSmoothed,
@@ -3361,6 +3362,28 @@ class TestEng_VibCMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestEngTPRLimitDifference(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(EngTPRLimitDifference.get_operational_combinations(),
+                         [('Eng (*) TPR Max', 'Eng TPR Limit Max')])
+    
+    def test_derive_basic(self):
+        eng_tpr_max_array = np.ma.concatenate([
+            np.ma.arange(0, 150, 10), np.ma.arange(150, 0, -10)])
+        eng_tpr_limit_array = np.ma.concatenate([
+            np.ma.arange(10, 110, 10), [110] * 10, np.ma.arange(110, 10, -10)])
+        eng_tpr_max = P('Eng (*) TPR Max', array=eng_tpr_max_array)
+        eng_tpr_limit = P('Eng (*) TPR Limit Max', array=eng_tpr_limit_array)
+        node = EngTPRLimitDifference()
+        node.derive(eng_tpr_max, eng_tpr_limit)
+        expected = [0] * 5
+        self.assertEqual(
+            node.array.tolist(),
+            [-10, -10, -10, -10, -10, -10, -10, -10, -10, -10, -10, 0, 10, 20,
+             30, 40, 30, 20, 10, 0, -10, -10, -10, -10, -10, -10, -10, -10, -10,
+             -10])
+
+
 class TestFlapAngle(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -3597,7 +3620,7 @@ class TestMagneticVariationFromRunway(unittest.TestCase):
         # landing index to end
         self.assertAlmostEqual(mag_var_rwy.array[213], -5.84060605)
         self.assertAlmostEqual(mag_var_rwy.array[-1], -5.84060605)
-        
+
 
 class TestPitchRate(unittest.TestCase):
     @unittest.skip('Test Not Implemented')

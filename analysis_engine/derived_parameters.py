@@ -1810,6 +1810,19 @@ class Eng_EPRMinFor5Sec(DerivedParameterNode):
         self.array = second_window(eng_epr_min.array, self.frequency, 5)
 
 
+class EngTPRLimitDifference(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng TPR Limit Difference'
+
+    def derive(self,
+               eng_tpr_max=P('Eng (*) TPR Max'),
+               eng_tpr_limit=P('Eng TPR Limit Max')):
+        
+        self.array = eng_tpr_max.array - eng_tpr_limit.array
+
+
 class Eng_TPRMax(DerivedParameterNode):
     '''
     '''
@@ -4346,7 +4359,6 @@ class VerticalSpeedInertial(DerivedParameterNode):
                 self.array[shift_slice(clump,speedy.slice.start)] = inertial_vertical_speed(
                     alt_std_repair[clump], az.frequency,
                     alt_rad_repair[clump], az_repair[clump])
-
 
 
 class VerticalSpeed(DerivedParameterNode):
