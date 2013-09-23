@@ -209,6 +209,8 @@ from analysis_engine.key_point_values import (
     EngTorqueDuringMaximumContinuousPowerMax,
     EngTorque500To50FtMax,
     EngTorque500To50FtMin,
+    EngTPRLimitDifferenceDuringGoAroundMax,
+    EngTPRLimitDifferenceDuringTakeoffMax,
     EngVibBroadbandMax,
     EngVibN1Max,
     EngVibN2Max,
@@ -664,11 +666,11 @@ class CreateKPVsWithinSlicesTest(NodeTest):
         node.derive(mock1, mock2)
         if hasattr(self, 'second_param_method_calls'):
             mock3.assert_called_once_with(*self.second_param_method_calls[0][1])
-            node.create_kpvs_within_slices.assert_called_once_with(\
+            node.create_kpvs_within_slices.assert_called_once_with(
                 mock1.array, mock3.return_value, self.function)
         else:
             self.assertEqual(mock2.method_calls, [])
-            node.create_kpvs_within_slices.assert_called_once_with(\
+            node.create_kpvs_within_slices.assert_called_once_with(
                 mock1.array, mock2, self.function)
 
 
@@ -4163,6 +4165,30 @@ class TestEngTPRDuringTakeoff5MinRatingMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = EngTPRDuringTakeoff5MinRatingMax
         self.operational_combinations = [('Eng (*) TPR Max', 'Takeoff 5 Min Rating')]
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngTPRLimitDifferenceDuringTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    
+    def setUp(self):
+        self.node_class = EngTPRLimitDifferenceDuringTakeoffMax
+        self.operational_combinations = [('Eng TPR Limit Difference', 'Takeoff')]
+        self.function = max_value
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngTPRLimitDifferenceDuringGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    
+    def setUp(self):
+        self.node_class = EngTPRLimitDifferenceDuringGoAroundMax
+        self.operational_combinations = [('Eng TPR Limit Difference', 'Go Around')]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import os
 
 from math import ceil
 from flightdatautilities.geometry import midpoint
@@ -4868,6 +4867,30 @@ class EngTPRDuringTakeoff5MinRatingMax(KeyPointValueNode):
                ratings=S('Takeoff 5 Min Rating')):
 
         self.create_kpvs_within_slices(eng_tpr_max.array, ratings, max_value)
+
+
+class EngTPRLimitDifferenceDuringTakeoffMax(KeyPointValueNode):
+    '''
+    '''
+    
+    name = 'Eng TPR Limit Difference During Takeoff Max'
+    
+    def derive(self, tpr_limit_diff=P('Eng TPR Limit Difference'),
+               takeoffs=P('Takeoff')):
+        self.create_kpvs_within_slices(tpr_limit_diff.array, takeoffs,
+                                       max_value)
+
+
+class EngTPRLimitDifferenceDuringGoAroundMax(KeyPointValueNode):
+    '''
+    '''
+    
+    name = 'Eng TPR Limit Difference During Go Around Max'
+    
+    def derive(self, tpr_limit_diff=P('Eng TPR Limit Difference'),
+               go_arounds=P('Go Around')):
+        self.create_kpvs_within_slices(tpr_limit_diff.array, go_arounds,
+                                       max_value)
 
 
 class EngEPRDuringGoAround5MinRatingMax(KeyPointValueNode):
