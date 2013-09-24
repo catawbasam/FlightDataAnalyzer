@@ -5284,13 +5284,27 @@ class Spoiler(DerivedParameterNode):
     @classmethod
     def can_operate(cls, available, family=A('Family')):
         return family and family.value == 'B787' and (
-            'Spoiler (1)' in available or 'Spoiler (14)' in available)
+            'Spoiler (1)' in available or 'Spoiler (14)' in available) or \
+               family and family.value == 'G-V' and (
+                   'Spoiler (L)' in available or 'Spoiler (R)' in available)    
     
     def derive(self,
                spoiler_1=P('Spoiler (1)'),
-               spoiler_14=P('Spoiler (14)')):
-        self.array, self.frequency, self.offset = \
-            blend_two_parameters(spoiler_1, spoiler_14)
+               spoiler_14=P('Spoiler (14)'),
+               spoiler_L=P('Spoiler (L)'),
+               spoiler_R=P('Spoiler (R)'),
+               family=A('Family'),
+               ):
+        if family.value == 'B787':
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(spoiler_1, spoiler_14)
+
+        elif family.value == 'G-V':
+            self.array, self.frequency, self.offset = \
+                blend_two_parameters(spoiler_L, spoiler_R)
+        
+        else:
+            raise DataFrameError(self.name, frame_name)
 
 
 class SpeedbrakeHandle(DerivedParameterNode):
