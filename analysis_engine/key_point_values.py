@@ -4863,34 +4863,34 @@ class EngTPRDuringTakeoff5MinRatingMax(KeyPointValueNode):
     units = '%'
 
     def derive(self,
-               eng_tpr_max=P('Eng (*) TPR Max'),
+               eng_tpr_limit=P('Eng TPR Limit Difference'),
                ratings=S('Takeoff 5 Min Rating')):
 
-        self.create_kpvs_within_slices(eng_tpr_max.array, ratings, max_value)
+        self.create_kpvs_within_slices(eng_tpr_limit.array, ratings, max_value)
 
 
-class EngTPRLimitDifferenceDuringTakeoffMax(KeyPointValueNode):
-    '''
-    '''
+#class EngTPRLimitDifferenceDuringTakeoffMax(KeyPointValueNode):
+    #'''
+    #'''
     
-    name = 'Eng TPR Limit Difference During Takeoff Max'
+    #name = 'Eng TPR Limit Difference During Takeoff Max'
     
-    def derive(self, tpr_limit_diff=P('Eng TPR Limit Difference'),
-               takeoffs=P('Takeoff')):
-        self.create_kpvs_within_slices(tpr_limit_diff.array, takeoffs,
-                                       max_value)
+    #def derive(self, tpr_limit_diff=P('Eng TPR Limit Difference'),
+               #takeoffs=P('Takeoff')):
+        #self.create_kpvs_within_slices(tpr_limit_diff.array, takeoffs,
+                                       #max_value)
 
 
-class EngTPRLimitDifferenceDuringGoAroundMax(KeyPointValueNode):
-    '''
-    '''
+#class EngTPRLimitDifferenceDuringGoAroundMax(KeyPointValueNode):
+    #'''
+    #'''
     
-    name = 'Eng TPR Limit Difference During Go Around Max'
+    #name = 'Eng TPR Limit Difference During Go Around Max'
     
-    def derive(self, tpr_limit_diff=P('Eng TPR Limit Difference'),
-               go_arounds=P('Go Around')):
-        self.create_kpvs_within_slices(tpr_limit_diff.array, go_arounds,
-                                       max_value)
+    #def derive(self, tpr_limit_diff=P('Eng TPR Limit Difference'),
+               #go_arounds=P('Go Around')):
+        #self.create_kpvs_within_slices(tpr_limit_diff.array, go_arounds,
+                                       #max_value)
 
 
 class EngEPRDuringGoAround5MinRatingMax(KeyPointValueNode):
@@ -4915,10 +4915,10 @@ class EngTPRDuringGoAround5MinRatingMax(KeyPointValueNode):
     units = '%'
 
     def derive(self,
-               eng_tpr_max=P('Eng (*) TPR Max'),
+               eng_tpr_limit=P('Eng TPR Limit Difference'),
                ratings=S('Go Around 5 Min Rating')):
 
-        self.create_kpvs_within_slices(eng_tpr_max.array, ratings, max_value)
+        self.create_kpvs_within_slices(eng_tpr_limit.array, ratings, max_value)
 
 
 class EngEPRDuringMaximumContinuousPowerMax(KeyPointValueNode):
@@ -4940,6 +4940,8 @@ class EngEPRDuringMaximumContinuousPowerMax(KeyPointValueNode):
 
 class EngTPRDuringMaximumContinuousPowerMax(KeyPointValueNode):
     '''
+    Originally coded for 787, but the event has been disabled since it lacks a
+    limit.
     '''
 
     name = 'Eng TPR During Maximum Continuous Power Max'
@@ -5051,6 +5053,8 @@ class EngEPRAtTOGADuringTakeoffMax(KeyPointValueNode):
 
 class EngTPRAtTOGADuringTakeoffMin(KeyPointValueNode):
     '''
+    Originally coded for 787, but the event has been disabled since it lacks a
+    limit.
     '''
 
     name = 'Eng TPR At TOGA During Takeoff Min'
