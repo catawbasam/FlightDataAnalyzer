@@ -1010,6 +1010,17 @@ class TestSpeedbrakeSelected(unittest.TestCase):
         res = spd_sel.b737_speedbrake(spdbrk, handle)
         self.assertEqual(list(res),
                         ['Stowed']*3 + ['Armed/Cmd Dn']*7 + ['Deployed/Cmd Up']*20 + ['Armed/Cmd Dn']*5 + ['Deployed/Cmd Up']*5)
+    
+    def test_b787_speedbrake(self):
+        handle = load(os.path.join(
+            test_data_path, 'SpeedBrakeSelected_SpeedbrakeHandle.nod'))
+        
+        result = SpeedbrakeSelected.b787_speedbrake(handle)
+        self.assertEqual(len(np.ma.where(result == 0)[0]), 9445)
+        self.assertEqual(np.ma.where(result == 1)[0].tolist(),
+                         [8189, 8190, 8451, 8524, 8525] + range(9098, 9223))
+        self.assertEqual(np.ma.where(result == 2)[0].tolist(),
+                         range(8191, 8329) + range(8452, 8524) + range(9223, 9262))
 
 
 class TestStableApproach(unittest.TestCase):

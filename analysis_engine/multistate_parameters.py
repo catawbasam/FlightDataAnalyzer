@@ -1197,21 +1197,21 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         array = np.ma.where(handle.array >= 25.0,
                             'Deployed/Cmd Up', armed)
         return array
-
-    def b787_speedbrake(self, handle):
+    
+    @staticmethod
+    def b787_speedbrake(handle):
         '''
-        Speedbrake Handle Positions for 787, taken from early recordings. The
-        units are unknown - may be inches of transducer or degrees of handle
-        movement, but with -6.18 in the stowed position we anticipate a
-        change in this procedure.
+        Speedbrake Handle Positions for 787, taken from early recordings. 
         '''
         # Speedbrake Handle only
-        armed = np.ma.where((-4.0 < handle.array) & (handle.array < 0.0),
-                            'Armed/Cmd Dn', 'Stowed')
-        array = np.ma.where(handle.array >= 0.0,
-                            'Deployed/Cmd Up', armed)
-        return array
-
+        speedbrake = np.ma.zeros(len(handle.array))
+        stepped_array = step_values(handle.array, [0, 10, 20])
+        # Assuming all values from 15 and above are Deployed. Typically a
+        # maximum value of 60 is recorded when deployed with reverse thrust 
+        # whereas values of 30-60 are seen during the approach.
+        speedbrake[stepped_array == 10] = 1
+        speedbrake[stepped_array == 20] = 2
+        return speedbrake
 
     def derive(self,
                deployed=M('Speedbrake Deployed'),
