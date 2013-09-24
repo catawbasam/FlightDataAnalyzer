@@ -9397,10 +9397,13 @@ class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
                 self.create_kpv(last_change, time_from_liftoff)
 
 
-class AirspeedOverVMOMax(KeyPointValueNode):
+class AirspeedMinusVMOMax(KeyPointValueNode):
     '''
     Maximum VMO exceeding.
     '''
+
+    name = 'Airspeed Minus VMO Max'
+
     @classmethod
     def can_operate(cls, available):
         return any_of(('VMO', 'VMO Lookup'), available) \
@@ -9420,10 +9423,13 @@ class AirspeedOverVMOMax(KeyPointValueNode):
         )
 
 
-class MachOverMMOMax(KeyPointValueNode):
+class MachMinusMMOMax(KeyPointValueNode):
     '''
     Maximum MMO exceeding.
     '''
+
+    name = 'Mach Minus MMO Max'
+
     @classmethod
     def can_operate(cls, available):
         return any_of(('MMO', 'MMO Lookup'), available) \
