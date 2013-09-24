@@ -1165,7 +1165,7 @@ class StickShaker(MultistateDerivedParameterNode):
                #b777_R2=M('Stick Shaker (R) (2)'),
                ):
         
-        if frame.value=='B777':
+        if frame and frame.value=='B777':
             #Provision has been included for Boeing 777 type, but until this has been
             #evaluated in detail it raises an exception because there are two bits per
             #shaker, and their operation is not obvious from the documentation.
@@ -1179,7 +1179,7 @@ class StickShaker(MultistateDerivedParameterNode):
             self.offset = min([a.offset for a in available])
             self.frequency = available[0].frequency*len(available)
         elif len(available) == 1:
-            self.array = available[0]
+            self.array = available[0].array
             self.offset = available[0].offset
             self.frequency = available[0].frequency
         
