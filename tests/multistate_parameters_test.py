@@ -57,6 +57,7 @@ from analysis_engine.multistate_parameters import (
     Slat,
     SpeedbrakeSelected,
     StableApproach,
+    StickPusher,
     StickShaker,
     TakeoffConfigurationWarning,
     TAWSAlert,
@@ -1176,7 +1177,7 @@ class TestStickShaker(unittest.TestCase):
 
     def test_can_operate(self):
         opts = StickShaker.get_operational_combinations()
-        self.assertEqual(len(opts), 127)
+        self.assertEqual(len(opts), 126)
                          
         
     def test_derive(self):
@@ -1189,7 +1190,16 @@ class TestStickShaker(unittest.TestCase):
         ss=StickShaker()
         merged = ss.derive(left, right, None, None, None, None)
         expected = np.ma.array([0,1,0,0,0,0])
-        self.assertEqual(merged.array, expected)
+        np.testing.assert_equal(merged.array, expected)
+
+    def test_single_source(self):
+        left=M('Stick Shaker (L)',np.ma.array([0,1,0,0,0,0]),
+               offset=0.7, frequency=2.0,
+               values_mapping = {0: '-',1: 'Shake',})
+        ss=StickShaker()
+        ss.derive(left, None, None, None, None, None)
+        expected = np.ma.array([0,1,0,0,0,0])
+        np.testing.assert_equal(ss.array, expected)
 
     def test_not_777(self):
         left=M('Stick Shaker (L)',np.ma.array([0,1,0,0,0,0]),
@@ -1200,6 +1210,34 @@ class TestStickShaker(unittest.TestCase):
                           left, None, None, None, None, None, 
                           A('Frame', 'B777'))
         
+class TestStickPusher(unittest.TestCase):
+
+    def test_can_operate(self):
+        opts = StickPusher.get_operational_combinations()
+        self.assertEqual(len(opts), 3)
+                         
+        
+    def test_derive(self):
+        left=M('Stick Pusher (L)',np.ma.array([0,1,0,0,0,0]),
+               offset=0.7, frequency=2.0,
+               values_mapping = {0: '-',1: 'Shake',})
+        right=M('Stick Pusher (R)',np.ma.array([0,0,0,0,1,0]),
+                offset=0.2, frequency=2.0,
+                values_mapping = {0: '-',1: 'Shake',})
+        sp=StickPusher()
+        sp.derive(left, right)
+        expected = np.ma.array([0,1,0,0,0,0])
+        np.testing.assert_equal(sp.array, expected)
+
+    def test_single_source(self):
+        left=M('Stick Pusher (L)',np.ma.array([0,1,0,0,0,0]),
+               offset=0.7, frequency=2.0,
+               values_mapping = {0: '-',1: 'Shake',})
+        sp=StickPusher()
+        sp.derive(None, left) # Just for variety
+        expected = np.ma.array([0,1,0,0,0,0])
+        np.testing.assert_equal(sp.array, expected)
+
 
 class TestThrustReversers(unittest.TestCase):
 

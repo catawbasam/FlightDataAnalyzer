@@ -1120,7 +1120,7 @@ class StickPusher(MultistateDerivedParameterNode):
             self.array = blend_parameters(
                 available, self.offset, self.frequency)
         elif len(available) == 1:
-            self.array = available[0]
+            self.array = available[0].array
 
 
 class StickShaker(MultistateDerivedParameterNode):
@@ -1145,7 +1145,6 @@ class StickShaker(MultistateDerivedParameterNode):
                        'Stick Shaker (2)',
                        'Stick Shaker (3)',
                        'Stick Shaker (4)',
-                       'Frame',
                        #'Stick Shaker (L) (1)',
                        #'Stick Shaker (L) (2)',
                        #'Stick Shaker (R) (1)',
@@ -1181,8 +1180,7 @@ class StickShaker(MultistateDerivedParameterNode):
         elif len(available) == 1:
             self.array = available[0].array
             self.offset = available[0].offset
-            self.frequency = available[0].frequency
-        
+            self.frequency = available[0].frequency        
 
 
 class SpeedbrakeSelected(MultistateDerivedParameterNode):
