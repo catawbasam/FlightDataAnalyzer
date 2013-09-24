@@ -5106,9 +5106,8 @@ def step_local_cusp(array, span):
                     return 0
             v_1=v
         return 0
-                
-    
-    
+
+
 def step_values(array, steps, hz=1, step_at='midpoint', rate_threshold=0.5):
     """
     Rounds each value in the array to the nearest step, depending upon the
