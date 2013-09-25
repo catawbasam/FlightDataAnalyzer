@@ -774,7 +774,7 @@ class Airspeed1000To8000FtMax(KeyPointValueNode):
 
         for climb in climbs:
             aal=np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array[climb.slice], 1000.0))
-            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_aal.array[climb.slice], 8000.0))
+            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_std.array[climb.slice], 8000.0))
             scope=shift_slices(slices_and(aal, std), climb.slice.start)
             self.create_kpv_from_slices(
                 air_spd.array,
@@ -842,7 +842,7 @@ class Airspeed8000To5000FtMax(KeyPointValueNode):
                descends=S('Descent')):
     
         for descend in descends:
-            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_aal.array[descend.slice], 8000.0))
+            std=np.ma.clump_unmasked(np.ma.masked_greater(alt_std.array[descend.slice], 8000.0))
             aal=np.ma.clump_unmasked(np.ma.masked_less(alt_aal.array[descend.slice], 5000.0))
             scope=shift_slices(slices_and(aal, std), descend.slice.start)
             self.create_kpv_from_slices(
@@ -9424,10 +9424,13 @@ class LastFlapChangeToTakeoffRollEndDuration(KeyPointValueNode):
                 self.create_kpv(last_change, time_from_liftoff)
 
 
-class AirspeedOverVMOMax(KeyPointValueNode):
+class AirspeedMinusVMOMax(KeyPointValueNode):
     '''
     Maximum VMO exceeding.
     '''
+
+    name = 'Airspeed Minus VMO Max'
+
     @classmethod
     def can_operate(cls, available):
         return any_of(('VMO', 'VMO Lookup'), available) \
@@ -9447,10 +9450,13 @@ class AirspeedOverVMOMax(KeyPointValueNode):
         )
 
 
-class MachOverMMOMax(KeyPointValueNode):
+class MachMinusMMOMax(KeyPointValueNode):
     '''
     Maximum MMO exceeding.
     '''
+
+    name = 'Mach Minus MMO Max'
+
     @classmethod
     def can_operate(cls, available):
         return any_of(('MMO', 'MMO Lookup'), available) \
