@@ -567,7 +567,7 @@ class Flap(MultistateDerivedParameterNode):
             array = round_to_nearest(flap.array, 5.0)
             flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
         self.values_mapping = {f: str(f) for f in flap_steps}
-        self.array = step_values(flap.array, flap_steps, 
+        self.array = step_values(repair_mask(flap.array), flap_steps, 
                                  flap.hz, step_at='move_start')
 
 
@@ -583,7 +583,8 @@ class FlapExcludingTransition(MultistateDerivedParameterNode):
     def derive(self, flap=P('Flap Angle'), 
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap)
-        self.array = step_values(flap.array, self.values_mapping.keys(),
+        self.array = step_values(repair_mask(flap.array),
+                                 self.values_mapping.keys(),
                                  flap.hz, step_at='excluding_transition')
 
 
@@ -601,7 +602,8 @@ class FlapIncludingTransition(MultistateDerivedParameterNode):
     def derive(self, flap=P('Flap Angle'), 
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap)
-        self.array = step_values(flap.array, self.values_mapping.keys(),
+        self.array = step_values(repair_mask(flap.array),
+                                 self.values_mapping.keys(),
                                  flap.hz, step_at='including_transition')
             
             
@@ -621,7 +623,8 @@ class FlapLever(MultistateDerivedParameterNode):
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap_lever)
         # Take the moment the flap starts to move.
-        self.array = step_values(flap_lever.array, self.values_mapping.keys(),
+        self.array = step_values(repair_mask(flap_lever.array),
+                                 self.values_mapping.keys(),
                                  flap_lever.hz, step_at='move_start')
 
 

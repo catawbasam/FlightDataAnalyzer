@@ -566,7 +566,7 @@ class TestFlap(unittest.TestCase):
 
         self.assertEqual(node.array.size, 59)
         self.assertEqual(list(node.array.raw.data),
-            [0]*7 + [13]*7 + [20]*7 + [25]*5 + [30]*5 + [40]*19 + [0]*5 + [13] + [0]*3)
+            [0]+[13]*13+[20]*7+[25]*5+[30]*5+[40]*19+[0]*5+[13]+[0]*3)
         self.assertEqual(
             node.values_mapping,
             {0: '0', 40: '40', 13: '13', 20: '20', 25: '25', 30: '30'})
