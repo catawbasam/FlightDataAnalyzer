@@ -344,6 +344,23 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
 
 
 ################################################################################
+# Airspeed Minus Min Manoeuver
+
+class AirspeedMinusMinManoeuver(DerivedParameterNode):
+    '''
+    Airspeed compared with Airspeed Manoeuver Minimum.
+    '''
+
+    units = 'kts'
+
+    def derive(self, airspeed=P('Airspeed'),
+               manoeuver_min=P('Airspeed Min Manoeuver')):
+        '''
+        '''
+        return airspeed.array - manoeuver_min.array
+
+
+################################################################################
 # Airspeed Relative (Airspeed relative to Vapp, Vref or a fixed value.)
 
 

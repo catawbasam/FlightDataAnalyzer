@@ -1377,6 +1377,17 @@ class AirspeedRelativeFor3Sec20FtToTouchdownMin(KeyPointValueNode):
         )
 
 
+class AirspeedMinusMinManouverMin(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'kt'
+
+    def derive(self, spd_rel=P('Airspeed Minus Min Manoeuver Min')):
+
+        self.create_kpv(*min_value(spd_rel.array))
+
+
 ########################################
 # Airspeed: Flap
 
