@@ -2013,7 +2013,23 @@ class ThrustReversersDeployedDuration(KeyPointValueNode):
             else:
                 index = landing.slice.start
             self.create_kpv(index, dur_deployed)
-            
+
+
+class ThrustReversersCancelToEngStopDuration(KeyPointValueNode):
+    '''
+    Measure the duration (secs) between the thrust reversers being cancelled and
+    the engines being shutdown.
+    '''
+    units = 's'
+
+    def derive(self, tr=M('Thrust Reversers'), eng_stops=KTI('Eng Stop')):
+        cancels = find_edges_on_state_change('Deployed', tr.array,
+                                             change='leaving')
+        cancel_index = cancels[-1]
+        eng_stop_index = eng_stops.get_next(cancel_index).index
+        self.create_kpv(eng_stop_index,
+                        (eng_stop_index - cancel_index) / self.frequency)
+
 
 class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
     '''

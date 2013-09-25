@@ -374,6 +374,7 @@ from analysis_engine.key_point_values import (
     ThrustAsymmetryWithThrustReversersDeployedMax,
     ThrustAsymmetryDuringApproachDuration,
     ThrustAsymmetryWithThrustReversersDeployedDuration,
+    ThrustReversersCancelToEngStopDuration,
     TouchdownTo60KtsDuration,
     TouchdownToElevatorDownDuration,
     TouchdownToThrustReversersDeployedDuration,
@@ -2300,6 +2301,24 @@ class TestThrustReversersDeployedDuration(unittest.TestCase):
         self.assertEqual(len(dur), 1)
         self.assertEqual(dur[0].index, 5)
         self.assertEqual(dur[0].value, 10)
+
+
+class TestThrustReversersCancelToEngStopDuration(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = ThrustReversersCancelToEngStopDuration
+        self.operational_combinations = [('Thrust Reversers', 'Eng Stop')]
+        
+    def test_derive(self):
+        thrust_reversers = load(os.path.join(
+            test_data_path,
+            'ThrustReversersCancelToEngStopDuration_ThrustReversers_1.nod'))
+        eng_stop = load(os.path.join(
+            test_data_path,
+            'ThrustReversersCancelToEngStopDuration_EngStop_1.nod'))
+        node = ThrustReversersCancelToEngStopDuration()
+        node.derive(thrust_reversers, eng_stop)
+        self.assertEqual(node, [KeyPointValue(2920.60546875, 267.10546875, 'Thrust Reversers Cancel To Eng Stop Duration')])
 
 
 class TestTouchdownToThrustReversersDeployedDuration(unittest.TestCase, NodeTest):
