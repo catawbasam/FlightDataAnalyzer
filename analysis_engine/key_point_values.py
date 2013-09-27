@@ -9376,6 +9376,33 @@ class ZeroFuelWeight(KeyPointValueNode):
         self.create_kpv(0, np.ma.median(gross_wgt.array - fuel_qty.array))
 
 
+class GrossWeightDelta60SecondsInFlightMax(KeyPointValueNode):
+    """
+    Measure the maximum change of gross weight over a one minute window. This is
+    primarily to detect manual adjustments of the aircraft gross wieght during
+    the flight by the crew. In order to capture lots of little adjustments
+    together, a one minute window is used.
+    """
+    units = 'kg'
+    align_frequency = 1  #force to 1Hz for 60 second measurements
+    
+    def derive(self, gross_weight=P('Gross Weight'), airborne=S('Airborne')):
+        # use the recorded un-smoothed gross weight measurements
+        gw_repaired = repair_mask(gross_weight.array)
+        weight_diff = np.ma.ediff1d(gw_repaired[::60])
+        for in_air in airborne:
+            # working in 60th samples
+            in_air_start = (in_air.slice.start / 60.0) if in_air.slice.start else None
+            in_air_stop = (in_air.slice.stop / 60.0) if in_air.slice.stop else None
+            in_air_slice = slice(in_air_start, in_air_stop)
+            max_diff = max_abs_value(weight_diff, _slice=in_air_slice)
+            # narrow down the index to the maximum change in this region of flight
+            max_diff_slice = slice(max_diff.index * 60,
+                                   (max_diff.index + 1) * 60)
+            index, _ = max_abs_value(gw_repaired, _slice=max_diff_slice)
+            self.create_kpv(index, max_diff.value)
+
+
 ##############################################################################
 
 

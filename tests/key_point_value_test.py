@@ -240,6 +240,7 @@ from analysis_engine.key_point_values import (
     GroundspeedVacatingRunway,
     GrossWeightAtLiftoff,
     GrossWeightAtTouchdown,
+    GrossWeightDelta60SecondsInFlightMax,
     HeadingDuringLanding,
     HeadingTrueDuringLanding,
     HeadingAtLowestAltitudeDuringApproach,
@@ -8127,6 +8128,38 @@ class TestGrossWeightAtTouchdown(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestGrossWeightDelta60SecondsInFlightMax(unittest.TestCase):
+    
+    def test_can_operate(self):
+        opts = GrossWeightDelta60SecondsInFlightMax.get_operational_combinations()
+        self.assertEqual(opts, [('Gross Weight', 'Airborne')])
+        
+    def test_gross_weight_delta_superframe(self):
+        # simulate a superframe recorded parameter
+        weight = P('Gross Weight', [-10,2,3,4,6,7,8],
+                   frequency=1/64.0)
+        airborne = buildsection('Airborne', 100, None)
+        gwd = GrossWeightDelta60SecondsInFlightMax()
+        gwd.get_derived([weight, airborne])
+        self.assertEqual(len(gwd), 1)
+        self.assertEqual(gwd[0].index, 239)
+        self.assertEqual(gwd[0].value, 1.6875)
+    
+    def test_gross_weight_delta_1hz(self):
+        # simulate a superframe recorded parameter
+        weight = P('Gross Weight', np.ma.repeat([-10,2,3,4,6,7,8,9,10,11,12,13,
+                                                 14,15,16,17,18,19,20,21,22,23,
+                                                 24,25,26,27,28,29,30], 11),
+                   frequency=1)
+        airborne = buildsection('Airborne', 100, None)
+        gwd = GrossWeightDelta60SecondsInFlightMax()
+        gwd.get_derived([weight, airborne])
+        self.assertEqual(len(gwd), 1)
+        self.assertEqual(gwd[0].index, 176)
+        self.assertEqual(gwd[0].value, 6)
+
 
 
 class TestZeroFuelWeight(unittest.TestCase, NodeTest):
