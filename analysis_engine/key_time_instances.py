@@ -692,7 +692,8 @@ class TAWSGlideslopeCancelPressed(KeyTimeInstanceNode):
 
 ##############################################################################
 # Flight Sequence
-    
+
+
 class TakeoffTurnOntoRunway(KeyTimeInstanceNode):
     '''
     The Takeoff flight phase is computed to start when the aircraft turns
@@ -727,15 +728,10 @@ class TakeoffAccelerationStart(KeyTimeInstanceNode):
     this is from an analogue source). This allows for aircraft either with a
     faulty sensor, or no longitudinal accelerometer.
     '''
-    # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        # List the minimum required parameters. If 'Altitude Radio For Flight
-        # Phases' is available, that's a bonus and we will use it, but it is
-        # not required.
         return 'Airspeed' in available and 'Takeoff' in available
 
-    # List the optimal parameter set here
     def derive(self, speed=P('Airspeed'), takeoffs=S('Takeoff'),
                accel=P('Acceleration Longitudinal')):
         for takeoff in takeoffs:

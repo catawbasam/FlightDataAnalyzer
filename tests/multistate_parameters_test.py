@@ -547,37 +547,20 @@ class TestFlap(unittest.TestCase):
         node = Flap()
         node.derive(flap, A('Series', None), A('Family', 'DC-9'))
 
-        #expected = reduce(operator.add, [
-            #[0, -999] + [0] * 11,  #  0.0 -> 12.5 (one masked)
-            #[13] * 7,              # 13.0 -> 19.5
-            #[20] * 5,              # 20.0 -> 24.5
-            #[25] * 5,              # 25.0 -> 29.5
-            #[30] * 10,             # 30.0 -> 39.5
-            #[40] * 10,             # 40.0 -> 49.5
-            #[0] * 5,               # -5.0 -> -1.0
-            #[13, 0],               # odd float values
-            #[-999] * 2,            # masked values
-        #])
-        ##expected = np.ma.array(
-            ##([0] * 7) + ([13] * 7) + ([20] * 7) + ([25] * 5) + ([30] * 5) + 
-            ##([40] * 10) + ([0] * 15) + [13] + ([0] * 3),
-            ##mask=[False, True] + ([False] * 55) + [True, True]
-        ##)
-
         self.assertEqual(node.array.size, 59)
         self.assertEqual(list(node.array.raw.data),
-            [0]*7 + [13]*7 + [20]*7 + [25]*5 + [30]*5 + [40]*19 + [0]*5 + [13] + [0]*3)
+            [0]+[13]*13+[20]*7+[25]*5+[30]*5+[40]*19+[0]*5+[13]+[0]*3)
         self.assertEqual(
             node.values_mapping,
             {0: '0', 40: '40', 13: '13', 20: '20', 25: '25', 30: '30'})
-        for index in indexes:
-            self.assertTrue(np.ma.is_masked(node.array[index]))
+        self.assertTrue(np.ma.is_masked(node.array[-1]))
+        self.assertTrue(np.ma.is_masked(node.array[-2]))
 
     def test_time_taken(self):
         from timeit import Timer
         timer = Timer(self.test_flap_using_md82_settings)
         time = min(timer.repeat(2, 50))
-        self.assertLess(time, 1.2, msg='Took too long: %.3fs' % time)
+        self.assertLess(time, 1.5, msg='Took too long: %.3fs' % time)
         
     def test_decimal_flap_settings(self):
         # Beechcraft has a flap 17.5
@@ -1011,6 +994,17 @@ class TestSpeedbrakeSelected(unittest.TestCase):
         res = spd_sel.b737_speedbrake(spdbrk, handle)
         self.assertEqual(list(res),
                         ['Stowed']*3 + ['Armed/Cmd Dn']*7 + ['Deployed/Cmd Up']*20 + ['Armed/Cmd Dn']*5 + ['Deployed/Cmd Up']*5)
+    
+    def test_b787_speedbrake(self):
+        handle = load(os.path.join(
+            test_data_path, 'SpeedBrakeSelected_SpeedbrakeHandle.nod'))
+        
+        result = SpeedbrakeSelected.b787_speedbrake(handle)
+        self.assertEqual(len(np.ma.where(result == 0)[0]), 9445)
+        self.assertEqual(np.ma.where(result == 1)[0].tolist(),
+                         [8189, 8190, 8451, 8524, 8525] + range(9098, 9223))
+        self.assertEqual(np.ma.where(result == 2)[0].tolist(),
+                         range(8191, 8329) + range(8452, 8524) + range(9223, 9262))
 
 
 class TestStableApproach(unittest.TestCase):
@@ -1031,6 +1025,8 @@ class TestStableApproach(unittest.TestCase):
             ('Approach And Landing', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
             # using EPR and exc. Airspeed Relative
             ('Approach And Landing', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) EPR Min For 5 Sec', 'Altitude AAL', 'Vapp'),
+            # including Family attribute
+            ('Approach And Landing', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) EPR Min For 5 Sec', 'Altitude AAL', 'Vapp', 'Family'),
         ]
         for combo in combinations:
             self.assertIn(combo, opts)
@@ -1393,8 +1389,8 @@ class TestTAWSAlert(unittest.TestCase):
             self.assertTrue(TAWSAlert.can_operate(p))
 
     def setUp(self):
-        terrain_array = [ 1,  1,  0,  1,  1,  0,  0,  0,  1,  0,  1,  0,  0,  0,  0,  0,  1,  0,  0,  0]
-        pull_up_array = [ 0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  0,  0,  0,  0,  0,  1,  0]
+        terrain_array = [1,1,0,1,1,0,0,0,1,0,1,0,0,0,0,0,1,0,0,0]
+        pull_up_array = [0,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,0]
 
         self.airs = S(name='Airborne')
         self.airs.create_section(slice(5,15))
@@ -1403,7 +1399,7 @@ class TestTAWSAlert(unittest.TestCase):
         self.taws_alert = TAWSAlert()
 
     def test_derive(self):
-        result = [ 0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
+        result = [0,0,0,0,0,0,0,0,1,0,1,1,1,0,0,0,0,0,0,0]
 
         self.taws_alert.get_derived((self.airs,
                                 None,
@@ -1424,7 +1420,7 @@ class TestTAWSAlert(unittest.TestCase):
         np.testing.assert_equal(self.taws_alert.array.data, result)
 
     def test_derive_masked_values(self):
-        result = [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
+        result = [0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0]
         self.terrain.array[8] = np.ma.masked
         self.terrain.array[10] = np.ma.masked
 
@@ -1447,29 +1443,29 @@ class TestTAWSAlert(unittest.TestCase):
         np.testing.assert_equal(self.taws_alert.array.data, result)
 
     def test_derive_zeros(self):
-        result = [ 0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0]
+        result = [0,0,0,0,0,0,0,0,1,0,1,1,1,0,0,0,0,0,0,0]
         
-        terrain_array = [ 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
+        terrain_array = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
         
         caution = M(name='TAWS Caution Terrain', array=np.ma.array(terrain_array), values_mapping={1:'Warning'})
         caution.array.mask = True
 
         self.taws_alert.get_derived((self.airs,
-                                caution,
-                                None,
-                                None,
-                                None,
-                                None,
-                                self.pull_up,
-                                None,
-                                None,
-                                None,
-                                None,
-                                self.terrain,
-                                None,
-                                None,
-                                None,
-                                None,))
+                                     caution,
+                                     None,
+                                     None,
+                                     None,
+                                     None,
+                                     self.pull_up,
+                                     None,
+                                     None,
+                                     None,
+                                     None,
+                                     self.terrain,
+                                     None,
+                                     None,
+                                     None,
+                                     None,))
         np.testing.assert_equal(self.taws_alert.array.data, result)
 
 

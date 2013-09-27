@@ -14,10 +14,8 @@ from analysis_engine.library import (
     first_valid_sample,
     index_at_value,
     index_at_value_or_level_off,
-    is_index_within_slice,
     is_slice_within_slice,
     last_valid_sample,
-    min_value,
     moving_average,
     nearest_neighbour_mask_repair,
     rate_of_change,
@@ -25,6 +23,7 @@ from analysis_engine.library import (
     runs_of_ones,
     shift_slice,
     shift_slices,
+    slice_duration,
     slices_and,
     slices_from_to,
     slices_not,
@@ -56,6 +55,7 @@ from analysis_engine.settings import (
     RATE_OF_TURN_FOR_FLIGHT_PHASES,
     RATE_OF_TURN_FOR_TAXI_TURNS,
     REJECTED_TAKEOFF_THRESHOLD,
+    TAKEOFF_ACCELERATION_THRESHOLD,
     VERTICAL_SPEED_FOR_CLIMB_PHASE,
     VERTICAL_SPEED_FOR_DESCENT_PHASE,
 )
@@ -1105,36 +1105,46 @@ class LandingRoll(FlightPhaseNode):
 
 class RejectedTakeoff(FlightPhaseNode):
     '''
+    Rejected Takeoff based on Acceleration Longitudinal Offset Removed exceeding
+    the TAKEOFF_ACCELERATION_THRESHOLD and not being followed by a liftoff.
     '''
     
     def derive(self, accel_lon=P('Acceleration Longitudinal Offset Removed'),
-               takeoff_accel_starts=KTI('Takeoff Acceleration Start'),
-               liftoffs=KTI('Liftoff')):
+               liftoffs=KTI('Liftoff'), groundeds=S('Grounded')):
+        accel_lon_masked = np.ma.copy(accel_lon.array)
+        accel_lon_masked.mask |= accel_lon_masked <= TAKEOFF_ACCELERATION_THRESHOLD
+        accel_lon_slices = slices_and(np.ma.clump_unmasked(accel_lon_masked),
+                                      groundeds.get_slices())
         
-        for takeoff_accel_start in takeoff_accel_starts:
-            liftoff = liftoffs.get_next(takeoff_accel_start.index)
+        for next_index, accel_lon_slice in enumerate(accel_lon_slices, start=1):
             
-            if not liftoff:
-                # Liftoff did not follow Takeoff Acceleration Start, therefore
-                # there must have been a Rejected Takeoff.
-                accel_end_index = min_value(
-                    accel_lon.array, _slice=slice(takeoff_accel_start.index,
-                                                  None)).index
-                self.create_phase(slice(takeoff_accel_start.index,
-                                        accel_end_index))
-                
+            if slice_duration(accel_lon_slice, self.frequency) <= 10:
+                # Skip short fluctuations/spikes.
                 continue
+            
+            if next_index == len(accel_lon_slices):
+                search_ahead_index = None
+            else:
+                search_ahead_index = accel_lon_slices[next_index].start
+            
+            if liftoffs.get(
+                within_slice=slice(accel_lon_slice.start, search_ahead_index)):
+                    continue
+            
+            accel_start_index = index_at_value(
+                accel_lon.array, REJECTED_TAKEOFF_THRESHOLD,
+                _slice=slice(accel_lon_slice.start, None, -1))
             
             accel_end_index = index_at_value(
                 accel_lon.array, REJECTED_TAKEOFF_THRESHOLD,
-                _slice=slice(takeoff_accel_start.index, liftoff.index))
+                _slice=slice(accel_lon_slice.start, search_ahead_index))
             
-            if not accel_end_index:
-                # Acceleration does not fall below REJECTED_TAKEOFF_THRESHOLD,
-                # therefore it is not a Rejected Takeoff.
-                continue
+            if accel_end_index is None:
+                # Do not create a Rejected Takeoff section which spans the
+                # entire flight.
+                accel_end_index = search_ahead_index
             
-            self.create_phase(slice(takeoff_accel_start.index, accel_end_index))
+            self.create_phase(slice(accel_start_index, accel_end_index))
 
 
 class Takeoff(FlightPhaseNode):
@@ -1213,9 +1223,9 @@ class TakeoffRoll(FlightPhaseNode):
         for toff in toffs:
             begin = toff.slice.start # Default if acceleration term not available.
             if acc_starts: # We don't bother with this for data validation, hence the conditional
-                for acc_start in acc_starts:
-                    if is_index_within_slice(acc_start.index, toff.slice):
-                        begin = acc_start.index
+                acc_start = acc_starts.get_last(within_slice=toff.slice)
+                if acc_start:
+                    begin = acc_start.index
             chunk = slice(begin, toff.slice.stop)
             pwo = first_order_washout(pitch.array[chunk], 3.0, pitch.frequency)
             two_deg_idx = index_at_value(pwo, 2.0)

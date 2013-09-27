@@ -344,6 +344,23 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
 
 
 ################################################################################
+# Airspeed Minus Min Manoeuver
+
+class AirspeedMinusMinManoeuver(DerivedParameterNode):
+    '''
+    Airspeed compared with Airspeed Manoeuver Minimum.
+    '''
+
+    units = 'kts'
+
+    def derive(self, airspeed=P('Airspeed'),
+               manoeuver_min=P('Airspeed Min Manoeuver')):
+        '''
+        '''
+        self.array = airspeed.array - manoeuver_min.array
+
+
+################################################################################
 # Airspeed Relative (Airspeed relative to Vapp, Vref or a fixed value.)
 
 
@@ -415,7 +432,8 @@ class AirspeedReferenceLookup(DerivedParameterNode):
                     engine=A('Engine Series'), engine_type=A('Engine Type')):
 
         try:
-            cls._get_vspeed_class(series, family, engine, engine_type)
+            cls._get_vspeed_class(series, family, engine,
+                                  engine_type)().tables['vref']
         except KeyError:
             return False
 
@@ -1808,6 +1826,19 @@ class Eng_EPRMinFor5Sec(DerivedParameterNode):
 
         #self.array = clip(eng_epr_min.array, 5.0, eng_epr_min.frequency, remove='troughs')
         self.array = second_window(eng_epr_min.array, self.frequency, 5)
+
+
+class EngTPRLimitDifference(DerivedParameterNode):
+    '''
+    '''
+
+    name = 'Eng TPR Limit Difference'
+
+    def derive(self,
+               eng_tpr_max=P('Eng (*) TPR Max'),
+               eng_tpr_limit=P('Eng TPR Limit Max')):
+        
+        self.array = eng_tpr_max.array - eng_tpr_limit.array
 
 
 class Eng_TPRMax(DerivedParameterNode):
@@ -4356,7 +4387,6 @@ class VerticalSpeedInertial(DerivedParameterNode):
                     alt_rad_repair[clump], az_repair[clump])
 
 
-
 class VerticalSpeed(DerivedParameterNode):
     '''
     The period for averaging altitude data is a trade-off between transient
@@ -4921,7 +4951,8 @@ class V2Lookup(DerivedParameterNode):
                     engine=A('Engine Series'), engine_type=A('Engine Type')):
 
         try:
-            cls._get_vspeed_class(series, family, engine, engine_type)
+            cls._get_vspeed_class(series, family, engine,
+                                  engine_type)().tables['v2']
         except KeyError:
             return False
 
@@ -4941,7 +4972,6 @@ class V2Lookup(DerivedParameterNode):
         x = map(lambda x: x.value if x else None,
                 (series, family, engine, engine_type))
         return get_vspeed_map(*x)
-        
 
     def derive(self,
                flap=M('Flap'),

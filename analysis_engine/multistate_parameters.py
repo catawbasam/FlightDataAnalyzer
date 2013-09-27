@@ -567,7 +567,7 @@ class Flap(MultistateDerivedParameterNode):
             array = round_to_nearest(flap.array, 5.0)
             flap_steps = [int(f) for f in np.ma.unique(array) if f is not np.ma.masked]
         self.values_mapping = {f: str(f) for f in flap_steps}
-        self.array = step_values(flap.array, flap_steps, 
+        self.array = step_values(repair_mask(flap.array), flap_steps, 
                                  flap.hz, step_at='move_start')
 
 
@@ -583,7 +583,8 @@ class FlapExcludingTransition(MultistateDerivedParameterNode):
     def derive(self, flap=P('Flap Angle'), 
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap)
-        self.array = step_values(flap.array, self.values_mapping.keys(),
+        self.array = step_values(repair_mask(flap.array),
+                                 self.values_mapping.keys(),
                                  flap.hz, step_at='excluding_transition')
 
 
@@ -601,7 +602,8 @@ class FlapIncludingTransition(MultistateDerivedParameterNode):
     def derive(self, flap=P('Flap Angle'), 
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap)
-        self.array = step_values(flap.array, self.values_mapping.keys(),
+        self.array = step_values(repair_mask(flap.array),
+                                 self.values_mapping.keys(),
                                  flap.hz, step_at='including_transition')
             
             
@@ -621,7 +623,8 @@ class FlapLever(MultistateDerivedParameterNode):
                series=A('Series'), family=A('Family')):
         self.values_mapping = get_flap_values_mapping(series, family, flap_lever)
         # Take the moment the flap starts to move.
-        self.array = step_values(flap_lever.array, self.values_mapping.keys(),
+        self.array = step_values(repair_mask(flap_lever.array),
+                                 self.values_mapping.keys(),
                                  flap_lever.hz, step_at='move_start')
 
 
@@ -1286,21 +1289,21 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         array = np.ma.where(handle.array >= 25.0,
                             'Deployed/Cmd Up', armed)
         return array
-
-    def b787_speedbrake(self, handle):
+    
+    @staticmethod
+    def b787_speedbrake(handle):
         '''
-        Speedbrake Handle Positions for 787, taken from early recordings. The
-        units are unknown - may be inches of transducer or degrees of handle
-        movement, but with -6.18 in the stowed position we anticipate a
-        change in this procedure.
+        Speedbrake Handle Positions for 787, taken from early recordings. 
         '''
         # Speedbrake Handle only
-        armed = np.ma.where((-4.0 < handle.array) & (handle.array < 0.0),
-                            'Armed/Cmd Dn', 'Stowed')
-        array = np.ma.where(handle.array >= 0.0,
-                            'Deployed/Cmd Up', armed)
-        return array
-
+        speedbrake = np.ma.zeros(len(handle.array))
+        stepped_array = step_values(handle.array, [0, 10, 20])
+        # Assuming all values from 15 and above are Deployed. Typically a
+        # maximum value of 60 is recorded when deployed with reverse thrust 
+        # whereas values of 30-60 are seen during the approach.
+        speedbrake[stepped_array == 10] = 1
+        speedbrake[stepped_array == 20] = 2
+        return speedbrake
 
     def derive(self,
                deployed=M('Speedbrake Deployed'),
@@ -1410,7 +1413,6 @@ class StableApproach(MultistateDerivedParameterNode):
         return all_of(deps, available) and (
             'Eng (*) N1 Min For 5 Sec' in available or \
             'Eng (*) EPR Min For 5 Sec' in available)
-        
     
     def derive(self,
                apps=S('Approach And Landing'),
@@ -1425,7 +1427,7 @@ class StableApproach(MultistateDerivedParameterNode):
                eng_epr=P('Eng (*) EPR Min For 5 Sec'),
                alt=P('Altitude AAL'),
                vapp=P('Vapp'),
-               ):
+               family=A('Family')):
       
         #Ht AAL due to
         # the altitude above airfield level corresponding to each cause
@@ -1546,7 +1548,10 @@ class StableApproach(MultistateDerivedParameterNode):
             #== 8. Engine Power (N1) ==
             self.array[_slice][stable] = 8
             # TODO: Patch this value depending upon aircraft type
-            STABLE_N1_MIN = 45  # %
+            if family and family.value == 'B787':
+                STABLE_N1_MIN = 35 # %
+            else:
+                STABLE_N1_MIN = 45  # %
             STABLE_EPR_MIN = 1.1
             eng_minimum = STABLE_EPR_MIN if eng_epr else STABLE_N1_MIN
             stable_engine = (engine >= eng_minimum)

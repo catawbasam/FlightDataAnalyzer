@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import os
 
 from math import ceil
 from flightdatautilities.geometry import midpoint
@@ -1378,6 +1377,17 @@ class AirspeedRelativeFor3Sec20FtToTouchdownMin(KeyPointValueNode):
         )
 
 
+class AirspeedMinusMinManoeuverMin(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'kt'
+
+    def derive(self, spd_rel=P('Airspeed Minus Min Manoeuver')):
+
+        self.create_kpv(*min_value(spd_rel.array))
+
+
 ########################################
 # Airspeed: Flap
 
@@ -2014,7 +2024,23 @@ class ThrustReversersDeployedDuration(KeyPointValueNode):
             else:
                 index = landing.slice.start
             self.create_kpv(index, dur_deployed)
-            
+
+
+class ThrustReversersCancelToEngStopDuration(KeyPointValueNode):
+    '''
+    Measure the duration (secs) between the thrust reversers being cancelled and
+    the engines being shutdown.
+    '''
+    units = 's'
+
+    def derive(self, tr=M('Thrust Reversers'), eng_stops=KTI('Eng Stop')):
+        cancels = find_edges_on_state_change('Deployed', tr.array,
+                                             change='leaving')
+        cancel_index = cancels[-1]
+        eng_stop_index = eng_stops.get_next(cancel_index).index
+        self.create_kpv(eng_stop_index,
+                        (eng_stop_index - cancel_index) / self.frequency)
+
 
 class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):
     '''
@@ -4864,10 +4890,34 @@ class EngTPRDuringTakeoff5MinRatingMax(KeyPointValueNode):
     units = '%'
 
     def derive(self,
-               eng_tpr_max=P('Eng (*) TPR Max'),
+               eng_tpr_limit=P('Eng TPR Limit Difference'),
                ratings=S('Takeoff 5 Min Rating')):
 
-        self.create_kpvs_within_slices(eng_tpr_max.array, ratings, max_value)
+        self.create_kpvs_within_slices(eng_tpr_limit.array, ratings, max_value)
+
+
+#class EngTPRLimitDifferenceDuringTakeoffMax(KeyPointValueNode):
+    #'''
+    #'''
+    
+    #name = 'Eng TPR Limit Difference During Takeoff Max'
+    
+    #def derive(self, tpr_limit_diff=P('Eng TPR Limit Difference'),
+               #takeoffs=P('Takeoff')):
+        #self.create_kpvs_within_slices(tpr_limit_diff.array, takeoffs,
+                                       #max_value)
+
+
+#class EngTPRLimitDifferenceDuringGoAroundMax(KeyPointValueNode):
+    #'''
+    #'''
+    
+    #name = 'Eng TPR Limit Difference During Go Around Max'
+    
+    #def derive(self, tpr_limit_diff=P('Eng TPR Limit Difference'),
+               #go_arounds=P('Go Around')):
+        #self.create_kpvs_within_slices(tpr_limit_diff.array, go_arounds,
+                                       #max_value)
 
 
 class EngEPRDuringGoAround5MinRatingMax(KeyPointValueNode):
@@ -4892,10 +4942,10 @@ class EngTPRDuringGoAround5MinRatingMax(KeyPointValueNode):
     units = '%'
 
     def derive(self,
-               eng_tpr_max=P('Eng (*) TPR Max'),
+               eng_tpr_limit=P('Eng TPR Limit Difference'),
                ratings=S('Go Around 5 Min Rating')):
 
-        self.create_kpvs_within_slices(eng_tpr_max.array, ratings, max_value)
+        self.create_kpvs_within_slices(eng_tpr_limit.array, ratings, max_value)
 
 
 class EngEPRDuringMaximumContinuousPowerMax(KeyPointValueNode):
@@ -4917,6 +4967,8 @@ class EngEPRDuringMaximumContinuousPowerMax(KeyPointValueNode):
 
 class EngTPRDuringMaximumContinuousPowerMax(KeyPointValueNode):
     '''
+    Originally coded for 787, but the event has been disabled since it lacks a
+    limit.
     '''
 
     name = 'Eng TPR During Maximum Continuous Power Max'
@@ -5028,6 +5080,8 @@ class EngEPRAtTOGADuringTakeoffMax(KeyPointValueNode):
 
 class EngTPRAtTOGADuringTakeoffMin(KeyPointValueNode):
     '''
+    Originally coded for 787, but the event has been disabled since it lacks a
+    limit.
     '''
 
     name = 'Eng TPR At TOGA During Takeoff Min'
@@ -9320,6 +9374,33 @@ class ZeroFuelWeight(KeyPointValueNode):
                gross_wgt=P('Gross Weight')):
 
         self.create_kpv(0, np.ma.median(gross_wgt.array - fuel_qty.array))
+
+
+class GrossWeightDelta60SecondsInFlightMax(KeyPointValueNode):
+    """
+    Measure the maximum change of gross weight over a one minute window. This is
+    primarily to detect manual adjustments of the aircraft gross wieght during
+    the flight by the crew. In order to capture lots of little adjustments
+    together, a one minute window is used.
+    """
+    units = 'kg'
+    align_frequency = 1  #force to 1Hz for 60 second measurements
+    
+    def derive(self, gross_weight=P('Gross Weight'), airborne=S('Airborne')):
+        # use the recorded un-smoothed gross weight measurements
+        gw_repaired = repair_mask(gross_weight.array)
+        weight_diff = np.ma.ediff1d(gw_repaired[::60])
+        for in_air in airborne:
+            # working in 60th samples
+            in_air_start = (in_air.slice.start / 60.0) if in_air.slice.start else None
+            in_air_stop = (in_air.slice.stop / 60.0) if in_air.slice.stop else None
+            in_air_slice = slice(in_air_start, in_air_stop)
+            max_diff = max_abs_value(weight_diff, _slice=in_air_slice)
+            # narrow down the index to the maximum change in this region of flight
+            max_diff_slice = slice(max_diff.index * 60,
+                                   (max_diff.index + 1) * 60)
+            index, _ = max_abs_value(gw_repaired, _slice=max_diff_slice)
+            self.create_kpv(index, max_diff.value)
 
 
 ##############################################################################

@@ -66,6 +66,7 @@ from analysis_engine.key_point_values import (
     AirspeedGustsDuringFinalApproach,
     AirspeedDuringLevelFlightMax,
     AirspeedMax,
+    AirspeedMinusMinManoeuverMin,
     AirspeedMinusV235To1000FtMax,
     AirspeedMinusV235To1000FtMin,
     AirspeedMinusV2For3Sec35To1000FtMax,
@@ -159,8 +160,6 @@ from analysis_engine.key_point_values import (
     EngEPRFor5Sec1000To500FtMin,
     EngEPRFor5Sec500To50FtMin,
     EngEPRAtTOGADuringTakeoffMax,
-    EngTPRAtTOGADuringTakeoffMin,
-    EngTPRDuringTakeoff5MinRatingMax,
     EngFireWarningDuration,
     EngGasTempDuringTakeoff5MinRatingMax,
     EngGasTempDuringGoAround5MinRatingMax,
@@ -209,6 +208,11 @@ from analysis_engine.key_point_values import (
     EngTorqueDuringMaximumContinuousPowerMax,
     EngTorque500To50FtMax,
     EngTorque500To50FtMin,
+    EngTPRAtTOGADuringTakeoffMin,
+    EngTPRDuringGoAround5MinRatingMax,
+    EngTPRDuringTakeoff5MinRatingMax,
+    #EngTPRLimitDifferenceDuringGoAroundMax,
+    #EngTPRLimitDifferenceDuringTakeoffMax,
     EngVibBroadbandMax,
     EngVibN1Max,
     EngVibN2Max,
@@ -236,6 +240,7 @@ from analysis_engine.key_point_values import (
     GroundspeedVacatingRunway,
     GrossWeightAtLiftoff,
     GrossWeightAtTouchdown,
+    GrossWeightDelta60SecondsInFlightMax,
     HeadingDuringLanding,
     HeadingTrueDuringLanding,
     HeadingAtLowestAltitudeDuringApproach,
@@ -371,6 +376,7 @@ from analysis_engine.key_point_values import (
     ThrustAsymmetryWithThrustReversersDeployedMax,
     ThrustAsymmetryDuringApproachDuration,
     ThrustAsymmetryWithThrustReversersDeployedDuration,
+    ThrustReversersCancelToEngStopDuration,
     TouchdownTo60KtsDuration,
     TouchdownToElevatorDownDuration,
     TouchdownToThrustReversersDeployedDuration,
@@ -664,11 +670,11 @@ class CreateKPVsWithinSlicesTest(NodeTest):
         node.derive(mock1, mock2)
         if hasattr(self, 'second_param_method_calls'):
             mock3.assert_called_once_with(*self.second_param_method_calls[0][1])
-            node.create_kpvs_within_slices.assert_called_once_with(\
+            node.create_kpvs_within_slices.assert_called_once_with(
                 mock1.array, mock3.return_value, self.function)
         else:
             self.assertEqual(mock2.method_calls, [])
-            node.create_kpvs_within_slices.assert_called_once_with(\
+            node.create_kpvs_within_slices.assert_called_once_with(
                 mock1.array, mock2, self.function)
 
 
@@ -1549,6 +1555,14 @@ class TestAirspeedMinusV2For3Sec35To1000FtMin(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
+
+class TestAirspeedMinusMinManoeuverMin(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = AirspeedMinusMinManoeuverMin
+        self.operational_combinations = [('Airspeed Minus Min Manoeuver',)]
+
+
 ########################################
 # Airspeed: Relative
 
@@ -2297,6 +2311,24 @@ class TestThrustReversersDeployedDuration(unittest.TestCase):
         self.assertEqual(len(dur), 1)
         self.assertEqual(dur[0].index, 5)
         self.assertEqual(dur[0].value, 10)
+
+
+class TestThrustReversersCancelToEngStopDuration(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = ThrustReversersCancelToEngStopDuration
+        self.operational_combinations = [('Thrust Reversers', 'Eng Stop')]
+        
+    def test_derive(self):
+        thrust_reversers = load(os.path.join(
+            test_data_path,
+            'ThrustReversersCancelToEngStopDuration_ThrustReversers_1.nod'))
+        eng_stop = load(os.path.join(
+            test_data_path,
+            'ThrustReversersCancelToEngStopDuration_EngStop_1.nod'))
+        node = ThrustReversersCancelToEngStopDuration()
+        node.derive(thrust_reversers, eng_stop)
+        self.assertEqual(node, [KeyPointValue(2920.60546875, 267.10546875, 'Thrust Reversers Cancel To Eng Stop Duration')])
 
 
 class TestTouchdownToThrustReversersDeployedDuration(unittest.TestCase, NodeTest):
@@ -4158,15 +4190,52 @@ class TestEngTPRAtTOGADuringTakeoffMin(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestEngTPRDuringTakeoff5MinRatingMax(unittest.TestCase, NodeTest):
+class TestEngTPRDuringTakeoff5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
     
     def setUp(self):
         self.node_class = EngTPRDuringTakeoff5MinRatingMax
-        self.operational_combinations = [('Eng (*) TPR Max', 'Takeoff 5 Min Rating')]
+        self.operational_combinations = [('Eng TPR Limit Difference', 'Takeoff 5 Min Rating')]
+        self.function = max_value
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestEngTPRDuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    
+    def setUp(self):
+        self.node_class = EngTPRDuringGoAround5MinRatingMax
+        self.operational_combinations = [('Eng TPR Limit Difference', 'Go Around 5 Min Rating')]
+        self.function = max_value
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test Not Implemented')
+
+
+#class TestEngTPRLimitDifferenceDuringTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    
+    #def setUp(self):
+        #self.node_class = EngTPRLimitDifferenceDuringTakeoffMax
+        #self.operational_combinations = [('Eng TPR Limit Difference', 'Takeoff')]
+        #self.function = max_value
+    
+    #@unittest.skip('Test Not Implemented')
+    #def test_derive(self):
+        #self.assertTrue(False, msg='Test Not Implemented')
+
+
+#class TestEngTPRLimitDifferenceDuringGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    
+    #def setUp(self):
+        #self.node_class = EngTPRLimitDifferenceDuringGoAroundMax
+        #self.operational_combinations = [('Eng TPR Limit Difference', 'Go Around')]
+        #self.function = max_value
+    
+    #@unittest.skip('Test Not Implemented')
+    #def test_derive(self):
+        #self.assertTrue(False, msg='Test Not Implemented')
 
 
 ##############################################################################
@@ -8059,6 +8128,38 @@ class TestGrossWeightAtTouchdown(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+class TestGrossWeightDelta60SecondsInFlightMax(unittest.TestCase):
+    
+    def test_can_operate(self):
+        opts = GrossWeightDelta60SecondsInFlightMax.get_operational_combinations()
+        self.assertEqual(opts, [('Gross Weight', 'Airborne')])
+        
+    def test_gross_weight_delta_superframe(self):
+        # simulate a superframe recorded parameter
+        weight = P('Gross Weight', [-10,2,3,4,6,7,8],
+                   frequency=1/64.0)
+        airborne = buildsection('Airborne', 100, None)
+        gwd = GrossWeightDelta60SecondsInFlightMax()
+        gwd.get_derived([weight, airborne])
+        self.assertEqual(len(gwd), 1)
+        self.assertEqual(gwd[0].index, 239)
+        self.assertEqual(gwd[0].value, 1.6875)
+    
+    def test_gross_weight_delta_1hz(self):
+        # simulate a superframe recorded parameter
+        weight = P('Gross Weight', np.ma.repeat([-10,2,3,4,6,7,8,9,10,11,12,13,
+                                                 14,15,16,17,18,19,20,21,22,23,
+                                                 24,25,26,27,28,29,30], 11),
+                   frequency=1)
+        airborne = buildsection('Airborne', 100, None)
+        gwd = GrossWeightDelta60SecondsInFlightMax()
+        gwd.get_derived([weight, airborne])
+        self.assertEqual(len(gwd), 1)
+        self.assertEqual(gwd[0].index, 176)
+        self.assertEqual(gwd[0].value, 6)
+
 
 
 class TestZeroFuelWeight(unittest.TestCase, NodeTest):

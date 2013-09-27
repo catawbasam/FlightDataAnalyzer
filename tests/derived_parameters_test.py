@@ -50,6 +50,7 @@ from analysis_engine.derived_parameters import (
     Aileron,
     AimingPointRange,
     AirspeedForFlightPhases,
+    AirspeedMinusMinManoeuver,
     AirspeedMinusV2,
     AirspeedMinusV2For3Sec,
     AirspeedReference,
@@ -107,6 +108,7 @@ from analysis_engine.derived_parameters import (
     Eng_2_FuelBurn,
     Eng_3_FuelBurn,
     Eng_4_FuelBurn,
+    EngTPRLimitDifference,
     FlapAngle,
     FuelQty,
     GrossWeightSmoothed,
@@ -2688,6 +2690,13 @@ class TestV2Lookup(unittest.TestCase):
             family=Attribute('Family', 'B737'),
         ))
         self.assertFalse(V2Lookup.can_operate(
+            ('Airspeed', 'Flap', 'Liftoff', 'Gross Weight At Liftoff'),
+            series=Attribute('Series', 'B787-8'),
+            family=Attribute('Family', 'B787'),
+            engine=Attribute('Engine Series', 'Trent 1000'),
+            engine_type=Attribute('Engine Type', 'Trent 1000-A'),
+        ))
+        self.assertFalse(V2Lookup.can_operate(
             ('Airspeed', 'Flap', 'Liftoff'),
             series=Attribute('Series', 'B737-300'),
             family=Attribute('Family', 'B737'),
@@ -2888,11 +2897,21 @@ class TestAileronTrim(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestAirspeedMinusMinManoeuver(unittest.TestCase):
+    def test_can_operate(self):
+        opts = AirspeedMinusMinManoeuver.get_operational_combinations()
+        self.assertEqual(opts, [('Airspeed', 'Airspeed Min Manoeuver',)])
+    
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
 class TestAirspeedMinusV2For3Sec(unittest.TestCase):
     def test_can_operate(self):
         opts = AirspeedMinusV2For3Sec.get_operational_combinations()
         self.assertEqual(opts, [('Airspeed Minus V2',)])
-        
+    
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
@@ -3362,6 +3381,28 @@ class TestEng_VibCMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestEngTPRLimitDifference(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(EngTPRLimitDifference.get_operational_combinations(),
+                         [('Eng (*) TPR Max', 'Eng TPR Limit Max')])
+    
+    def test_derive_basic(self):
+        eng_tpr_max_array = np.ma.concatenate([
+            np.ma.arange(0, 150, 10), np.ma.arange(150, 0, -10)])
+        eng_tpr_limit_array = np.ma.concatenate([
+            np.ma.arange(10, 110, 10), [110] * 10, np.ma.arange(110, 10, -10)])
+        eng_tpr_max = P('Eng (*) TPR Max', array=eng_tpr_max_array)
+        eng_tpr_limit = P('Eng (*) TPR Limit Max', array=eng_tpr_limit_array)
+        node = EngTPRLimitDifference()
+        node.derive(eng_tpr_max, eng_tpr_limit)
+        expected = [0] * 5
+        self.assertEqual(
+            node.array.tolist(),
+            [-10, -10, -10, -10, -10, -10, -10, -10, -10, -10, -10, 0, 10, 20,
+             30, 40, 30, 20, 10, 0, -10, -10, -10, -10, -10, -10, -10, -10, -10,
+             -10])
+
+
 class TestFlapAngle(unittest.TestCase, NodeTest):
 
     def setUp(self):
@@ -3598,7 +3639,7 @@ class TestMagneticVariationFromRunway(unittest.TestCase):
         # landing index to end
         self.assertAlmostEqual(mag_var_rwy.array[213], -5.84060605)
         self.assertAlmostEqual(mag_var_rwy.array[-1], -5.84060605)
-        
+
 
 class TestPitchRate(unittest.TestCase):
     @unittest.skip('Test Not Implemented')
