@@ -23,6 +23,7 @@ from analysis_engine.library import (
     runs_of_ones,
     shift_slice,
     shift_slices,
+    slice_duration,
     slices_and,
     slices_from_to,
     slices_not,
@@ -1113,6 +1114,10 @@ class RejectedTakeoff(FlightPhaseNode):
         
         for next_index, accel_lon_slice in enumerate(accel_lon_slices, start=1):
             
+            if slice_duration(accel_lon_slice, self.frequency) <= 10:
+                # Skip short fluctuations/spikes.
+                continue
+            
             if next_index == len(accel_lon_slices):
                 search_ahead_index = None
             else:
@@ -1129,6 +1134,11 @@ class RejectedTakeoff(FlightPhaseNode):
             accel_end_index = index_at_value(
                 accel_lon.array, REJECTED_TAKEOFF_THRESHOLD,
                 _slice=slice(accel_lon_slice.start, search_ahead_index))
+            
+            if accel_end_index is None:
+                # Do not create a Rejected Takeoff section which spans the
+                # entire flight.
+                accel_end_index = search_ahead_index
             
             self.create_phase(slice(accel_start_index, accel_end_index))
 

@@ -1319,6 +1319,8 @@ class TestRejectedTakeoff(unittest.TestCase):
         grounded = buildsections('Grounded', [0,18], [23,None])
         
         node = RejectedTakeoff()
+        # Set a low frequency to pass slice duration checks.
+        node.frequency = 1/64.0
         node.derive(accel_lon, liftoffs, grounded)
         self.assertEqual(
             node,
@@ -1339,7 +1341,7 @@ class TestRejectedTakeoff(unittest.TestCase):
         self.assertEqual(node, [
             Section('Rejected Takeoff', slice(3582.7593855932205, 3659.7849830508476, None), 3582.7593855932205, 3659.7849830508476)])
     
-    def test_derive_flight_without_rejected_takeoff(self):
+    def test_derive_flight_without_rejected_takeoff_1(self):
         accel_lon = load(os.path.join(
             test_data_path,
             'RejectedTakeoff_AccelerationLongitudinalOffsetRemoved_1.nod'))
@@ -1347,6 +1349,18 @@ class TestRejectedTakeoff(unittest.TestCase):
                                      'RejectedTakeoff_Liftoff_1.nod'))
         grounded = load(os.path.join(test_data_path,
                                      'RejectedTakeoff_Grounded_1.nod'))
+        node = RejectedTakeoff()
+        node.derive(accel_lon, liftoffs, grounded)
+        self.assertEqual(node, [])
+    
+    def test_derive_flight_without_rejected_takeoff_2(self):
+        accel_lon = load(os.path.join(
+            test_data_path,
+            'RejectedTakeoff_AccelerationLongitudinalOffsetRemoved_3.nod'))
+        liftoffs = load(os.path.join(test_data_path,
+                                     'RejectedTakeoff_Liftoff_3.nod'))
+        grounded = load(os.path.join(test_data_path,
+                                     'RejectedTakeoff_Grounded_3.nod'))
         node = RejectedTakeoff()
         node.derive(accel_lon, liftoffs, grounded)
         self.assertEqual(node, [])
