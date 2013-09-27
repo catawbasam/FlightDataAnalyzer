@@ -357,7 +357,7 @@ class AirspeedMinusMinManoeuver(DerivedParameterNode):
                manoeuver_min=P('Airspeed Min Manoeuver')):
         '''
         '''
-        return airspeed.array - manoeuver_min.array
+        self.array = airspeed.array - manoeuver_min.array
 
 
 ################################################################################
