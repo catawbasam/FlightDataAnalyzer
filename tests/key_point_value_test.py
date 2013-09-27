@@ -66,6 +66,7 @@ from analysis_engine.key_point_values import (
     AirspeedGustsDuringFinalApproach,
     AirspeedDuringLevelFlightMax,
     AirspeedMax,
+    AirspeedMinusMinManoeuverMin,
     AirspeedMinusV235To1000FtMax,
     AirspeedMinusV235To1000FtMin,
     AirspeedMinusV2For3Sec35To1000FtMax,
@@ -1551,6 +1552,14 @@ class TestAirspeedMinusV2For3Sec35To1000FtMin(unittest.TestCase, NodeTest):
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
+
+
+
+class TestAirspeedMinusMinManoeuverMin(unittest.TestCase, NodeTest):
+    
+    def setUp(self):
+        self.node_class = AirspeedMinusMinManoeuverMin
+        self.operational_combinations = [('Airspeed Minus Min Manoeuver',)]
 
 
 ########################################
