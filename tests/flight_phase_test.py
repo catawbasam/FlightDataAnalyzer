@@ -1364,18 +1364,6 @@ class TestRejectedTakeoff(unittest.TestCase):
         node = RejectedTakeoff()
         node.derive(accel_lon, liftoffs, grounded)
         self.assertEqual(node, [])
-    
-    #def test_derive(self):
-        #accel_lon = P('Acceleration Longitudinal Offset Removed',
-                      #)
-        #takeoff_accel_starts = 
-        #liftoffs = KTI('Liftoff',
-                       #items=[KeyTimeInstance(5448.578125, 'Liftoff')])
-        #node = RejectedTakeoff()
-        #self.assertEqual(
-            #node,
-            #[],
-        #)
 
 
 class TestTakeoff(unittest.TestCase):

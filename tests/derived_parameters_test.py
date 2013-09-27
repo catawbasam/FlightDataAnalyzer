@@ -2690,6 +2690,13 @@ class TestV2Lookup(unittest.TestCase):
             family=Attribute('Family', 'B737'),
         ))
         self.assertFalse(V2Lookup.can_operate(
+            ('Airspeed', 'Flap', 'Liftoff', 'Gross Weight At Liftoff'),
+            series=Attribute('Series', 'B787-8'),
+            family=Attribute('Family', 'B787'),
+            engine=Attribute('Engine Series', 'Trent 1000'),
+            engine_type=Attribute('Engine Type', 'Trent 1000-A'),
+        ))
+        self.assertFalse(V2Lookup.can_operate(
             ('Airspeed', 'Flap', 'Liftoff'),
             series=Attribute('Series', 'B737-300'),
             family=Attribute('Family', 'B737'),

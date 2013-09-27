@@ -432,7 +432,8 @@ class AirspeedReferenceLookup(DerivedParameterNode):
                     engine=A('Engine Series'), engine_type=A('Engine Type')):
 
         try:
-            cls._get_vspeed_class(series, family, engine, engine_type)
+            cls._get_vspeed_class(series, family, engine,
+                                  engine_type)().tables['vref']
         except KeyError:
             return False
 
@@ -4942,7 +4943,8 @@ class V2Lookup(DerivedParameterNode):
                     engine=A('Engine Series'), engine_type=A('Engine Type')):
 
         try:
-            cls._get_vspeed_class(series, family, engine, engine_type)
+            cls._get_vspeed_class(series, family, engine,
+                                  engine_type)().tables['v2']
         except KeyError:
             return False
 
@@ -4962,7 +4964,6 @@ class V2Lookup(DerivedParameterNode):
         x = map(lambda x: x.value if x else None,
                 (series, family, engine, engine_type))
         return get_vspeed_map(*x)
-        
 
     def derive(self,
                flap=M('Flap'),
