@@ -1025,6 +1025,8 @@ class TestStableApproach(unittest.TestCase):
             ('Approach And Landing', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Airspeed Relative For 3 Sec', 'Vertical Speed', 'Eng (*) N1 Min For 5 Sec', 'Altitude AAL'),
             # using EPR and exc. Airspeed Relative
             ('Approach And Landing', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) EPR Min For 5 Sec', 'Altitude AAL', 'Vapp'),
+            # including Family attribute
+            ('Approach And Landing', 'Gear Down', 'Flap', 'Track Deviation From Runway', 'Vertical Speed', 'ILS Glideslope', 'ILS Localizer', 'Eng (*) EPR Min For 5 Sec', 'Altitude AAL', 'Vapp', 'Family'),
         ]
         for combo in combinations:
             self.assertIn(combo, opts)

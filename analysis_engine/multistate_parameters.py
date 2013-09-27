@@ -1413,7 +1413,6 @@ class StableApproach(MultistateDerivedParameterNode):
         return all_of(deps, available) and (
             'Eng (*) N1 Min For 5 Sec' in available or \
             'Eng (*) EPR Min For 5 Sec' in available)
-        
     
     def derive(self,
                apps=S('Approach And Landing'),
@@ -1428,7 +1427,7 @@ class StableApproach(MultistateDerivedParameterNode):
                eng_epr=P('Eng (*) EPR Min For 5 Sec'),
                alt=P('Altitude AAL'),
                vapp=P('Vapp'),
-               ):
+               family=A('Family')):
       
         #Ht AAL due to
         # the altitude above airfield level corresponding to each cause
@@ -1549,7 +1548,10 @@ class StableApproach(MultistateDerivedParameterNode):
             #== 8. Engine Power (N1) ==
             self.array[_slice][stable] = 8
             # TODO: Patch this value depending upon aircraft type
-            STABLE_N1_MIN = 45  # %
+            if family and family.value == 'B787':
+                STABLE_N1_MIN = 35 # %
+            else:
+                STABLE_N1_MIN = 45  # %
             STABLE_EPR_MIN = 1.1
             eng_minimum = STABLE_EPR_MIN if eng_epr else STABLE_N1_MIN
             stable_engine = (engine >= eng_minimum)
