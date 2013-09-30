@@ -448,6 +448,80 @@ class TestEng_Fire(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
+class TestEng_AllRunning(unittest.TestCase, NodeTest):
+    def setUp(self):
+        from analysis_engine.multistate_parameters import Eng_AllRunning
+
+        self.node_class = Eng_AllRunning
+        self.operational_combinations = [
+            ('Eng (*) N2 Min',), ('Eng (*) Fuel Flow Min',),
+            ('Eng (*) N2 Min', 'Eng (*) Fuel Flow Min'),
+        ]
+
+    def test_derive_n2_only(self):
+        n2_array = np.ma.array([0, 5, 10, 15, 11, 5, 0])
+        n2 = P('Eng (*) N2 Min', array=n2_array)
+        expected = [False, False, False, True, True, False, False]
+        node = self.node_class()
+        node.derive(n2, None)
+        self.assertEqual(node.array.raw.tolist(), expected)
+
+    def test_derive_ff_only(self):
+        ff_array = np.ma.array([10, 20, 50, 55, 51, 15, 10])
+        ff = P('Eng (*) Fuel Flow Min', array=ff_array)
+        expected = [False, False, False, True, True, False, False]
+        node = self.node_class()
+        node.derive(None, ff)
+        self.assertEqual(node.array.raw.tolist(), expected)
+
+    def test_derive_n2_ff(self):
+        n2_array = np.ma.array([0, 5, 11, 15, 11, 5, 0])
+        n2 = P('Eng (*) N2 Min', array=n2_array)
+        ff_array = np.ma.array([10, 20, 50, 55, 51, 51, 10])
+        ff = P('Eng (*) Fuel Flow Min', array=ff_array)
+        expected = [False, False, False, True, True, False, False]
+        node = self.node_class()
+        node.derive(n2, ff)
+        self.assertEqual(node.array.raw.tolist(), expected)
+
+
+class TestEng_AnyRunning(unittest.TestCase, NodeTest):
+    def setUp(self):
+        from analysis_engine.multistate_parameters import Eng_AnyRunning
+
+        self.node_class = Eng_AnyRunning
+        self.operational_combinations = [
+            ('Eng (*) N2 Max',), ('Eng (*) Fuel Flow Max',),
+            ('Eng (*) N2 Max', 'Eng (*) Fuel Flow Max'),
+        ]
+
+    def test_derive_n2_only(self):
+        n2_array = np.ma.array([0, 5, 10, 15, 11, 5, 0])
+        n2 = P('Eng (*) N2 Max', array=n2_array)
+        expected = [False, False, False, True, True, False, False]
+        node = self.node_class()
+        node.derive(n2, None)
+        self.assertEqual(node.array.raw.tolist(), expected)
+
+    def test_derive_ff_only(self):
+        ff_array = np.ma.array([10, 20, 50, 55, 51, 15, 10])
+        ff = P('Eng (*) Fuel Flow Max', array=ff_array)
+        expected = [False, False, False, True, True, False, False]
+        node = self.node_class()
+        node.derive(None, ff)
+        self.assertEqual(node.array.raw.tolist(), expected)
+
+    def test_derive_n2_ff(self):
+        n2_array = np.ma.array([0, 5, 11, 15, 11, 5, 0])
+        n2 = P('Eng (*) N2 Max', array=n2_array)
+        ff_array = np.ma.array([10, 20, 50, 55, 51, 51, 10])
+        ff = P('Eng (*) Fuel Flow Max', array=ff_array)
+        expected = [False, False, False, True, True, False, False]
+        node = self.node_class()
+        node.derive(n2, ff)
+        self.assertEqual(node.array.raw.tolist(), expected)
+
+
 class TestEngThrustModeRequired(unittest.TestCase):
     def test_can_operate(self):
         opts = EngThrustModeRequired.get_operational_combinations()

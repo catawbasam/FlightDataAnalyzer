@@ -3267,7 +3267,12 @@ class FlapAngle(DerivedParameterNode):
             previous_state = current_state
         slat_interp = interp1d(slat_interp_x, slat_interp_y)
         flap_interp = interp1d(flap_interp_x, flap_interp_y)
-        return slat_interp(slat_array) + flap_interp(flap_array)
+        # Exclude masked values which may be outside of the interpolation range.
+        slat_unmasked = np.invert(np.ma.getmaskarray(slat_array))
+        flap_unmasked = np.invert(np.ma.getmaskarray(flap_array))
+        slat_array[slat_unmasked] = slat_interp(slat_array[slat_unmasked])
+        flap_array[flap_unmasked] = flap_interp(flap_array[flap_unmasked])
+        return slat_array + flap_array
 
     def derive(self,
                flap_A=P('Flap Angle (L)'),

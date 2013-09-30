@@ -446,6 +446,36 @@ class Eng_AllRunning(MultistateDerivedParameterNode):
         self.array = n2_running & fuel_flowing
 
 
+class Eng_AnyRunning(MultistateDerivedParameterNode):
+    '''
+    Discrete parameter describing when any engines are running.
+
+    This is useful with 'Eng (*) All Running' to detect if not all engines are
+    running.
+    '''
+    name = 'Eng (*) Any Running'
+    values_mapping = {
+        0: 'Not Running',
+        1: 'Running',
+    }
+
+    @classmethod
+    def can_operate(cls, available):
+        return 'Eng (*) N2 Max' in available or \
+               'Eng (*) Fuel Flow Max' in available
+
+    def derive(self,
+               eng_n2=P('Eng (*) N2 Max'),
+               fuel_flow=P('Eng (*) Fuel Flow Max')):
+        # TODO: move values to settings
+        n2_running = eng_n2.array > 10 if eng_n2 \
+            else np.ones_like(fuel_flow.array, dtype=bool)
+        fuel_flowing = fuel_flow.array > 50 if fuel_flow \
+            else np.ones_like(eng_n2.array, dtype=bool)
+        # must have N2 and Fuel Flow if both are available
+        self.array = n2_running & fuel_flowing
+
+
 class EngThrustModeRequired(MultistateDerivedParameterNode):
     '''
     Combines Eng Thrust Mode Required parameters.
@@ -1017,7 +1047,6 @@ class PackValvesOpen(MultistateDerivedParameterNode):
     Integer representation of the combined pack configuration.
     '''
 
-    align = False
     name = 'Pack Valves Open'
 
     values_mapping = {
@@ -1036,11 +1065,11 @@ class PackValvesOpen(MultistateDerivedParameterNode):
         return all_of(['ECS Pack (1) On', 'ECS Pack (2) On' ], available)
 
     def derive(self,
-            p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
-            p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
+            p1=M('ECS Pack (1) On'), p1h=M('ECS Pack (1) High Flow'),
+            p2=M('ECS Pack (2) On'), p2h=M('ECS Pack (2) High Flow')):
         '''
         '''
-        # TODO: account properly for states/frame speciffic fixes
+        # TODO: account properly for states/frame specific fixes
         # Sum the open engines, allowing 1 for low flow and 1+1 for high flow
         # each side.
         flow = p1.array.raw + p2.array.raw

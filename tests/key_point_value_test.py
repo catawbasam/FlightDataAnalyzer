@@ -4316,6 +4316,63 @@ class TestEngShutdownDuringFlightDuration(unittest.TestCase, NodeTest):
 
 
 ##############################################################################
+
+
+class TestSingleEngineDuringTaxiInDuration(unittest.TestCase, NodeTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            SingleEngineDuringTaxiInDuration
+
+        self.node_class = SingleEngineDuringTaxiInDuration
+
+        self.operational_combinations = [
+            ('Eng (*) All Running', 'Eng (*) Any Running', 'Taxi In')]
+
+    def test_derive(self):
+        any_eng_array = np.ma.array([0, 0, 1, 1, 1, 1, 1])
+        any_eng = P('Eng (*) Any Running', array=any_eng_array)
+        all_eng_array = np.ma.array([0, 0, 0, 0, 0, 1, 1])
+        all_eng = P('Eng (*) All Running', array=all_eng_array)
+        taxi_in = S(items=[Section('Taxi In', slice(1, 6), 1, 6)])
+        node = self.node_class()
+        node.derive(all_eng, any_eng, taxi_in)
+        expected = KPV(
+            'Single Engine During Taxi In Duration',
+            items=[KeyPointValue(
+                index=2.0, value=3.0,
+                name='Single Engine During Taxi In Duration')]
+        )
+        self.assertEqual(node, expected)
+
+
+class TestSingleEngineDuringTaxiOutDuration(unittest.TestCase, NodeTest):
+    def setUp(self):
+        from analysis_engine.key_point_values import \
+            SingleEngineDuringTaxiOutDuration
+
+        self.node_class = SingleEngineDuringTaxiOutDuration
+
+        self.operational_combinations = [
+            ('Eng (*) All Running', 'Eng (*) Any Running', 'Taxi Out')]
+
+    def test_derive(self):
+        any_eng_array = np.ma.array([0, 0, 1, 1, 1, 1, 1])
+        any_eng = P('Eng (*) Any Running', array=any_eng_array)
+        all_eng_array = np.ma.array([0, 0, 0, 0, 0, 1, 1])
+        all_eng = P('Eng (*) All Running', array=all_eng_array)
+        taxi_out = S(items=[Section('Taxi Out', slice(1, 6), 1, 6)])
+        node = self.node_class()
+        node.derive(all_eng, any_eng, taxi_out)
+        expected = KPV(
+            'Single Engine During Taxi Out Duration',
+            items=[KeyPointValue(
+                index=2.0, value=3.0,
+                name='Single Engine During Taxi Out Duration')]
+        )
+        self.assertEqual(node, expected)
+
+
+##############################################################################
 # Engine Gas Temperature
 
 
@@ -8162,7 +8219,6 @@ class TestGrossWeightDelta60SecondsInFlightMax(unittest.TestCase):
         self.assertEqual(len(gwd), 1)
         self.assertEqual(gwd[0].index, 176)
         self.assertEqual(gwd[0].value, 6)
-
 
 
 class TestZeroFuelWeight(unittest.TestCase, NodeTest):
