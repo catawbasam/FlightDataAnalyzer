@@ -3815,18 +3815,26 @@ class CoordinatesSmoothed(object):
         for approach in approaches:
 
             this_app_slice = approach.slice
+            
+            tdwn_index = None
+            for tdwn in tdwns:
+                if not is_index_within_slice(tdwn.index, this_app_slice):
+                    continue
+                else:
+                    tdwn_index = tdwn.index
 
             runway = approach.runway
             if not runway:
                 continue
 
-            if approach.loc_est:
+            # We only refine the approach track if the aircraft lands off the localizer based approach.
+            if approach.loc_est and is_index_within_slice(tdwn_index, approach.loc_est):
                 this_loc_slice = approach.loc_est
 
                 # Adjust the ils data to be degrees from the reference point.
                 scale = localizer_scale(runway)
-                bearings = ils_loc.array[this_loc_slice] * scale + \
-                    runway_heading(runway)+180
+                bearings = (ils_loc.array[this_loc_slice] * scale + \
+                            runway_heading(runway)+180.0)%360.0
 
                 if precise:
 
@@ -3902,24 +3910,24 @@ class CoordinatesSmoothed(object):
                     #    coordinates if it drops below a certain altitude as
                     #    this will be more accurate than low precision
                     #    positioning equipment.
-                    for tdwn in tdwns:
-                        if not is_index_within_slice(tdwn.index, this_app_slice):
-                            continue
+                    
+                    if not tdwn_index:
+                        continue
 
-                        # Adjust distance units
-                        distance = np.ma.array([value_at_index(app_range.array, tdwn.index)])
-                        bearing = np.ma.array([(runway_heading(runway)+180)%360.0])
-                        # Reference point for visual approaches is the runway end.
-                        ref_point = runway['end']
+                    # Adjust distance units
+                    distance = np.ma.array([value_at_index(app_range.array, tdwn_index)])
+                    bearing = np.ma.array([(runway_heading(runway)+180)%360.0])
+                    # Reference point for visual approaches is the runway end.
+                    ref_point = runway['end']
 
-                        # Work out the touchdown point
-                        lat_tdwn, lon_tdwn = latitudes_and_longitudes \
-                            (bearing, distance, ref_point)
+                    # Work out the touchdown point
+                    lat_tdwn, lon_tdwn = latitudes_and_longitudes \
+                        (bearing, distance, ref_point)
 
-                        lat_err = value_at_index(lat.array, tdwn.index) - lat_tdwn
-                        lon_err = value_at_index(lon.array, tdwn.index) - lon_tdwn
-                        lat_adj[this_app_slice] = lat.array[this_app_slice] - lat_err
-                        lon_adj[this_app_slice] = lon.array[this_app_slice] - lon_err
+                    lat_err = value_at_index(lat.array, tdwn_index) - lat_tdwn
+                    lon_err = value_at_index(lon.array, tdwn_index) - lon_tdwn
+                    lat_adj[this_app_slice] = lat.array[this_app_slice] - lat_err
+                    lon_adj[this_app_slice] = lon.array[this_app_slice] - lon_err
 
             # The computation of a ground track is not ILS dependent and does
             # not depend upon knowing the runway details.

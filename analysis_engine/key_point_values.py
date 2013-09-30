@@ -2030,16 +2030,32 @@ class ThrustReversersCancelToEngStopDuration(KeyPointValueNode):
     '''
     Measure the duration (secs) between the thrust reversers being cancelled and
     the engines being shutdown.
+    
+    The scope is limited to the engine running period to avoid spurious
+    indications of thrust reverser operation while the engine is not running,
+    as can happen on some aircraft types.
     '''
     units = 's'
 
-    def derive(self, tr=M('Thrust Reversers'), eng_stops=KTI('Eng Stop')):
-        cancels = find_edges_on_state_change('Deployed', tr.array,
+    def derive(self, tr=M('Thrust Reversers'), 
+               eng_starts=KTI('Eng Start'),
+               eng_stops=KTI('Eng Stop')):
+        try:
+            start=eng_starts.get_first().index
+        except:
+            start=0
+        try:
+            stop=eng_stops.get_last().index
+        except:
+            stop=len(tr)-1
+        cancels = find_edges_on_state_change('Deployed', 
+                                             tr.array[start:stop],
                                              change='leaving')
-        cancel_index = cancels[-1]
-        eng_stop_index = eng_stops.get_next(cancel_index).index
-        self.create_kpv(eng_stop_index,
-                        (eng_stop_index - cancel_index) / self.frequency)
+        if cancels:
+            cancel_index = cancels[-1]+start
+            eng_stop_index = eng_stops.get_next(cancel_index).index
+            self.create_kpv(eng_stop_index,
+                            (eng_stop_index - cancel_index) / self.frequency)
 
 
 class TouchdownToThrustReversersDeployedDuration(KeyPointValueNode):

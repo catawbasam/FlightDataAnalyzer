@@ -432,10 +432,11 @@ class TestILSLocalizerEstablished(unittest.TestCase):
         self.assertEqual(establish, [])
 
     def test_ils_localizer_skips_too_few_values(self):
-        app = S(items=[Section('Approach', slice(2, 9), 2, 9)])
-        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-100))
-        ils = P('ILS Localizer',np.ma.array(data=[0.0]*5,
-                                            mask=[0]*5))
+        app = S(items=[Section('Approach', slice(4, 18), 4, 18)])
+        alt_aal = P('Alttiude AAL For Flight Phases', np.ma.arange(1000, 0,-50))
+        ils = P('ILS Localizer',np.ma.array(data=[0.0]*20,
+                                            mask=[1]*20))
+        ils.array.mask[10:15] = 0
         establish = ILSLocalizerEstablished()
         establish.derive(ils, alt_aal, app, None)
         self.assertEqual(establish, [])

@@ -673,7 +673,7 @@ class GearRetracted(FlightPhaseNode):
         self.create_phases(runs_of_ones(repaired == 'Up'))
 
 
-def scan_ils(beam, ils_dots, height, scan_slice, frequency):
+def scan_ils(beam, ils_dots, height, scan_slice, frequency, duration=10):
     '''
     Scans ils dots and returns last slice where ils dots fall below 1 and remain below 2.5 dots
     if beam is glideslope slice will not extend below 200ft.
@@ -686,12 +686,16 @@ def scan_ils(beam, ils_dots, height, scan_slice, frequency):
     :type height: str
     :param scan_slice: 'localizer' or 'glideslope'
     :type scan_slice: str
+    :param frequency: input signal sample rate
+    :type frequency: float
+    :param duration: Minimum duration for the ILS to be established
+    :type duration: float, default = 10 seconds.
     '''
     if beam not in ['localizer', 'glideslope']:
         raise ValueError('Unrecognised beam type in scan_ils')
 
-    if np.ma.count(ils_dots[scan_slice]) < 5:
-        # less than 5 valid values within slice
+    if np.ma.count(ils_dots[scan_slice]) < duration*frequency:
+        # less than duration seconds of valid data within slice
         return None
 
     # Find the range of valid ils dots withing scan slice
