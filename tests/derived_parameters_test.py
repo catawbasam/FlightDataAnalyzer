@@ -2175,23 +2175,71 @@ class TestGroundspeedAlongTrack(unittest.TestCase):
         self.assertLess(gat.array[199],52.0)
 
 
-class TestHeadingContinuous(unittest.TestCase):
-    def test_can_operate(self):
-        expected = [('Heading',)]
-        opts = HeadingContinuous.get_operational_combinations()
-        self.assertEqual(opts, expected)
+#class TestHeadingContinuous(unittest.TestCase):
+    #def test_can_operate(self):
+        #expected = [('Heading',)]
+        #opts = HeadingContinuous.get_operational_combinations()
+        #self.assertEqual(opts, expected)
 
-    def test_heading_continuous(self):
-        head = HeadingContinuous()
-        head.derive(P('Heading',np.ma.remainder(
-            np.ma.array(range(10))+355,360.0)))
+    #def test_heading_continuous(self):
+        #head = HeadingContinuous()
+        #head.derive(P('Heading',np.ma.remainder(
+            #np.ma.array(range(10))+355,360.0)))
         
-        answer = np.ma.array(data=[355.0, 356.0, 357.0, 358.0, 359.0, 360.0, 
-                                   361.0, 362.0, 363.0, 364.0],
-                             dtype=np.float, mask=False)
+        #answer = np.ma.array(data=[355.0, 356.0, 357.0, 358.0, 359.0, 360.0, 
+                                   #361.0, 362.0, 363.0, 364.0],
+                             #dtype=np.float, mask=False)
 
-        #ma_test.assert_masked_array_approx_equal(res, answer)
-        np.testing.assert_array_equal(head.array.data, answer.data)
+        ##ma_test.assert_masked_array_approx_equal(res, answer)
+        #np.testing.assert_array_equal(head.array.data, answer.data)
+
+class TestHeadingContinuous(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = HeadingContinuous
+        self.operational_combinations = [('Heading',
+                                          'Heading (Capt)',
+                                          'Heading (FO)')]
+
+    def test_heading_continuous_basic(self):
+        hdg = P('Heading',np.ma.remainder(np.ma.array(range(10))+355,360.0))
+        hdg.array[2] = np.ma.masked
+        node = self.node_class()
+        node.derive(hdg, None, None)
+        expected = np.ma.array(data=[355.0, 356.0, 357.0, 358.0, 359.0, 360.0, 
+                                     361.0, 362.0, 363.0, 364.0],
+                               dtype=np.float, mask=False)
+        ma_test.assert_equal(node.array, expected)
+
+    def test_heading_continuous_merged(self):
+        hdg = P('Heading',np.ma.remainder(np.ma.array(range(10))+355,360.0))
+        hdg_ca = P('Heading (Capt)',np.ma.array([5,6,7,8,9.0]),offset=0.1,frequency=0.5)
+        hdg_fo = P('Heading (FO)',np.ma.array([15,16,17,18,19.0]),offset=1.1,frequency=0.5)
+        node = self.node_class()
+        node.derive(hdg, hdg_ca, hdg_fo)
+        expected = np.ma.array(data=np.array(range(10))/2.0+9.75,
+                               dtype=np.float, mask=False)
+        expected[0]=10.0
+        expected[-1]=14.0
+        ma_test.assert_equal(node.array, expected)
+        self.assertEqual(node.offset, 0.1)
+        self.assertEqual(node.frequency, 1,0)
+
+    def test_heading_continuous_merged_rollover(self):
+        hdg = P('Heading',np.ma.remainder(np.ma.array(range(10))+355,360.0))
+        hdg_ca = P('Heading (Capt)',np.ma.array([358,2,6,10, 14.0]),offset=0.1,frequency=0.5)
+        hdg_ca.array[2]=np.ma.masked
+        hdg_fo = P('Heading (FO)',np.ma.array([346,350,354,358,2.0]),offset=1.1,frequency=0.5)
+        hdg_fo.array[3]=np.ma.masked
+        node = self.node_class()
+        node.derive(hdg, hdg_ca, hdg_fo)
+        expected = np.ma.array(data=np.array(range(10))*2.0+351.0,
+                               dtype=np.float, mask=False)
+        expected[0]=352.0
+        expected[-1]=368.0
+        ma_test.assert_equal(node.array, expected)
+        self.assertEqual(node.offset, 0.1)
+        self.assertEqual(node.frequency, 1,0)
 
 
 class TestTrack(unittest.TestCase, NodeTest):
