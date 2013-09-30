@@ -74,7 +74,7 @@ MINIMUM_SPLIT_DURATION = 100 #120
 
 # When the average normalised value of selected parameters drops below this
 # value, a flight split can be made.
-MINIMUM_SPLIT_PARAM_VALUE = 0.2
+MINIMUM_SPLIT_PARAM_VALUE = 0.175
 
 # Threshold for splitting based upon rate of turn. This threshold dictates
 # when the aircraft is not considered to be turning.
