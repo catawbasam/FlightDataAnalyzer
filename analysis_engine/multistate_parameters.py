@@ -1017,7 +1017,6 @@ class PackValvesOpen(MultistateDerivedParameterNode):
     Integer representation of the combined pack configuration.
     '''
 
-    align = False
     name = 'Pack Valves Open'
 
     values_mapping = {
@@ -1036,11 +1035,11 @@ class PackValvesOpen(MultistateDerivedParameterNode):
         return all_of(['ECS Pack (1) On', 'ECS Pack (2) On' ], available)
 
     def derive(self,
-            p1=P('ECS Pack (1) On'), p1h=P('ECS Pack (1) High Flow'),
-            p2=P('ECS Pack (2) On'), p2h=P('ECS Pack (2) High Flow')):
+            p1=M('ECS Pack (1) On'), p1h=M('ECS Pack (1) High Flow'),
+            p2=M('ECS Pack (2) On'), p2h=M('ECS Pack (2) High Flow')):
         '''
         '''
-        # TODO: account properly for states/frame speciffic fixes
+        # TODO: account properly for states/frame specific fixes
         # Sum the open engines, allowing 1 for low flow and 1+1 for high flow
         # each side.
         flow = p1.array.raw + p2.array.raw

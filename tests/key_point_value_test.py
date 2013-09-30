@@ -8161,7 +8161,6 @@ class TestGrossWeightDelta60SecondsInFlightMax(unittest.TestCase):
         self.assertEqual(gwd[0].value, 6)
 
 
-
 class TestZeroFuelWeight(unittest.TestCase, NodeTest):
 
     def setUp(self):
