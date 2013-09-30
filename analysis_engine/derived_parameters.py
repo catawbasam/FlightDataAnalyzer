@@ -26,6 +26,7 @@ from analysis_engine.library import (actuator_mismatch,
                                      alt2sat,
                                      bearing_and_distance,
                                      bearings_and_distances,
+                                     blend_equispaced_sensors,
                                      blend_parameters,
                                      blend_two_parameters,
                                      cas2dp,
@@ -3412,11 +3413,24 @@ class HeadingContinuous(DerivedParameterNode):
     For all internal computing purposes we use this parameter which does not
     jump as it passes through North. To recover the compass display, modulus
     (val % 360 in Python) returns the value to display to the user.
+    
+    Some aircraft have poor matching between captain and first officer
+    signals, in which case we supply both parameters and merge here. A single
+    "Heading" parameter is also required to allow initial data validation
+    processes to recognise flight phases. (CRJ-100-200 is an example).
     """
     units = 'deg'
+    align = False
     
-    def derive(self, head_mag=P('Heading')):
-        self.array = repair_mask(straighten_headings(head_mag.array))
+    def derive(self, head_mag=P('Heading'),
+               head_capt=P('Heading (Capt)'),
+               head_fo=P('Heading (FO)')):
+        if head_capt and head_fo:
+            head_capt.array = straighten_headings(head_capt.array)
+            head_fo.array = straighten_headings(head_fo.array)
+            self.array, self.frequency, self.offset = blend_two_parameters(head_capt, head_fo)
+        else:
+            self.array = repair_mask(straighten_headings(head_mag.array))
 
 
 # TODO: Absorb this derived parameter into the 'Holding' flight phase.
