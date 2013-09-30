@@ -1206,12 +1206,16 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
 
     name = "Altitude STD Smoothed"
     units = 'ft'
+    align=False
 
     @classmethod
     def can_operate(cls, available):
         return 'Altitude STD' in available
 
-    def derive(self, fine = P('Altitude STD (Fine)'), alt = P('Altitude STD'),
+    def derive(self, fine = P('Altitude STD (Fine)'), 
+               alt = P('Altitude STD'),
+               alt_capt = P('Altitude STD (Capt)'), 
+               alt_fo = P('Altitude STD (FO)'),
                frame = A('Frame')):
 
         frame_name = frame.value if frame else ''
@@ -1237,6 +1241,12 @@ class AltitudeSTDSmoothed(DerivedParameterNode):
             # match the fine part to the coarse part to get the altitudes
             # right.
             self.array = match_altitudes(fine.array, alt.array)
+
+        elif alt_capt and alt_fo:
+            # Merge alternate sources if they are available from the LFL
+            # Note: The LFL will still need a separate "Altitude STD" parameter
+            # to allow the data validation processes to establish flight phases.
+            self.array, self.frequency, self.offset = blend_two_parameters(alt_capt, alt_fo)
 
         else:
             self.array = alt.array
