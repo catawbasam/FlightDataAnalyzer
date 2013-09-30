@@ -1333,6 +1333,16 @@ class SecsToTouchdown(KeyTimeInstanceNode):
                     self.create_kti(index, time=t)
 
 
+class Autoland(KeyTimeInstanceNode):
+    '''
+    All autopilots engaged at touchdown.
+    '''
+    def derive(self, ap=M('AP Engaged'), touchdowns=KTI('Touchdown')):
+        for td in touchdowns:
+            if ap.array[td.index] == 'Engaged':
+                self.create_kti(td.index)
+
+
 #################################################################
 # ILS Established Markers (primarily for development)
 

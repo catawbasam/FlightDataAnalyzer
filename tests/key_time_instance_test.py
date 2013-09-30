@@ -1374,6 +1374,47 @@ class TestSecsToTouchdown(unittest.TestCase):
         )
 
 
+class TestAutoland(unittest.TestCase):
+    def setUp(self):
+        from analysis_engine.key_time_instances import Autoland
+
+        self.node_class = Autoland
+
+    def test_can_operate(self):
+        expected = [('AP Engaged', 'Touchdown')]
+        self.assertEqual(
+            expected,
+            self.node_class.get_operational_combinations())
+
+    def test_derive(self):
+        td = [KeyTimeInstance(index=5, name='Touchdown')]
+        ap = M(
+            'AP Engaged',
+            ['Off', 'Off', 'Off', 'Engaged', 'Engaged', 'Engaged', 'Off',
+             'Off', 'Off'],
+            values_mapping={0: 'Off', 1: 'Engaged'})
+        node = self.node_class()
+        node.derive(ap, td)
+        expected = [KeyTimeInstance(
+            index=5, name='Autoland')]
+        self.assertEqual(node, expected)
+
+    def test_derive_noautoland(self):
+        '''
+        Node should not be derived if autopilot is not engaged ad touchdown.
+        '''
+        td = [KeyTimeInstance(index=5, name='Touchdown')]
+        ap = M(
+            'AP Engaged',
+            ['Engaged', 'Engaged', 'Engaged', 'Off', 'Off', 'Off', 'Off',
+             'Off', 'Off'],
+            values_mapping={0: 'Off', 1: 'Engaged'})
+        node = self.node_class()
+        node.derive(ap, td)
+        expected = []
+        self.assertEqual(node, expected)
+
+
 class TestTouchAndGo(unittest.TestCase):
     def test_can_operate(self):
         expected = [('Altitude AAL', 'Go Around')]
