@@ -6351,6 +6351,24 @@ class EngShutdownDuringFlightDuration(KeyPointValueNode):
 
 ##############################################################################
 
+class SingleEngineDuringTaxiInDuration(KeyPointValueNode):
+    def derive(self,
+               all=M('Eng (*) All Running'), any=M('Eng (*) Any Running'),
+               taxi=S('Taxi In')):
+        some_running = all.array ^ any.array
+        self.create_kpvs_where(some_running == 1, all.hz, phase=taxi)
+
+
+class SingleEngineDuringTaxiOutDuration(KeyPointValueNode):
+    def derive(self,
+               all=M('Eng (*) All Running'), any=M('Eng (*) Any Running'),
+               taxi=S('Taxi Out')):
+        some_running = all.array ^ any.array
+        self.create_kpvs_where(some_running == 1, all.hz, phase=taxi)
+
+
+##############################################################################
+
 
 class EventMarkerPressed(KeyPointValueNode):
     def derive(self, event=P('Event Marker'), airs=S('Airborne')):
