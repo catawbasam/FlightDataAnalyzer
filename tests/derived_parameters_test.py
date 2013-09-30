@@ -2004,7 +2004,7 @@ class TestGrossWeightSmoothed(unittest.TestCase):
                                'gross_weight_smoothed_1_gw.nod'))
         gw_orig = gw.array.copy()
         climbs = load(os.path.join(test_data_path,
-                                   'gross_weight_smoothed_1_climbs.nod'))        
+                                   'gross_weight_smoothed_1_climbs.nod'))
         descends = load(os.path.join(test_data_path,
                                      'gross_weight_smoothed_1_descends.nod'))
         fast = load(os.path.join(test_data_path,
@@ -2025,7 +2025,7 @@ class TestGrossWeightSmoothed(unittest.TestCase):
                                'gross_weight_smoothed_2_gw.nod'))
         gw_orig = gw.array.copy()
         climbs = load(os.path.join(test_data_path,
-                                   'gross_weight_smoothed_2_climbs.nod'))        
+                                   'gross_weight_smoothed_2_climbs.nod'))
         descends = load(os.path.join(test_data_path,
                                      'gross_weight_smoothed_2_descends.nod'))
         fast = load(os.path.join(test_data_path,

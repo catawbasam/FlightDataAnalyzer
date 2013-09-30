@@ -346,7 +346,7 @@ class AirspeedMinusV2For3Sec(DerivedParameterNode):
 ################################################################################
 # Airspeed Minus Min Manoeuver
 
-class AirspeedMinusMinManoeuver(DerivedParameterNode):
+class AirspeedMinusMinManeouvringSpeed(DerivedParameterNode):
     '''
     Airspeed compared with Airspeed Manoeuver Minimum.
     '''
@@ -354,7 +354,7 @@ class AirspeedMinusMinManoeuver(DerivedParameterNode):
     units = 'kts'
 
     def derive(self, airspeed=P('Airspeed'),
-               manoeuver_min=P('Airspeed Min Manoeuver')):
+               manoeuver_min=P('Min Maneouvring Speed')):
         '''
         '''
         self.array = airspeed.array - manoeuver_min.array

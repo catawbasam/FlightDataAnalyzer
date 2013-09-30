@@ -66,7 +66,7 @@ from analysis_engine.key_point_values import (
     AirspeedGustsDuringFinalApproach,
     AirspeedDuringLevelFlightMax,
     AirspeedMax,
-    AirspeedMinusMinManoeuverMin,
+    AirspeedMinusMinManeouvringSpeedMin,
     AirspeedMinusV235To1000FtMax,
     AirspeedMinusV235To1000FtMin,
     AirspeedMinusV2For3Sec35To1000FtMax,
@@ -1556,11 +1556,12 @@ class TestAirspeedMinusV2For3Sec35To1000FtMin(unittest.TestCase, NodeTest):
 
 
 
-class TestAirspeedMinusMinManoeuverMin(unittest.TestCase, NodeTest):
+class TestAirspeedMinusMinManeouvringSpeedMin(unittest.TestCase, NodeTest):
     
     def setUp(self):
-        self.node_class = AirspeedMinusMinManoeuverMin
-        self.operational_combinations = [('Airspeed Minus Min Manoeuver',)]
+        self.node_class = AirspeedMinusMinManeouvringSpeedMin
+        self.operational_combinations = [('Airspeed Minus Min Maneouvring Speed',
+                                          'Airborne')]
 
 
 ########################################
