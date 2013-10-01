@@ -2108,11 +2108,13 @@ class ThrustReversersCancelToEngStopDuration(KeyPointValueNode):
         try:
             stop = eng_stops.get_last().index
         except AttributeError:
-            stop = len(tr.array) - 1
-        cancels = find_edges_on_state_change('Deployed', 
-                                             tr.array[start:stop],
-                                             change='leaving')
+            # If engine did not stop, there is no period between thrust
+            # reversers being cancelled and the engine stop
+            return
+        cancels = find_edges_on_state_change(
+            'Deployed',  tr.array[start:stop], change='leaving')
         if cancels:
+            # TRs were cancelled before engine stopped
             cancel_index = cancels[-1] + start
             eng_stop_index = eng_stops.get_next(cancel_index).index
             self.create_kpv(eng_stop_index,
