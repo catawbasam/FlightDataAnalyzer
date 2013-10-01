@@ -2102,18 +2102,18 @@ class ThrustReversersCancelToEngStopDuration(KeyPointValueNode):
                eng_starts=KTI('Eng Start'),
                eng_stops=KTI('Eng Stop')):
         try:
-            start=eng_starts.get_first().index
-        except:
-            start=0
+            start = eng_starts.get_first().index
+        except AttributeError:
+            start = 0
         try:
-            stop=eng_stops.get_last().index
-        except:
-            stop=len(tr)-1
+            stop = eng_stops.get_last().index
+        except AttributeError:
+            stop = len(tr.array) - 1
         cancels = find_edges_on_state_change('Deployed', 
                                              tr.array[start:stop],
                                              change='leaving')
         if cancels:
-            cancel_index = cancels[-1]+start
+            cancel_index = cancels[-1] + start
             eng_stop_index = eng_stops.get_next(cancel_index).index
             self.create_kpv(eng_stop_index,
                             (eng_stop_index - cancel_index) / self.frequency)
