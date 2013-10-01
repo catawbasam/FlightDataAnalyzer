@@ -1450,7 +1450,9 @@ class KeyTimeInstanceNode(FormattedNameNode):
             kti_edges(array, slice(0, len(array) + 1))
         else:
             for each_period in phase:
-                kti_edges(array, each_period.slice)
+                # Simple trap for null slices. TODO: Adapt slice_duration to count samples.
+                if each_period.slice.stop > each_period.slice.start:
+                    kti_edges(array, each_period.slice)
 
     def create_ktis_on_state_change(self, state, array, change='entering',
                                     phase=None):
