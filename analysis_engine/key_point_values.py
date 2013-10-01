@@ -612,7 +612,7 @@ class AirspeedMax(KeyPointValueNode):
         self.create_kpvs_within_slices(air_spd.array, airborne, max_value)
 
 
-class AirspeedAt8000Ft(KeyPointValueNode):
+class AirspeedAt8000FtDescending(KeyPointValueNode):
     '''
     Refactor to be a formatted name node if multiple Airspeed At Altitude
     KPVs are required. Could depend on either Altitude When Climbing or
@@ -1993,7 +1993,7 @@ class AirspeedDuringLevelFlightMax(KeyPointValueNode):
             self.create_kpv(*max_value(air_spd.array, section.slice))
 
 
-class ModeControlPanelAirspeedSelectedAt8000Ft(KeyPointValueNode):
+class ModeControlPanelAirspeedSelectedAt8000FtDescending(KeyPointValueNode):
     '''
     Refactor to be a formatted name node if multiple Airspeed At Altitude
     KPVs are required. Could depend on either Altitude When Climbing or
