@@ -37,6 +37,27 @@ class DeterminePilot(object):
         return pitch[slice_].ptp() > settings.CONTROLS_IN_USE_TOLERANCE or \
                 roll[slice_].ptp() > settings.CONTROLS_IN_USE_TOLERANCE
 
+    def _control_column_in_use(self, cc_capt, cc_fo, phase):
+        '''
+        Check if control column is used by Captain or FO.
+        '''
+        capt_force = cc_capt[phase.slice].ptp() > \
+            settings.CONTROL_COLUMN_IN_USE_TOLERANCE
+        fo_force = cc_fo[phase.slice].ptp() > \
+            settings.CONTROL_COLUMN_IN_USE_TOLERANCE
+
+        if capt_force and fo_force:
+            self.warning(
+                "Cannot determine whether captain or first officer was at the "
+                "controls because both control columns are in use during '%s' "
+                "slice.", phase.name)
+            return None
+
+        if capt_force:
+            return 'Captain'
+        elif fo_force:
+            return 'First Officer'
+
     def _controls_in_use(self, pitch_capt, pitch_fo, roll_capt, roll_fo, phase):
         capt_flying = self._controls_changed(phase.slice, pitch_capt, roll_capt)
         fo_flying = self._controls_changed(phase.slice, pitch_fo, roll_fo)
@@ -72,23 +93,32 @@ class DeterminePilot(object):
         # Either both Capt and FO Key VHF change or neither.
         return None
     
-    def _determine_pilot(self, pitch_capt, pitch_fo, roll_capt, roll_fo, phase,
-                         ap1, ap2, ap3, key_vhf_capt, key_vhf_fo):
-        
-        # 1. Check for change in controls during the phase:
+    def _determine_pilot(self, pitch_capt, pitch_fo, roll_capt, roll_fo,
+                         cc_capt, cc_fo, phase, ap1, ap2, ap3, key_vhf_capt,
+                         key_vhf_fo):
+
+        # 1. Check for change in pitch and roll controls during the phase:
         if all((pitch_capt, pitch_fo, roll_capt, roll_fo, phase)):
-            pilot = self._controls_in_use(pitch_capt.array, pitch_fo.array,
-                    roll_capt.array, roll_fo.array, phase)
+            pilot = self._controls_in_use(
+                pitch_capt.array, pitch_fo.array, roll_capt.array,
+                roll_fo.array, phase)
             if pilot:
                 return pilot
-            
+
+        # 1. Check for changes in control column during the phase:
+        if all((cc_capt, cc_fo, phase)):
+            pilot = self._control_column_in_use(cc_capt.array, cc_fo.array,
+                                                phase)
+            if pilot:
+                return pilot
+
         # Check for change in VHF controls during the phase:
         if all((key_vhf_capt, key_vhf_fo)):
             pilot = self._key_vhf_in_use(key_vhf_capt.array, key_vhf_fo.array,
                                          phase)
             if pilot:
                 return pilot
-        
+
         # 2. Check which autopilot is engaged:
         if all((ap1, ap2)):
             pilot = self._autopilot_engaged(ap1, ap2, ap3)
@@ -543,6 +573,8 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
                pitch_fo=P('Pitch (FO)'),
                roll_capt=P('Roll (Capt)'),
                roll_fo=P('Roll (FO)'),
+               cc_capt=P('Control Column Force (Capt)'),
+               cc_fo=P('Control Column Force (FO)'),
                ap1_eng=M('AP (1) Engaged'),
                ap2_eng=M('AP (2) Engaged'),
                ap3_eng=M('AP (3) Engaged'),
@@ -560,8 +592,8 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
             ap3 = ap_at_index(ap3_eng) if ap3_eng else None
         else:
             ap1 = ap2 = ap3 = None
-        args = (pitch_capt, pitch_fo, roll_capt, roll_fo, phase, ap1, ap2, ap3,
-                key_vhf_capt, key_vhf_fo)
+        args = (pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo,
+                phase, ap1, ap2, ap3, key_vhf_capt, key_vhf_fo)
         self.set_flight_attr(self._determine_pilot(*args))
 
 
@@ -844,6 +876,8 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
                pitch_fo=P('Pitch (FO)'),
                roll_capt=P('Roll (Capt)'),
                roll_fo=P('Roll (FO)'),
+               cc_capt=P('Control Column Force (Capt)'),
+               cc_fo=P('Control Column Force (FO)'),
                ap1_eng=M('AP (1) Engaged'),
                ap2_eng=M('AP (2) Engaged'),
                ap3_eng=M('AP (3) Engaged'),
@@ -861,8 +895,8 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
             ap3 = ap_at_index(ap3_eng) if ap3_eng else None
         else:
             ap1 = ap2 = ap3 = None
-        args = (pitch_capt, pitch_fo, roll_capt, roll_fo, phase, ap1, ap2, ap3,
-                key_vhf_capt, key_vhf_fo)
+        args = (pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo,
+                phase, ap1, ap2, ap3, key_vhf_capt, key_vhf_fo)
         self.set_flight_attr(self._determine_pilot(*args))
 
 
