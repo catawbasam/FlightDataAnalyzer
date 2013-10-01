@@ -848,7 +848,7 @@ class TestAccelerationLateralWhileTaxiingStraightMax(unittest.TestCase, NodeTest
 
     def setUp(self):
         self.node_class = AccelerationLateralWhileTaxiingStraightMax
-        self.operational_combinations = [('Acceleration Lateral Offset Removed', 'Taxiing', 'Turning On Ground')]
+        self.operational_combinations = [('Acceleration Lateral Smoothed', 'Taxiing', 'Turning On Ground')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -859,7 +859,7 @@ class TestAccelerationLateralWhileTaxiingTurnMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AccelerationLateralWhileTaxiingTurnMax
-        self.operational_combinations = [('Acceleration Lateral Offset Removed', 'Taxiing', 'Turning On Ground')]
+        self.operational_combinations = [('Acceleration Lateral Smoothed', 'Taxiing', 'Turning On Ground')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -953,41 +953,49 @@ class TestAccelerationNormal20FtToFlareMax(unittest.TestCase, CreateKPVsWithinSl
 class TestAccelerationNormalWithFlapUpWhileAirborneMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
-        self.node_class = AccelerationNormalWithFlapUpWhileAirborneMax
-        self.operational_combinations = [('Acceleration Normal Offset Removed', 'Flap', 'Airborne')]
+        self.assertEqual(AccelerationNormalWithFlapUpWhileAirborneMax.get_operational_combinations(),
+                         [('Acceleration Normal Offset Removed', 'Flap Lever', 'Airborne'),
+                          ('Acceleration Normal Offset Removed', 'Flap', 'Airborne'),
+                          ('Acceleration Normal Offset Removed', 'Flap Lever', 'Flap', 'Airborne')])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAccelerationNormalWithFlapUpWhileAirborneMin(unittest.TestCase, NodeTest):
+class TestAccelerationNormalWithFlapUpWhileAirborneMin(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = AccelerationNormalWithFlapUpWhileAirborneMin
-        self.operational_combinations = [('Acceleration Normal Offset Removed', 'Flap', 'Airborne')]
-
-    @unittest.skip('Test Not Implemented')
-    def test_derive(self):
-        self.assertTrue(False, msg='Test not implemented.')
-
-
-class TestAccelerationNormalWithFlapDownWhileAirborneMax(unittest.TestCase, NodeTest):
-
-    def setUp(self):
-        self.node_class = AccelerationNormalWithFlapDownWhileAirborneMax
-        self.operational_combinations = [('Acceleration Normal Offset Removed', 'Flap', 'Airborne')]
+    def test_can_operate(self):
+        self.assertEqual(AccelerationNormalWithFlapUpWhileAirborneMin.get_operational_combinations(),
+                         [('Acceleration Normal Offset Removed', 'Flap Lever', 'Airborne'),
+                          ('Acceleration Normal Offset Removed', 'Flap', 'Airborne'),
+                          ('Acceleration Normal Offset Removed', 'Flap Lever', 'Flap', 'Airborne')])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAccelerationNormalWithFlapDownWhileAirborneMin(unittest.TestCase, NodeTest):
+class TestAccelerationNormalWithFlapDownWhileAirborneMax(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = AccelerationNormalWithFlapDownWhileAirborneMin
-        self.operational_combinations = [('Acceleration Normal Offset Removed', 'Flap', 'Airborne')]
+    def test_can_operate(self):
+        self.assertEqual(AccelerationNormalWithFlapDownWhileAirborneMax.get_operational_combinations(),
+                         [('Acceleration Normal Offset Removed', 'Flap Lever', 'Airborne'),
+                          ('Acceleration Normal Offset Removed', 'Flap', 'Airborne'),
+                          ('Acceleration Normal Offset Removed', 'Flap Lever', 'Flap', 'Airborne')])
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestAccelerationNormalWithFlapDownWhileAirborneMin(unittest.TestCase):
+
+    def test_can_operate(self):
+        self.assertEqual(AccelerationNormalWithFlapDownWhileAirborneMin.get_operational_combinations(),
+                         [('Acceleration Normal Offset Removed', 'Flap Lever', 'Airborne'),
+                          ('Acceleration Normal Offset Removed', 'Flap', 'Airborne'),
+                          ('Acceleration Normal Offset Removed', 'Flap Lever', 'Flap', 'Airborne')])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -1346,11 +1354,11 @@ class TestAirspeed10000To8000FtMax(unittest.TestCase):
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-class TestAirspeed8000To5000FtMax(unittest.TestCase, CreateKPVFromSlicesTest):
+class TestAirspeed8000To5000FtMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = Airspeed8000To5000FtMax
-        self.operational_combinations = [('Airspeed', 'Altitude STD Smoothed')]
+        self.operational_combinations = [('Airspeed', 'Altitude AAL For Flight Phases', 'Altitude STD Smoothed', 'Descent')]
         self.function = max_value
         self.second_param_method_calls = [('slices_from_to', (8000, 5000), {})]
 
@@ -2242,11 +2250,13 @@ class TestAirspeedWithSpoilerDeployedMax(unittest.TestCase, NodeTest):
 # Angle of Attack
 
 
-class TestAOAWithFlapMax(unittest.TestCase, NodeTest):
+class TestAOAWithFlapMax(unittest.TestCase):
 
-    def setUp(self):
-        self.node_class = AOAWithFlapMax
-        self.operational_combinations = [('Flap', 'AOA', 'Fast')]
+    def test_can_operate(self):
+        self.assertEqual(AOAWithFlapMax.get_operational_combinations(),
+                         [('Flap Lever', 'AOA', 'Airborne'),
+                          ('Flap', 'AOA', 'Airborne'),
+                          ('Flap Lever', 'Flap', 'AOA', 'Airborne')])
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -2665,20 +2675,6 @@ class TestAltitudeAtVNAVModeAndEngThrustModeRequired(unittest.TestCase, CreateKP
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test Not Implemented')
-
-
-class TestAltitudeAtCabinPressureLowWarningDuration(unittest.TestCase,
-                                                    CreateKPVsWhereTest):
-    def setUp(self):
-        from analysis_engine.key_point_values import \
-            AltitudeAtCabinPressureLowWarningDuration
-
-        self.param_name = 'Cabin Altitude'
-        self.phase_name = 'Airborne'
-        self.node_class = AltitudeAtCabinPressureLowWarningDuration
-        self.values_mapping = {0: '-', 1: 'Warning'}
-
-        self.basic_setup()
 
 
 ########################################
@@ -5995,11 +5991,13 @@ class TestHeightMinsToTouchdown(unittest.TestCase, NodeTest):
 # Flap
 
 
-class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestFlapAtLiftoff(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = FlapAtLiftoff
-        self.operational_combinations = [('Flap', 'Liftoff')]
+        self.operational_combinations = [('Flap Lever', 'Liftoff'),
+                                         ('Flap', 'Liftoff'),
+                                         ('Flap Lever', 'Flap', 'Liftoff')]
         self.interpolate = False
 
     def test_derive(self):
@@ -6012,17 +6010,19 @@ class TestFlapAtLiftoff(unittest.TestCase, CreateKPVsAtKTIsTest):
                 KeyTimeInstance(index=index, name='Liftoff'),
             ])
             node = self.node_class()
-            node.derive(flap, liftoffs)
+            node.derive(flap, None, liftoffs)
             self.assertEqual(node, KPV(name='Flap At Liftoff', items=[
                 KeyPointValue(index=index, value=value, name='Flap At Liftoff'),
             ]))
 
 
-class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestFlapAtTouchdown(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = FlapAtTouchdown
-        self.operational_combinations = [('Flap', 'Touchdown')]
+        self.operational_combinations = [('Flap Lever', 'Touchdown'),
+                                         ('Flap', 'Touchdown'),
+                                         ('Flap Lever', 'Flap', 'Touchdown')]
         self.interpolate = False
 
     def test_derive(self):
@@ -6035,18 +6035,20 @@ class TestFlapAtTouchdown(unittest.TestCase, CreateKPVsAtKTIsTest):
                 KeyTimeInstance(index=index, name='Touchdown'),
             ])
             node = self.node_class()
-            node.derive(flap, touchdowns)
+            node.derive(flap, None, touchdowns)
             self.assertEqual(node, KPV(name='Flap At Touchdown', items=[
                 KeyPointValue(index=index, value=value, name='Flap At Touchdown'),
             ]))
 
 
-class TestFlapAtGearDownSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
+class TestFlapAtGearDownSelection(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = FlapAtGearDownSelection
-        self.operational_combinations = [('Flap', 'Gear Down Selection')]
-        self.interpolate = False
+        self.operational_combinations = [
+            ('Flap Lever', 'Gear Down Selection'),
+            ('Flap', 'Gear Down Selection'),
+            ('Flap Lever', 'Flap', 'Gear Down Selection')]
 
     def test_derive(self):
         flap = P(
@@ -6065,7 +6067,7 @@ class TestFlapAtGearDownSelection(unittest.TestCase, CreateKPVsAtKTIsTest):
             KeyTimeInstance(index=30.25, name='Gear Down Selection'),
         ])
         node = self.node_class()
-        node.derive(flap, gear)
+        node.derive(flap, None, gear)
         self.assertEqual(node, KPV(name='Flap At Gear Down Selection', items=[
             KeyPointValue(index=19.25, value=15, name='Flap At Gear Down Selection'),
             KeyPointValue(index=19.75, value=20, name='Flap At Gear Down Selection'),
@@ -6083,7 +6085,9 @@ class TestFlapWithGearUpMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = FlapWithGearUpMax
-        self.operational_combinations = [('Flap', 'Gear Down')]
+        self.operational_combinations = [('Flap Lever', 'Gear Down'),
+                                         ('Flap', 'Gear Down'),
+                                         ('Flap Lever', 'Flap', 'Gear Down')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -6113,7 +6117,7 @@ class TestFlapWithSpeedbrakeDeployedMax(unittest.TestCase, NodeTest):
         airborne = buildsection('Airborne', 5, 15)
         landings = buildsection('Landing', 10, 15)
         node = self.node_class()
-        node.derive(flap, spd_brk, airborne, landings)
+        node.derive(flap, None, spd_brk, airborne, landings)
         self.assertEqual(node, [
             KeyPointValue(7, 7, 'Flap With Speedbrake Deployed Max'),
         ])
@@ -7156,7 +7160,9 @@ class TestSpeedbrakeDeployedWithFlapDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = SpeedbrakeDeployedWithFlapDuration
-        self.operational_combinations = [('Speedbrake Selected', 'Flap', 'Airborne')]
+        self.operational_combinations = [('Speedbrake Selected', 'Flap', 'Airborne'),
+                                         ('Speedbrake Selected', 'Flap Lever', 'Airborne'),
+                                         ('Speedbrake Selected', 'Flap', 'Flap Lever', 'Airborne')]
     
     def test_derive_basic(self):
         spd_brk_loop = [0] * 4 + [1] * 2 + [0] * 4
@@ -7168,7 +7174,7 @@ class TestSpeedbrakeDeployedWithFlapDuration(unittest.TestCase, NodeTest):
                  values_mapping={f: str(f) for f in range(0, 21)})
         airborne = buildsection('Airborne', 10, 20)
         node = self.node_class()
-        node.derive(spd_brk, flap, airborne)
+        node.derive(spd_brk, flap, None, airborne)
         self.assertEqual(node, [
             KeyPointValue(14, 2.0, 'Speedbrake Deployed With Flap Duration')])
 
