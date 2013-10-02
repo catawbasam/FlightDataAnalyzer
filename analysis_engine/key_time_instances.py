@@ -1337,9 +1337,18 @@ class Autoland(KeyTimeInstanceNode):
     '''
     All autopilots engaged at touchdown.
     '''
-    def derive(self, ap=M('AP Engaged'), touchdowns=KTI('Touchdown')):
+    TRIPLE_FAMILIES = set((
+        '737',
+        '757',
+        '767',
+    ))
+
+    def derive(self, ap=M('AP Channels Engaged'), touchdowns=KTI('Touchdown'),
+               family=A('Family')):
         for td in touchdowns:
-            if ap.array[td.index] == 'Engaged':
+            if (family.value in self.TRIPLE_FAMILIES and
+                ap.array[td.index] == 'Triple') or \
+                    ap.array[td.index] == 'Dual':
                 self.create_kti(td.index)
 
 
