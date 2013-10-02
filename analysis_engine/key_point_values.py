@@ -612,7 +612,7 @@ class AirspeedMax(KeyPointValueNode):
         self.create_kpvs_within_slices(air_spd.array, airborne, max_value)
 
 
-class AirspeedAt8000Ft(KeyPointValueNode):
+class AirspeedAt8000FtDescending(KeyPointValueNode):
     '''
     Refactor to be a formatted name node if multiple Airspeed At Altitude
     KPVs are required. Could depend on either Altitude When Climbing or
@@ -1993,7 +1993,7 @@ class AirspeedDuringLevelFlightMax(KeyPointValueNode):
             self.create_kpv(*max_value(air_spd.array, section.slice))
 
 
-class ModeControlPanelAirspeedSelectedAt8000Ft(KeyPointValueNode):
+class ModeControlPanelAirspeedSelectedAt8000FtDescending(KeyPointValueNode):
     '''
     Refactor to be a formatted name node if multiple Airspeed At Altitude
     KPVs are required. Could depend on either Altitude When Climbing or
@@ -2102,18 +2102,20 @@ class ThrustReversersCancelToEngStopDuration(KeyPointValueNode):
                eng_starts=KTI('Eng Start'),
                eng_stops=KTI('Eng Stop')):
         try:
-            start=eng_starts.get_first().index
-        except:
-            start=0
+            start = eng_starts.get_first().index
+        except AttributeError:
+            start = 0
         try:
-            stop=eng_stops.get_last().index
-        except:
-            stop=len(tr)-1
-        cancels = find_edges_on_state_change('Deployed', 
-                                             tr.array[start:stop],
-                                             change='leaving')
+            stop = eng_stops.get_last().index
+        except AttributeError:
+            # If engine did not stop, there is no period between thrust
+            # reversers being cancelled and the engine stop
+            return
+        cancels = find_edges_on_state_change(
+            'Deployed',  tr.array[start:stop], change='leaving')
         if cancels:
-            cancel_index = cancels[-1]+start
+            # TRs were cancelled before engine stopped
+            cancel_index = cancels[-1] + start
             eng_stop_index = eng_stops.get_next(cancel_index).index
             self.create_kpv(eng_stop_index,
                             (eng_stop_index - cancel_index) / self.frequency)

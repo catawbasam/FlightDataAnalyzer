@@ -54,7 +54,7 @@ from analysis_engine.key_point_values import (
     Airspeed8000To5000FtMax,
     AirspeedWhileGearExtendingMax,
     AirspeedWhileGearRetractingMax,
-    AirspeedAt8000Ft,
+    AirspeedAt8000FtDescending,
     AirspeedAt35FtDuringTakeoff,
     AirspeedAtFlapExtensionWithGearDown,
     AirspeedAtGearDownSelection,
@@ -91,8 +91,6 @@ from analysis_engine.key_point_values import (
     AirspeedRelativeWithFlapDuringDescentMin,
     AirspeedTopOfDescentTo10000FtMax,
     AirspeedV2Plus20DifferenceAtVNAVModeAndEngThrustModeRequired,
-    AirspeedWithThrustReversersDeployedMin,
-    AirspeedAtThrustReversersSelection,
     AirspeedTrueAtTouchdown,
     AirspeedVacatingRunway,
     AirspeedWithConfigurationMax,
@@ -104,6 +102,8 @@ from analysis_engine.key_point_values import (
     AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
     AirspeedWithSpoilerDeployedMax,
+    AirspeedWithThrustReversersDeployedMin,
+    AirspeedAtThrustReversersSelection,
     AltitudeAtClimbThrustDerateDeselectedDuringClimbBelow33000Ft,
     AltitudeAtFirstFlapChangeAfterLiftoff,
     AltitudeAtGearUpSelectionDuringGoAround,
@@ -291,7 +291,7 @@ from analysis_engine.key_point_values import (
     MachWithGearDownMax,
     MagneticVariationAtTakeoffTurnOntoRunway,
     MagneticVariationAtLandingTurnOffRunway,
-    ModeControlPanelAirspeedSelectedAt8000Ft,
+    ModeControlPanelAirspeedSelectedAt8000FtDescending,
     PercentApproachStable,
     Pitch1000To500FtMax,
     Pitch1000To500FtMin,
@@ -1085,9 +1085,9 @@ class TestAccelerationNormalOffset(unittest.TestCase, NodeTest):
 # Airspeed: General
 
 
-class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
+class TestAirspeedAt8000FtDescending(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = AirspeedAt8000Ft
+        self.node_class = AirspeedAt8000FtDescending
         self.operational_combinations = [('Airspeed', 'Altitude When Descending')]
     
     def test_derive_basic(self):
@@ -1100,14 +1100,14 @@ class TestAirspeedAt8000Ft(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(air_spd, alt_std_desc)
         self.assertEqual(node,
-                         [KeyPointValue(index=10, value=100.0, name='Airspeed At 8000 Ft'),
-                          KeyPointValue(index=16, value=160.0, name='Airspeed At 8000 Ft'),
-                          KeyPointValue(index=18, value=180.0, name='Airspeed At 8000 Ft')])
+                         [KeyPointValue(index=10, value=100.0, name='Airspeed At 8000 Ft Descending'),
+                          KeyPointValue(index=16, value=160.0, name='Airspeed At 8000 Ft Descending'),
+                          KeyPointValue(index=18, value=180.0, name='Airspeed At 8000 Ft Descending')])
 
 
-class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase, NodeTest):
+class TestModeControlPanelAirspeedSelectedAt8000FtDescending(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = ModeControlPanelAirspeedSelectedAt8000Ft
+        self.node_class = ModeControlPanelAirspeedSelectedAt8000FtDescending
         self.operational_combinations = [('Mode Control Panel Airspeed Selected', 'Altitude When Descending')]
 
     def test_derive_basic(self):
@@ -1120,9 +1120,9 @@ class TestModeControlPanelAirspeedSelectedAt8000Ft(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(air_spd, alt_std_desc)
         self.assertEqual(node,
-                         [KeyPointValue(index=13, value=65.0, name='Mode Control Panel Airspeed Selected At 8000 Ft'),
-                          KeyPointValue(index=26, value=130.0, name='Mode Control Panel Airspeed Selected At 8000 Ft'),
-                          KeyPointValue(index=32, value=160.0, name='Mode Control Panel Airspeed Selected At 8000 Ft')])
+                         [KeyPointValue(index=13, value=65.0, name='Mode Control Panel Airspeed Selected At 8000 Ft Descending'),
+                          KeyPointValue(index=26, value=130.0, name='Mode Control Panel Airspeed Selected At 8000 Ft Descending'),
+                          KeyPointValue(index=32, value=160.0, name='Mode Control Panel Airspeed Selected At 8000 Ft Descending')])
 
 
 class TestAirspeedMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
