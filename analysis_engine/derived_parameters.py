@@ -941,7 +941,7 @@ class AltitudeAAL(DerivedParameterNode):
                     if n == 0:
                         if len(dips) == 1:
                             # Arbitrary offset in indeterminate case.
-                            dip['alt_std'] = dip['highest_ground'] + 1000
+                            dip['alt_std'] = dip['highest_ground']+1000.0
                         else:
                             next_dip = dips[n + 1]
                             dip['highest_ground'] = \
@@ -960,9 +960,14 @@ class AltitudeAAL(DerivedParameterNode):
                         # elevation in the preceding and following sections
                         # is practical, a little optimistic perhaps, but
                         # useable until we find a case otherwise.
+                        
+                        # This was modified to ensure the minimum height was
+                        # 1000ft as we had a case where the lowest dips were
+                        # below the takeoff and landing airfields.
                         next_dip = dips[n + 1]
                         prev_dip = dips[n - 1]
                         dip['highest_ground'] = min(prev_dip['highest_ground'],
+                                                    dip['alt_std']-1000.0,
                                                     next_dip['highest_ground'])
 
             for dip in dips:
@@ -982,6 +987,7 @@ class AltitudeAAL(DerivedParameterNode):
         # Quick visual check of the altitude aal.
         import matplotlib.pyplot as plt
         plt.plot(alt_aal)
+        plt.plot(alt_std.array)
         plt.show()
         '''
         
