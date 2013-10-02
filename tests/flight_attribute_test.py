@@ -553,7 +553,6 @@ class TestLandingPilot(unittest.TestCase):
     def test_derive(self, value_at_index):
         ap1 = Mock()
         ap2 = Mock()
-        ap3 = Mock()
         phase = Mock()
 
         pitch_capt = Mock()
@@ -563,8 +562,7 @@ class TestLandingPilot(unittest.TestCase):
 
         ap1_eng = Mock()
         ap2_eng = Mock()
-        ap3_eng = Mock()
-        value_at_index.side_effect = [ap1, ap2, ap3]
+        value_at_index.side_effect = [ap1, ap2]
 
         landings = Mock()
         landings.get_last = Mock()
@@ -580,7 +578,7 @@ class TestLandingPilot(unittest.TestCase):
         pilot.set_flight_attr = Mock()
 
         pilot.derive(pitch_capt, pitch_fo, roll_capt, roll_fo, ap1_eng,
-                ap2_eng, ap3_eng, None, None, landings, touchdowns)
+                ap2_eng, None, None, landings, touchdowns)
 
         #self.assertTrue(landings.get_last.called)
         #self.assertTrue(touchdowns.get_last.called)

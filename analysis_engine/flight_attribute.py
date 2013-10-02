@@ -877,7 +877,6 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
                cc_fo=P('Control Column Force (FO)'),
                ap1_eng=M('AP (1) Engaged'),
                ap2_eng=M('AP (2) Engaged'),
-               ap3_eng=M('AP (3) Engaged'),
                key_vhf_capt=M('Key VHF (Capt)'),
                key_vhf_fo=M('Key VHF (FO)'),
                landings=S('Landing'),
@@ -889,11 +888,10 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
             ap_at_index = lambda ap: library.value_at_index(ap.array, index)
             ap1 = ap_at_index(ap1_eng) if ap1_eng else None
             ap2 = ap_at_index(ap2_eng) if ap2_eng else None
-            ap3 = ap_at_index(ap3_eng) if ap3_eng else None
         else:
-            ap1 = ap2 = ap3 = None
+            ap1 = ap2 = None
         args = (pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo,
-                phase, ap1, ap2, ap3, key_vhf_capt, key_vhf_fo)
+                phase, ap1, ap2, key_vhf_capt, key_vhf_fo)
         self.set_flight_attr(self._determine_pilot(*args))
 
 
