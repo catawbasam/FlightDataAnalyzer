@@ -196,12 +196,17 @@ class TestDeterminePilot(unittest.TestCase):
         # Controls in use with phase. Pilot cannot be discerned.
         reset_all_mocks()
         determine_pilot._controls_in_use.return_value = None
+        determine_pilot._control_column_in_use.return_value = None
         pilot = determine_pilot._determine_pilot(
             pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo, phase,
             None, None, None, None)
         self.assertFalse(determine_pilot._autopilot_engaged.called)
-        determine_pilot._controls_in_use.assert_called_once_with(pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array, phase)
-        #self.assertEqual(pilot, determine_pilot._controls_in_use.return_value)
+        determine_pilot._controls_in_use.assert_called_once_with(
+            pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array,
+            phase)
+        determine_pilot._control_column_in_use.assert_called_once_with(
+            cc_capt.array, cc_fo.array, phase)
+        self.assertEqual(pilot, determine_pilot._controls_in_use.return_value)
         # Controls in use with phase. Pilot returned
         reset_all_mocks()
         determine_pilot._controls_in_use.return_value = 'Captain'
@@ -232,13 +237,17 @@ class TestDeterminePilot(unittest.TestCase):
         reset_all_mocks()
         determine_pilot._autopilot_engaged.return_value = 'First Officer'
         determine_pilot._controls_in_use.return_value = None
+        determine_pilot._control_column_in_use.return_value = None
         pilot = determine_pilot._determine_pilot(
             pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo, phase,
             ap1, ap2, None, None)
-        #determine_pilot._autopilot_engaged.assert_called_once_with(ap1, ap2, ap3)
-        determine_pilot._controls_in_use.assert_called_once_with(pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array, phase)
-        #self.assertEqual(pilot, determine_pilot._autopilot_engaged.return_value)
-    
+        determine_pilot._autopilot_engaged.assert_called_once_with(ap1, ap2)
+        determine_pilot._controls_in_use.assert_called_once_with(
+            pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array,
+            phase)
+        self.assertEqual(pilot,
+                         determine_pilot._autopilot_engaged.return_value)
+
     def test__key_vhf_in_use(self):
         # Neither Capt or FO changes.
         key_vhf_capt = np.ma.array([0] * 20)
