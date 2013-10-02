@@ -145,33 +145,32 @@ class APEngaged(MultistateDerivedParameterNode):
         self.offset = offset_select('mean', [ap1, ap2, ap3])
 
 
-class Autoland(MultistateDerivedParameterNode):
+class APChannelsEngaged(MultistateDerivedParameterNode):
     '''
-    Assess the number of autopilot systems engaged to see if the autoland is
-    in Dual or Triple mode.
+    Assess the number of autopilot systems engaged.
 
     Airbus and Boeing = 1 autopilot at a time except when "Land" mode
     selected when 2 (Dual) or 3 (Triple) can be engaged. Airbus favours only
     2 APs, Boeing is happier with 3 though some older types may only have 2.
     '''
-    align = False  #TODO: Should this be here?
-    values_mapping = {0:'-', 2: 'Dual', 3: 'Triple'}
+    name = 'AP Channels Engaged'
+    align = False  # TODO: Should this be here?
+    values_mapping = {0: '-', 1: 'Single', 2: 'Dual', 3: 'Triple'}
 
     @classmethod
     def can_operate(cls, available):
         return len(available) >= 2
 
-    def derive(self, ap1=M('AP (1) Engaged'),
-                     ap2=M('AP (2) Engaged'),
-                     ap3=M('AP (3) Engaged')):
+    def derive(self,
+               ap1=M('AP (1) Engaged'),
+               ap2=M('AP (2) Engaged'),
+               ap3=M('AP (3) Engaged')):
         stacked = vstack_params_where_state(
             (ap1, 'Engaged'),
             (ap2, 'Engaged'),
             (ap3, 'Engaged'),
-            )
+        )
         self.array = stacked.sum(axis=0)
-        # Force single autopilot to 0 state to avoid confusion
-        self.array[self.array == 1] = 0
         # Assume all are sampled at the same frequency
         self.frequency = ap1.frequency
         self.offset = offset_select('mean', [ap1, ap2, ap3])
@@ -1143,14 +1142,16 @@ class StickPusher(MultistateDerivedParameterNode):
         return any_of(('Stick Pusher (L)',
                        'Stick Pusher (R)'
                        ),available)
-    
+
     def derive(self, spl = M('Stick Pusher (L)'),
                spr=M('Stick Pusher (R)')):
-        
+
         available = [par for par in [spl, spr] if par]
+
         if len(available) > 1:
-            self.array = blend_parameters(
-                available, self.offset, self.frequency)
+            self.array = merge_sources(*[a.array for a in available])
+            self.offset = min([a.offset for a in available])
+            self.frequency = available[0].frequency * len(available)
         elif len(available) == 1:
             self.array = available[0].array
 

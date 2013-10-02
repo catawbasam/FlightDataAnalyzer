@@ -891,6 +891,25 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_almost_equal(alt_aal.array[124], 8594, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[191], 8594, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[254], 0, decimal=0)
+    
+    def test_alt_aal_misleading_rad_alt(self):
+        # Spurious Altitude Radio data when Altitude STD was above 30000 ft was
+        # causing Altitude AAL to be shifted down to -30000 ft.
+        alt_std = load(os.path.join(
+            test_data_path, 'AltitudeAAL_AltitudeSTDSmoothed.nod'))
+        alt_rad = load(os.path.join(
+            test_data_path, 'AltitudeAAL_AltitudeRadio.nod'))
+        fast = load(os.path.join(
+            test_data_path, 'AltitudeAAL_Fast.nod'))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(alt_rad, alt_std, fast)
+        self.assertEqual(np.ma.min(alt_aal.array), 0.0)
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(testwave)
+        plt.plot(alt_aal.array)
+        plt.show()
+        '''
 
     @unittest.skip('Test Not Implemented')
     def test_alt_aal_faulty_alt_rad(self):
