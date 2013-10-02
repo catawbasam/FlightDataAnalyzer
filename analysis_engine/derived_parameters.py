@@ -788,6 +788,12 @@ class AltitudeAAL(DerivedParameterNode):
                                    end_at=len(alt_std))
 
         for ralt_section in ralt_sections:
+            if np.ma.mean(alt_std[ralt_section] - alt_rad_aal[ralt_section]) > 10000:
+                # Difference between Altitude STD and Altitude Radio should not
+                # be greater than 10000 ft when Altitude Radio is recording below
+                # 100 ft. This will not fix cases when Altitude Radio records
+                # spurious data at lower altitudes.
+                continue
             alt_result[ralt_section] = alt_rad_aal[ralt_section]
 
             for baro_section in baro_sections:
@@ -960,19 +966,14 @@ class AltitudeAAL(DerivedParameterNode):
                                                     next_dip['highest_ground'])
 
             for dip in dips:
-                if alt_rad:
-                    alt_aal[dip['slice']] = \
-                        self.compute_aal(dip['type'],
-                                         alt_std.array[dip['slice']],
-                                         dip['alt_std'],
-                                         dip['highest_ground'],
-                                         alt_rad=alt_rad.array[dip['slice']])
-                else:
-                    alt_aal[dip['slice']] = \
-                        self.compute_aal(dip['type'],
-                                         alt_std.array[dip['slice']],
-                                         dip['alt_std'], dip['highest_ground'])
-                      
+                alt_rad_section = alt_rad.array[dip['slice']] if alt_rad else None
+                alt_aal[dip['slice']] = self.compute_aal(
+                    dip['type'],
+                    alt_std.array[dip['slice']],
+                    dip['alt_std'],
+                    dip['highest_ground'],
+                    alt_rad=alt_rad_section)
+            
             # Reset end sections
             alt_aal[quick.start:alt_idxs[0]+1] = 0.0
             alt_aal[alt_idxs[-1]+1:quick.stop] = 0.0
