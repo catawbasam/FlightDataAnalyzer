@@ -50,7 +50,7 @@ from analysis_engine.derived_parameters import (
     Aileron,
     AimingPointRange,
     AirspeedForFlightPhases,
-    AirspeedMinusMinManoeuver,
+    AirspeedMinusMinManeouvringSpeed,
     AirspeedMinusV2,
     AirspeedMinusV2For3Sec,
     AirspeedReference,
@@ -2945,10 +2945,10 @@ class TestAileronTrim(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeedMinusMinManoeuver(unittest.TestCase):
+class TestAirspeedMinusMinManeouvringSpeed(unittest.TestCase):
     def test_can_operate(self):
-        opts = AirspeedMinusMinManoeuver.get_operational_combinations()
-        self.assertEqual(opts, [('Airspeed', 'Airspeed Min Manoeuver',)])
+        opts = AirspeedMinusMinManeouvringSpeed.get_operational_combinations()
+        self.assertEqual(opts, [('Airspeed', 'Min Maneouvring Speed',)])
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
