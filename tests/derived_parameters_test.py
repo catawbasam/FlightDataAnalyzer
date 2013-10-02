@@ -812,7 +812,7 @@ class TestAltitudeAAL(unittest.TestCase):
         plt.plot(alt_aal.array)
         plt.show()
         '''
-        
+        # Check that the waveform reaches the right points.
         np.testing.assert_equal(alt_aal.array[0], 0.0)
         np.testing.assert_almost_equal(alt_aal.array[34], 7013, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[60], 3308, decimal=0)
@@ -820,6 +820,21 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_almost_equal(alt_aal.array[191], 8965, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[313], 17, decimal=0)
+
+    def test_alt_aal_complex_no_ralt_flying_below_takeoff_airfield(self):
+        testwave = np.ma.cos(np.arange(0, 3.14 * 2 * 5, 0.1)) * -2000 + \
+            np.ma.cos(np.arange(0, 3.14 * 2, 0.02)) * 5000 + 0
+        phase_fast = buildsection('Fast', 0, len(testwave))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(None,
+                       P('Altitude STD', testwave),
+                       phase_fast)
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(testwave, '-b')
+        plt.plot(alt_aal.array, '-r')
+        plt.show()
+        '''
 
     def test_alt_aal_complex_with_mask(self):
         #testwave = np.ma.cos(np.arange(0, 3.14 * 2 * 5, 0.1)) * -3000 + \
@@ -904,13 +919,7 @@ class TestAltitudeAAL(unittest.TestCase):
         alt_aal = AltitudeAAL()
         alt_aal.derive(alt_rad, alt_std, fast)
         self.assertEqual(np.ma.min(alt_aal.array), 0.0)
-        '''
-        import matplotlib.pyplot as plt
-        plt.plot(testwave)
-        plt.plot(alt_aal.array)
-        plt.show()
-        '''
-
+        
     @unittest.skip('Test Not Implemented')
     def test_alt_aal_faulty_alt_rad(self):
         '''
