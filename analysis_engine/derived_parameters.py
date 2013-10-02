@@ -3441,7 +3441,7 @@ class HeadingContinuous(DerivedParameterNode):
     def derive(self, head_mag=P('Heading'),
                head_capt=P('Heading (Capt)'),
                head_fo=P('Heading (FO)')):
-        if head_capt and head_fo:
+        if head_capt and head_fo and (head_capt.hz==head_fo.hz):
             head_capt.array = straighten_headings(head_capt.array)
             head_fo.array = straighten_headings(head_fo.array)
             self.array, self.frequency, self.offset = blend_two_parameters(head_capt, head_fo)
