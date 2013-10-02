@@ -390,13 +390,15 @@ class GoAround(KeyTimeInstanceNode):
                alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio')):
         for dlc in dlcs:
-            # The try:except structure is used to cater for both cases where
-            # a radio altimeter is not fitted, and where the altimeter data
-            # is out of range, hence masked, at the lowest point of the
-            # go-around.
-            try:
-                pit = np.ma.argmin(alt_rad.array[dlc.slice])  # if masked, argmin returns 0  - valid?
-            except:  # FIXME: Catch expected exception
+            # Check for cases where a radio altimeter is not fitted or where
+            # the altimeter data is out of range, hence masked, at the lowest
+            # point of the go-around.
+            if alt_rad and np.ma.count(alt_rad.array[dlc.slice]):
+                # Worth using the radio altimeter...
+                pit = np.ma.argmin(alt_rad.array[dlc.slice])
+            else:
+                # Fall back on pressure altitude, which may be artificially
+                # adjusted.
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit + dlc.start_edge)
 
