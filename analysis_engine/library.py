@@ -965,9 +965,9 @@ def cycle_match(idx, cycle_idxs, dist=None):
     place. If no matching index found within cycle_idxs, ValueError is raised.
 
     :param idx: Index to find cycle around
-    :type idx: Float
+    :type idx: Float (may have been identified following interpolation)
     :param cycle_idxs: Indexes from cycle finder
-    :type cycle_idxs: List of indexes
+    :type cycle_idxs: List of indexes (normally Numpy array of floats)
     :param dist: If None, uses a quarter of the minimum dist between cycles
     :type dist: Float or None
     :returns: previous and next cycle indexes
@@ -977,7 +977,8 @@ def cycle_match(idx, cycle_idxs, dist=None):
         dist = np.min(np.diff(cycle_idxs)) / 4.0
     
     min_idx = np.argmin(np.abs(np.array(cycle_idxs) - idx))
-    if min_idx < dist:
+    min_dist = np.min(np.abs(np.array(cycle_idxs) - idx))
+    if min_dist < dist:
         # index is close to this position
         prev = cycle_idxs[min_idx-1] if min_idx > 0 else None
         post = cycle_idxs[min_idx+1] if min_idx < len(cycle_idxs)-1 else None
