@@ -1143,14 +1143,16 @@ class StickPusher(MultistateDerivedParameterNode):
         return any_of(('Stick Pusher (L)',
                        'Stick Pusher (R)'
                        ),available)
-    
+
     def derive(self, spl = M('Stick Pusher (L)'),
                spr=M('Stick Pusher (R)')):
-        
+
         available = [par for par in [spl, spr] if par]
+
         if len(available) > 1:
-            self.array = blend_parameters(
-                available, self.offset, self.frequency)
+            self.array = merge_sources(*[a.array for a in available])
+            self.offset = min([a.offset for a in available])
+            self.frequency = available[0].frequency * len(available)
         elif len(available) == 1:
             self.array = available[0].array
 
