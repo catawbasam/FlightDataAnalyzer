@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from mock import Mock, call, patch
 
 from analysis_engine import __version__, settings
+from analysis_engine.library import align
 from analysis_engine.api_handler import NotFoundError
 from analysis_engine.node import (
     A, KPV, KTI, P, S,
@@ -275,6 +276,69 @@ class TestDeterminePilot(unittest.TestCase):
         self.assertEqual(determine_pilot._key_vhf_in_use(key_vhf_capt,
                                                          key_vhf_fo, phase),
                          'Captain')
+
+    def test_determine_pilot_from_hdf(self):
+        from hdfaccess.file import hdf_file
+        import logging
+
+        determine_pilot = DeterminePilot()
+        # warning method is normally initialised with Node superclass in one of
+        # the DeterminePilot's ancestors
+        determine_pilot.warning = logging.warning
+
+        def test_from_file(hdf_path, _slice, phase_name, expected_pilot):
+            with hdf_file(hdf_path) as hdf:
+                pitch_capt = hdf['Pitch (Capt)']
+                pitch_fo = hdf['Pitch (FO)']
+                roll_capt = hdf.get('Roll (Capt)')
+                roll_fo = hdf['Roll (FO)']
+                cc_capt = hdf['Control Column Force (Capt)']
+                cc_fo = hdf['Control Column Force (FO)']
+                phase = S(name=phase_name, frequency=1)
+                phase.create_section(_slice)
+                phase = phase.get_aligned(pitch_capt)[0]
+
+                # ALign the arrays, usually done in the Nodes
+                for par in pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo:
+                    if par is None:
+                        continue
+                    par.array = align(par, pitch_capt)
+                    par.hz = pitch_capt.hz
+
+                pilot = determine_pilot._determine_pilot(
+                    pitch_capt, pitch_fo, roll_capt, roll_fo, None, None,
+                    phase, None, None, None, None)
+
+                # pitch and roll are not enough to determine the pilot
+                self.assertIsNone(pilot)
+
+                pilot = determine_pilot._determine_pilot(
+                    pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo,
+                    phase, None, None, None, None)
+
+                # pitch and roll are not enough to determine the pilot
+                self.assertEqual(pilot, expected_pilot)
+
+        items = [
+            [
+                'test_data/identify_pilot_01.hdf5',
+                'Captain',
+                'Captain',
+                slice(686, 751),
+                slice(40773, 40872)
+            ],
+            [
+                'test_data/identify_pilot_02.hdf5',
+                'First Officer',
+                'First Officer',
+                slice(1015, 1162),
+                slice(41451, 41511)
+            ],
+        ]
+
+        for fn, to_pilot, ld_pilot, to, ld in items:
+            test_from_file(fn, to, 'Takeoff', to_pilot)
+            test_from_file(fn, ld, 'Landing', ld_pilot)
 
 
 class TestDuration(unittest.TestCase):

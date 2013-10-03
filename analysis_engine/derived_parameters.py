@@ -388,7 +388,7 @@ class AirspeedReference(DerivedParameterNode):
     def can_operate(cls, available):
         vapp = 'Vapp' in available
         vref = 'Vref' in available
-        afr = 'Airspeed' in available and any_of(['AFR Vapp', 'AFR Vref'], available)
+        afr = all_of(('Airspeed', 'Approach And Landing'), available) and any_of(['AFR Vapp', 'AFR Vref'], available)
         return vapp or vref or afr
 
     def derive(self,
@@ -1080,9 +1080,9 @@ class AltitudeRadio(DerivedParameterNode):
                source_C = P('Altitude Radio (C)'),
                source_L = P('Altitude Radio (L)'),
                source_R = P('Altitude Radio (R)'),
-               source_efis = P('Altitude Radio EFIS'),
-               source_efis_L = P('Altitude Radio EFIS (L)'),
-               source_efis_R = P('Altitude Radio EFIS (R)')):
+               source_efis = P('Altitude Radio (EFIS)'),
+               source_efis_L = P('Altitude Radio (EFIS) (L)'),
+               source_efis_R = P('Altitude Radio (EFIS) (R)')):
         sources = [source_A, source_B, source_C, source_L, source_R,
                    source_efis, source_efis_L, source_efis_R]
         self.offset = 0.0
@@ -3439,6 +3439,11 @@ class HeadingContinuous(DerivedParameterNode):
     """
     units = 'deg'
     align = False
+    
+    @classmethod
+    def can_operate(cls, available):
+        return ('Heading' in available or
+                all_of(('Heading (Capt)', 'Heading (FO)'), available))
     
     def derive(self, head_mag=P('Heading'),
                head_capt=P('Heading (Capt)'),
