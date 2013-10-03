@@ -581,8 +581,8 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
                cc_fo=P('Control Column Force (FO)'),
                ap1_eng=M('AP (1) Engaged'),
                ap2_eng=M('AP (2) Engaged'),
-               key_vhf_capt=M('Key VHF (Capt)'),
-               key_vhf_fo=M('Key VHF (FO)'),
+               key_vhf_capt=M('Key VHF (1)'),
+               key_vhf_fo=M('Key VHF (2)'),
                takeoffs=S('Takeoff'),
                liftoffs=KTI('Liftoff')):
 
@@ -882,8 +882,8 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
                cc_fo=P('Control Column Force (FO)'),
                ap1_eng=M('AP (1) Engaged'),
                ap2_eng=M('AP (2) Engaged'),
-               key_vhf_capt=M('Key VHF (Capt)'),
-               key_vhf_fo=M('Key VHF (FO)'),
+               key_vhf_capt=M('Key VHF (1)'),
+               key_vhf_fo=M('Key VHF (2)'),
                landings=S('Landing'),
                touchdowns=KTI('Touchdown')):
 
