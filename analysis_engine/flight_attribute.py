@@ -568,7 +568,7 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
             'Liftoff',
             # Optional: 'AP (3) Engaged'
         ), available)
-        key_vhf = library.all_of(('Key VHF (Capt)', 'Key VHF (FO)', 'Landing'),
+        key_vhf = library.all_of(('Key VHF (1)', 'Key VHF (2)', 'Landing'),
                                  available)
         return controls or autopilot or key_vhf
 
@@ -869,7 +869,7 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
             'Touchdown',
             # Optional: 'AP (3) Engaged'
         ), available)
-        key_vhf = library.all_of(('Key VHF (Capt)', 'Key VHF (FO)', 'Landing'),
+        key_vhf = library.all_of(('Key VHF (1)', 'Key VHF (2)', 'Landing'),
                                  available)
         return controls or autopilot or key_vhf
 
