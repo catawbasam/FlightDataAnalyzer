@@ -388,7 +388,7 @@ class AirspeedReference(DerivedParameterNode):
     def can_operate(cls, available):
         vapp = 'Vapp' in available
         vref = 'Vref' in available
-        afr = 'Airspeed' in available and any_of(['AFR Vapp', 'AFR Vref'], available)
+        afr = all_of(('Airspeed', 'Approach And Landing'), available) and any_of(['AFR Vapp', 'AFR Vref'], available)
         return vapp or vref or afr
 
     def derive(self,
