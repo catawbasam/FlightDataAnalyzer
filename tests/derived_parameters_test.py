@@ -2197,9 +2197,11 @@ class TestHeadingContinuous(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = HeadingContinuous
-        self.operational_combinations = [('Heading',
-                                          'Heading (Capt)',
-                                          'Heading (FO)')]
+        self.operational_combinations = [('Heading',),
+                                         ('Heading (Capt)', 'Heading (FO)'),
+                                         ('Heading', 'Heading (Capt)',),
+                                         ('Heading', 'Heading (FO)'),
+                                         ('Heading', 'Heading (Capt)', 'Heading (FO)') ]
 
     def test_heading_continuous_basic(self):
         hdg = P('Heading',np.ma.remainder(np.ma.array(range(10))+355,360.0))
