@@ -941,7 +941,7 @@ class AltitudeAAL(DerivedParameterNode):
                     if n == 0:
                         if len(dips) == 1:
                             # Arbitrary offset in indeterminate case.
-                            dip['alt_std'] = dip['highest_ground'] + 1000
+                            dip['alt_std'] = dip['highest_ground']+1000.0
                         else:
                             next_dip = dips[n + 1]
                             dip['highest_ground'] = \
@@ -960,9 +960,14 @@ class AltitudeAAL(DerivedParameterNode):
                         # elevation in the preceding and following sections
                         # is practical, a little optimistic perhaps, but
                         # useable until we find a case otherwise.
+                        
+                        # This was modified to ensure the minimum height was
+                        # 1000ft as we had a case where the lowest dips were
+                        # below the takeoff and landing airfields.
                         next_dip = dips[n + 1]
                         prev_dip = dips[n - 1]
                         dip['highest_ground'] = min(prev_dip['highest_ground'],
+                                                    dip['alt_std']-1000.0,
                                                     next_dip['highest_ground'])
 
             for dip in dips:
@@ -982,6 +987,7 @@ class AltitudeAAL(DerivedParameterNode):
         # Quick visual check of the altitude aal.
         import matplotlib.pyplot as plt
         plt.plot(alt_aal)
+        plt.plot(alt_std.array)
         plt.show()
         '''
         
@@ -3571,17 +3577,42 @@ class ILSFrequency(DerivedParameterNode):
 
 class ILSLocalizer(DerivedParameterNode):
 
+    """
+    This derived parameter merges the available sources into a single
+    consolidated parameter. The more complex form of parameter blending is
+    used to allow for many permutations.
+    """
+
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        return any_of(('ILS (1) Localizer', 'ILS (2) Localizer'), available)
+        return any_of(cls.get_dependency_names(), available)
 
     name = "ILS Localizer"
     units = 'dots'
     align = False
 
-    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
-        self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+    def derive(self,
+               source_A=P('ILS (1) Localizer'),
+               source_B=P('ILS (2) Localizer'),
+               source_C=P('ILS (3) Localizer'),
+               
+               source_E=P('ILS (L) Localizer'),
+               source_F=P('ILS (R) Localizer'),
+               source_G=P('ILS (C) Localizer'),
+               
+               source_J=P('ILS (EFIS) Localizer'),
+               ):
+        sources = [source_A, source_B, source_C,
+                   source_E, source_F, source_G,
+                   source_J,
+                   ]
+        self.offset = 0.0
+        self.frequency = 2.0
+        self.array = blend_parameters(sources, 
+                                      offset=self.offset, 
+                                      frequency=self.frequency,
+                                      )
 
 
 class ILSGlideslope(DerivedParameterNode):
@@ -3610,14 +3641,10 @@ class ILSGlideslope(DerivedParameterNode):
                source_G=P('ILS (C) Glideslope'),
                
                source_J=P('ILS (EFIS) Glideslope'),
-
-               source_M=P('ILS Glideslope (Capt)'),
-               source_N=P('ILS Glideslope (FO)'),
                ):
         sources = [source_A, source_B, source_C,
                    source_E, source_F, source_G,
                    source_J,
-                   source_M, source_N
                    ]
         self.offset = 0.0
         self.frequency = 2.0
