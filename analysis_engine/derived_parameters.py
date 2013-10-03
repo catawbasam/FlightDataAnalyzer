@@ -3440,6 +3440,11 @@ class HeadingContinuous(DerivedParameterNode):
     units = 'deg'
     align = False
     
+    @classmethod
+    def can_operate(cls, available):
+        return ('Heading' in available or
+                all_of(('Heading (Capt)', 'Heading (FO)'), available))
+    
     def derive(self, head_mag=P('Heading'),
                head_capt=P('Heading (Capt)'),
                head_fo=P('Heading (FO)')):
