@@ -8840,7 +8840,7 @@ class TCASRAReactionDelay(KeyPointValueNode):
 
     def derive(self, acc=P('Acceleration Normal Offset Removed'),
                tcas=M('TCAS Combined Control'), airs=S('Airborne')):
-        
+        acc_array = repair_mask(acc.array, repair_duration=None)
         for air in airs:
             ras_local = tcas.array[air.slice].any_of('Drop Track',
                                                      'Altitude Lost',
