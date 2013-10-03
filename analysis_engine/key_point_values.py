@@ -4999,30 +4999,6 @@ class EngTPRDuringTakeoff5MinRatingMax(KeyPointValueNode):
         self.create_kpvs_within_slices(eng_tpr_limit.array, ratings, max_value)
 
 
-#class EngTPRLimitDifferenceDuringTakeoffMax(KeyPointValueNode):
-    #'''
-    #'''
-    
-    #name = 'Eng TPR Limit Difference During Takeoff Max'
-    
-    #def derive(self, tpr_limit_diff=P('Eng TPR Limit Difference'),
-               #takeoffs=P('Takeoff')):
-        #self.create_kpvs_within_slices(tpr_limit_diff.array, takeoffs,
-                                       #max_value)
-
-
-#class EngTPRLimitDifferenceDuringGoAroundMax(KeyPointValueNode):
-    #'''
-    #'''
-    
-    #name = 'Eng TPR Limit Difference During Go Around Max'
-    
-    #def derive(self, tpr_limit_diff=P('Eng TPR Limit Difference'),
-               #go_arounds=P('Go Around')):
-        #self.create_kpvs_within_slices(tpr_limit_diff.array, go_arounds,
-                                       #max_value)
-
-
 class EngEPRDuringGoAround5MinRatingMax(KeyPointValueNode):
     '''
     '''
@@ -8874,9 +8850,9 @@ class TCASRAReactionDelay(KeyPointValueNode):
             ras = shift_slices(runs_of_ones(ras_local), air.slice.start)
             # Assume that the reaction takes place during the TCAS RA period:
             for ra in ras:
-                if np.ma.count(acc.array[ra]) == 0:
+                if np.ma.count(acc_array[ra]) == 0:
                     continue
-                i, p = cycle_finder(acc.array[ra] - 1.0, 0.15)
+                i, p = cycle_finder(acc_array[ra] - 1.0, 0.15)
                 # i, p will be None if the data is too short or invalid and so
                 # no cycles can be found.
                 if i is None:
@@ -8886,7 +8862,7 @@ class TCASRAReactionDelay(KeyPointValueNode):
                 # Look beyond 2 seconds to find slope from point of initiation.
                 slopes = np.ma.where(indexes > 17, abs(peaks / indexes), 0.0)
                 start_to_peak = slice(ra.start, ra.start + i[np.argmax(slopes)])
-                react_index = peak_curvature(acc.array, _slice=start_to_peak,
+                react_index = peak_curvature(acc_array, _slice=start_to_peak,
                                              curve_sense='Bipolar') - ra.start
                 self.create_kpv(ra.start + react_index,
                                 react_index / acc.frequency)

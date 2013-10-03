@@ -20,8 +20,6 @@ from analysis_engine.multistate_parameters import (
     StableApproach,
 )
 from analysis_engine.key_point_values import (
-    #EngTPRLimitDifferenceDuringGoAroundMax,
-    #EngTPRLimitDifferenceDuringTakeoffMax,
     AOADuringGoAroundMax,
     AOAWithFlapMax,
     APDisengagedDuringCruiseDuration,
@@ -4239,30 +4237,6 @@ class TestEngTPRDuringGoAround5MinRatingMax(unittest.TestCase, CreateKPVsWithinS
         self.assertTrue(False, msg='Test Not Implemented')
 
 
-#class TestEngTPRLimitDifferenceDuringTakeoffMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    
-    #def setUp(self):
-        #self.node_class = EngTPRLimitDifferenceDuringTakeoffMax
-        #self.operational_combinations = [('Eng TPR Limit Difference', 'Takeoff')]
-        #self.function = max_value
-    
-    #@unittest.skip('Test Not Implemented')
-    #def test_derive(self):
-        #self.assertTrue(False, msg='Test Not Implemented')
-
-
-#class TestEngTPRLimitDifferenceDuringGoAroundMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
-    
-    #def setUp(self):
-        #self.node_class = EngTPRLimitDifferenceDuringGoAroundMax
-        #self.operational_combinations = [('Eng TPR Limit Difference', 'Go Around')]
-        #self.function = max_value
-    
-    #@unittest.skip('Test Not Implemented')
-    #def test_derive(self):
-        #self.assertTrue(False, msg='Test Not Implemented')
-
-
 ##############################################################################
 # Engine Fire
 
@@ -7801,7 +7775,7 @@ class TestTCASRAReactionDelay(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = TCASRAReactionDelay
         self.operational_combinations = [('Acceleration Normal Offset Removed', 'TCAS Combined Control', 'Airborne')]
-
+    
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
