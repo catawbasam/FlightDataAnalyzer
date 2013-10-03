@@ -60,16 +60,16 @@ class TestDeterminePilot(unittest.TestCase):
     def test__autopilot_engaged(self):
         determine_pilot = DeterminePilot()
         # No autopilots engaged:
-        pilot = determine_pilot._autopilot_engaged(0, 0, None)
+        pilot = determine_pilot._autopilot_engaged(0, 0)
         self.assertEqual(pilot, None)
         # Autopilot 1 engaged:
-        pilot = determine_pilot._autopilot_engaged(1, 0, None)
+        pilot = determine_pilot._autopilot_engaged(1, 0)
         self.assertEqual(pilot, 'Captain')
         # Autopilot 2 engaged:
-        pilot = determine_pilot._autopilot_engaged(0, 1, None)
+        pilot = determine_pilot._autopilot_engaged(0, 1)
         self.assertEqual(pilot, 'First Officer')
         # Autopilots 1 & 2 engaged:
-        pilot = determine_pilot._autopilot_engaged(1, 1, None)
+        pilot = determine_pilot._autopilot_engaged(1, 1)
         self.assertEqual(pilot, None)
 
     def test__controls_changed(self):
@@ -172,7 +172,6 @@ class TestDeterminePilot(unittest.TestCase):
         cc_fo.array = Mock()
         ap1 = Mock()
         ap2 = Mock()
-        ap3 = Mock()
         phase = Mock()
 
         determine_pilot._autopilot_engaged = Mock()
@@ -190,33 +189,38 @@ class TestDeterminePilot(unittest.TestCase):
         reset_all_mocks()
         pilot = determine_pilot._determine_pilot(
             pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo, None,
-            None, None, None, None, None)
+            None, None, None, None)
         self.assertFalse(determine_pilot._autopilot_engaged.called)
         self.assertFalse(determine_pilot._controls_in_use.called)
         self.assertEqual(pilot, None)
         # Controls in use with phase. Pilot cannot be discerned.
         reset_all_mocks()
         determine_pilot._controls_in_use.return_value = None
+        determine_pilot._control_column_in_use.return_value = None
         pilot = determine_pilot._determine_pilot(
             pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo, phase,
-            None, None, None, None, None)
+            None, None, None, None)
         self.assertFalse(determine_pilot._autopilot_engaged.called)
-        determine_pilot._controls_in_use.assert_called_once_with(pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array, phase)
-        #self.assertEqual(pilot, determine_pilot._controls_in_use.return_value)
+        determine_pilot._controls_in_use.assert_called_once_with(
+            pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array,
+            phase)
+        determine_pilot._control_column_in_use.assert_called_once_with(
+            cc_capt.array, cc_fo.array, phase)
+        self.assertEqual(pilot, determine_pilot._controls_in_use.return_value)
         # Controls in use with phase. Pilot returned
         reset_all_mocks()
         determine_pilot._controls_in_use.return_value = 'Captain'
         pilot = determine_pilot._determine_pilot(
             pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo, phase,
-            None, None, None, None, None)
+            None, None, None, None)
         self.assertFalse(determine_pilot._autopilot_engaged.called)
         determine_pilot._controls_in_use.assert_called_once_with(pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array, phase)
         self.assertEqual(pilot, determine_pilot._controls_in_use.return_value)
         # Only Autopilot.
         reset_all_mocks()
         determine_pilot._autopilot_engaged.return_value = 'Captain'
-        pilot = determine_pilot._determine_pilot(None, None, None, None, None, None, None, ap1, ap2, ap3, None, None)
-        determine_pilot._autopilot_engaged.assert_called_once_with(ap1, ap2, ap3)
+        pilot = determine_pilot._determine_pilot(None, None, None, None, None, None, None, ap1, ap2, None, None)
+        determine_pilot._autopilot_engaged.assert_called_once_with(ap1, ap2)
         self.assertFalse(determine_pilot._controls_in_use.called)
         self.assertEqual(pilot, determine_pilot._autopilot_engaged.return_value)
         # Controls in Use overrides Autopilot.
@@ -225,7 +229,7 @@ class TestDeterminePilot(unittest.TestCase):
         determine_pilot._autopilot_engaged.return_value = 'First Officer'
         pilot = determine_pilot._determine_pilot(
             pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo, phase,
-            ap1, ap2, ap3, None, None)
+            ap1, ap2, None, None)
         self.assertFalse(determine_pilot._autopilot_engaged.called)
         determine_pilot._controls_in_use.assert_called_once_with(pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array, phase)
         self.assertEqual(pilot, determine_pilot._controls_in_use.return_value)
@@ -233,13 +237,17 @@ class TestDeterminePilot(unittest.TestCase):
         reset_all_mocks()
         determine_pilot._autopilot_engaged.return_value = 'First Officer'
         determine_pilot._controls_in_use.return_value = None
+        determine_pilot._control_column_in_use.return_value = None
         pilot = determine_pilot._determine_pilot(
             pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo, phase,
-            ap1, ap2, ap3, None, None)
-        #determine_pilot._autopilot_engaged.assert_called_once_with(ap1, ap2, ap3)
-        determine_pilot._controls_in_use.assert_called_once_with(pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array, phase)
-        #self.assertEqual(pilot, determine_pilot._autopilot_engaged.return_value)
-    
+            ap1, ap2, None, None)
+        determine_pilot._autopilot_engaged.assert_called_once_with(ap1, ap2)
+        determine_pilot._controls_in_use.assert_called_once_with(
+            pitch_capt.array, pitch_fo.array, roll_capt.array, roll_fo.array,
+            phase)
+        self.assertEqual(pilot,
+                         determine_pilot._autopilot_engaged.return_value)
+
     def test__key_vhf_in_use(self):
         # Neither Capt or FO changes.
         key_vhf_capt = np.ma.array([0] * 20)
@@ -545,7 +553,6 @@ class TestLandingPilot(unittest.TestCase):
     def test_derive(self, value_at_index):
         ap1 = Mock()
         ap2 = Mock()
-        ap3 = Mock()
         phase = Mock()
 
         pitch_capt = Mock()
@@ -555,8 +562,7 @@ class TestLandingPilot(unittest.TestCase):
 
         ap1_eng = Mock()
         ap2_eng = Mock()
-        ap3_eng = Mock()
-        value_at_index.side_effect = [ap1, ap2, ap3]
+        value_at_index.side_effect = [ap1, ap2]
 
         landings = Mock()
         landings.get_last = Mock()
@@ -572,7 +578,7 @@ class TestLandingPilot(unittest.TestCase):
         pilot.set_flight_attr = Mock()
 
         pilot.derive(pitch_capt, pitch_fo, roll_capt, roll_fo, ap1_eng,
-                ap2_eng, ap3_eng, None, None, landings, touchdowns)
+                ap2_eng, None, None, landings, touchdowns)
 
         #self.assertTrue(landings.get_last.called)
         #self.assertTrue(touchdowns.get_last.called)

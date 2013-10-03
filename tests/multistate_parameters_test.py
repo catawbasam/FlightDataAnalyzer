@@ -28,7 +28,7 @@ from analysis_engine.node import (
 )
 from analysis_engine.multistate_parameters import (
     APEngaged,
-    Autoland,
+    APChannelsEngaged,
     Configuration,
     Daylight,
     EngThrustModeRequired,
@@ -157,10 +157,10 @@ class TestAPEngaged(unittest.TestCase, NodeTest):
         ma_test.assert_array_equal(expected.array, eng.array)
 
 
-class TestAutoland(unittest.TestCase, NodeTest):
+class TestAPChannelsEngaged(unittest.TestCase, NodeTest):
 
     def setUp(self):
-        self.node_class = Autoland
+        self.node_class = APChannelsEngaged
         self.operational_combinations = [
             ('AP (1) Engaged', 'AP (2) Engaged'),
             ('AP (1) Engaged', 'AP (3) Engaged'),
@@ -173,13 +173,14 @@ class TestAutoland(unittest.TestCase, NodeTest):
         ap1 = M(array=np.ma.array(data=[0,0,0,0,0,0]),
                    values_mapping={1:'Engaged',0:'-'},
                    name='AP (1) Engaged')        
-        eng = Autoland()
+        values_mapping = {0: '-', 1: 'Single', 2: 'Dual', 3: 'Triple'}
+        eng = APChannelsEngaged()
         eng.derive(ap1, None, None)
         expected = M(array=np.ma.array(data=[0,0,0,0,0,0]),
-                   values_mapping={2: 'Dual', 3: 'Triple'},
-                   name='Autoland', 
-                   frequency=1, 
-                   offset=0.1)        
+                   values_mapping=values_mapping,
+                   name='AP Channels Engaged',
+                   frequency=1,
+                   offset=0.1)
         ma_test.assert_array_equal(expected.array, eng.array)
 
     def test_dual_ap(self):
@@ -190,11 +191,12 @@ class TestAutoland(unittest.TestCase, NodeTest):
                    values_mapping={1:'Engaged',0:'-'},
                    name='AP (2) Engaged')        
         ap3 = None
-        eng = Autoland()
+        values_mapping = {0: '-', 1: 'Single', 2: 'Dual', 3: 'Triple'}
+        eng = APChannelsEngaged()
         eng.derive(ap1, ap2, ap3)
-        expected = M(array=np.ma.array(data=[0,0,0,2,0,0]),
-                   values_mapping={2: 'Dual', 3: 'Triple'},
-                   name='Autoland', 
+        expected = M(array=np.ma.array(data=[0, 0, 1, 2, 1, 0]),
+                   values_mapping=values_mapping,
+                   name='AP Channels Engaged',
                    frequency=1, 
                    offset=0.1)        
         
@@ -216,11 +218,12 @@ class TestAutoland(unittest.TestCase, NodeTest):
                    name='AP (3) Engaged', 
                    frequency=1, 
                    offset=0.4)        
-        eng = Autoland()
+        values_mapping = {0: '-', 1: 'Single', 2: 'Dual', 3: 'Triple'}
+        eng = APChannelsEngaged()
         eng.derive(ap1, ap2, ap3)
-        expected = M(array=np.ma.array(data=[0,0,2,3,2,0]),
-                   values_mapping={2: 'Dual', 3: 'Triple'},
-                   name='Autoland', 
+        expected = M(array=np.ma.array(data=[0, 1, 2, 3, 2, 1]),
+                   values_mapping=values_mapping,
+                   name='AP Channels Engaged',
                    frequency=1, 
                    offset=0.25)        
         
@@ -1248,19 +1251,18 @@ class TestStickShaker(unittest.TestCase):
     def test_can_operate(self):
         opts = StickShaker.get_operational_combinations()
         self.assertEqual(len(opts), 126)
-                         
-        
+
     def test_derive(self):
-        left=M('Stick Shaker (L)',np.ma.array([0,1,0,0,0,0]),
-               offset=0.7, frequency=2.0,
-               values_mapping = {0: '-',1: 'Shake',})
-        right=M('Stick Shaker (R)',np.ma.array([0,0,0,0,1,0]),
-                offset=0.2, frequency=2.0,
-                values_mapping = {0: '-',1: 'Shake',})
-        ss=StickShaker()
-        merged = ss.derive(left, right, None, None, None, None)
-        expected = np.ma.array([0,1,0,0,0,0])
-        np.testing.assert_equal(merged.array, expected)
+        left = M('Stick Shaker (L)', np.ma.array([0, 1, 0, 0, 0, 0]),
+                 offset=0.7, frequency=2.0,
+                 values_mapping={0: '-', 1: 'Shake'})
+        right = M('Stick Shaker (R)', np.ma.array([0, 0, 0, 0, 1, 0]),
+                  offset=0.2, frequency=2.0,
+                  values_mapping={0: '-', 1: 'Shake'})
+        ss = StickShaker()
+        ss.derive(left, right, None, None, None, None)
+        expected = np.ma.array([0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0])
+        np.testing.assert_equal(ss.array.raw, expected)
 
     def test_single_source(self):
         left=M('Stick Shaker (L)',np.ma.array([0,1,0,0,0,0]),
@@ -1285,18 +1287,17 @@ class TestStickPusher(unittest.TestCase):
     def test_can_operate(self):
         opts = StickPusher.get_operational_combinations()
         self.assertEqual(len(opts), 3)
-                         
-        
+
     def test_derive(self):
-        left=M('Stick Pusher (L)',np.ma.array([0,1,0,0,0,0]),
-               offset=0.7, frequency=2.0,
-               values_mapping = {0: '-',1: 'Shake',})
-        right=M('Stick Pusher (R)',np.ma.array([0,0,0,0,1,0]),
-                offset=0.2, frequency=2.0,
-                values_mapping = {0: '-',1: 'Shake',})
-        sp=StickPusher()
+        left = M('Stick Pusher (L)', np.ma.array([0, 1, 0, 0, 0, 0]),
+                 offset=0.7, frequency=2.0,
+                 values_mapping={0: '-', 1: 'Shake'})
+        right = M('Stick Pusher (R)', np.ma.array([0, 0, 0, 0, 1, 0]),
+                  offset=0.2, frequency=2.0,
+                  values_mapping={0: '-', 1: 'Shake'})
+        sp = StickPusher()
         sp.derive(left, right)
-        expected = np.ma.array([0,1,0,0,0,0])
+        expected = np.ma.array([0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0])
         np.testing.assert_equal(sp.array, expected)
 
     def test_single_source(self):

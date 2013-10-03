@@ -388,7 +388,7 @@ class AirspeedReference(DerivedParameterNode):
     def can_operate(cls, available):
         vapp = 'Vapp' in available
         vref = 'Vref' in available
-        afr = 'Airspeed' in available and any_of(['AFR Vapp', 'AFR Vref'], available)
+        afr = all_of(('Airspeed', 'Approach And Landing'), available) and any_of(['AFR Vapp', 'AFR Vref'], available)
         return vapp or vref or afr
 
     def derive(self,
@@ -788,6 +788,12 @@ class AltitudeAAL(DerivedParameterNode):
                                    end_at=len(alt_std))
 
         for ralt_section in ralt_sections:
+            if np.ma.mean(alt_std[ralt_section] - alt_rad_aal[ralt_section]) > 10000:
+                # Difference between Altitude STD and Altitude Radio should not
+                # be greater than 10000 ft when Altitude Radio is recording below
+                # 100 ft. This will not fix cases when Altitude Radio records
+                # spurious data at lower altitudes.
+                continue
             alt_result[ralt_section] = alt_rad_aal[ralt_section]
 
             for baro_section in baro_sections:
@@ -935,7 +941,7 @@ class AltitudeAAL(DerivedParameterNode):
                     if n == 0:
                         if len(dips) == 1:
                             # Arbitrary offset in indeterminate case.
-                            dip['alt_std'] = dip['highest_ground'] + 1000
+                            dip['alt_std'] = dip['highest_ground']+1000.0
                         else:
                             next_dip = dips[n + 1]
                             dip['highest_ground'] = \
@@ -954,25 +960,25 @@ class AltitudeAAL(DerivedParameterNode):
                         # elevation in the preceding and following sections
                         # is practical, a little optimistic perhaps, but
                         # useable until we find a case otherwise.
+                        
+                        # This was modified to ensure the minimum height was
+                        # 1000ft as we had a case where the lowest dips were
+                        # below the takeoff and landing airfields.
                         next_dip = dips[n + 1]
                         prev_dip = dips[n - 1]
                         dip['highest_ground'] = min(prev_dip['highest_ground'],
+                                                    dip['alt_std']-1000.0,
                                                     next_dip['highest_ground'])
 
             for dip in dips:
-                if alt_rad:
-                    alt_aal[dip['slice']] = \
-                        self.compute_aal(dip['type'],
-                                         alt_std.array[dip['slice']],
-                                         dip['alt_std'],
-                                         dip['highest_ground'],
-                                         alt_rad=alt_rad.array[dip['slice']])
-                else:
-                    alt_aal[dip['slice']] = \
-                        self.compute_aal(dip['type'],
-                                         alt_std.array[dip['slice']],
-                                         dip['alt_std'], dip['highest_ground'])
-                      
+                alt_rad_section = alt_rad.array[dip['slice']] if alt_rad else None
+                alt_aal[dip['slice']] = self.compute_aal(
+                    dip['type'],
+                    alt_std.array[dip['slice']],
+                    dip['alt_std'],
+                    dip['highest_ground'],
+                    alt_rad=alt_rad_section)
+            
             # Reset end sections
             alt_aal[quick.start:alt_idxs[0]+1] = 0.0
             alt_aal[alt_idxs[-1]+1:quick.stop] = 0.0
@@ -981,6 +987,7 @@ class AltitudeAAL(DerivedParameterNode):
         # Quick visual check of the altitude aal.
         import matplotlib.pyplot as plt
         plt.plot(alt_aal)
+        plt.plot(alt_std.array)
         plt.show()
         '''
         
@@ -1073,9 +1080,9 @@ class AltitudeRadio(DerivedParameterNode):
                source_C = P('Altitude Radio (C)'),
                source_L = P('Altitude Radio (L)'),
                source_R = P('Altitude Radio (R)'),
-               source_efis = P('Altitude Radio EFIS'),
-               source_efis_L = P('Altitude Radio EFIS (L)'),
-               source_efis_R = P('Altitude Radio EFIS (R)')):
+               source_efis = P('Altitude Radio (EFIS)'),
+               source_efis_L = P('Altitude Radio (EFIS) (L)'),
+               source_efis_R = P('Altitude Radio (EFIS) (R)')):
         sources = [source_A, source_B, source_C, source_L, source_R,
                    source_efis, source_efis_L, source_efis_R]
         self.offset = 0.0
@@ -3436,7 +3443,7 @@ class HeadingContinuous(DerivedParameterNode):
     def derive(self, head_mag=P('Heading'),
                head_capt=P('Heading (Capt)'),
                head_fo=P('Heading (FO)')):
-        if head_capt and head_fo:
+        if head_capt and head_fo and (head_capt.hz==head_fo.hz):
             head_capt.array = straighten_headings(head_capt.array)
             head_fo.array = straighten_headings(head_fo.array)
             self.array, self.frequency, self.offset = blend_two_parameters(head_capt, head_fo)
@@ -3570,17 +3577,42 @@ class ILSFrequency(DerivedParameterNode):
 
 class ILSLocalizer(DerivedParameterNode):
 
+    """
+    This derived parameter merges the available sources into a single
+    consolidated parameter. The more complex form of parameter blending is
+    used to allow for many permutations.
+    """
+
     # List the minimum acceptable parameters here
     @classmethod
     def can_operate(cls, available):
-        return any_of(('ILS (1) Localizer', 'ILS (2) Localizer'), available)
+        return any_of(cls.get_dependency_names(), available)
 
     name = "ILS Localizer"
     units = 'dots'
     align = False
 
-    def derive(self, loc_1=P('ILS (1) Localizer'),loc_2=P('ILS (2) Localizer')):
-        self.array, self.frequency, self.offset = blend_two_parameters(loc_1, loc_2)
+    def derive(self,
+               source_A=P('ILS (1) Localizer'),
+               source_B=P('ILS (2) Localizer'),
+               source_C=P('ILS (3) Localizer'),
+               
+               source_E=P('ILS (L) Localizer'),
+               source_F=P('ILS (R) Localizer'),
+               source_G=P('ILS (C) Localizer'),
+               
+               source_J=P('ILS (EFIS) Localizer'),
+               ):
+        sources = [source_A, source_B, source_C,
+                   source_E, source_F, source_G,
+                   source_J,
+                   ]
+        self.offset = 0.0
+        self.frequency = 2.0
+        self.array = blend_parameters(sources, 
+                                      offset=self.offset, 
+                                      frequency=self.frequency,
+                                      )
 
 
 class ILSGlideslope(DerivedParameterNode):
@@ -3609,14 +3641,10 @@ class ILSGlideslope(DerivedParameterNode):
                source_G=P('ILS (C) Glideslope'),
                
                source_J=P('ILS (EFIS) Glideslope'),
-
-               source_M=P('ILS Glideslope (Capt)'),
-               source_N=P('ILS Glideslope (FO)'),
                ):
         sources = [source_A, source_B, source_C,
                    source_E, source_F, source_G,
                    source_J,
-                   source_M, source_N
                    ]
         self.offset = 0.0
         self.frequency = 2.0

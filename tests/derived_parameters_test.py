@@ -50,7 +50,7 @@ from analysis_engine.derived_parameters import (
     Aileron,
     AimingPointRange,
     AirspeedForFlightPhases,
-    AirspeedMinusMinManoeuver,
+    AirspeedMinusMinManeouvringSpeed,
     AirspeedMinusV2,
     AirspeedMinusV2For3Sec,
     AirspeedReference,
@@ -812,7 +812,7 @@ class TestAltitudeAAL(unittest.TestCase):
         plt.plot(alt_aal.array)
         plt.show()
         '''
-        
+        # Check that the waveform reaches the right points.
         np.testing.assert_equal(alt_aal.array[0], 0.0)
         np.testing.assert_almost_equal(alt_aal.array[34], 7013, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[60], 3308, decimal=0)
@@ -820,6 +820,21 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_almost_equal(alt_aal.array[191], 8965, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[254], 3288, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[313], 17, decimal=0)
+
+    def test_alt_aal_complex_no_ralt_flying_below_takeoff_airfield(self):
+        testwave = np.ma.cos(np.arange(0, 3.14 * 2 * 5, 0.1)) * -2000 + \
+            np.ma.cos(np.arange(0, 3.14 * 2, 0.02)) * 5000 + 0
+        phase_fast = buildsection('Fast', 0, len(testwave))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(None,
+                       P('Altitude STD', testwave),
+                       phase_fast)
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(testwave, '-b')
+        plt.plot(alt_aal.array, '-r')
+        plt.show()
+        '''
 
     def test_alt_aal_complex_with_mask(self):
         #testwave = np.ma.cos(np.arange(0, 3.14 * 2 * 5, 0.1)) * -3000 + \
@@ -891,7 +906,20 @@ class TestAltitudeAAL(unittest.TestCase):
         np.testing.assert_almost_equal(alt_aal.array[124], 8594, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[191], 8594, decimal=0)
         np.testing.assert_almost_equal(alt_aal.array[254], 0, decimal=0)
-
+    
+    def test_alt_aal_misleading_rad_alt(self):
+        # Spurious Altitude Radio data when Altitude STD was above 30000 ft was
+        # causing Altitude AAL to be shifted down to -30000 ft.
+        alt_std = load(os.path.join(
+            test_data_path, 'AltitudeAAL_AltitudeSTDSmoothed.nod'))
+        alt_rad = load(os.path.join(
+            test_data_path, 'AltitudeAAL_AltitudeRadio.nod'))
+        fast = load(os.path.join(
+            test_data_path, 'AltitudeAAL_Fast.nod'))
+        alt_aal = AltitudeAAL()
+        alt_aal.derive(alt_rad, alt_std, fast)
+        self.assertEqual(np.ma.min(alt_aal.array), 0.0)
+        
     @unittest.skip('Test Not Implemented')
     def test_alt_aal_faulty_alt_rad(self):
         '''
@@ -2945,10 +2973,10 @@ class TestAileronTrim(unittest.TestCase):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeedMinusMinManoeuver(unittest.TestCase):
+class TestAirspeedMinusMinManeouvringSpeed(unittest.TestCase):
     def test_can_operate(self):
-        opts = AirspeedMinusMinManoeuver.get_operational_combinations()
-        self.assertEqual(opts, [('Airspeed', 'Airspeed Min Manoeuver',)])
+        opts = AirspeedMinusMinManeouvringSpeed.get_operational_combinations()
+        self.assertEqual(opts, [('Airspeed', 'Min Maneouvring Speed',)])
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):

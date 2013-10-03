@@ -1471,8 +1471,9 @@ class TestCycleFinder(unittest.TestCase):
 
 class TestCycleMatch(unittest.TestCase):
     def test_find_a_match(self):
-        cycles = [10, 30, 100, 129, 144]
-        self.assertEqual(cycle_match(30, cycles), (10, 100))
+        cycles = np.array([10, 30, 100, 129, 144.0])
+        # For a given value, find the closest and return the preceding and following values.
+        self.assertEqual(cycle_match(30.0, cycles), (10, 100))
         self.assertEqual(cycle_match(32, cycles), (10, 100))
         # no matching index
         self.assertRaises(ValueError, cycle_match, 36, cycles, dist=1)
@@ -1483,7 +1484,12 @@ class TestCycleMatch(unittest.TestCase):
         # finds closest
         self.assertEqual(cycle_match(120, cycles, dist=4000), (100, 144))
         # equal distance rounds down
-        self.assertEqual(cycle_match(20, cycles), (None, 30))
+        self.assertEqual(cycle_match(20, cycles, dist=12), (None, 30))
+
+    def test_replicating_problem_case(self):
+        # On one flight test, the index matched exactly, but the distance was non-zero
+        cycles = np.array([10, 30, 100, 129, 144.0])
+        self.assertEqual(cycle_match(100.0, cycles, dist=1), (30, 129))
 
 
 class TestDatetimeOfIndex(unittest.TestCase):
