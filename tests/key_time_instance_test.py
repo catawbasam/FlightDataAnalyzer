@@ -587,7 +587,7 @@ class TestTopOfClimb(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_top_of_climb_basic(self):
-        alt_data = np.ma.array(range(0,400,50)+[400]*5+range(400,0,-50))
+        alt_data = np.ma.array(range(0,800,100)+[800]*5+range(800,0,-100))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -596,7 +596,7 @@ class TestTopOfClimb(unittest.TestCase):
         self.assertEqual(phase, expected)
 
     def test_top_of_climb_truncated_start(self):
-        alt_data = np.ma.array([400]*5+range(400,0,-50))
+        alt_data = np.ma.array([800]*5+range(800,0,-100))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -606,7 +606,7 @@ class TestTopOfClimb(unittest.TestCase):
         self.assertEqual(len(phase),0)
 
     def test_top_of_climb_truncated_end(self):
-        alt_data = np.ma.array(range(0,400,50)+[400]*5)
+        alt_data = np.ma.array(range(0,800,100)+[800]*5)
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -625,7 +625,7 @@ class TestTopOfDescent(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_top_of_descent_basic(self):
-        alt_data = np.ma.array(range(0,400,50)+[400]*5+range(400,0,-50))
+        alt_data = np.ma.array(range(0,800,100)+[800]*5+range(800,0,-100))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -634,7 +634,7 @@ class TestTopOfDescent(unittest.TestCase):
         self.assertEqual(phase, expected)
 
     def test_top_of_descent_truncated_start(self):
-        alt_data = np.ma.array([400]*5+range(400,0,-50))
+        alt_data = np.ma.array([800]*5+range(800,0,-100))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -644,7 +644,7 @@ class TestTopOfDescent(unittest.TestCase):
         self.assertEqual(len(phase),1)
 
     def test_top_of_descent_truncated_end(self):
-        alt_data = np.ma.array(range(0,400,50)+[400]*5)
+        alt_data = np.ma.array(range(0,800,100)+[800]*5)
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -1381,7 +1381,7 @@ class TestAutoland(unittest.TestCase):
         self.node_class = Autoland
 
     def test_can_operate(self):
-        expected = [('AP Engaged', 'Touchdown')]
+        expected = [('AP Channels Engaged', 'Touchdown', 'Family')]
         self.assertEqual(
             expected,
             self.node_class.get_operational_combinations())
