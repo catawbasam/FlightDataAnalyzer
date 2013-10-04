@@ -3013,10 +3013,14 @@ class GrossWeightSmoothed(DerivedParameterNode):
     V2) calculations. This can only be provided by extrapolation backwards
     from data available later in the flight.
 
-    This routine makes the best of both worlds by using fuel flow to compute
-    short term changes in weight and mapping this onto the level attitude
-    data. We avoid using the recorded fuel weight in this calculation,
-    however it is used in the Zero Fuel Weight calculation.
+    This routine uses fuel flow to compute short term changes in weight and
+    ties this to the last valid measurement before landing. This is used
+    because we need to accurately reflect the landing weight for events
+    relating to landing (errors introduced by extrapolating to the takeoff
+    weight are less significant). 
+    
+    We avoid using the recorded fuel weight in this calculation, however it
+    is used in the Zero Fuel Weight calculation.
     '''
     units = 'kgs'
 
@@ -3024,12 +3028,11 @@ class GrossWeightSmoothed(DerivedParameterNode):
                gw=P('Gross Weight'),
                climbs=S('Climbing'),
                descends=S('Descending'),
-               fast=S('Fast')):
+               airs=S('Airborne')):
 
         gw_masked = gw.array.copy()
-        gw_masked = mask_inside_slices(gw.array, climbs.get_slices())
-        gw_masked = mask_inside_slices(gw.array, descends.get_slices())
-        gw_masked = mask_outside_slices(gw.array, fast.get_slices())
+        gw_masked = mask_inside_slices(gw_masked, climbs.get_slices())
+        gw_masked = mask_outside_slices(gw_masked, airs.get_slices())
 
         gw_nonzero = gw.array.nonzero()[0]
         
@@ -3038,6 +3041,7 @@ class GrossWeightSmoothed(DerivedParameterNode):
                                              direction='reverse'))
         
         try:
+            # Find the last point where the two arrays intercept
             valid_index = np.ma.intersect1d(gw_masked.nonzero()[0],
                                             fuel_to_burn.nonzero()[0])[-1]
         except IndexError:
