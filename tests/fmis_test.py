@@ -9,31 +9,30 @@ from analysis_engine.fmis import (
     FMISHWindCompCruise,
     FMISLevelFlight,
     FMISMachCruise,
-    FMISMinutesCruise,
+    FMISMinutesInCruise,
     FMISPaltCruise,
     FMISTimeFirst2LastEngineStart,
     FMISTimeFirst2LastEngineStop,
     FMISTimeFirst2LastEngShutDown,
     FMISTimeFL250ToTDown,
-    FMISTimeFL1000ToTDown,
+    FMISTimeFL100ToTDown,
     FMISTimeFlap,
     FMISTimeFlap_Airbus,
     FMISTimeLvlFltBelowFL250Climb,
+    FMISTimeLvlFltBelowFL70Desc,
     FMISTimeLvlFltFL250toFL70Desc,
-    FMISGearDownAALapp,
+    FMISGearDownAALApp,
     FMISTimeLastEngStart2Takeoff,
     FMISTimeSpdBrakeExt,
     FMISTimeTouchDown2FirstEngShutDown,
     FMISWeightCruise,
 )
 from analysis_engine.key_time_instances import (
-    AltitudeWhenClimbing,
-    AltitudeWhenDescending,
     FlapSet,
     SlatSet,
 )
 from analysis_engine.node import (KeyPointValue, KeyPointValueNode,
-                                  KeyTimeInstance, KeyTimeInstanceNode, M, P,
+                                  KeyTimeInstance, KeyTimeInstanceNode, P,
                                   Section, SectionNode)
 
 
@@ -72,6 +71,23 @@ def buildsection(name, begin, end):
     '''
     result = builditem(name, begin, end)
     return SectionNode(name, items=[result])
+
+
+def buildsections(*args):
+    '''
+    Like buildsection, this is used to build SectionNodes for test purposes.
+
+    lands = buildsections('name',[from1,to1],[from2,to2])
+
+    Example of use:
+    approach = buildsections('Approach', [80,90], [100,110])
+    '''
+    built_list=[]
+    name = args[0]
+    for a in args[1:]:
+        new_section = builditem(name, a[0], a[1])
+        built_list.append(new_section)
+    return SectionNode(name, items=built_list)
 
 
 class TestFMISCruise(unittest.TestCase):
@@ -162,16 +178,16 @@ class TestFMISMachCruise(unittest.TestCase):
         ])
 
 
-class TestFMISMinutesCruise(unittest.TestCase):
+class TestFMISMinutesInCruise(unittest.TestCase):
     
     def test_can_operate(self):
-        self.assertEqual(FMISMinutesCruise.get_operational_combinations(),
+        self.assertEqual(FMISMinutesInCruise.get_operational_combinations(),
                          [('Cruise', 'FMIS Cruise')])
     
     def test_derive_empty_cruises(self):
         cruises = SectionNode('Cruise')
         fmis_cruises = SectionNode('FMIS Cruise')
-        node = FMISMinutesCruise()
+        node = FMISMinutesInCruise()
         node.derive(cruises, fmis_cruises)
         self.assertEqual(list(node), [])
         
@@ -179,7 +195,7 @@ class TestFMISMinutesCruise(unittest.TestCase):
     def test_derive_empty_fmis_cruises(self):
         cruises = buildsection('Cruise', 400, 500)
         fmis_cruises = SectionNode('FMIS Cruise')
-        node = FMISMinutesCruise()
+        node = FMISMinutesInCruise()
         node.derive(cruises, fmis_cruises)
         self.assertEqual(list(node), [])
     
@@ -188,11 +204,11 @@ class TestFMISMinutesCruise(unittest.TestCase):
         fmis_cruises = SectionNode('FMIS Cruise 1', items=[
             Section('FMIS Cruise 1', slice(500, 530), 500, 530),
             Section('FMIS Cruise 2', slice(770, 800), 770, 800)])
-        node = FMISMinutesCruise()
+        node = FMISMinutesInCruise()
         node.derive(cruises, fmis_cruises)
         self.assertEqual(list(node), [
-            KeyPointValue(515, 5, 'FMIS MinutesCruise 1'),
-            KeyPointValue(785, 10, 'FMIS MinutesCruise 2'),
+            KeyPointValue(515, 5, 'FMIS MinutesInCruise 1'),
+            KeyPointValue(785, 10, 'FMIS MinutesInCruise 2'),
         ])
     
     def test_derive_over_15_minutes(self):
@@ -201,21 +217,21 @@ class TestFMISMinutesCruise(unittest.TestCase):
             Section('FMIS Cruise 1', slice(500, 530), 500, 530),
             Section('FMIS Cruise 2', slice(810, 840), 810, 840),
             Section('FMIS Cruise 3', slice(1220, 1250), 1220, 1250)])
-        node = FMISMinutesCruise()
+        node = FMISMinutesInCruise()
         node.derive(cruises, fmis_cruises)
         self.assertEqual(list(node), [
-            KeyPointValue(515, 5, 'FMIS MinutesCruise 1'),
-            KeyPointValue(825, 11.25, 'FMIS MinutesCruise 2'),
-            KeyPointValue(1235, 17.5, 'FMIS MinutesCruise 3'),
+            KeyPointValue(515, 5, 'FMIS MinutesInCruise 1'),
+            KeyPointValue(825, 11.25, 'FMIS MinutesInCruise 2'),
+            KeyPointValue(1235, 17.5, 'FMIS MinutesInCruise 3'),
         ])
     
     def test_derive_under_10_minutes(self):
         cruises = buildsection('Cruise', 200, 650)
         fmis_cruises = buildsection('FMIS Cruise 1', 410, 440)
-        node = FMISMinutesCruise()
+        node = FMISMinutesInCruise()
         node.derive(cruises, fmis_cruises)
         self.assertEqual(list(node), [KeyPointValue(425, 3.75,
-                                                    'FMIS MinutesCruise 1')])
+                                                    'FMIS MinutesInCruise 1')])
 
 
 class TestFMISPaltCruise(unittest.TestCase):
@@ -344,42 +360,36 @@ class TestFMISTimeFL250ToTDown(unittest.TestCase):
     
     def test_can_operate(self):
         self.assertEqual(FMISTimeFL250ToTDown.get_operational_combinations(),
-                         [('Altitude When Descending', 'Touchdown')])
+                         [('Altitude STD Smoothed', 'Touchdown')])
     
     def test_derive(self):
         touchdowns = KeyTimeInstanceNode('Touchdowns',
                                          items=[KeyTimeInstance(25, 'Touchdown'),
-                                                KeyTimeInstance(50, 'Touchdown')])
-        alt_descs = AltitudeWhenDescending(
-            'Altitude When Descending',
-            items=[KeyTimeInstance(10, '2500 Ft Descending'),
-                   KeyTimeInstance(15, '1000 Ft Descending'),
-                   KeyTimeInstance(40, '2500 Ft Descending'),
-                   KeyTimeInstance(45, '1000 Ft Descending')])
+                                                KeyTimeInstance(300, 'Touchdown')])
+        alt_std_array = np.ma.concatenate([np.ma.arange(30000, 0, -100),
+                                           np.ma.array([0] * 10)])
+        alt_std = P('Altitude STD Smoothed', array=alt_std_array)
         node = FMISTimeFL250ToTDown()
-        node.derive(alt_descs, touchdowns)
-        self.assertEqual(node, [KeyPointValue(30, 40, 'FMIS TimeFL250ToTDown')])
+        node.derive(alt_std, touchdowns)
+        self.assertEqual(node, [KeyPointValue(175, 250, 'FMIS TimeFL250ToTDown')])
 
 
-class TestFMISTimeFL1000ToTDown(unittest.TestCase):
+class TestFMISTimeFL100ToTDown(unittest.TestCase):
     
     def test_can_operate(self):
-        self.assertEqual(FMISTimeFL1000ToTDown.get_operational_combinations(),
-                         [('Altitude When Descending', 'Touchdown')])
+        self.assertEqual(FMISTimeFL100ToTDown.get_operational_combinations(),
+                         [('Altitude STD Smoothed', 'Touchdown')])
     
     def test_derive(self):
         touchdowns = KeyTimeInstanceNode('Touchdowns',
                                          items=[KeyTimeInstance(25, 'Touchdown'),
-                                                KeyTimeInstance(50, 'Touchdown')])
-        alt_descs = AltitudeWhenDescending(
-            'Altitude When Descending',
-            items=[KeyTimeInstance(10, '10000 Ft Descending'),
-                   KeyTimeInstance(15, '5000 Ft Descending'),
-                   KeyTimeInstance(40, '10000 Ft Descending'),
-                   KeyTimeInstance(45, '5000 Ft Descending')])
-        node = FMISTimeFL1000ToTDown()
-        node.derive(alt_descs, touchdowns)
-        self.assertEqual(node, [KeyPointValue(30, 40, 'FMIS TimeFL1000ToTDown')])
+                                                KeyTimeInstance(150, 'Touchdown')])
+        alt_std_array = np.ma.concatenate([np.ma.arange(15000, 0, -100),
+                                           np.ma.array([0] * 10)])
+        alt_std = P('Altitude STD Smoothed', array=alt_std_array)
+        node = FMISTimeFL100ToTDown()
+        node.derive(alt_std, touchdowns)
+        self.assertEqual(node, [KeyPointValue(100, 100, 'FMIS TimeFL100ToTDown')])
 
 
 class TestFMISAPUTime(unittest.TestCase):
@@ -401,28 +411,27 @@ class TestFMISTimeSpdBrakeExt(unittest.TestCase):
     
     def test_can_operate(self):
         self.assertEqual(FMISTimeSpdBrakeExt.get_operational_combinations(),
-                         [('Speedbrake', 'Altitude When Descending', 'Touchdown')])
+                         [('Speedbrake', 'Altitude STD Smoothed', 'Touchdown')])
     
     def test_derive(self):
-        speedbrake = P('Speedbrake', array=np.ma.array([0] * 25 + [10] * 25))
+        speedbrake = P('Speedbrake', array=np.ma.array([0] * 15 + [10] * 25))
         touchdowns = KeyTimeInstanceNode('Touchdowns',
                                          items=[KeyTimeInstance(25, 'Touchdown'),
-                                                KeyTimeInstance(50, 'Touchdown')])
-        alt_descs = AltitudeWhenDescending(
-            'Altitude When Descending',
-            items=[KeyTimeInstance(10, '2500 Ft Descending'),
-                   KeyTimeInstance(15, '1000 Ft Descending'),
-                   KeyTimeInstance(40, '2500 Ft Descending'),
-                   KeyTimeInstance(45, '1000 Ft Descending')])
+                                                KeyTimeInstance(37, 'Touchdown')])
+        alt_std = P('Altitude STD Smoothed', array=np.ma.concatenate([
+            np.ma.array([26000] * 12),
+            np.ma.arange(25000, 0, -1000),
+            np.ma.array([0] * 13),
+        ]))
         node = FMISTimeSpdBrakeExt()
-        node.derive(speedbrake, alt_descs, touchdowns)
-        self.assertEqual(node, [KeyPointValue(30, 25, 'FMIS TimeSpdBrakeExt')])
+        node.derive(speedbrake, alt_std, touchdowns)
+        self.assertEqual(node, [KeyPointValue(24.5, 22, 'FMIS TimeSpdBrakeExt')])
 
 
-class TestFMISGearDownAALapp(unittest.TestCase):
+class TestFMISGearDownAALApp(unittest.TestCase):
     
     def test_can_operate(self):
-        self.assertEqual(FMISGearDownAALapp.get_operational_combinations(),
+        self.assertEqual(FMISGearDownAALApp.get_operational_combinations(),
                          [('Altitude At Gear Down Selection',)])
     
     def test_derive(self):
@@ -430,23 +439,7 @@ class TestFMISGearDownAALapp(unittest.TestCase):
             'Altitude At Gear Down Selection',
             items=[KeyPointValue(10, 500, 'Altitude At Gear Down'),
                    KeyPointValue(15, 250, 'Altitude At Gear Down')])
-        node = FMISGearDownAALapp()
-        node.derive(alt_gear_downs)
-        self.assertEqual(node, [KeyPointValue(15, 1000, 'FMIS GearDownAALapp')])
-
-
-class TestFMISGearDownAALapp(unittest.TestCase):
-    
-    def test_can_operate(self):
-        self.assertEqual(FMISGearDownAALapp.get_operational_combinations(),
-                         [('Altitude At Gear Down Selection',)])
-    
-    def test_derive(self):
-        alt_gear_downs = KeyPointValueNode(
-            'Altitude At Gear Down Selection',
-            items=[KeyPointValue(10, 500, 'Altitude At Gear Down'),
-                   KeyPointValue(15, 250, 'Altitude At Gear Down')])
-        node = FMISGearDownAALapp()
+        node = FMISGearDownAALApp()
         node.derive(alt_gear_downs)
         self.assertEqual(node, [KeyPointValue(15, 1000, 'FMIS GearDownAALapp')])
 
@@ -466,10 +459,6 @@ class TestFMISAALFirstSlatFlapSelApp(unittest.TestCase):
         slat_sets = SlatSet('Slat Set', items=[KeyTimeInstance(15, 'Slat 15'),
                                               KeyTimeInstance(30, 'Slat 30')])
         desc = buildsection('Descending', 12, 50)
-        alt_gear_downs = KeyPointValueNode(
-            'Altitude At Gear Down Selection',
-            items=[KeyPointValue(10, 500, 'Altitude At Gear Down'),
-                   KeyPointValue(15, 250, 'Altitude At Gear Down')])
         node = FMISAALFirstSlatFlapSelApp()
         node.derive(alt_aal, desc, flap_sets, slat_sets)
         self.assertEqual(node, [KeyPointValue(15, 150, 'FMIS AALFirstSlatFlapSelApp')])
@@ -512,52 +501,87 @@ class TestFMISLevelFlight(unittest.TestCase):
                          [('Vertical Speed Inertial', 'Airborne')])
     
     def test_derive(self):
-        vert_spd_array = np.ma.array([500] * 10 + [100] * 10 + [500] * 10)
-        airborne = SectionNode('Airborne', items=[Section('Airborne', slice(0, 14), 0, 14),
-                                                  Section('Airborne', slice(16, 30), 16, 30)])
+        vert_spd_array = np.ma.array([500] * 40 + [100] * 40 + [500] * 40)
+        airborne = SectionNode('Airborne', items=[Section('Airborne', slice(0, 56), 0, 56),
+                                                  Section('Airborne', slice(64, 120), 64, 120)])
         vert_spd = P('Vertical Speed Inertial', array=vert_spd_array)
         node = FMISLevelFlight()
         node.derive(vert_spd, airborne)
-        self.assertEqual(node, [Section('FMIS LevelFlight', slice(10, 14), 10, 14),
-                                Section('FMIS LevelFlight', slice(16, 20), 16, 20)])
+        self.assertEqual(node, [Section('FMIS LevelFlight', slice(40, 56), 40, 56),
+                                Section('FMIS LevelFlight', slice(64, 80), 64, 80)])
 
 
 class TestFMISTimeLvlFltBelowFL250Climb(unittest.TestCase):
     
     def test_can_operate(self):
         self.assertEqual(FMISTimeLvlFltBelowFL250Climb.get_operational_combinations(),
-                         [('Altitude When Climbing', 'FMIS LevelFlight')])
+                         [('Altitude STD Smoothed', 'FMIS LevelFlight')])
     
     def test_derive(self):
-        alt_climbs = AltitudeWhenClimbing(
-            'Altitude When Climbing',
-            items=[KeyTimeInstance(15, '1000 Ft Climbing'),
-                   KeyTimeInstance(35, '2500 Ft Climbing'),
-                   KeyTimeInstance(55, '2500 Ft Climbing')])
+        alt_std_array = np.ma.concatenate([
+            np.ma.array([0] * 5),
+            np.ma.arange(1000, 30000, 1000),
+            np.ma.array([30000] * 26),
+        ])
+        alt_std = P('Altitude STD Smoothed', array=alt_std_array)
         level_flights = SectionNode('FMIS LevelFlight', items=[
             Section('FMIS LevelFlight', slice(10, 20), 10, 20),
             Section('FMIS LevelFlight', slice(30, 40), 30, 40),
             Section('FMIS LevelFlight', slice(50, 60), 50, 60)])
         
         node = FMISTimeLvlFltBelowFL250Climb()
-        node.derive(alt_climbs, level_flights)
+        node.derive(alt_std, level_flights)
         self.assertEqual(
             node,
-            [KeyPointValue(index=35, value=15.0, name='FMIS TimeLvlFltBelowFL250Climb')])
+            [KeyPointValue(index=29, value=10.0, name='FMIS TimeLvlFltBelowFL250Climb')])
 
 
 class TestFMISTimeLvlFltFL250toFL70Desc(unittest.TestCase):
     
     def test_can_operate(self):
         self.assertEqual(FMISTimeLvlFltFL250toFL70Desc.get_operational_combinations(),
-                         [('Altitude AAL', 'Descending', 'FMIS LevelFlight')])
+                         [('Altitude STD Smoothed', 'Descending', 'FMIS LevelFlight')])
         
     def test_derive(self):
         
-        alt_aal = P('Altitude AAL', )
-        level_flights = SectionNode('FMIS LevelFlight')
-        
+        alt_std = P('Altitude STD Smoothed', array=np.ma.concatenate([
+            np.ma.array([26000] * 12),
+            np.ma.arange(25000, 6000, -1000),
+            np.ma.array([6000] * 9),
+        ]))
+        level_flights = buildsections('FMIS LevelFlight', (5, 15), (20, 35))
+        descs = buildsection('Descending', 10, 30)
         node = FMISTimeLvlFltFL250toFL70Desc()
-        node.derive(alt_aal, descs, level_flights)
-        self.assertEqual(node, [])
+        node.derive(alt_std, descs, level_flights)
+        self.assertEqual(
+            node, [KeyPointValue(13, 12.0, 'FMIS TimeLvlFltFL250toFL70Desc')])
+
+
+class TestFMISTimeLvlFltBelowFL70Desc(unittest.TestCase):
+    
+    def test_can_operate(self):
+        self.assertEqual(FMISTimeLvlFltBelowFL70Desc.get_operational_combinations(),
+                         [('Altitude STD Smoothed', 'FMIS LevelFlight')])
+    
+    def test_derive(self):
+        alt_std = P('Altitude STD Smoothed', array=np.ma.concatenate([
+            np.ma.array([10000] * 12),
+            np.ma.arange(10000, 0, -100),
+            np.ma.array([0] * 10),
+        ]))
+        level_flights = SectionNode('FMIS LevelFlight', items=[
+            Section('FMIS LevelFlight', slice(0, 10), 10, 20),
+            Section('FMIS LevelFlight', slice(30, 60), 30, 60),
+        ])
+        
+        node = FMISTimeLvlFltBelowFL70Desc()
+        node.derive(alt_std, level_flights)
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=42, value=18, name='FMIS TimeLvlFltBelowFL70Desc')])
+        
+
+class TestFMISFuelConsumedFirst2LastEngStart(unittest.TestCase):
+    # TODO!
+    pass
 

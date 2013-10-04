@@ -72,7 +72,7 @@ def _segment_type_and_slice(airspeed, frequency, start, stop):
     slow_start = airspeed[unmasked_start] < settings.AIRSPEED_THRESHOLD
     slow_stop = airspeed[unmasked_stop] < settings.AIRSPEED_THRESHOLD
     
-    threshold_exceedance = np.ma.sum(airspeed[airspeed_start:airspeed_stop] > \
+    threshold_exceedance = np.ma.sum(airspeed[airspeed_start:airspeed_stop] >
                                      settings.AIRSPEED_THRESHOLD) * frequency
     if threshold_exceedance < 30: # Q: What is a sensible value?
         logger.debug("Airspeed was below threshold.")
@@ -691,7 +691,7 @@ def main():
     segs = split_hdf_to_segments(hdf_copy,
                                  {'Tail Number': args.tail_number,},
                                  fallback_dt=datetime(2012,12,12,12,12,12),
-                                 draw=False)    
+                                 draw=False)
     pprint.pprint(segs)
 
       
