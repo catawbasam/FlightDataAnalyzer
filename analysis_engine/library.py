@@ -3667,8 +3667,11 @@ def blend_two_parameters(param_one, param_two):
     if param_two == None:
         return param_one.array, param_one.frequency, param_one.offset
 
-    assert param_one.frequency == param_two.frequency
-    
+    assert param_one.frequency == param_two.frequency, \
+        'The frequency of blended parameters must be the same: ' \
+        '%s %sHz, %s %sHz' % (param_one.name, param_one.frequency,
+                              param_two.name, param_two.frequency)
+
     # Parameters for blending should not be aligned.
     #assert param_one.offset != param_two.offset 
         
