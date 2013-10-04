@@ -9,6 +9,7 @@ from analysis_engine.library import (
     closest_unmasked_value,
     cycle_finder,
     cycle_match,
+    find_dlcs,
     find_edges,
     first_order_washout,
     first_valid_sample,
@@ -112,7 +113,7 @@ class GoAroundAndClimbout(FlightPhaseNode):
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases'),
                gas=KTI('Go Around')):
         # Find the ups and downs in the height trace.
-        alt_idxs, alt_vals = cycle_finder(alt_aal.array, min_step=500.0)
+        alt_idxs, alt_vals = find_dlcs(alt_aal.array)
         # Smooth over very small negative rates of change in altitude to
         # avoid index at closest value returning the slight negative change
         # in place of the real altitude peak where the 500ft or 2000ft
@@ -122,7 +123,9 @@ class GoAroundAndClimbout(FlightPhaseNode):
         smoothed_alt = moving_average(alt_aal.array, window=15)
         for ga in gas:
             ga_idx = ga.index
-            prev_idx, post_idx = cycle_match(ga_idx, alt_idxs, dist=20)
+            #---------- Scan to match the altitude minima ----------
+            # A wide tolerance is required to cater for lazy go arounds over rough ground
+            prev_idx, post_idx = cycle_match(ga_idx, alt_idxs, dist=1000)
             #--------------- Go-Around Altitude ---------------
             # Find the go-around altitude
             index, value = closest_unmasked_value(
@@ -209,7 +212,8 @@ class ApproachAndLanding(FlightPhaseNode):
         ga_slices = []
 
         # Find the ups and downs in the height trace to restrict search ranges
-        cycle_idxs, _ = cycle_finder(alt_aal.array, min_step=500.0)
+        ##cycle_idxs, _ = cycle_finder(alt_aal.array, min_step=500.0)
+        cycle_idxs, _ = find_dlcs(alt_aal.array)
         for land in lands:
             prev_peak, _ = cycle_match(land.slice.start, cycle_idxs, dist=10000)
             _slice = slice(land.slice.start, prev_peak, -1)
@@ -220,13 +224,10 @@ class ApproachAndLanding(FlightPhaseNode):
         for ga in gas:
             # Establish the altitude up to 3000ft before go-around. We know
             # we are below 3000ft as that's the definition of the Go-Around
-            # (below 3000ft followed by climb of 500ft). Restrict the search
-            # to the previous peak to avoid searching for 3000ft at the start
-            # of the flight!
-            prev_peak, _ = cycle_match(ga.index, cycle_idxs, dist=20)
-            start_slice = slice(ga.index, prev_peak, -1)  # work backwards
-            ga_start = index_at_value_or_level_off(
-                alt_aal.array, 3000, start_slice)
+            # (below 3000ft followed by climb of 500ft).
+            ga_start = index_at_value(alt_aal.array, 3000, 
+                                      slice(ga.index, None, -1),
+                                      endpoint='closing')
             ga_slices.append(slice(ga_start, ga.index+1))
 
         all_apps = slices_or(app_slices, ga_slices)
@@ -514,18 +515,15 @@ class DescentLowClimb(FlightPhaseNode):
     just check the altitude at each BOD.
     '''
     def derive(self, alt_aal=P('Altitude AAL For Flight Phases')):
-        dlc = np.ma.masked_greater(alt_aal.array, INITIAL_APPROACH_THRESHOLD)
-        for this_dlc in np.ma.clump_unmasked(dlc):
-            pk_idxs, pk_vals = cycle_finder(
-                dlc[this_dlc], min_step=DESCENT_LOW_CLIMB_THRESHOLD)
-            if pk_vals is None or len(pk_vals) < 3:
-                continue
-            for n in range(1, len(pk_vals) - 1):
-                if (pk_vals[n-1]-pk_vals[n]) > DESCENT_LOW_CLIMB_THRESHOLD and \
-                   (pk_vals[n+1]-pk_vals[n]) > DESCENT_LOW_CLIMB_THRESHOLD:
-                    self.create_phase(
-                        shift_slice(slice(pk_idxs[n-1], pk_idxs[n+1]),
-                                    this_dlc.start))
+        pk_idxs, pk_vals = find_dlcs(alt_aal.array)
+            
+        if pk_vals is None or len(pk_vals) < 3:
+            return 
+        
+        for n in range(1, len(pk_vals) - 1):
+            if (pk_vals[n-1]-pk_vals[n]) > DESCENT_LOW_CLIMB_THRESHOLD and \
+               (pk_vals[n+1]-pk_vals[n]) > DESCENT_LOW_CLIMB_THRESHOLD:
+                self.create_phase(slice(pk_idxs[n-1], pk_idxs[n+1]))
 
 
 class Fast(FlightPhaseNode):
