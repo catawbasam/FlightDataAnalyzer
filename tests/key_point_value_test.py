@@ -3,6 +3,7 @@ import os
 import numpy as np
 import sys
 import unittest
+import math
 
 from mock import Mock, call, patch
 
@@ -77,6 +78,7 @@ from analysis_engine.key_point_values import (
     AirspeedMinusV2AtLiftoff,
     AirspeedMinusV2For3Sec35To1000FtMax,
     AirspeedMinusV2For3Sec35To1000FtMin,
+    AirspeedMinusVMOMax,
     AirspeedRelative1000To500FtMax,
     AirspeedRelative1000To500FtMin,
     AirspeedRelative20FtToTouchdownMax,
@@ -291,6 +293,7 @@ from analysis_engine.key_point_values import (
     LongitudeSmoothedAtTouchdown,
     MachDuringCruiseAvg,
     MachMax,
+    MachMinusMMOMax,
     MachWhileGearExtendingMax,
     MachWhileGearRetractingMax,
     MachWithFlapMax,
@@ -8282,3 +8285,53 @@ class TestPitchDirectLawDuration(unittest.TestCase, NodeTest):
                 name='Pitch Direct Law Duration')
         ]
         self.assertEqual(node, expected)
+
+
+class TestAirspeedMinusVMOMax(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = AirspeedMinusVMOMax
+        self.operational_combinations = [
+            ('VMO', 'Airborne'),
+            ('VMO Lookup', 'Airborne'),
+        ]
+
+    def test_derive(self):
+        vmo_array = np.ma.array([330] * 20)
+        airspeed_array = np.ma.array(
+            [300 + 40 * math.sin(n / (2 * math.pi)) for n in range(20)]
+        )
+        vmo = P('VMO', array=vmo_array)
+        airspeed = P('Airspeed', array=airspeed_array)
+        airborne = buildsection('Airborne', 5, 15)
+        node = self.node_class()
+        node.derive(airspeed, vmo, None, airborne)
+        expected = [
+            KeyPointValue(index=10, value=9.991386482538246,
+                          name='Airspeed Minus VMO Max')
+        ]
+        self.assertEqual(node,  expected)
+
+
+class TestMachMinusMMOMax(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = MachMinusMMOMax
+        self.operational_combinations = [
+            ('MMO', 'Airborne'),
+            ('MMO Lookup', 'Airborne'),
+        ]
+
+    def test_derive(self):
+        mmo_array = np.ma.array([0.83] * 20)
+        airspeed_array = np.ma.array(
+            [0.8 + 0.04 * math.sin(n / (2 * math.pi)) for n in range(20)]
+        )
+        mmo = P('MMO', array=mmo_array)
+        airspeed = P('Airspeed', array=airspeed_array)
+        airborne = buildsection('Airborne', 5, 15)
+        node = self.node_class()
+        node.derive(airspeed, mmo, None, airborne)
+        expected = [
+            KeyPointValue(index=10, value=0.009991386482538389,
+                          name='Mach Minus MMO Max')
+        ]
+        self.assertEqual(node,  expected)
