@@ -568,7 +568,7 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
             'Liftoff',
             # Optional: 'AP (3) Engaged'
         ), available)
-        key_vhf = library.all_of(('Key VHF (1)', 'Key VHF (2)', 'Landing'),
+        key_vhf = library.all_of(('Key VHF (1)', 'Key VHF (2)', 'Takeoff'),
                                  available)
         return controls or autopilot or key_vhf
 
