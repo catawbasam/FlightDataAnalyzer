@@ -32,6 +32,7 @@ class MockParam(Node):
         # Hack to allow objects rather than classes to be added
         # to the tree.
         self.__base__ = DerivedParameterNode
+        self.__bases__ = [self.__base__]
         
     def can_operate(self, avail):
         return self.operational
@@ -73,8 +74,8 @@ class TestDependencyGraph(unittest.TestCase):
         pass
     
     def test_indent_tree(self):
-        required_nodes = ['P7', 'P8']
-        mgr2 = NodeManager(datetime.now(), 10, self.lfl_params, required_nodes, 
+        requested = ['P7', 'P8']
+        mgr2 = NodeManager(datetime.now(), 10, self.lfl_params, requested, [],
                            self.derived_nodes, {}, {})
         gr = graph_nodes(mgr2)
         gr.node['Raw1']['active'] = True
@@ -117,9 +118,23 @@ class TestDependencyGraph(unittest.TestCase):
              '  - P8 (DerivedParameterNode)',
              '    - Raw5 (HDFNode)',
             ])
-        
-     
-        
+    
+    def test_required_available(self):
+        nodes = ['a', 'b', 'c']
+        required = ['a', 'c']
+        mgr = NodeManager(datetime.now(), 10, nodes, nodes, required, {}, {},
+                          {})
+        _graph = graph_nodes(mgr)
+        gr_all, gr_st, order = process_order(_graph, mgr)
+        self.assertEqual(set(required) - set(order), set())
+    
+    def test_required_unavailable(self):
+        nodes = ['a', 'b', 'c']
+        required = ['a', 'c', 'd']
+        mgr = NodeManager(datetime.now(), 10, nodes, nodes, required, {}, {},
+                          {})
+        gr = self.assertRaises(graph_nodes(mgr))
+    
     def test_graph_predecessors(self):
         edges = [('a', 'b'), ('b', 'c1'), ('b', 'c2'), ('b', 'c3'), ('c2', 'd'),
                  ('x', 'y'), ('y', 'z')]
@@ -149,11 +164,11 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertEqual(any_predecessors_in_requested('d', req, gr), 'b')
         # 'x' is not requested, and although 'y' is it has no predecessors available
         self.assertFalse(any_predecessors_in_requested('x', req, gr))
-        self.assertFalse(any_predecessors_in_requested('y', req, gr))   
+        self.assertFalse(any_predecessors_in_requested('y', req, gr))
         
     def test_graph_nodes_using_sample_tree(self): 
-        required_nodes = ['P7', 'P8']
-        mgr2 = NodeManager(datetime.now(), 10, self.lfl_params, required_nodes, 
+        requested = ['P7', 'P8']
+        mgr2 = NodeManager(datetime.now(), 10, self.lfl_params, requested, [],
                            self.derived_nodes, {}, {})
         gr = graph_nodes(mgr2)
         self.assertEqual(len(gr), 11)
@@ -161,16 +176,16 @@ class TestDependencyGraph(unittest.TestCase):
         
     def test_graph_requesting_all_dependencies_links_root_to_end_leafs(self):
         # build list of all nodes as required
-        required_node = self.lfl_params + self.derived_nodes.keys()
-        mgr = NodeManager(datetime.now(), 1, self.lfl_params, required_node,
+        requested = self.lfl_params + self.derived_nodes.keys()
+        mgr = NodeManager(datetime.now(), 1, self.lfl_params, requested, [],
                           self.derived_nodes, {}, {})
         gr = graph_nodes(mgr)
         # should only be linked to end leafs
         self.assertEqual(gr.neighbors('root'), ['P8', 'P7'])
         
     def test_graph_middle_level_depenency_builds_partial_tree(self):
-        required_node = ['P5']
-        mgr = NodeManager(datetime.now(), 1, self.lfl_params, required_node,
+        requested = ['P5']
+        mgr = NodeManager(datetime.now(), 1, self.lfl_params, requested, [],
                           self.derived_nodes, {}, {})
         gr = graph_nodes(mgr)
         # should only be linked to P5
@@ -183,16 +198,19 @@ class TestDependencyGraph(unittest.TestCase):
         class One(DerivedParameterNode):
             # Hack to allow objects rather than classes to be added to the tree.            
             __base__ = DerivedParameterNode
+            __bases__ = [__base__]
             def derive(self, dep=P('DepOne')):
                 pass
         class Four(DerivedParameterNode):
             # Hack to allow objects rather than classes to be added to the tree. 
             __base__ = DerivedParameterNode
+            __bases__ = [__base__]
             def derive(self, dep=P('DepFour')):
                 pass
         one = One('overridden')
         four = Four('used')
-        mgr1 = NodeManager(datetime.now(), 10, [1, 2], [2, 4], {1:one, 4:four},{}, {})
+        mgr1 = NodeManager(datetime.now(), 10, [1, 2], [2, 4], [],
+                           {1:one, 4:four},{}, {})
         gr = graph_nodes(mgr1)
         self.assertEqual(len(gr), 5)
         # LFL
@@ -208,8 +226,8 @@ class TestDependencyGraph(unittest.TestCase):
         self.assertEqual(gr.node['root'], {'color': '#ffffff'})
         
     def test_dependency(self):
-        required_nodes = ['P7', 'P8']
-        mgr = NodeManager(datetime.now(), 10, self.lfl_params, required_nodes, 
+        requested = ['P7', 'P8']
+        mgr = NodeManager(datetime.now(), 10, self.lfl_params, requested, [],
                           self.derived_nodes, {}, {})
         gr = graph_nodes(mgr)
         gr_all, gr_st, order = process_order(gr, mgr)
@@ -250,12 +268,12 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         the requested node to be removed when it is not at the top of the
         dependency tree.
         """
-        required_nodes = ['P7', 'P8', # top level nodes
-                          'P4', 'P5', 'P6', # middle level node
-                          'Raw3', # bottom level node
-                          ]
-        mgr = NodeManager(datetime.now(), 10, self.lfl_params + ['Floating'], required_nodes, 
-                          self.derived_nodes, {}, {})
+        requested = ['P7', 'P8', # top level nodes
+                     'P4', 'P5', 'P6', # middle level node
+                     'Raw3', # bottom level node
+                     ]
+        mgr = NodeManager(datetime.now(), 10, self.lfl_params + ['Floating'],
+                          requested, [], self.derived_nodes, {}, {})
         gr = graph_nodes(mgr)
         gr_all, gr_st, order = process_order(gr, mgr)
         
@@ -277,7 +295,8 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         """Tests many options:
         can_operate on SmoothedTrack works with 
         """
-        required_nodes = ['Smoothed Track', 'Moment Of Takeoff', 'Vertical Speed', 'Slip On Runway']
+        requested = ['Smoothed Track', 'Moment Of Takeoff', 'Vertical Speed',
+                     'Slip On Runway']
         lfl_params = ['Indicated Airspeed', 
               'Groundspeed', 
               'Pressure Altitude',
@@ -292,7 +311,8 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         except ImportError:
             # for IDE test runners
             derived = get_derived_nodes(['sample_derived_parameters'])
-        nodes = NodeManager(datetime.now(), 10, lfl_params, required_nodes, derived, {}, {})
+        nodes = NodeManager(datetime.now(), 10, lfl_params, requested, [],
+                            derived, {}, {})
         order, _ = dependency_order(nodes, draw=False)
         pos = order.index
         self.assertTrue(len(order))
@@ -310,30 +330,30 @@ Node: Start Datetime 	Pre: [] 	Succ: [] 	Neighbors: [] 	Edges: []
         
     def test_invalid_requirement_raises(self):
         lfl_params = []
-        required_nodes = ['Smoothed Track', 'Moment of Takeoff'] #it's called Moment Of Takeoff
+        requested = ['Smoothed Track', 'Moment of Takeoff'] #it's called Moment Of Takeoff
         try:
             # for test cmd line runners
             derived = get_derived_nodes(['tests.sample_derived_parameters'])
         except ImportError:
             # for IDE test runners
             derived = get_derived_nodes(['sample_derived_parameters'])
-        mgr = NodeManager(datetime.now(), 10, lfl_params, required_nodes, derived, 
-                          {}, {})
+        mgr = NodeManager(datetime.now(), 10, lfl_params, requested, [],
+                          derived, {}, {})
         self.assertRaises(nx.NetworkXError, dependency_order, mgr, draw=False)
         
     def test_avoiding_possible_circular_dependency(self):
         # Possible circular dependency which can be avoided:
         # Gear Selected Down depends on Gear Down which depends on Gear Selected Down...!
         lfl_params = ['Airspeed', 'Gear (L) Down', 'Gear (L) Red Warning']
-        required_nodes = ['Airspeed At Gear Down Selected']
+        requested = ['Airspeed At Gear Down Selected']
         try:
             # for test cmd line runners
             derived = get_derived_nodes(['tests.sample_circular_dependency_nodes'])
         except ImportError:
             # for IDE test runners
             derived = get_derived_nodes(['sample_circular_dependency_nodes'])
-        mgr = NodeManager(datetime.now(), 10, lfl_params, required_nodes, derived, 
-                          {}, {})
+        mgr = NodeManager(datetime.now(), 10, lfl_params, requested, [],
+                          derived, {}, {})
         order, _ = dependency_order(mgr, draw=True)
         # As Gear Selected Down depends upon Gear Down
         

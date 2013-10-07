@@ -2104,7 +2104,8 @@ class NodeManager(object):
             len(self.aircraft_info) + len(self.achieved_flight_record))
 
     def __init__(self, start_datetime, hdf_duration, hdf_keys, requested,
-                 derived_nodes, aircraft_info, achieved_flight_record):
+                 required, derived_nodes, aircraft_info,
+                 achieved_flight_record):
         """
         Storage of parameter keys and access to derived nodes.
 
@@ -2114,7 +2115,10 @@ class NodeManager(object):
         :type hdf_duration: int
         :param hdf_keys: List of parameter names in data file defined by the LFL.
         :type hdf_keys: [str]
+        :param requested: Derived nodes to process (dependencies will also be evaluated).
         :type requested: [str]
+        :param required: Nodes which are required, otherwise an exception will be raised.
+        :type required: [str]
         :type derived_nodes: dict
         :type aircraft_info: dict
         :type achieved_flight_record: dict
@@ -2127,6 +2131,7 @@ class NodeManager(object):
         self.hdf_duration = hdf_duration  # secs
         self.hdf_keys = hdf_keys
         self.requested = requested
+        self.required = required
         self.derived_nodes = derived_nodes
         # Attributes:
         self.aircraft_info = non_empty(aircraft_info)
