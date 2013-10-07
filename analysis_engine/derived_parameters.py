@@ -6,10 +6,8 @@ import geomag
 from math import ceil, radians
 from scipy.interpolate import interp1d
 
-from flightdatautilities.model_information import (get_aileron_map,
-                                                   get_conf_map,
-                                                   get_flap_map,
-                                                   get_slat_map)
+from flightdatautilities.model_information import (get_conf_map,
+                                                   get_flap_map)
 from flightdatautilities.velocity_speed import get_vspeed_map
 from flightdatautilities.vmo_mmo import get_vmo_procedure
 
@@ -26,7 +24,6 @@ from analysis_engine.library import (actuator_mismatch,
                                      alt2sat,
                                      bearing_and_distance,
                                      bearings_and_distances,
-                                     blend_equispaced_sensors,
                                      blend_parameters,
                                      blend_two_parameters,
                                      cas2dp,
@@ -64,21 +61,19 @@ from analysis_engine.library import (actuator_mismatch,
                                      rate_of_change,
                                      repair_mask,
                                      rms_noise,
-                                     round_to_nearest,
                                      runway_deviation,
                                      runway_distances,
                                      runway_heading,
                                      runway_length,
                                      runway_snap_dict,
+                                     second_window,
                                      shift_slice,
                                      slices_between,
                                      slices_from_to,
                                      slices_not,
                                      slices_or,
                                      smooth_track,
-                                     step_values,
                                      straighten_headings,
-                                     second_window,
                                      track_linking,
                                      value_at_index,
                                      vstack_params)
@@ -3046,9 +3041,8 @@ class GrossWeightSmoothed(DerivedParameterNode):
                                             fuel_to_burn.nonzero()[0])[-1]
         except IndexError:
             self.warning(
-                "'%s' had no valid samples within '%s' section, but outside "
-                "of '%s' and '%s'. Reverting to '%s'.", self.name, fast.name,
-                climbs.name, descends.name, gw.name)
+                "'%s' had no valid samples. Reverting to '%s'.", self.name,
+                gw.name)
             self.array = gw.array
             return
 
@@ -5283,7 +5277,7 @@ class Spoiler(DerivedParameterNode):
         return family and family.value == 'B787' and (
             'Spoiler (1)' in available or 'Spoiler (14)' in available) or \
                family and family.value == 'G-V' and (
-                   'Spoiler (L)' in available or 'Spoiler (R)' in available)    
+                   'Spoiler (L)' in available or 'Spoiler (R)' in available)
     
     def derive(self,
                spoiler_1=P('Spoiler (1)'),
@@ -5301,7 +5295,7 @@ class Spoiler(DerivedParameterNode):
                 blend_two_parameters(spoiler_L, spoiler_R)
         
         else:
-            raise DataFrameError(self.name, frame_name)
+            raise DataFrameError(self.name, family.value)
 
 
 class SpeedbrakeHandle(DerivedParameterNode):

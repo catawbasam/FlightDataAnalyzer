@@ -1,6 +1,5 @@
 import numpy as np
-from math import ceil, copysign, floor
-import os
+from math import ceil, floor
 
 from analysis_engine.library import (all_of,
                                      any_of,
@@ -8,16 +7,13 @@ from analysis_engine.library import (all_of,
                                      find_edges_on_state_change,
                                      find_toc_tod,
                                      first_valid_sample,
-                                     hysteresis,
                                      index_at_value,
                                      max_value,
-                                     min_value,
                                      minimum_unmasked,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
                                      slices_and,
-                                     slices_not,
-                                     touchdown_inertial)
+                                     slices_not)
 
 from analysis_engine.node import A, M, P, S, KTI, KeyTimeInstanceNode
 
@@ -30,9 +26,7 @@ from settings import (CLIMB_THRESHOLD,
                       NAME_VALUES_SLAT,
                       TAKEOFF_ACCELERATION_THRESHOLD,
                       TRANSITION_ALTITUDE,
-                      VERTICAL_SPEED_FOR_LIFTOFF,
-                      WORKING_DIR
-                      )
+                      VERTICAL_SPEED_FOR_LIFTOFF)
 
 def sorted_valid_list(x):
     '''
@@ -1107,7 +1101,7 @@ class Touchdown(KeyTimeInstanceNode):
                                             index_ax,
                                             index_dax,
                                             index_z])
-                                           
+            
             # ...and use the second where possible, as this has been found to
             # be more reliable than the first which may be erroneous.
             if len(index_list)>1:
