@@ -9624,6 +9624,7 @@ class AirspeedMinusVMOMax(KeyPointValueNode):
     '''
 
     name = 'Airspeed Minus VMO Max'
+    units = 'kts'
 
     @classmethod
     def can_operate(cls, available):
@@ -9636,7 +9637,6 @@ class AirspeedMinusVMOMax(KeyPointValueNode):
             vmo = vmol
 
         exceedings = airspeed.array - vmo.array
-        exceedings = np.ma.masked_where(exceedings <= 0, exceedings)
         self.create_kpvs_within_slices(
             exceedings,
             airborne,
@@ -9650,6 +9650,7 @@ class MachMinusMMOMax(KeyPointValueNode):
     '''
 
     name = 'Mach Minus MMO Max'
+    units = 'M'
 
     @classmethod
     def can_operate(cls, available):
@@ -9662,7 +9663,6 @@ class MachMinusMMOMax(KeyPointValueNode):
             mmo = mmol
 
         exceedings = mach.array - mmo.array
-        exceedings = np.ma.masked_where(exceedings <= 0, exceedings)
         self.create_kpvs_within_slices(
             exceedings,
             airborne,
