@@ -12,7 +12,8 @@ from analysis_engine.library import (
     slice_midpoint,
     shift_slices,
 )
-from analysis_engine.node import (FlightPhaseNode, KeyPointValueNode, KTI, P, S)
+from analysis_engine.node import (FlightPhaseNode, KeyPointValueNode, KPV, KTI,
+                                  P, S)
 from analysis_engine.settings import NAME_VALUES_FLAP
 
 FMIS_CRUISE_NAME_VALUES = {'cruise_number': [1, 2, 3]}
@@ -306,7 +307,27 @@ class FMISApuTime(KeyPointValueNode):
     
     def derive(self, eng_stops=KTI('Eng Stop')):
         eng_stop = eng_stops.get_last()
+        
+        if not eng_stop:
+            self.warning("'Eng Stop' KTI could not be found.")
+            return
+        
         self.create_kpv(eng_stop.index, eng_stop.index)
+
+
+class FMISAPUFuelConsumed(KeyPointValueNode):
+    name = 'FMIS APUFuelConsumed'
+    
+    def derive(self, fuel_burn=P('Eng (*) Fuel Burn'),
+               eng_stops=KTI('Eng Stop')):
+        eng_stop = eng_stops.get_last()
+        
+        if not eng_stop:
+            self.warning("'Eng Stop' KTI could not be found.")
+            return
+        
+        eng_slice = slice(0, eng_stop.index)
+        self.create_kpv(eng_stop.index, np.ma.sum(fuel_burn.array[eng_slice]))
 
 
 class FMISTimeSpdBrakeExt(KeyPointValueNode):
@@ -330,10 +351,11 @@ class FMISTimeSpdBrakeExt(KeyPointValueNode):
 class FMISGearDownAALApp(KeyPointValueNode):
     name = 'FMIS GearDownAALapp'
     
-    def derive(self, alt_gear_downs=P('Altitude At Gear Down Selection')):
+    def derive(self, alt_gear_downs=KPV('Altitude At Gear Down Selection')):
         alt_gear_down = alt_gear_downs.get_last()
         
         if not alt_gear_down:
+            self.warning("'Altitude At Gear Down Selection' KPV could not be found.")
             return
         
         value = alt_gear_down.value if alt_gear_down.value > 1000 else 1000
@@ -468,4 +490,67 @@ class FMISFuelConsumedFirst2LastEngStart(KeyPointValueNode):
         
         eng_slice = slice(first_eng_start.index, last_eng_start.index)
         self.create_kpv(slice_midpoint(eng_slice),
-                        np.ma.sum(fuel_burn[eng_slice]))
+                        np.ma.sum(fuel_burn.array[eng_slice]))
+
+
+class FMISFuelConsumedTouchDown2FirstEngShutDown(KeyPointValueNode):
+    name = 'FMIS FuelConsumedTouchDown2FirstEngShutDown'
+    
+    def derive(self, fuel_burn=P('Eng (*) Fuel Burn'),
+               touchdowns=KTI('Touchdown'),
+               eng_stops=KTI('Eng Stop')):
+        touchdown = touchdowns.get_last()
+        eng_stop = eng_stops.get_next(touchdown.index)
+        
+        if not eng_stop:
+            self.warning("'Eng Stop' KTI could not be found.")
+            return
+        
+        eng_slice = slice(touchdown.index, eng_stop.index)
+        
+        self.create_kpv(slice_midpoint(eng_slice),
+                        np.ma.sum(fuel_burn.array[eng_slice]))
+
+
+class FMISFuelConsumedFirst2LastEngShutDown(KeyPointValueNode):
+    name = 'FMIS FuelConsumedFirst2LastEngShutDown'
+    
+    def derive(self, fuel_burn=P('Eng (*) Fuel Burn'),
+               eng_stops=KTI('Eng Stop')):
+        first_eng_stop = eng_stops.get_first()
+        last_eng_stop = eng_stops.get_last()
+        
+        if not first_eng_stop or not first_eng_stop:
+            self.warning("'Eng Stop' KTI could not be found.")
+            return
+        
+        if first_eng_stop.index == last_eng_stop.index:
+            self.create_kpv(first_eng_stop.index, 0)
+            return
+        
+        eng_slice = slice(first_eng_stop.index, last_eng_stop.index)
+        
+        self.create_kpv(slice_midpoint(eng_slice),
+                        np.ma.sum(fuel_burn.array[eng_slice]))
+
+
+class FMISFuelConsumedTaxiOutAllEng(KeyPointValueNode):
+    name = 'FMIS FuelConsumedTaxiOutAllEng'
+    
+    def derive(self, fuel_burn=P('Eng (*) Fuel Burn'),
+               eng_starts=KTI('Eng Start'),
+               takeoff_accels=KTI('Takeoff Acceleration Start')):
+        eng_start = eng_starts.get_first()
+        start_index = eng_start.index if eng_starts.get_first() else 0
+        
+        takeoff_accel = takeoff_accels.get_last()
+        
+        if not takeoff_accel:
+            self.warning("'Takeoff Acceleration Start' KTI could not be found.")
+            return
+        
+        eng_slice = slice(start_index, takeoff_accel.index)
+        
+        self.create_kpv(slice_midpoint(eng_slice),
+                        np.ma.sum(fuel_burn.array[eng_slice]))
+
