@@ -4,8 +4,13 @@ import unittest
 
 from analysis_engine.fmis import (
     FMISAALFirstSlatFlapSelApp,
+    FMISAPUFuelConsumed,
     FMISApuTime,
     FMISCruise,
+    FMISFuelConsumedFirst2LastEngShutDown,
+    FMISFuelConsumedFirst2LastEngStart,
+    FMISFuelConsumedTaxiOutAllEng,
+    FMISFuelConsumedTouchDown2FirstEngShutDown,
     FMISHWindCompCruise,
     FMISLevelFlight,
     FMISMachCruise,
@@ -582,6 +587,109 @@ class TestFMISTimeLvlFltBelowFL70Desc(unittest.TestCase):
         
 
 class TestFMISFuelConsumedFirst2LastEngStart(unittest.TestCase):
-    # TODO!
-    pass
+    def test_can_operate(self):
+        self.assertEqual(FMISFuelConsumedFirst2LastEngStart.get_operational_combinations(),
+                         [('Eng (*) Fuel Burn', 'Eng Start')])
+    
+    def test_derive(self):
+        fuel_burn_array = np.ma.arange(50)
+        fuel_burn = P('Eng (*) Fuel Burn', array=fuel_burn_array)
+        
+        eng_starts = KeyTimeInstanceNode('Eng Start', items=[
+            KeyTimeInstance(10, 'Eng Start'),
+            KeyTimeInstance(40, 'Eng Start')])
+        
+        node = FMISFuelConsumedFirst2LastEngStart()
+        node.derive(fuel_burn, eng_starts)
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=25, value=735, name='FMIS FuelConsumedFirst2LastEngStart')])
+
+
+class TestFMISFuelConsumedTouchDown2FirstEngShutDown(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(FMISFuelConsumedTouchDown2FirstEngShutDown.get_operational_combinations(),
+                         [('Eng (*) Fuel Burn', 'Touchdown', 'Eng Stop')])
+    
+    def test_derive(self):
+        fuel_burn_array = np.ma.arange(50)
+        fuel_burn = P('Eng (*) Fuel Burn', array=fuel_burn_array)
+        
+        eng_stops = KeyTimeInstanceNode('Eng Stop', items=[
+            KeyTimeInstance(5, 'Eng Stop'),
+            KeyTimeInstance(40, 'Eng Stop')])
+        
+        touchdowns = KeyTimeInstanceNode('Touchdown', items=[
+            KeyTimeInstance(30, 'Touchdown')])
+        
+        node = FMISFuelConsumedTouchDown2FirstEngShutDown()
+        node.derive(fuel_burn, touchdowns, eng_stops)
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=35, value=345, name='FMIS FuelConsumedTouchDown2FirstEngShutDown')])
+
+
+class TestFMISFuelConsumedFirst2LastEngShutDown(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(FMISFuelConsumedFirst2LastEngShutDown.get_operational_combinations(),
+                         [('Eng (*) Fuel Burn', 'Eng Stop')])
+    
+    def test_derive(self):
+        fuel_burn_array = np.ma.arange(50)
+        fuel_burn = P('Eng (*) Fuel Burn', array=fuel_burn_array)
+        
+        eng_stops = KeyTimeInstanceNode('Eng Stop', items=[
+            KeyTimeInstance(30, 'Eng Stop'),
+            KeyTimeInstance(40, 'Eng Stop'),
+            KeyTimeInstance(45, 'Eng Stop')])
+        
+        node = FMISFuelConsumedFirst2LastEngShutDown()
+        node.derive(fuel_burn, eng_stops)
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=38, value=555, name='FMIS FuelConsumedFirst2LastEngShutDown')])
+
+
+class TestFMISAPUFuelConsumed(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(FMISAPUFuelConsumed.get_operational_combinations(),
+                         [('Eng (*) Fuel Burn', 'Eng Stop')])
+    
+    def test_derive(self):
+        fuel_burn_array = np.ma.arange(50)
+        fuel_burn = P('Eng (*) Fuel Burn', array=fuel_burn_array)
+        
+        eng_stops = KeyTimeInstanceNode('Eng Stop', items=[
+            KeyTimeInstance(30, 'Eng Stop'),
+            KeyTimeInstance(40, 'Eng Stop'),
+            KeyTimeInstance(45, 'Eng Stop')])
+        
+        node = FMISAPUFuelConsumed()
+        node.derive(fuel_burn, eng_stops)
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=45, value=990, name='FMIS APUFuelConsumed')])
+
+
+class TestFMISFuelConsumedTaxiOutAllEng(unittest.TestCase):
+    def test_can_operate(self):
+        self.assertEqual(FMISFuelConsumedTaxiOutAllEng.get_operational_combinations(),
+                         [('Eng (*) Fuel Burn', 'Eng Start', 'Takeoff Acceleration Start')])
+    
+    def test_derive(self):
+        fuel_burn_array = np.ma.arange(50)
+        fuel_burn = P('Eng (*) Fuel Burn', array=fuel_burn_array)
+        
+        eng_starts = KeyTimeInstanceNode('Eng Start', items=[
+            KeyTimeInstance(5, 'Eng Start'),
+            KeyTimeInstance(10, 'Eng Start')])
+        
+        takeoff_accels = KeyTimeInstanceNode('Takeoff Acceleration Start',
+            items=[KeyTimeInstance(20, 'Takeoff Acceleration Start')])
+        
+        node = FMISFuelConsumedTaxiOutAllEng()
+        node.derive(fuel_burn, eng_starts, takeoff_accels)
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=13, value=180, name='FMIS FuelConsumedTaxiOutAllEng')])
 
