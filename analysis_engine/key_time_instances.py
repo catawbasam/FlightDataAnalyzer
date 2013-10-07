@@ -389,6 +389,7 @@ class GoAround(KeyTimeInstanceNode):
     def derive(self, dlcs=S('Descent Low Climb'),
                alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio')):
+        
         for dlc in dlcs:
             # Check for cases where a radio altimeter is not fitted or where
             # the altimeter data is out of range, hence masked, at the lowest
@@ -396,9 +397,18 @@ class GoAround(KeyTimeInstanceNode):
             if alt_rad and np.ma.count(alt_rad.array[dlc.slice]):
                 # Worth using the radio altimeter...
                 pit = np.ma.argmin(alt_rad.array[dlc.slice])
+                
+                '''
+                import matplotlib.pyplot as plt
+                plt.plot(alt_aal.array[dlc.slice],'-b')
+                plt.plot(alt_rad.array[dlc.slice],'-r')
+                plt.show()
+                '''
+                
             else:
-                # Fall back on pressure altitude, which may be artificially
-                # adjusted.
+                # Fall back on pressure altitude. Remember the altitude may
+                # have been artificially adjusted if we have no absolute
+                # height reference.
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit + dlc.start_edge)
 

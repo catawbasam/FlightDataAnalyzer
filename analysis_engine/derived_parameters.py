@@ -1083,6 +1083,9 @@ class AltitudeRadio(DerivedParameterNode):
                source_efis = P('Altitude Radio (EFIS)'),
                source_efis_L = P('Altitude Radio (EFIS) (L)'),
                source_efis_R = P('Altitude Radio (EFIS) (R)')):
+        
+        # Reminder: If you add parameters here, they need limits adding in the database !!!
+        
         sources = [source_A, source_B, source_C, source_L, source_R,
                    source_efis, source_efis_L, source_efis_R]
         self.offset = 0.0
@@ -1090,117 +1093,6 @@ class AltitudeRadio(DerivedParameterNode):
         self.array = blend_parameters(sources,
                                       offset=self.offset, 
                                       frequency=self.frequency)
-
-
-'''
-class AltitudeRadio(DerivedParameterNode):
-    """
-    There is a wide variety of radio altimeter installations including linear
-    and non-linear transducers with various transfer functions, and two or
-    three sensors may be installed each with different timing and
-    inaccuracies to be compensated.
-
-    The input data is stored 'temporarily' in parameters named Altitude Radio
-    (A) to (D), and the frame details are augmented by a frame qualifier
-    which identifies which formula to apply.
-
-    :param frame: The frame attribute, e.g. '737-i'
-    :type frame: An attribute
-    :param frame_qual: The frame qualifier, e.g. 'Altitude_Radio_D226A101_1_16D'
-    :type frame_qual: An attribute
-
-    :returns Altitude Radio with values typically taken as the mean between
-    two valid sensors.
-    :type parameter object.
-    """
-
-    units = 'ft'
-    align = False
-
-    @classmethod
-    def can_operate(cls, available):
-        return ('Altitude Radio (A)' in available and
-                'Altitude Radio (B)' in available)
-
-    def derive(self, frame = A('Frame'),
-               frame_qual = A('Frame Qualifier'),
-               source_A = P('Altitude Radio (A)'),
-               source_B = P('Altitude Radio (B)'),
-               source_C = P('Altitude Radio (C)'),
-               source_E = P('Altitude Radio EFIS'),
-               source_L = P('Altitude Radio EFIS (L)'),
-               source_R = P('Altitude Radio EFIS (R)')):
-
-        frame_name = frame.value if frame else ''
-        frame_qualifier = frame_qual.value if frame_qual else None
-
-        # 737-1 & 737-i has Altitude Radio recorded.
-        if frame_name in ['737-3']:
-            # Select the source without abnormal latency.
-            self.array = source_B.array
-
-        elif frame_name in ['737-3A', '737-3B', '737-3C', '757-DHL', '767-3A']:
-            # 737-3* comment:
-            # Alternate samples (A) for this frame have latency of over 1
-            # second, so do not contribute to the height measurements
-            # available. For this reason we only blend the two good sensors.
-            # - discovered with 737-3C and 3A/3B have same LFL for this param.
-
-            # 757-DHL comment:
-            # Altitude Radio (B) comes from the Right altimeter, and is
-            # sampled in word 26 of the frame. Altitude Radio (C) comes from
-            # the Centre altimeter, is sample in word 104. Altitude Radio (A)
-            # comes from the EFIS system, and includes excessive latency so
-            # is not used.
-            
-            #767-3A frame comment:
-            # The normal operation is to use the altitude radio signal from
-            # all four sensors, extracted directly by the lfl. This routine
-            # is only called upon if that fails and a second attempt to
-            # provide valid data is required. It may not, of course, be
-            # susccesful.
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_B, source_C)
-
-        elif frame_name in ['737-4', '737-4_Analogue', 'F28_AV94_0252']:
-            if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier:
-                self.array, self.frequency, self.offset = \
-                    blend_two_parameters(source_L, source_R)
-            else:
-                self.array, self.frequency, self.offset = \
-                    blend_two_parameters(source_A, source_B)
-
-        elif frame_name in ('737-5', '737-5_NON-EIS'):
-            ##if frame_qualifier and 'Altitude_Radio_EFIS' in frame_qualifier or\
-               ##frame_qualifier and 'Altitude_Radio_ARINC_552' in frame_qualifier:
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_A, source_B)
-            ##elif frame_qualifier and 'Altitude_Radio_None' in frame_qualifier:
-                ##pass # Some old 737 aircraft have no rad alt recorded.
-            ##else:
-                ##raise ValueError,'737-5 frame Altitude Radio qualifier not recognised.'
-
-        elif frame_name in ['CRJ-700-900', 'E135-145']:
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_A, source_B)
-        
-        elif frame_name in ['767-2227000-59B']:
-            # The four sources, Left, Centre, EFIS and Right are sampled in every frame.
-            self.array = repair_mask(merge_sources(source_A.array, 
-                                                   source_B.array, 
-                                                   source_E.array, 
-                                                   source_C.array)
-                                     )
-            self.frequency = source_A.frequency * 4.0
-            self.offset = source_A.offset
-
-        elif frame_name in ['A320_SFIM_ED45_CFM']:
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(source_A, source_B)
-
-        else:
-            raise DataFrameError(self.name, frame_name)
-'''
 
 
 class AltitudeSTDSmoothed(DerivedParameterNode):
@@ -3121,10 +3013,14 @@ class GrossWeightSmoothed(DerivedParameterNode):
     V2) calculations. This can only be provided by extrapolation backwards
     from data available later in the flight.
 
-    This routine makes the best of both worlds by using fuel flow to compute
-    short term changes in weight and mapping this onto the level attitude
-    data. We avoid using the recorded fuel weight in this calculation,
-    however it is used in the Zero Fuel Weight calculation.
+    This routine uses fuel flow to compute short term changes in weight and
+    ties this to the last valid measurement before landing. This is used
+    because we need to accurately reflect the landing weight for events
+    relating to landing (errors introduced by extrapolating to the takeoff
+    weight are less significant). 
+    
+    We avoid using the recorded fuel weight in this calculation, however it
+    is used in the Zero Fuel Weight calculation.
     '''
     units = 'kgs'
 
@@ -3132,12 +3028,11 @@ class GrossWeightSmoothed(DerivedParameterNode):
                gw=P('Gross Weight'),
                climbs=S('Climbing'),
                descends=S('Descending'),
-               fast=S('Fast')):
+               airs=S('Airborne')):
 
         gw_masked = gw.array.copy()
-        gw_masked = mask_inside_slices(gw.array, climbs.get_slices())
-        gw_masked = mask_inside_slices(gw.array, descends.get_slices())
-        gw_masked = mask_outside_slices(gw.array, fast.get_slices())
+        gw_masked = mask_inside_slices(gw_masked, climbs.get_slices())
+        gw_masked = mask_outside_slices(gw_masked, airs.get_slices())
 
         gw_nonzero = gw.array.nonzero()[0]
         
@@ -3146,6 +3041,7 @@ class GrossWeightSmoothed(DerivedParameterNode):
                                              direction='reverse'))
         
         try:
+            # Find the last point where the two arrays intercept
             valid_index = np.ma.intersect1d(gw_masked.nonzero()[0],
                                             fuel_to_burn.nonzero()[0])[-1]
         except IndexError:
