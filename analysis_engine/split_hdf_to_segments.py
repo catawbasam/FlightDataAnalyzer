@@ -694,6 +694,6 @@ def main():
                                  draw=False)
     pprint.pprint(segs)
 
-      
+
 if __name__ == '__main__':
     main()
