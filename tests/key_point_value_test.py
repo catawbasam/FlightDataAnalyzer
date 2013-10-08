@@ -1,9 +1,10 @@
-import operator
+
 import os
 import numpy as np
 import sys
 import unittest
 import math
+import operator
 
 from mock import Mock, call, patch
 
@@ -7691,7 +7692,7 @@ class TestTAWSWindshearSirenBelow1500FtDuration(unittest.TestCase,
         self.param_name = 'TAWS Windshear Siren'
         self.phase_name = None
         self.node_class = TAWSWindshearSirenBelow1500FtDuration
-        self.values_mapping = {0: '-', 1: 'Warning'}
+        self.values_mapping = {0: '-', 1: 'Siren'}
 
         self.additional_params = [
             P(
