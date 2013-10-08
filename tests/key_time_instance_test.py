@@ -51,6 +51,8 @@ from analysis_engine.key_time_instances import (
     TakeoffPeakAcceleration,
     TakeoffTurnOntoRunway,
     TAWSGlideslopeCancelPressed,
+    TAWSTerrainOverridePushed,
+    TAWSMinimumsTriggered,
     TopOfClimb,
     TopOfDescent,
     TouchAndGo,
@@ -576,8 +578,36 @@ class TestTAWSGlideslopeCancelPressed(unittest.TestCase):
         glide.derive(tgc, air)
         expected = [KeyTimeInstance(index=2.5, name='TAWS Glideslope Cancel Pressed')]
         self.assertEqual(glide, expected)
-        
- 
+
+
+class TestTAWSMinimumsTriggered(unittest.TestCase):
+
+    def test_basic(self):
+        tto = M('TAWS Minimums Triggered',
+                ['-', '-', '-', 'Minimums', 'Minimums', '-', '-'],
+                values_mapping={0: '-', 1: 'Minimums'})
+        air = buildsection('Airborne', 2, 8)
+        glide = TAWSMinimumsTriggered()
+        glide.derive(tto, air)
+        expected = [KeyTimeInstance(index=2.5,
+                                    name='TAWS Minimums Triggered')]
+        self.assertEqual(glide, expected)
+
+
+class TestTAWSTerrainOverridePushed(unittest.TestCase):
+
+    def test_basic(self):
+        tto = M('TAWS Terrain Override Pushed',
+                ['-', '-', '-', 'Override', 'Override', '-', '-'],
+                values_mapping={0: '-', 1: 'Override'})
+        air = buildsection('Airborne', 2, 8)
+        glide = TAWSTerrainOverridePushed()
+        glide.derive(tto, air)
+        expected = [KeyTimeInstance(index=2.5,
+                                    name='TAWS Terrain Override Pushed')]
+        self.assertEqual(glide, expected)
+
+
 class TestTopOfClimb(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
     # outside edges of the envelope.

@@ -2354,11 +2354,15 @@ class AutobrakeRejectedTakeoffNotSetDuringTakeoff(KeyPointValueNode):
     units = 's'
 
     def derive(self,
-               ab_rto=P('Autobrake Selected RTO'),
+               ab_rto=M('Autobrake Selected RTO'),
                takeoff=S('Takeoff Roll')):
 
-        self.create_kpvs_where(ab_rto.array != 'Selected',
-                               ab_rto.hz, phase=takeoff)
+        # In order to avoid false positives, so we assume masked values are
+        # Selected.
+        not_selected = (ab_rto.array != 'Selected').filled(False)
+        self.create_kpvs_where(
+            not_selected,
+            ab_rto.hz, phase=takeoff)
 
 
 ##############################################################################

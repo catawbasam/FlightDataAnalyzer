@@ -1,9 +1,10 @@
-import operator
+
 import os
 import numpy as np
 import sys
 import unittest
 import math
+import operator
 
 from mock import Mock, call, patch
 
@@ -616,11 +617,6 @@ class CreateKPVsWhereTest(NodeTest):
         self.assertSetEqual(kpv_combinations, expected_combinations)
 
     def test_derive_basic(self):
-        '''
-        Basic test of state duration in given phase.
-
-        self.node_class: the class of the tested node
-        '''
         if hasattr(self, 'node_class'):
             node = self.node_class()
             node.derive(*(self.params + self.phases))
@@ -2493,15 +2489,36 @@ class TestDelayedBrakingAfterTouchdown(unittest.TestCase, NodeTest):
 class TestAutobrakeRejectedTakeoffNotSetDuringTakeoff(unittest.TestCase,
                                                       CreateKPVsWhereTest):
     def setUp(self):
-        self.values_array = np.ma.array([1] * 3 + [0] * 6 + [1] * 3)
-        self.expected = [KeyPointValue(
-            index=3, value=4.0,
-            name='Autobrake Rejected Takeoff Not Set During Takeoff')]
-
         self.param_name = 'Autobrake Selected RTO'
         self.phase_name = 'Takeoff Roll'
         self.node_class = AutobrakeRejectedTakeoffNotSetDuringTakeoff
         self.values_mapping = {0: '-', 1: 'Selected'}
+
+        self.values_array = np.ma.array([0] * 5 + [1] * 4 + [0] * 3)
+        self.expected = [KeyPointValue(
+            index=2, value=3.0,
+            name='Autobrake Rejected Takeoff Not Set During Takeoff')]
+
+        self.basic_setup()
+
+
+class TestAutobrakeRejectedTakeoffNotSetDuringTakeoff_masked(
+        unittest.TestCase, CreateKPVsWhereTest):
+    def setUp(self):
+        self.param_name = 'Autobrake Selected RTO'
+        self.phase_name = 'Takeoff Roll'
+        self.node_class = AutobrakeRejectedTakeoffNotSetDuringTakeoff
+        self.values_mapping = {0: '-', 1: 'Selected'}
+
+        # Masked values are considered "correct" in given circumstances, in
+        # this case we assume them to be "Selected"
+        self.values_array = np.ma.array(
+            [0] * 5 + [1] * 4 + [0] * 3,
+            mask=[False] * 3 + [True] * 2 + [False] * 7)
+
+        self.expected = [KeyPointValue(
+            index=2, value=1.0,
+            name='Autobrake Rejected Takeoff Not Set During Takeoff')]
 
         self.basic_setup()
 
@@ -7691,7 +7708,7 @@ class TestTAWSWindshearSirenBelow1500FtDuration(unittest.TestCase,
         self.param_name = 'TAWS Windshear Siren'
         self.phase_name = None
         self.node_class = TAWSWindshearSirenBelow1500FtDuration
-        self.values_mapping = {0: '-', 1: 'Warning'}
+        self.values_mapping = {0: '-', 1: 'Siren'}
 
         self.additional_params = [
             P(

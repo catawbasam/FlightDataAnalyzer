@@ -687,12 +687,28 @@ class GearUpSelectionDuringGoAround(KeyTimeInstanceNode):
 # TAWS
 
 class TAWSGlideslopeCancelPressed(KeyTimeInstanceNode):
-    
+
     name = 'TAWS Glideslope Cancel Pressed'
-    
+
     def derive(self, tgc=P('TAWS Glideslope Cancel'), airborne=S('Airborne')):
         # Monitor only while airborne, in case this is triggered pre-flight.
         self.create_ktis_on_state_change('Cancel', tgc.array,
+                                         change='entering', phase=airborne)
+
+
+class TAWSMinimumsTriggered(KeyTimeInstanceNode):
+    name = 'TAWS Minimums Triggered'
+
+    def derive(self, tmin=P('TAWS Minimums'), airborne=S('Airborne')):
+        self.create_ktis_on_state_change('Minimums', tmin.array,
+                                         change='entering', phase=airborne)
+
+
+class TAWSTerrainOverridePushed(KeyTimeInstanceNode):
+    name = 'TAWS Terrain Override Pushed'
+
+    def derive(self, tmin=P('TAWS Terrain Override'), airborne=S('Airborne')):
+        self.create_ktis_on_state_change('Override', tmin.array,
                                          change='entering', phase=airborne)
 
 
