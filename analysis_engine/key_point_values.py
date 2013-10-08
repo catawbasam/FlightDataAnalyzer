@@ -1494,8 +1494,7 @@ class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
         data = self.flap_or_conf_max_or_min(flap, airspeed, min_value,
                                             scope=scope)
         for index, value, detent in data:
-            self.create_kpv(index, value, parameter=flap.name,
-                            flap=detent)
+            self.create_kpv(index, value, flap=detent)
 
 
 class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
@@ -4805,8 +4804,7 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
         # flaps before 80kn on the landing run.
         data = self.flap_or_conf_max_or_min(flap, mach, max_value, scope=scope)
         for index, value, detent in data:
-            self.create_kpv(index, value, parameter=flap.name,
-                            flap=detent)
+            self.create_kpv(index, value, flap=detent)
 
 
 ########################################
