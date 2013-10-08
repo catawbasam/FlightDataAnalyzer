@@ -617,11 +617,6 @@ class CreateKPVsWhereTest(NodeTest):
         self.assertSetEqual(kpv_combinations, expected_combinations)
 
     def test_derive_basic(self):
-        '''
-        Basic test of state duration in given phase.
-
-        self.node_class: the class of the tested node
-        '''
         if hasattr(self, 'node_class'):
             node = self.node_class()
             node.derive(*(self.params + self.phases))
