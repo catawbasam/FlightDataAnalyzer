@@ -99,6 +99,7 @@ class FMISCruise(FlightPhaseNode):
 
 
 class FMISMachCruise(KeyPointValueNode, FMISCruiseKPV):
+    name = 'FMIS MachCruise'
     NAME_FORMAT = 'FMIS MachCruise %(cruise_number)d'
     NAME_VALUES = FMIS_CRUISE_NAME_VALUES
     
@@ -107,6 +108,7 @@ class FMISMachCruise(KeyPointValueNode, FMISCruiseKPV):
 
 
 class FMISWeightCruise(KeyPointValueNode, FMISCruiseKPV):
+    name = 'FMIS WeightCruise'
     NAME_FORMAT = 'FMIS WeightCruise %(cruise_number)d'
     NAME_VALUES = FMIS_CRUISE_NAME_VALUES
     
@@ -116,6 +118,7 @@ class FMISWeightCruise(KeyPointValueNode, FMISCruiseKPV):
 
 
 class FMISHWindCompCruise(KeyPointValueNode, FMISCruiseKPV):
+    name = 'FMIS HWindCompCruise'
     NAME_FORMAT = 'FMIS HWindCompCruise %(cruise_number)d'
     NAME_VALUES = FMIS_CRUISE_NAME_VALUES
     
@@ -124,6 +127,7 @@ class FMISHWindCompCruise(KeyPointValueNode, FMISCruiseKPV):
 
 
 class FMISPaltCruise(KeyPointValueNode, FMISCruiseKPV):
+    name = 'FMIS PaltCruise'
     NAME_FORMAT = 'FMIS MachCruise %(cruise_number)d'
     NAME_VALUES = FMIS_CRUISE_NAME_VALUES
     
@@ -142,6 +146,7 @@ class FMISPaltCruise(KeyPointValueNode, FMISCruiseKPV):
 
 
 class FMISMinutesInCruise(KeyPointValueNode):
+    name = 'FMIS MinutesInCruise'
     NAME_FORMAT = 'FMIS MinutesInCruise %(cruise_number)d'
     NAME_VALUES = FMIS_CRUISE_NAME_VALUES
     
@@ -242,6 +247,7 @@ class FMISTimeFlap(KeyPointValueNode):
     '''
     These KPVs should only be created for Boeing aircraft.
     '''
+    name = 'FMIS TimeFlap'
     NAME_FORMAT = 'FMIS TimeFlap%(flap)d'
     NAME_VALUES = NAME_VALUES_FLAP.copy()
     
@@ -255,6 +261,7 @@ class FMISTimeFlap(KeyPointValueNode):
 
 
 class FMISTimeFlap_Airbus(KeyPointValueNode):
+    name = 'FMIS TimeFlapAirbus'
     NAME_FORMAT = 'FMIS TimeFlap%(conf)sAirbus'
     NAME_VALUES = {'conf': ['1', '1F', '2', '3', '4']}
     
