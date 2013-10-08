@@ -15,10 +15,13 @@ from analysis_engine.library import (
     first_valid_sample,
     index_at_value,
     index_at_value_or_level_off,
+    is_index_within_slices,
+    is_index_within_slice,
     is_slice_within_slice,
     last_valid_sample,
     moving_average,
     nearest_neighbour_mask_repair,
+    peak_curvature,
     rate_of_change,
     repair_mask,
     runs_of_ones,
@@ -1108,41 +1111,41 @@ class RejectedTakeoff(FlightPhaseNode):
     '''
     
     def derive(self, accel_lon=P('Acceleration Longitudinal Offset Removed'),
-               liftoffs=KTI('Liftoff'), groundeds=S('Grounded')):
-        accel_lon_masked = np.ma.copy(accel_lon.array)
-        accel_lon_masked.mask |= accel_lon_masked <= TAKEOFF_ACCELERATION_THRESHOLD
-        accel_lon_slices = slices_and(np.ma.clump_unmasked(accel_lon_masked),
-                                      groundeds.get_slices())
+               groundeds=S('Grounded')):
+        accel_lon_smoothed = moving_average(accel_lon.array)
         
-        for next_index, accel_lon_slice in enumerate(accel_lon_slices, start=1):
+        accel_lon_masked = np.ma.copy(accel_lon_smoothed)
+        accel_lon_masked.mask |= accel_lon_masked <= TAKEOFF_ACCELERATION_THRESHOLD
+        
+        accel_lon_slices = np.ma.clump_unmasked(accel_lon_masked)
+        
+        potential_rtos = []
+        for grounded in groundeds:
+            for accel_lon_slice in accel_lon_slices:
+                if is_index_within_slice(accel_lon_slice.start, grounded.slice) and \
+                   is_index_within_slice(accel_lon_slice.stop, grounded.slice):
+                    potential_rtos.append(accel_lon_slice)
             
-            if slice_duration(accel_lon_slice, self.frequency) <= 10:
-                # Skip short fluctuations/spikes.
+        for next_index, potential_rto in enumerate(potential_rtos, start=1):
+            
+            if not is_index_within_slices(min(potential_rto.start + 60,
+                                              len(accel_lon.array) - 1),
+                                          groundeds.get_slices()):
                 continue
             
-            if next_index == len(accel_lon_slices):
-                search_ahead_index = None
-            else:
-                search_ahead_index = accel_lon_slices[next_index].start
+            # Expand phase to the edges of the Acceleration period.
+            start_accel = slice(potential_rto.stop,
+                                max(potential_rto.start-(30 * self.hz), 0), -1)
             
-            if liftoffs.get(
-                within_slice=slice(accel_lon_slice.start, search_ahead_index)):
-                    continue
+            stop_accel = slice(potential_rto.start,
+                               min(potential_rto.stop+(30 * self.hz),
+                                   len(accel_lon.array)))
             
-            accel_start_index = index_at_value(
-                accel_lon.array, REJECTED_TAKEOFF_THRESHOLD,
-                _slice=slice(accel_lon_slice.start, None, -1))
+            start_index = peak_curvature(accel_lon_smoothed, _slice=start_accel)
+            stop_index = peak_curvature(accel_lon_smoothed, _slice=stop_accel)
             
-            accel_end_index = index_at_value(
-                accel_lon.array, REJECTED_TAKEOFF_THRESHOLD,
-                _slice=slice(accel_lon_slice.start, search_ahead_index))
-            
-            if accel_end_index is None:
-                # Do not create a Rejected Takeoff section which spans the
-                # entire flight.
-                accel_end_index = search_ahead_index
-            
-            self.create_phase(slice(accel_start_index, accel_end_index))
+            if start_index and stop_index:
+                self.create_phase(slice(start_index, stop_index))
 
 
 class Takeoff(FlightPhaseNode):

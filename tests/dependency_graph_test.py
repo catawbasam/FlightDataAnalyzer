@@ -89,7 +89,7 @@ class TestDependencyGraph(unittest.TestCase):
              '____ [Raw2]',
              '__ P5',
              '____ Raw3',
-             '____ Raw4',             
+             '____ Raw4',
              '__ P6',
              '____ Raw3',
             ])
@@ -112,7 +112,7 @@ class TestDependencyGraph(unittest.TestCase):
              '      - [Raw2] (HDFNode)',
              '    - P5 (DerivedParameterNode)',
              '      - Raw3 (HDFNode)',
-             '      - Raw4 (HDFNode)',             
+             '      - Raw4 (HDFNode)',
              '    - P6 (DerivedParameterNode)',
              '      - Raw3 (HDFNode)',
              '  - P8 (DerivedParameterNode)',
@@ -196,7 +196,7 @@ class TestDependencyGraph(unittest.TestCase):
         Tests a few of the colours
         """
         class One(DerivedParameterNode):
-            # Hack to allow objects rather than classes to be added to the tree.            
+            # Hack to allow objects rather than classes to be added to the tree.
             __base__ = DerivedParameterNode
             __bases__ = [__base__]
             def derive(self, dep=P('DepOne')):
