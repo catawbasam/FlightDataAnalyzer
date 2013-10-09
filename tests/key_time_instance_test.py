@@ -830,11 +830,20 @@ class TestEngStart(unittest.TestCase):
         eng1 = Parameter('Eng (1) N2', np.ma.array(data=[0,0,99,99,60,60,60], 
                                                    mask=[1,1, 1, 1, 0, 0, 0]))
         es = EngStart()
-        es.derive(eng1, eng2, None, None, None, None, None, None)
+        es.derive(None, None, None, None, eng1, eng2, None, None, None, None, None, None)
         self.assertEqual(es[0].name, 'Eng (1) Start')
         self.assertEqual(es[0].index, 4)
         self.assertEqual(es[1].name, 'Eng (2) Start')
         self.assertEqual(es[1].index, 2.5)
+
+    def test_prefer_N2(self):
+        eng_N1 = Parameter('Eng (1) N1', np.ma.array([50,50,50,50]))
+        eng_N2 = Parameter('Eng (1) N2', np.ma.array(data=[0,0,0,60]))
+        es = EngStart()
+        es.derive(eng_N1, None, None, None, eng_N2, None, None, None, None, None, None, None)
+        self.assertEqual(es[0].name, 'Eng (1) Start')
+        self.assertEqual(es[0].index, 2.5)
+        self.assertEqual(len(es), 1)
 
     def test_three_spool(self):
         eng22 = Parameter('Eng (2) N2', np.ma.array([0,20,40,60, 0, 20, 40, 60]))
@@ -844,13 +853,18 @@ class TestEngStart(unittest.TestCase):
         eng13 = Parameter('Eng (1) N3', np.ma.array(data=[0,0,99,99,60,60,60, 60], 
                                                    mask=[1,1, 1, 1, 0, 0, 0, 0]))
         es = EngStart()
-        es.derive(eng12, eng22, None, None, eng13, eng23, None, None)
+        es.derive(None, None, None, None, eng12, eng22, None, None, eng13, eng23, None, None)
         self.assertEqual(es[0].name, 'Eng (1) Start')
         self.assertEqual(es[0].index, 4)
         self.assertEqual(es[1].name, 'Eng (2) Start')
         self.assertEqual(es[1].index, 1.5)
 
-
+    def test_N1_only(self):
+        eng_N1 = Parameter('Eng (1) N1', np.ma.array([0,5,10,10]))
+        es = EngStart()
+        es.derive(eng_N1, None, None, None, None, None, None, None, None, None, None, None)
+        self.assertEqual(es[0].name, 'Eng (1) Start')
+        self.assertEqual(es[0].index, 1.5)
 
 
 class TestEngStop(unittest.TestCase):
@@ -869,7 +883,7 @@ class TestEngStop(unittest.TestCase):
         eng1 = Parameter('Eng (1) N2', np.ma.array(data=[60,40,40,99,99, 0, 0], 
                                                    mask=[ 0, 0, 0, 1, 1, 1, 1]))
         es = EngStop()
-        es.derive(eng1, eng2, None, None)
+        es.derive(None, None, None, None, eng1, eng2, None, None)
         self.assertEqual(es[0].name, 'Eng (1) Stop')
         self.assertEqual(es[0].index, 2)
         self.assertEqual(es[1].name, 'Eng (2) Stop')
