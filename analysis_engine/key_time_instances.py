@@ -727,8 +727,8 @@ class TAWSMinimumsTriggered(KeyTimeInstanceNode):
                                          change='entering', phase=airborne)
 
 
-class TAWSTerrainOverridePushed(KeyTimeInstanceNode):
-    name = 'TAWS Terrain Override Pushed'
+class TAWSTerrainOverridePressed(KeyTimeInstanceNode):
+    name = 'TAWS Terrain Override Pressed'
 
     def derive(self, tmin=P('TAWS Terrain Override'), airborne=S('Airborne')):
         self.create_ktis_on_state_change('Override', tmin.array,

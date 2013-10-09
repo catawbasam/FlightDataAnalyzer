@@ -51,7 +51,7 @@ from analysis_engine.key_time_instances import (
     TakeoffPeakAcceleration,
     TakeoffTurnOntoRunway,
     TAWSGlideslopeCancelPressed,
-    TAWSTerrainOverridePushed,
+    TAWSTerrainOverridePressed,
     TAWSMinimumsTriggered,
     TopOfClimb,
     TopOfDescent,
@@ -594,17 +594,17 @@ class TestTAWSMinimumsTriggered(unittest.TestCase):
         self.assertEqual(glide, expected)
 
 
-class TestTAWSTerrainOverridePushed(unittest.TestCase):
+class TestTAWSTerrainOverridePressed(unittest.TestCase):
 
     def test_basic(self):
-        tto = M('TAWS Terrain Override Pushed',
+        tto = M('TAWS Terrain Override Pressed',
                 ['-', '-', '-', 'Override', 'Override', '-', '-'],
                 values_mapping={0: '-', 1: 'Override'})
         air = buildsection('Airborne', 2, 8)
-        glide = TAWSTerrainOverridePushed()
+        glide = TAWSTerrainOverridePressed()
         glide.derive(tto, air)
         expected = [KeyTimeInstance(index=2.5,
-                                    name='TAWS Terrain Override Pushed')]
+                                    name='TAWS Terrain Override Pressed')]
         self.assertEqual(glide, expected)
 
 
