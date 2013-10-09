@@ -5276,7 +5276,7 @@ class Spoiler(DerivedParameterNode):
     def can_operate(cls, available, family=A('Family')):
         return family and family.value == 'B787' and (
             'Spoiler (1)' in available or 'Spoiler (14)' in available) or \
-               family and family.value == 'G-V' and (
+               family and family.value in ['G-V', 'Learjet'] and (
                    'Spoiler (L)' in available or 'Spoiler (R)' in available)
     
     def derive(self,
@@ -5290,7 +5290,7 @@ class Spoiler(DerivedParameterNode):
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(spoiler_1, spoiler_14)
 
-        elif family.value == 'G-V':
+        elif family.value in ['G-V', 'Learjet']:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(spoiler_L, spoiler_R)
         
