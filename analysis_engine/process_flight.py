@@ -279,7 +279,8 @@ def get_derived_nodes(module_names):
 
 def process_flight(hdf_path, tail_number, aircraft_info={},
                    start_datetime=datetime.now(), achieved_flight_record={},
-                   requested=[], required=[], include_flight_attributes=True):
+                   requested=[], required=[], include_flight_attributes=True,
+                   additional_modules=[]):
     '''
     Processes the HDF file (hdf_path) to derive the required_params (Nodes)
     within python modules (settings.NODE_MODULES).
@@ -301,6 +302,8 @@ def process_flight(hdf_path, tail_number, aircraft_info={},
     :type required: List of Strings
     :param include_flight_attributes: Whether to include all flight attributes
     :type include_flight_attributes: Boolean
+    :param additional_modules: List of module paths to import.
+    :type additional_modules: List of Strings
 
     :returns: See below:
     :rtype: Dict
@@ -469,7 +472,8 @@ def process_flight(hdf_path, tail_number, aircraft_info={},
     aircraft_info['Tail Number'] = tail_number
     
     # go through modules to get derived nodes
-    derived_nodes = get_derived_nodes(settings.NODE_MODULES)
+    node_modules = additional_modules + settings.NODE_MODULES
+    derived_nodes = get_derived_nodes(node_modules)
     
     if requested:
         requested = \
