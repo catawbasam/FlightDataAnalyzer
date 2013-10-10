@@ -5787,8 +5787,8 @@ class VMOLookup(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available, series=A('Series'), family=A('Family')):
-        return 'Altitude AAL' in available and get_vmo_procedure(
-            series=series.value, family=family.value).vmo
+        return 'Altitude AAL' in available and bool(get_vmo_procedure(
+            series=series.value, family=family.value).vmo)
 
     def derive(self, aal=P('Altitude AAL'), series=A('Series'),
                family=A('Family')):
@@ -5806,8 +5806,8 @@ class MMOLookup(DerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available, series=A('Series'), family=A('Family')):
-        return 'Altitude AAL' in available and get_vmo_procedure(
-            series=series.value, family=family.value).mmo
+        return 'Altitude AAL' in available and bool(get_vmo_procedure(
+            series=series.value, family=family.value).mmo)
 
     def derive(self, aal=P('Altitude AAL'), series=A('Series'),
                family=A('Family')):
