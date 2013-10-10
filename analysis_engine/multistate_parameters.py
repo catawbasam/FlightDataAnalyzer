@@ -430,19 +430,28 @@ class Eng_AllRunning(MultistateDerivedParameterNode):
     
     @classmethod
     def can_operate(cls, available):
-        return 'Eng (*) N2 Min' in available or \
+        return 'Eng (*) N1 Min' in available or \
+               'Eng (*) N2 Min' in available or \
                'Eng (*) Fuel Flow Min' in available
     
     def derive(self,
+               eng_n1=P('Eng (*) N1 Min'),
                eng_n2=P('Eng (*) N2 Min'),
                fuel_flow=P('Eng (*) Fuel Flow Min')):
         # TODO: move values to settings
-        n2_running = eng_n2.array > 10 if eng_n2 \
-            else np.ones_like(fuel_flow.array, dtype=bool)
-        fuel_flowing = fuel_flow.array > 50 if fuel_flow \
-            else np.ones_like(eng_n2.array, dtype=bool)
-        # must have N2 and Fuel Flow if both are available
-        self.array = n2_running & fuel_flowing
+
+        if eng_n2 or fuel_flow:
+            # Ideally have N2 and Fuel Flow with both available,
+            # otherwise use just one source
+            n2_running = eng_n2.array > 10 if eng_n2 \
+                else np.ones_like(fuel_flow.array, dtype=bool)
+            fuel_flowing = fuel_flow.array > 50 if fuel_flow \
+                else np.ones_like(eng_n2.array, dtype=bool)
+            self.array = n2_running & fuel_flowing
+        else:
+            # Fall back on N1 
+            self.array = eng_n1.array > 10
+            # TODO: extend to NP for props
 
 
 class Eng_AnyRunning(MultistateDerivedParameterNode):
@@ -460,19 +469,27 @@ class Eng_AnyRunning(MultistateDerivedParameterNode):
 
     @classmethod
     def can_operate(cls, available):
-        return 'Eng (*) N2 Max' in available or \
+        return 'Eng (*) N1 Max' in available or \
+               'Eng (*) N2 Max' in available or \
                'Eng (*) Fuel Flow Max' in available
 
     def derive(self,
+               eng_n1=P('Eng (*) N1 Max'),
                eng_n2=P('Eng (*) N2 Max'),
                fuel_flow=P('Eng (*) Fuel Flow Max')):
-        # TODO: move values to settings
-        n2_running = eng_n2.array > 10 if eng_n2 \
-            else np.ones_like(fuel_flow.array, dtype=bool)
-        fuel_flowing = fuel_flow.array > 50 if fuel_flow \
-            else np.ones_like(eng_n2.array, dtype=bool)
-        # must have N2 and Fuel Flow if both are available
-        self.array = n2_running & fuel_flowing
+
+        if eng_n2 or fuel_flow:
+            # TODO: move values to settings
+            n2_running = eng_n2.array > 10 if eng_n2 \
+                else np.ones_like(fuel_flow.array, dtype=bool)
+            fuel_flowing = fuel_flow.array > 50 if fuel_flow \
+                else np.ones_like(eng_n2.array, dtype=bool)
+            # must have N2 and Fuel Flow if both are available
+            self.array = n2_running & fuel_flowing
+        else:
+            # Only have N1 available
+            self.array = eng_n1.array > 10
+            # TODO: extend to NP for props
 
 
 class EngThrustModeRequired(MultistateDerivedParameterNode):
@@ -1239,8 +1256,9 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         '''
         x = available
         return 'Speedbrake Deployed' in x \
-            or ('Family' in x and 'Speedbrake Handle' in x)\
-            or ('Family' in x and 'Speedbrake' in x)
+               or ('Family' in x and 'Spoiler Switch' in x)\
+               or ('Family' in x and 'Speedbrake Handle' in x)\
+               or ('Family' in x and 'Speedbrake' in x)
 
     def a320_speedbrake(self, armed, spdbrk):
         '''
@@ -1334,12 +1352,35 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         speedbrake[stepped_array == 10] = 1
         speedbrake[stepped_array == 20] = 2
         return speedbrake
+    
+    @staticmethod
+    def learjet_speedbrake(spdsw):
+        '''
+        Learjet 60XS has a switch with settings:
+        0 = Retract
+        4 = Extended
+        7 = Armed
+        6 = Partial
+        
+        Here we map thus:
+            Retract = Stowed
+            Armed = Armed/Cmd Dn
+            Partial or Extended = Deployed/Cmd Up
+        '''
+        switch = spdsw.array
+        speedbrake = np_ma_zeros_like(switch)
+        speedbrake = np.ma.where(switch=='Retract', 'Stowed',
+                                 'Deployed/Cmd Up')
+        speedbrake = np.ma.where(switch=='Armed', 'Armed/Cmd Dn',
+                                 speedbrake)
+        return speedbrake
 
     def derive(self,
                deployed=M('Speedbrake Deployed'),
                armed=M('Speedbrake Armed'),
                handle=P('Speedbrake Handle'),
                spdbrk=P('Speedbrake'),
+               spdsw=M('Spoiler Switch'),
                spoiler=P('Spoiler'),
                family=A('Family')):
 
@@ -1366,6 +1407,9 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
 
         elif family_name == 'A320':
             self.array = self.a320_speedbrake(armed, spdbrk)
+            
+        elif family_name == 'Learjet':
+            self.array = self.learjet_speedbrake(spdsw)
             
         elif family_name == 'G-V':
             # On the test aircraft SE-RDY the Speedbrake stored 0 at all
@@ -1676,6 +1720,9 @@ class ThrustReversers(MultistateDerivedParameterNode):
             'Eng (1) Thrust Reverser Deployed',
             'Eng (2) Thrust Reverser In Transit',
             'Eng (2) Thrust Reverser Deployed',
+        ), available) or all_of((
+            'Eng (1) Thrust Reverser',
+            'Eng (2) Thrust Reverser',
         ), available)
 
     def derive(self,
@@ -1706,11 +1753,14 @@ class ThrustReversers(MultistateDerivedParameterNode):
             e4_ulk_all=M('Eng (4) Thrust Reverser Unlocked'),
             e4_ulk_lft=M('Eng (4) Thrust Reverser (L) Unlocked'),
             e4_ulk_rgt=M('Eng (4) Thrust Reverser (R) Unlocked'),
-            e4_tst_all=M('Eng (4) Thrust Reverser In Transit'),):
+            e4_tst_all=M('Eng (4) Thrust Reverser In Transit'),
+            e1_status =M('Eng (1) Thrust Reverser'),
+            e2_status =M('Eng (2) Thrust Reverser'),):
 
         deployed_params = (e1_dep_all, e1_dep_lft, e1_dep_rgt, e2_dep_all,
                            e2_dep_lft, e2_dep_rgt, e3_dep_all, e3_dep_lft,
-                           e3_dep_rgt, e4_dep_all, e4_dep_lft, e4_dep_rgt)
+                           e3_dep_rgt, e4_dep_all, e4_dep_lft, e4_dep_rgt,
+                           e1_status, e2_status)
 
         deployed_stack = vstack_params_where_state(*[(d, 'Deployed') for d in deployed_params])
 
@@ -1728,11 +1778,13 @@ class ThrustReversers(MultistateDerivedParameterNode):
 
         array = np.ma.where(deployed_stack.any(axis=0), 1, array)
         array = np.ma.where(deployed_stack.all(axis=0), 2, array)
+        
         # update with any transit params
         if any((e1_tst_all, e2_tst_all, e3_tst_all, e4_tst_all)):
             transit_stack = vstack_params_where_state(
                 (e1_tst_all, 'In Transit'), (e2_tst_all, 'In Transit'),
                 (e3_tst_all, 'In Transit'), (e4_tst_all, 'In Transit'),
+                (e1_status, 'In Transit'),  (e2_status, 'In Transit'), 
             )
             array = np.ma.where(transit_stack.any(axis=0), 1, array)
             stacks.append(transit_stack)

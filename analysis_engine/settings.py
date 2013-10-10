@@ -281,6 +281,9 @@ METRES_TO_NM = 1852.0
 # Minimum core speed for engine to sustain operation.
 MIN_CORE_SUSTAINABLE = 50.0 # %
 
+# Minimum fan speed at idle for engines where N2/N3 not recorded.
+MIN_FAN_RUNNING = 5.0 # %
+
 # Threshold for Longitudinal Acceleration Offset Removed dropping to after
 # a Takeoff Acceleration Start.
 REJECTED_TAKEOFF_THRESHOLD = 0

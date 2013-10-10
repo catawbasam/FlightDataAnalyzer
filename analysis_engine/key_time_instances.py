@@ -19,6 +19,7 @@ from analysis_engine.node import A, M, P, S, KTI, KeyTimeInstanceNode
 
 from settings import (CLIMB_THRESHOLD,
                       MIN_CORE_SUSTAINABLE,
+                      MIN_FAN_RUNNING,
                       NAME_VALUES_CLIMB,
                       NAME_VALUES_DESCENT,
                       NAME_VALUES_ENGINE,
@@ -245,14 +246,21 @@ class EngStart(KeyTimeInstanceNode):
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Eng (%d) N2' % n for n in range(1, 5)), available) or \
+        return any_of(('Eng (%d) N1' % n for n in range(1, 3)), available) or \
+               any_of(('Eng (%d) N2' % n for n in range(1, 5)), available) or \
                any_of(('Eng (%d) N3' % n for n in range(1, 5)), available)
 
     def derive(self,
+               eng_1_n1=P('Eng (1) N1'),
+               eng_2_n1=P('Eng (2) N1'),
+               eng_3_n1=P('Eng (3) N1'),
+               eng_4_n1=P('Eng (4) N1'),
+               
                eng_1_n2=P('Eng (1) N2'),
                eng_2_n2=P('Eng (2) N2'),
                eng_3_n2=P('Eng (3) N2'),
                eng_4_n2=P('Eng (4) N2'),
+               
                eng_1_n3=P('Eng (1) N3'),
                eng_2_n3=P('Eng (2) N3'),
                eng_3_n3=P('Eng (3) N3'),
@@ -261,18 +269,20 @@ class EngStart(KeyTimeInstanceNode):
         if eng_1_n3 or eng_2_n3:
             # This aircraft has 3-spool engines
             eng_nx_list = (eng_1_n3, eng_2_n3, eng_3_n3, eng_4_n3)
+            limit = MIN_CORE_SUSTAINABLE
         elif eng_1_n2 or eng_2_n2:
             # The engines are 2-spool engines
             eng_nx_list = (eng_1_n2, eng_2_n2, eng_3_n2, eng_4_n2)
+            limit = MIN_CORE_SUSTAINABLE
         else:
-            # Worry about this later when the problem arises.
-            raise 'Engines without two spools fitted'
+            eng_nx_list = (eng_1_n1, eng_2_n1, eng_3_n1, eng_4_n1)
+            limit = MIN_FAN_RUNNING
         
         for number, eng_nx in enumerate(eng_nx_list, start=1):
             if not eng_nx:
                 continue
 
-            running = np.ma.where(eng_nx.array > MIN_CORE_SUSTAINABLE, 1, 0)
+            running = np.ma.where(eng_nx.array > limit, 1, 0)
             first_speed = first_valid_sample(running)
 
             if first_speed.value:
@@ -304,26 +314,39 @@ class EngStop(KeyTimeInstanceNode):
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Eng (%d) N2' % n for n in range(1, 5)), available)
+        return any_of(('Eng (%d) N1' % n for n in range(1, 5)), available) or \
+               any_of(('Eng (%d) N2' % n for n in range(1, 5)), available)
 
     def derive(self,
+               eng_1_n1=P('Eng (1) N1'),
+               eng_2_n1=P('Eng (2) N1'),
+               eng_3_n1=P('Eng (3) N1'),
+               eng_4_n1=P('Eng (4) N1'),
+    
                eng_1_n2=P('Eng (1) N2'),
                eng_2_n2=P('Eng (2) N2'),
                eng_3_n2=P('Eng (3) N2'),
                eng_4_n2=P('Eng (4) N2')):
 
-        eng_n2_list = (eng_1_n2, eng_2_n2, eng_3_n2, eng_4_n2)
-        for number, eng_n2 in enumerate(eng_n2_list, start=1):
-            if not eng_n2:
+        if eng_1_n2 or eng_2_n2:
+            # The engines are 2- or 3-spool engines
+            eng_nx_list = (eng_1_n2, eng_2_n2, eng_3_n2, eng_4_n2)
+            limit = MIN_CORE_SUSTAINABLE
+        else:
+            eng_nx_list = (eng_1_n1, eng_2_n1, eng_3_n1, eng_4_n1)
+            limit = MIN_FAN_RUNNING
+
+        for number, eng_nx in enumerate(eng_nx_list, start=1):
+            if not eng_nx:
                 continue
 
-            running = np.ma.where(eng_n2.array > MIN_CORE_SUSTAINABLE/2, 1, 0)
+            running = np.ma.where(eng_nx.array > limit/2, 1, 0)
             last_speed = first_valid_sample(running[::-1])
 
             if last_speed.value:
                 # The last valid sample shows the engine running when the
                 # recording stopped.
-                self.create_kti(len(eng_n2.array)-last_speed.index-1,
+                self.create_kti(len(eng_nx.array)-last_speed.index-1,
                                 replace_values={'number': number})
 
             else:
@@ -704,8 +727,8 @@ class TAWSMinimumsTriggered(KeyTimeInstanceNode):
                                          change='entering', phase=airborne)
 
 
-class TAWSTerrainOverridePushed(KeyTimeInstanceNode):
-    name = 'TAWS Terrain Override Pushed'
+class TAWSTerrainOverridePressed(KeyTimeInstanceNode):
+    name = 'TAWS Terrain Override Pressed'
 
     def derive(self, tmin=P('TAWS Terrain Override'), airborne=S('Airborne')):
         self.create_ktis_on_state_change('Override', tmin.array,
