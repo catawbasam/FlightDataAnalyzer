@@ -4944,6 +4944,35 @@ class TestEngOilQtyDuringTaxiInMax(unittest.TestCase, NodeTest):
                     index=3.0, value=47.0,
                     name='Eng (1) Oil Qty During Taxi In Max')]))
 
+    def test_derive_from_hdf(self):
+        def get_params(hdf_path, _slice, phase_name):
+            import shutil
+            import tempfile
+            from hdfaccess.file import hdf_file
+
+            with tempfile.NamedTemporaryFile() as temp_file:
+                shutil.copy(hdf_path, temp_file.name)
+
+                with hdf_file(hdf_path) as hdf:
+                    oil = hdf.get('Eng (1) Oil Qty')
+
+            phase = S(name=phase_name, frequency=1)
+            phase.create_section(_slice)
+            phase = phase.get_aligned(oil)
+
+            return oil, phase
+
+        oil, phase = get_params('test_data/757-3A-001.hdf5',
+                                slice(21722, 21936), 'Taxi In')
+        node = self.node_class()
+        node.derive(oil, None, None, None, phase)
+        self.assertEqual(
+            node,
+            KPV('Eng (1) Oil Qty During Taxi In Max',
+                items=[KeyPointValue(
+                    index=21725.0, value=16.015625,
+                    name='Eng (1) Oil Qty During Taxi In Max')]))
+
 
 class TestEngOilQtyDuringTaxiOutMax(unittest.TestCase, NodeTest):
     def setUp(self):
@@ -7111,6 +7140,35 @@ class TestRudderPedalForceMax(unittest.TestCase, NodeTest):
             KPV('Rudder Pedal Force Max',
                 items=[KeyPointValue(
                     index=12.0, value=-30.0,
+                    name='Rudder Pedal Force Max')]))
+
+    def test_derive_from_hdf(self):
+        def get_params(hdf_path, _slice, phase_name):
+            import shutil
+            import tempfile
+            from hdfaccess.file import hdf_file
+
+            with tempfile.NamedTemporaryFile() as temp_file:
+                shutil.copy(hdf_path, temp_file.name)
+
+                with hdf_file(hdf_path) as hdf:
+                    rudder = hdf.get('Rudder Pedal Force')
+
+            phase = S(name=phase_name, frequency=1)
+            phase.create_section(_slice)
+            phase = phase.get_aligned(rudder)
+
+            return rudder, phase
+
+        rudder, phase = get_params('test_data/757-3A-001.hdf5',
+                                   slice(836, 21663), 'Fast')
+        node = self.node_class()
+        node.derive(rudder, phase)
+        self.assertEqual(
+            node,
+            KPV('Rudder Pedal Force Max',
+                items=[KeyPointValue(
+                    index=21658.0, value=-23.944020961616012,
                     name='Rudder Pedal Force Max')]))
 
 
