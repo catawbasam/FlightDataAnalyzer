@@ -244,6 +244,9 @@ from analysis_engine.key_point_values import (
     GroundspeedAtTouchdown,
     GroundspeedDuringRejectedTakeoffMax,
     GroundspeedMax,
+    GroundspeedSpeedbrakeHandleDuringTakeoffMax,
+    GroundspeedSpoilerDuringTakeoffMax,
+    GroundspeedStabilizerOutOfTrimDuringTakeoffMax,
     GroundspeedVacatingRunway,
     GroundspeedWhileTaxiingStraightMax,
     GroundspeedWhileTaxiingTurnMax,
@@ -4861,7 +4864,9 @@ class TestThrottleReductionToTouchdownDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = ThrottleReductionToTouchdownDuration
-        self.operational_combinations = [('Throttle Levers', 'Landing', 'Touchdown')]
+        self.operational_combinations = [
+            ('Throttle Levers', 'Eng (*) N1 Avg', 'Landing', 'Touchdown',
+             'Frame')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
@@ -6310,6 +6315,93 @@ class TestGroundspeedWithThrustReversersDeployedMin(unittest.TestCase, NodeTest)
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGroundspeedStabilizerOutOfTrimDuringTakeoffMax(unittest.TestCase,
+                                                         NodeTest):
+    def setUp(self):
+        self.node_class = GroundspeedStabilizerOutOfTrimDuringTakeoffMax
+        self.operational_combinations = [
+            ('Groundspeed', 'Stabilizer', 'Takeoff Roll', 'Family')]
+
+    def test_derive(self):
+        array = np.arange(10) + 100
+        array = np.ma.concatenate((array[::-1], array))
+        gspd = P('Groundspeed', array)
+
+        array = np.arange(20, 100, 4) * 0.1
+        stab = P('Stabilizer', array)
+
+        phase = S(frequency=1)
+        phase.create_section(slice(0, 20))
+
+        family = A(name='Family', value='B737-600')
+
+        node = self.node_class()
+        node.derive(gspd, stab, phase, family)
+        self.assertEqual(
+            node,
+            KPV(self.node_class.get_name(),
+                items=[KeyPointValue(name=self.node_class.get_name(),
+                                     index=0.0, value=109.0)])
+        )
+
+
+class TestGroundspeedSpeedbrakeHandleDuringTakeoffMax(unittest.TestCase,
+                                                      NodeTest):
+    def setUp(self):
+        self.node_class = GroundspeedSpeedbrakeHandleDuringTakeoffMax
+        self.operational_combinations = [
+            ('Groundspeed', 'Speedbrake Handle', 'Takeoff Roll')]
+
+    def test_derive(self):
+        array = np.arange(10) + 100
+        array = np.ma.concatenate((array[::-1], array))
+        gspd = P('Groundspeed', array)
+
+        array = 1 + np.arange(0, 20, 2) * 0.1
+        array = np.ma.concatenate((array[::-1], array))
+        stab = P('Stabilizer', array)
+
+        phase = S(frequency=1)
+        phase.create_section(slice(0, 20))
+
+        node = self.node_class()
+        node.derive(gspd, stab, phase)
+        self.assertEqual(
+            node,
+            KPV(self.node_class.get_name(),
+                items=[KeyPointValue(name=self.node_class.get_name(),
+                                     index=0.0, value=109.0)])
+        )
+
+
+class TestGroundspeedSpoilerDuringTakeoffMax(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = GroundspeedSpoilerDuringTakeoffMax
+        self.operational_combinations = [
+            ('Groundspeed', 'Spoiler', 'Takeoff Roll')]
+
+    def test_derive(self):
+        array = np.arange(10) + 100
+        array = np.ma.concatenate((array[::-1], array))
+        gspd = P('Groundspeed', array)
+
+        array = 20 + np.arange(5, 25, 2)
+        array = np.ma.concatenate((array[::-1], array))
+        stab = P('Spoiler', array)
+
+        phase = S(frequency=1)
+        phase.create_section(slice(0, 20))
+
+        node = self.node_class()
+        node.derive(gspd, stab, phase)
+        self.assertEqual(
+            node,
+            KPV(self.node_class.get_name(),
+                items=[KeyPointValue(name=self.node_class.get_name(),
+                                     index=0.0, value=109.0)])
+        )
 
 
 ##############################################################################
@@ -8366,8 +8458,8 @@ class TestAirspeedMinusVMOMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AirspeedMinusVMOMax
         self.operational_combinations = [
-            ('VMO', 'Airborne'),
-            ('VMO Lookup', 'Airborne'),
+            ('VMO', 'Airspeed', 'Airborne'),
+            ('VMO Lookup', 'Airspeed', 'Airborne'),
         ]
 
     def test_derive(self):
@@ -8391,8 +8483,8 @@ class TestMachMinusMMOMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = MachMinusMMOMax
         self.operational_combinations = [
-            ('MMO', 'Airborne'),
-            ('MMO Lookup', 'Airborne'),
+            ('MMO', 'Mach', 'Airborne'),
+            ('MMO Lookup', 'Mach', 'Airborne'),
         ]
 
     def test_derive(self):
