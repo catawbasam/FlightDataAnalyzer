@@ -330,6 +330,10 @@ RATE_OF_TURN_FOR_TAXI_TURNS = 5.0  # deg per second
 # Duration of masked data to repair by interpolation for flight phase analysis
 REPAIR_DURATION = 10  # seconds
 
+# Threshold for spoiler deployment when operating as speedbrake in flight.
+# See KPV "AirspeedWithSpoilerDeployedMax"
+SPOILER_DEPLOYED = 5.0 # deg
+
 # Acceleration forwards at the start of the takeoff roll.
 TAKEOFF_ACCELERATION_THRESHOLD = 0.1  # g
 
