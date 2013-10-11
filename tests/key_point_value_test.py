@@ -8456,8 +8456,8 @@ class TestAirspeedMinusVMOMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = AirspeedMinusVMOMax
         self.operational_combinations = [
-            ('VMO', 'Airborne'),
-            ('VMO Lookup', 'Airborne'),
+            ('VMO', 'Airspeed', 'Airborne'),
+            ('VMO Lookup', 'Airspeed', 'Airborne'),
         ]
 
     def test_derive(self):
@@ -8481,8 +8481,8 @@ class TestMachMinusMMOMax(unittest.TestCase, NodeTest):
     def setUp(self):
         self.node_class = MachMinusMMOMax
         self.operational_combinations = [
-            ('MMO', 'Airborne'),
-            ('MMO Lookup', 'Airborne'),
+            ('MMO', 'Mach', 'Airborne'),
+            ('MMO Lookup', 'Mach', 'Airborne'),
         ]
 
     def test_derive(self):

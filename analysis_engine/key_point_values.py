@@ -9735,8 +9735,8 @@ class MachMinusMMOMax(KeyPointValueNode):
     @classmethod
     def can_operate(cls, available):
         return any_of(('MMO', 'MMO Lookup'), available) \
-               and 'Mach' in available\
-               and 'Airborne' in available
+            and 'Mach' in available\
+            and 'Airborne' in available
 
     def derive(self, mach=P('Mach'), mmo=P('MMO'), mmol=P('MMO Lookup'),
                airborne=S('Airborne')):
