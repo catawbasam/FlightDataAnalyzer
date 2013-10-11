@@ -7053,6 +7053,31 @@ class GroundspeedStabilizerOutOfTrimDuringTakeoffMax(KeyPointValueNode):
         self.create_kpvs_within_slices(gspd_masked, takeoff_roll, max_value)
 
 
+class GroundspeedSpeedbrakeHandleDuringTakeoffMax(KeyPointValueNode):
+    '''
+    Maximum Groundspeed turing takeoff roll when the speedbrake handle is over
+    limit.
+    '''
+    units = 'kt'
+
+    def derive(self,
+               gnd_spd=P('Groundspeed'),
+               spdbrk=P('Speedbrake Handle'),
+               takeoff_roll=S('Takeoff Roll'),
+               ):
+
+        SPEEDBRAKE_HANDLE_LIMIT = 2.0
+
+        masked_in_range = np.ma.masked_less_equal(spdbrk.array,
+                                                  SPEEDBRAKE_HANDLE_LIMIT)
+
+        # Masking groundspeed where speedbrake is within limit.
+        # WARNING: in this particular case we don't want the KPV to be created
+        # when the condition (stabilizer out of trim) is not met.
+        gspd_masked = np.ma.array(gnd_spd.array, mask=masked_in_range.mask)
+        self.create_kpvs_within_slices(gspd_masked, takeoff_roll, max_value)
+
+
 ##############################################################################
 # Pitch
 
