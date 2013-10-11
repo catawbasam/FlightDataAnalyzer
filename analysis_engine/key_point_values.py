@@ -16,7 +16,8 @@ from analysis_engine.settings import (ACCEL_LAT_OFFSET_LIMIT,
                                       KTS_TO_MPS,
                                       NAME_VALUES_CONF,
                                       NAME_VALUES_ENGINE,
-                                      NAME_VALUES_FLAP)
+                                      NAME_VALUES_FLAP,
+                                      SPOILER_DEPLOYED)
 
 from analysis_engine.flight_phase import scan_ils
 
@@ -1836,9 +1837,9 @@ class AirspeedWithSpoilerDeployedMax(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               spoiler=M('Spoiler')):
+               spoiler=P('Spoiler')):
 
-        spoiler.array[spoiler.array != 'Deployed'] = np.ma.masked
+        spoiler.array[spoiler.array>SPOILER_DEPLOYED] = np.ma.masked
         spoiler_deployeds = np.ma.clump_unmasked(spoiler.array)
         self.create_kpvs_within_slices(
             air_spd.array, spoiler_deployeds, max_value)
