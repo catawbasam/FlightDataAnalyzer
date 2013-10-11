@@ -6787,6 +6787,34 @@ class FlapWithSpeedbrakeDeployedMax(KeyPointValueNode):
         self.create_kpv_from_slices(flap.array, deployed_slices, max_value)
 
 
+class FlapAt1000Ft(KeyPointValueNode):
+    '''
+    Flap setting at 1000ft on approach.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return ('Flap' in available)
+    
+    def derive(self, flap=M('Flap'), gates=KTI('Altitude When Descending')):
+        for gate in gates:
+            if gate.name=='1000 Ft Descending':
+                self.create_kpvs_at_ktis(flap.array, [gate])
+
+
+class FlapAt500Ft(KeyPointValueNode):
+    '''
+    Flap setting at 500ft on approach.
+    '''
+    @classmethod
+    def can_operate(cls, available):
+        return ('Flap' in available)
+    
+    def derive(self, flap=M('Flap'), gates=KTI('Altitude When Descending')):
+        for gate in gates:
+            if gate.name=='500 Ft Descending':
+                self.create_kpvs_at_ktis(flap.array, [gate])
+    
+    
 ##############################################################################
 
 
