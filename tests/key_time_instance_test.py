@@ -51,6 +51,8 @@ from analysis_engine.key_time_instances import (
     TakeoffPeakAcceleration,
     TakeoffTurnOntoRunway,
     TAWSGlideslopeCancelPressed,
+    TAWSTerrainOverridePressed,
+    TAWSMinimumsTriggered,
     TopOfClimb,
     TopOfDescent,
     TouchAndGo,
@@ -576,8 +578,36 @@ class TestTAWSGlideslopeCancelPressed(unittest.TestCase):
         glide.derive(tgc, air)
         expected = [KeyTimeInstance(index=2.5, name='TAWS Glideslope Cancel Pressed')]
         self.assertEqual(glide, expected)
-        
- 
+
+
+class TestTAWSMinimumsTriggered(unittest.TestCase):
+
+    def test_basic(self):
+        tto = M('TAWS Minimums Triggered',
+                ['-', '-', '-', 'Minimums', 'Minimums', '-', '-'],
+                values_mapping={0: '-', 1: 'Minimums'})
+        air = buildsection('Airborne', 2, 8)
+        glide = TAWSMinimumsTriggered()
+        glide.derive(tto, air)
+        expected = [KeyTimeInstance(index=2.5,
+                                    name='TAWS Minimums Triggered')]
+        self.assertEqual(glide, expected)
+
+
+class TestTAWSTerrainOverridePressed(unittest.TestCase):
+
+    def test_basic(self):
+        tto = M('TAWS Terrain Override Pressed',
+                ['-', '-', '-', 'Override', 'Override', '-', '-'],
+                values_mapping={0: '-', 1: 'Override'})
+        air = buildsection('Airborne', 2, 8)
+        glide = TAWSTerrainOverridePressed()
+        glide.derive(tto, air)
+        expected = [KeyTimeInstance(index=2.5,
+                                    name='TAWS Terrain Override Pressed')]
+        self.assertEqual(glide, expected)
+
+
 class TestTopOfClimb(unittest.TestCase):
     # Based closely on the level flight condition, but taking only the
     # outside edges of the envelope.
@@ -587,7 +617,7 @@ class TestTopOfClimb(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_top_of_climb_basic(self):
-        alt_data = np.ma.array(range(0,400,50)+[400]*5+range(400,0,-50))
+        alt_data = np.ma.array(range(0,800,100)+[800]*5+range(800,0,-100))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -596,7 +626,7 @@ class TestTopOfClimb(unittest.TestCase):
         self.assertEqual(phase, expected)
 
     def test_top_of_climb_truncated_start(self):
-        alt_data = np.ma.array([400]*5+range(400,0,-50))
+        alt_data = np.ma.array([800]*5+range(800,0,-100))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -606,7 +636,7 @@ class TestTopOfClimb(unittest.TestCase):
         self.assertEqual(len(phase),0)
 
     def test_top_of_climb_truncated_end(self):
-        alt_data = np.ma.array(range(0,400,50)+[400]*5)
+        alt_data = np.ma.array(range(0,800,100)+[800]*5)
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfClimb()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -625,7 +655,7 @@ class TestTopOfDescent(unittest.TestCase):
         self.assertEqual(opts, expected)
 
     def test_top_of_descent_basic(self):
-        alt_data = np.ma.array(range(0,400,50)+[400]*5+range(400,0,-50))
+        alt_data = np.ma.array(range(0,800,100)+[800]*5+range(800,0,-100))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -634,7 +664,7 @@ class TestTopOfDescent(unittest.TestCase):
         self.assertEqual(phase, expected)
 
     def test_top_of_descent_truncated_start(self):
-        alt_data = np.ma.array([400]*5+range(400,0,-50))
+        alt_data = np.ma.array([800]*5+range(800,0,-100))
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -644,7 +674,7 @@ class TestTopOfDescent(unittest.TestCase):
         self.assertEqual(len(phase),1)
 
     def test_top_of_descent_truncated_end(self):
-        alt_data = np.ma.array(range(0,400,50)+[400]*5)
+        alt_data = np.ma.array(range(0,800,100)+[800]*5)
         alt = Parameter('Altitude STD', np.ma.array(alt_data))
         phase = TopOfDescent()
         in_air = buildsection('Climb Cruise Descent',0,len(alt.array))
@@ -800,11 +830,20 @@ class TestEngStart(unittest.TestCase):
         eng1 = Parameter('Eng (1) N2', np.ma.array(data=[0,0,99,99,60,60,60], 
                                                    mask=[1,1, 1, 1, 0, 0, 0]))
         es = EngStart()
-        es.derive(eng1, eng2, None, None, None, None, None, None)
+        es.derive(None, None, None, None, eng1, eng2, None, None, None, None, None, None)
         self.assertEqual(es[0].name, 'Eng (1) Start')
         self.assertEqual(es[0].index, 4)
         self.assertEqual(es[1].name, 'Eng (2) Start')
         self.assertEqual(es[1].index, 2.5)
+
+    def test_prefer_N2(self):
+        eng_N1 = Parameter('Eng (1) N1', np.ma.array([50,50,50,50]))
+        eng_N2 = Parameter('Eng (1) N2', np.ma.array(data=[0,0,0,60]))
+        es = EngStart()
+        es.derive(eng_N1, None, None, None, eng_N2, None, None, None, None, None, None, None)
+        self.assertEqual(es[0].name, 'Eng (1) Start')
+        self.assertEqual(es[0].index, 2.5)
+        self.assertEqual(len(es), 1)
 
     def test_three_spool(self):
         eng22 = Parameter('Eng (2) N2', np.ma.array([0,20,40,60, 0, 20, 40, 60]))
@@ -814,13 +853,18 @@ class TestEngStart(unittest.TestCase):
         eng13 = Parameter('Eng (1) N3', np.ma.array(data=[0,0,99,99,60,60,60, 60], 
                                                    mask=[1,1, 1, 1, 0, 0, 0, 0]))
         es = EngStart()
-        es.derive(eng12, eng22, None, None, eng13, eng23, None, None)
+        es.derive(None, None, None, None, eng12, eng22, None, None, eng13, eng23, None, None)
         self.assertEqual(es[0].name, 'Eng (1) Start')
         self.assertEqual(es[0].index, 4)
         self.assertEqual(es[1].name, 'Eng (2) Start')
         self.assertEqual(es[1].index, 1.5)
 
-
+    def test_N1_only(self):
+        eng_N1 = Parameter('Eng (1) N1', np.ma.array([0,5,10,10]))
+        es = EngStart()
+        es.derive(eng_N1, None, None, None, None, None, None, None, None, None, None, None)
+        self.assertEqual(es[0].name, 'Eng (1) Start')
+        self.assertEqual(es[0].index, 1.5)
 
 
 class TestEngStop(unittest.TestCase):
@@ -839,7 +883,7 @@ class TestEngStop(unittest.TestCase):
         eng1 = Parameter('Eng (1) N2', np.ma.array(data=[60,40,40,99,99, 0, 0], 
                                                    mask=[ 0, 0, 0, 1, 1, 1, 1]))
         es = EngStop()
-        es.derive(eng1, eng2, None, None)
+        es.derive(None, None, None, None, eng1, eng2, None, None)
         self.assertEqual(es[0].name, 'Eng (1) Stop')
         self.assertEqual(es[0].index, 2)
         self.assertEqual(es[1].name, 'Eng (2) Stop')
@@ -1381,7 +1425,7 @@ class TestAutoland(unittest.TestCase):
         self.node_class = Autoland
 
     def test_can_operate(self):
-        expected = [('AP Engaged', 'Touchdown')]
+        expected = [('AP Channels Engaged', 'Touchdown', 'Family')]
         self.assertEqual(
             expected,
             self.node_class.get_operational_combinations())

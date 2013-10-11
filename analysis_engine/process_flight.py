@@ -14,7 +14,7 @@ from hdfaccess.file import hdf_file
 
 from analysis_engine import hooks, settings, __version__
 from analysis_engine.api_handler import APIError, get_api_handler
-from analysis_engine.dependency_graph import dependency_order, graph_adjacencies
+from analysis_engine.dependency_graph import dependency_order
 from analysis_engine.library import np_ma_masked_zeros_like, repair_mask
 from analysis_engine.node import (ApproachNode, Attribute,
                                   derived_param_from_hdf,
@@ -279,7 +279,8 @@ def get_derived_nodes(module_names):
 
 def process_flight(hdf_path, tail_number, aircraft_info={},
                    start_datetime=datetime.now(), achieved_flight_record={},
-                   required_params=[], include_flight_attributes=True):
+                   requested=[], required=[], include_flight_attributes=True,
+                   additional_modules=[]):
     '''
     Processes the HDF file (hdf_path) to derive the required_params (Nodes)
     within python modules (settings.NODE_MODULES).
@@ -288,17 +289,21 @@ def process_flight(hdf_path, tail_number, aircraft_info={},
         "PolarisTaskManagement.test.tasks_mask.process_flight"
         
     :param hdf_path: Path to HDF File
-    :type hdf_pat: String
+    :type hdf_path: String
     :param aircraft: Aircraft specific attributes
     :type aircraft: dict   
     :param start_datetime: Datetime of the origin of the data (at index 0)
     :type start_datetime: Datetime
     :param achieved_flight_record: See API Below
     :type achieved_flight_record: Dict
-    :param required_params: Parameters to fetch (dependencies will also be evaluated)
-    :type required_params: List of Strings
+    :param requested: Derived nodes to process (dependencies will also be evaluated).
+    :type requested: List of Strings
+    :param required: Nodes which are required, otherwise an exception will be raised.
+    :type required: List of Strings
     :param include_flight_attributes: Whether to include all flight attributes
     :type include_flight_attributes: Boolean
+    :param additional_modules: List of module paths to import.
+    :type additional_modules: List of Strings
 
     :returns: See below:
     :rtype: Dict
@@ -467,18 +472,21 @@ def process_flight(hdf_path, tail_number, aircraft_info={},
     aircraft_info['Tail Number'] = tail_number
     
     # go through modules to get derived nodes
-    derived_nodes = get_derived_nodes(settings.NODE_MODULES)
-    required_params = \
-        list(set(required_params).intersection(set(derived_nodes)))
-    # if required_params isn't set, try using ALL derived_nodes!
-    if not required_params:
-        logger.info("No required_params declared, using all derived nodes")
-        required_params = derived_nodes.keys()
+    node_modules = additional_modules + settings.NODE_MODULES
+    derived_nodes = get_derived_nodes(node_modules)
     
-    # include all flight attributes as required
+    if requested:
+        requested = \
+            list(set(requested).intersection(set(derived_nodes)))
+    else:
+        # if requested isn't set, try using ALL derived_nodes!
+        logger.info("No requested nodes declared, using all derived nodes")
+        requested = derived_nodes.keys()
+    
+    # include all flight attributes as requested
     if include_flight_attributes:
-        required_params = list(set(
-            required_params + get_derived_nodes(
+        requested = list(set(
+            requested + get_derived_nodes(
                 ['analysis_engine.flight_attribute']).keys()))
         
     # open HDF for reading
@@ -492,7 +500,7 @@ def process_flight(hdf_path, tail_number, aircraft_info={},
         # Track nodes. Assume that all params in HDF are from LFL(!)
         node_mgr = NodeManager(
             start_datetime, hdf.duration, hdf.valid_param_names(),
-            required_params, derived_nodes, aircraft_info,
+            requested, required, derived_nodes, aircraft_info,
             achieved_flight_record)
         # calculate dependency tree
         process_order, gr_st = dependency_order(node_mgr, draw=False)
@@ -554,9 +562,10 @@ def main():
     help = 'Write KML of flight track. Set "False" to disable.'
     parser.add_argument('-kml', dest='write_kml', type=str, default='True', 
                         help=help)
-    parser.add_argument('-r', '--required', type=str, nargs='+', dest='required_params',
-                       help='Required parameters.')
-
+    parser.add_argument('-r', '--requested', type=str, nargs='+', dest='requested',
+                        default=[], help='Requested nodes.')
+    parser.add_argument('--required', type=str, nargs='+', dest='required',
+                        default=[], help='Required nodes.')
     parser.add_argument('-tail', dest='tail_number',
                         default='G-FDSL', # as per flightdatacommunity file
                         help='Aircraft tail number.')
@@ -646,7 +655,7 @@ def main():
     hdf_copy = copy_file(args.file, postfix='_process')
     res = process_flight(
         hdf_copy, args.tail_number, aircraft_info=aircraft_info,
-        required_params=args.required_params or [])
+        requested=args.requested, required=args.required)
     logger.info("Derived parameters stored in hdf: %s", hdf_copy)
     # Write CSV file
     if args.write_csv.lower() == 'true':

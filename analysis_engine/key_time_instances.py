@@ -1,6 +1,5 @@
 import numpy as np
-from math import ceil, copysign, floor
-import os
+from math import ceil, floor
 
 from analysis_engine.library import (all_of,
                                      any_of,
@@ -8,21 +7,19 @@ from analysis_engine.library import (all_of,
                                      find_edges_on_state_change,
                                      find_toc_tod,
                                      first_valid_sample,
-                                     hysteresis,
                                      index_at_value,
                                      max_value,
-                                     min_value,
                                      minimum_unmasked,
                                      np_ma_masked_zeros_like,
                                      peak_curvature,
                                      slices_and,
-                                     slices_not,
-                                     touchdown_inertial)
+                                     slices_not)
 
 from analysis_engine.node import A, M, P, S, KTI, KeyTimeInstanceNode
 
 from settings import (CLIMB_THRESHOLD,
                       MIN_CORE_SUSTAINABLE,
+                      MIN_FAN_RUNNING,
                       NAME_VALUES_CLIMB,
                       NAME_VALUES_DESCENT,
                       NAME_VALUES_ENGINE,
@@ -30,9 +27,7 @@ from settings import (CLIMB_THRESHOLD,
                       NAME_VALUES_SLAT,
                       TAKEOFF_ACCELERATION_THRESHOLD,
                       TRANSITION_ALTITUDE,
-                      VERTICAL_SPEED_FOR_LIFTOFF,
-                      WORKING_DIR
-                      )
+                      VERTICAL_SPEED_FOR_LIFTOFF)
 
 def sorted_valid_list(x):
     '''
@@ -251,14 +246,21 @@ class EngStart(KeyTimeInstanceNode):
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Eng (%d) N2' % n for n in range(1, 5)), available) or \
+        return any_of(('Eng (%d) N1' % n for n in range(1, 3)), available) or \
+               any_of(('Eng (%d) N2' % n for n in range(1, 5)), available) or \
                any_of(('Eng (%d) N3' % n for n in range(1, 5)), available)
 
     def derive(self,
+               eng_1_n1=P('Eng (1) N1'),
+               eng_2_n1=P('Eng (2) N1'),
+               eng_3_n1=P('Eng (3) N1'),
+               eng_4_n1=P('Eng (4) N1'),
+               
                eng_1_n2=P('Eng (1) N2'),
                eng_2_n2=P('Eng (2) N2'),
                eng_3_n2=P('Eng (3) N2'),
                eng_4_n2=P('Eng (4) N2'),
+               
                eng_1_n3=P('Eng (1) N3'),
                eng_2_n3=P('Eng (2) N3'),
                eng_3_n3=P('Eng (3) N3'),
@@ -267,18 +269,20 @@ class EngStart(KeyTimeInstanceNode):
         if eng_1_n3 or eng_2_n3:
             # This aircraft has 3-spool engines
             eng_nx_list = (eng_1_n3, eng_2_n3, eng_3_n3, eng_4_n3)
+            limit = MIN_CORE_SUSTAINABLE
         elif eng_1_n2 or eng_2_n2:
             # The engines are 2-spool engines
             eng_nx_list = (eng_1_n2, eng_2_n2, eng_3_n2, eng_4_n2)
+            limit = MIN_CORE_SUSTAINABLE
         else:
-            # Worry about this later when the problem arises.
-            raise 'Engines without two spools fitted'
+            eng_nx_list = (eng_1_n1, eng_2_n1, eng_3_n1, eng_4_n1)
+            limit = MIN_FAN_RUNNING
         
         for number, eng_nx in enumerate(eng_nx_list, start=1):
             if not eng_nx:
                 continue
 
-            running = np.ma.where(eng_nx.array > MIN_CORE_SUSTAINABLE, 1, 0)
+            running = np.ma.where(eng_nx.array > limit, 1, 0)
             first_speed = first_valid_sample(running)
 
             if first_speed.value:
@@ -310,26 +314,39 @@ class EngStop(KeyTimeInstanceNode):
 
     @classmethod
     def can_operate(cls, available):
-        return any_of(('Eng (%d) N2' % n for n in range(1, 5)), available)
+        return any_of(('Eng (%d) N1' % n for n in range(1, 5)), available) or \
+               any_of(('Eng (%d) N2' % n for n in range(1, 5)), available)
 
     def derive(self,
+               eng_1_n1=P('Eng (1) N1'),
+               eng_2_n1=P('Eng (2) N1'),
+               eng_3_n1=P('Eng (3) N1'),
+               eng_4_n1=P('Eng (4) N1'),
+    
                eng_1_n2=P('Eng (1) N2'),
                eng_2_n2=P('Eng (2) N2'),
                eng_3_n2=P('Eng (3) N2'),
                eng_4_n2=P('Eng (4) N2')):
 
-        eng_n2_list = (eng_1_n2, eng_2_n2, eng_3_n2, eng_4_n2)
-        for number, eng_n2 in enumerate(eng_n2_list, start=1):
-            if not eng_n2:
+        if eng_1_n2 or eng_2_n2:
+            # The engines are 2- or 3-spool engines
+            eng_nx_list = (eng_1_n2, eng_2_n2, eng_3_n2, eng_4_n2)
+            limit = MIN_CORE_SUSTAINABLE
+        else:
+            eng_nx_list = (eng_1_n1, eng_2_n1, eng_3_n1, eng_4_n1)
+            limit = MIN_FAN_RUNNING
+
+        for number, eng_nx in enumerate(eng_nx_list, start=1):
+            if not eng_nx:
                 continue
 
-            running = np.ma.where(eng_n2.array > MIN_CORE_SUSTAINABLE/2, 1, 0)
+            running = np.ma.where(eng_nx.array > limit/2, 1, 0)
             last_speed = first_valid_sample(running[::-1])
 
             if last_speed.value:
                 # The last valid sample shows the engine running when the
                 # recording stopped.
-                self.create_kti(len(eng_n2.array)-last_speed.index-1,
+                self.create_kti(len(eng_nx.array)-last_speed.index-1,
                                 replace_values={'number': number})
 
             else:
@@ -389,6 +406,7 @@ class GoAround(KeyTimeInstanceNode):
     def derive(self, dlcs=S('Descent Low Climb'),
                alt_aal=P('Altitude AAL For Flight Phases'),
                alt_rad=P('Altitude Radio')):
+        
         for dlc in dlcs:
             # Check for cases where a radio altimeter is not fitted or where
             # the altimeter data is out of range, hence masked, at the lowest
@@ -396,9 +414,18 @@ class GoAround(KeyTimeInstanceNode):
             if alt_rad and np.ma.count(alt_rad.array[dlc.slice]):
                 # Worth using the radio altimeter...
                 pit = np.ma.argmin(alt_rad.array[dlc.slice])
+                
+                '''
+                import matplotlib.pyplot as plt
+                plt.plot(alt_aal.array[dlc.slice],'-b')
+                plt.plot(alt_rad.array[dlc.slice],'-r')
+                plt.show()
+                '''
+                
             else:
-                # Fall back on pressure altitude, which may be artificially
-                # adjusted.
+                # Fall back on pressure altitude. Remember the altitude may
+                # have been artificially adjusted if we have no absolute
+                # height reference.
                 pit = np.ma.argmin(alt_aal.array[dlc.slice])
             self.create_kti(pit + dlc.start_edge)
 
@@ -683,12 +710,28 @@ class GearUpSelectionDuringGoAround(KeyTimeInstanceNode):
 # TAWS
 
 class TAWSGlideslopeCancelPressed(KeyTimeInstanceNode):
-    
+
     name = 'TAWS Glideslope Cancel Pressed'
-    
+
     def derive(self, tgc=P('TAWS Glideslope Cancel'), airborne=S('Airborne')):
         # Monitor only while airborne, in case this is triggered pre-flight.
         self.create_ktis_on_state_change('Cancel', tgc.array,
+                                         change='entering', phase=airborne)
+
+
+class TAWSMinimumsTriggered(KeyTimeInstanceNode):
+    name = 'TAWS Minimums Triggered'
+
+    def derive(self, tmin=P('TAWS Minimums'), airborne=S('Airborne')):
+        self.create_ktis_on_state_change('Minimums', tmin.array,
+                                         change='entering', phase=airborne)
+
+
+class TAWSTerrainOverridePressed(KeyTimeInstanceNode):
+    name = 'TAWS Terrain Override Pressed'
+
+    def derive(self, tmin=P('TAWS Terrain Override'), airborne=S('Airborne')):
+        self.create_ktis_on_state_change('Override', tmin.array,
                                          change='entering', phase=airborne)
 
 
@@ -1097,7 +1140,7 @@ class Touchdown(KeyTimeInstanceNode):
                                             index_ax,
                                             index_dax,
                                             index_z])
-                                           
+            
             # ...and use the second where possible, as this has been found to
             # be more reliable than the first which may be erroneous.
             if len(index_list)>1:

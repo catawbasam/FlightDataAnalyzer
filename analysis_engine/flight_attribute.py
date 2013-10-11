@@ -568,7 +568,7 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
             'Liftoff',
             # Optional: 'AP (3) Engaged'
         ), available)
-        key_vhf = library.all_of(('Key VHF (Capt)', 'Key VHF (FO)', 'Landing'),
+        key_vhf = library.all_of(('Key VHF (1)', 'Key VHF (2)', 'Takeoff'),
                                  available)
         return controls or autopilot or key_vhf
 
@@ -581,8 +581,8 @@ class TakeoffPilot(FlightAttributeNode, DeterminePilot):
                cc_fo=P('Control Column Force (FO)'),
                ap1_eng=M('AP (1) Engaged'),
                ap2_eng=M('AP (2) Engaged'),
-               key_vhf_capt=M('Key VHF (Capt)'),
-               key_vhf_fo=M('Key VHF (FO)'),
+               key_vhf_capt=M('Key VHF (1)'),
+               key_vhf_fo=M('Key VHF (2)'),
                takeoffs=S('Takeoff'),
                liftoffs=KTI('Liftoff')):
 
@@ -869,7 +869,7 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
             'Touchdown',
             # Optional: 'AP (3) Engaged'
         ), available)
-        key_vhf = library.all_of(('Key VHF (Capt)', 'Key VHF (FO)', 'Landing'),
+        key_vhf = library.all_of(('Key VHF (1)', 'Key VHF (2)', 'Landing'),
                                  available)
         return controls or autopilot or key_vhf
 
@@ -882,8 +882,8 @@ class LandingPilot(FlightAttributeNode, DeterminePilot):
                cc_fo=P('Control Column Force (FO)'),
                ap1_eng=M('AP (1) Engaged'),
                ap2_eng=M('AP (2) Engaged'),
-               key_vhf_capt=M('Key VHF (Capt)'),
-               key_vhf_fo=M('Key VHF (FO)'),
+               key_vhf_capt=M('Key VHF (1)'),
+               key_vhf_fo=M('Key VHF (2)'),
                landings=S('Landing'),
                touchdowns=KTI('Touchdown')):
 

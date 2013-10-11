@@ -277,8 +277,48 @@ class TestDeterminePilot(unittest.TestCase):
                                                          key_vhf_fo, phase),
                          'Captain')
 
-    def test_determine_pilot_from_hdf(self):
+    def get_params(self, hdf_path, _slice, phase_name):
+        import shutil
+        import tempfile
         from hdfaccess.file import hdf_file
+
+        with tempfile.NamedTemporaryFile() as temp_file:
+            shutil.copy(hdf_path, temp_file.name)
+
+            with hdf_file(hdf_path) as hdf:
+                pitch_capt = hdf.get('Pitch (Capt)')
+                pitch_fo = hdf.get('Pitch (FO)')
+                roll_capt = hdf.get('Roll (Capt)')
+                roll_fo = hdf.get('Roll (FO)')
+                vhf_capt = hdf.get('Key VHF (1)')
+                vhf_fo = hdf.get('Key VHF (2)')
+                cc_capt = hdf.get('Control Column Force (Capt)')
+                cc_fo = hdf.get('Control Column Force (FO)')
+
+                for par in pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, \
+                        cc_fo, vhf_capt, vhf_fo:
+                    if par is not None:
+                        ref_par = par
+                        break
+
+        phase = S(name=phase_name, frequency=1)
+        phase.create_section(_slice)
+        phase = phase.get_aligned(ref_par)[0]
+
+        # Align the arrays, usually done in the Nodes
+        for par in pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo:
+            if par is None:
+                continue
+            par.array = align(par, ref_par)
+            par.hz = ref_par.hz
+
+        return (pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo,
+                vhf_capt, vhf_fo, phase)
+
+    def test_determine_pilot_from_hdf_control_column(self):
+        '''
+        Use Control Column Force (*) to determine the flying pilot
+        '''
         import logging
 
         determine_pilot = DeterminePilot()
@@ -287,37 +327,23 @@ class TestDeterminePilot(unittest.TestCase):
         determine_pilot.warning = logging.warning
 
         def test_from_file(hdf_path, _slice, phase_name, expected_pilot):
-            with hdf_file(hdf_path) as hdf:
-                pitch_capt = hdf['Pitch (Capt)']
-                pitch_fo = hdf['Pitch (FO)']
-                roll_capt = hdf.get('Roll (Capt)')
-                roll_fo = hdf['Roll (FO)']
-                cc_capt = hdf['Control Column Force (Capt)']
-                cc_fo = hdf['Control Column Force (FO)']
-                phase = S(name=phase_name, frequency=1)
-                phase.create_section(_slice)
-                phase = phase.get_aligned(pitch_capt)[0]
+            (pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo,
+             vhf_capt, vhf_fo, phase) = self.get_params(hdf_path, _slice,
+                                                        phase_name)
 
-                # ALign the arrays, usually done in the Nodes
-                for par in pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo:
-                    if par is None:
-                        continue
-                    par.array = align(par, pitch_capt)
-                    par.hz = pitch_capt.hz
+            pilot = determine_pilot._determine_pilot(
+                pitch_capt, pitch_fo, roll_capt, roll_fo, None, None,
+                phase, None, None, vhf_capt, vhf_fo)
 
-                pilot = determine_pilot._determine_pilot(
-                    pitch_capt, pitch_fo, roll_capt, roll_fo, None, None,
-                    phase, None, None, None, None)
+            # pitch and roll are not enough to determine the pilot
+            self.assertIsNone(pilot)
 
-                # pitch and roll are not enough to determine the pilot
-                self.assertIsNone(pilot)
+            pilot = determine_pilot._determine_pilot(
+                pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt,
+                cc_fo, phase, None, None, vhf_capt, vhf_fo)
 
-                pilot = determine_pilot._determine_pilot(
-                    pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo,
-                    phase, None, None, None, None)
-
-                # pitch and roll are not enough to determine the pilot
-                self.assertEqual(pilot, expected_pilot)
+            # control column force should allow to determine the pilot
+            self.assertEqual(pilot, expected_pilot)
 
         items = [
             [
@@ -333,6 +359,50 @@ class TestDeterminePilot(unittest.TestCase):
                 'First Officer',
                 slice(1015, 1162),
                 slice(41451, 41511)
+            ],
+        ]
+
+        for fn, to_pilot, ld_pilot, to, ld in items:
+            test_from_file(fn, to, 'Takeoff', to_pilot)
+            test_from_file(fn, ld, 'Landing', ld_pilot)
+
+    def test_determine_pilot_from_hdf_key_vhf(self):
+        '''
+        Use Key VHF (*) to determine the flying pilot
+        '''
+        import logging
+
+        determine_pilot = DeterminePilot()
+        # warning method is normally initialised with Node superclass in one of
+        # the DeterminePilot's ancestors
+        determine_pilot.warning = logging.warning
+
+        def test_from_file(hdf_path, _slice, phase_name, expected_pilot):
+            (pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt, cc_fo,
+             vhf_capt, vhf_fo, phase) = self.get_params(hdf_path, _slice,
+                                                        phase_name)
+
+            pilot = determine_pilot._determine_pilot(
+                pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt,
+                cc_fo, phase, None, None, None, None)
+
+            # controls are not enough to determine the pilot
+            self.assertIsNone(pilot)
+
+            pilot = determine_pilot._determine_pilot(
+                pitch_capt, pitch_fo, roll_capt, roll_fo, cc_capt,
+                cc_fo, phase, None, None, vhf_capt, vhf_fo)
+
+            # Key VHF (*) should allow to determine the pilot
+            self.assertEqual(pilot, expected_pilot)
+
+        items = [
+            [
+                'test_data/identify_pilot_03.hdf5',
+                None,
+                'First Officer',
+                slice(503, 555),
+                slice(19136, 19228)
             ],
         ]
 

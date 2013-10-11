@@ -4,7 +4,7 @@ import logging
 import networkx as nx # pip install networkx or /opt/epd/bin/easy_install networkx
 
 from collections import deque
-from pprint import pformat
+
 from flightdatautilities.dict_helpers import dict_filter
 
 from analysis_engine.node import (
@@ -32,6 +32,10 @@ TODO:
 class InoperableDependencies(KeyError):
     ##def __init__(self, inoperable):
         ##self.inoperable = inoperable
+    pass
+
+
+class RequiredNodesMissing(KeyError):
     pass
 
 
@@ -328,23 +332,23 @@ def graph_nodes(node_mgr):
     # Missing dependencies.
     missing_derived_dep = list(derived_deps - available_nodes)
     # Missing dependencies which are requested.
-    missing_required = list(set(node_mgr.requested) - available_nodes)
+    missing_requested = list(set(node_mgr.requested) - available_nodes)
     
     if missing_derived_dep:
         logger.warning("Found %s dependencies which don't exist in LFL "
-                        "nor Node modules.", len(missing_derived_dep))
+                       "or Node modules.", len(missing_derived_dep))
         logger.debug("The missing dependencies: %s", missing_derived_dep)
-    if missing_required:
-        raise ValueError("Missing required parameters: %s" % missing_required)
+    if missing_requested:
+        raise ValueError("Missing requested parameters: %s" % missing_requested)
 
     # Add missing nodes to graph so it shows everything. These should all be
     # RAW parameters missing from the LFL unless something has gone wrong with
-    # the derived_nodes dict!    
+    # the derived_nodes dict!
     gr_all.add_nodes_from(missing_derived_dep, color='#6a6e70')  # fds-grey
     return gr_all
 
-    
-def process_order(gr_all, node_mgr, raise_inoperable_required=False):
+
+def process_order(gr_all, node_mgr, raise_inoperable_requested=False):
     """
     :param gr_all:
     :type gr_all: nx.DiGraph
@@ -372,12 +376,12 @@ def process_order(gr_all, node_mgr, raise_inoperable_required=False):
         inactive_edges = gr_all.in_edges(node)
         gr_all.add_edges_from(inactive_edges, color='#c0c0c0')  # silver
         
-    inoperable_required = list(set(node_mgr.requested) - set(process_order))
-    if inoperable_required:
-        logger.warning("Found %s inoperable required parameters.",
-                        len(inoperable_required))
+    inoperable_requested = list(set(node_mgr.requested) - set(process_order))
+    if inoperable_requested:
+        logger.warning("Found %s inoperable requested parameters.",
+                        len(inoperable_requested))
         items = []
-        for n in sorted(inoperable_required):
+        for n in sorted(inoperable_requested):
             tree = indent_tree(gr_all, n, recurse_active=False)
             if tree:
                 items.append('------- INOPERABLE -------')
@@ -397,8 +401,13 @@ def process_order(gr_all, node_mgr, raise_inoperable_required=False):
             ##items.append(deps_avail)
         ##logger.info("Inoperable required parameters: \n%s",
                     ##'\n'.join(items))
-        if raise_inoperable_required:
-            raise InoperableDependencies(inoperable_required)
+        if raise_inoperable_requested:
+            raise InoperableDependencies(inoperable_requested)
+    
+    required_missing = set(node_mgr.required) - set(process_order)
+    if required_missing:
+        raise RequiredNodesMissing(
+            "Required nodes missing: %s" % ', '.join(required_missing))
     
     return gr_all, gr_st, process_order[:-1] # exclude 'root'
 
@@ -414,22 +423,26 @@ def remove_floating_nodes(graph):
     return graph
      
      
-def dependency_order(node_mgr, draw=not_windows, raise_inoperable_required=False):
+def dependency_order(node_mgr, draw=not_windows,
+                     raise_inoperable_requested=False):
     """
     Main method for retrieving processing order of nodes.
     
     :param node_mgr: 
     :type node_mgr: NodeManager
-    :param draw: Will draw the graph. Green nodes are available LFL params, Blue are operational derived, Black are not required derived, Red are active top level requested params, Grey are inactive params. Edges are labelled with processing order.
+    :param draw: Will draw the graph. Green nodes are available LFL params, Blue are operational derived, Black are not requested derived, Red are active top level requested params, Grey are inactive params. Edges are labelled with processing order.
     :type draw: boolean
     :returns: List of Nodes determining the order for processing and the spanning tree graph.
     :rtype: (list of strings, dict)
     """
     _graph = graph_nodes(node_mgr)
-    gr_all, gr_st, order = process_order(_graph, node_mgr, raise_inoperable_required)
+    gr_all, gr_st, order = process_order(_graph, node_mgr,
+                                         raise_inoperable_requested)
+    
     if draw:
         from json import dumps
-        logger.info("JSON Graph Representation:\n%s", dumps( graph_adjacencies(gr_st), indent=2))
+        logger.info("JSON Graph Representation:\n%s", dumps(
+            graph_adjacencies(gr_st), indent=2))
     
     if draw:
         draw_graph(gr_st, 'Active Nodes in Spanning Tree')

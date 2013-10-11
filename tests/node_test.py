@@ -354,10 +354,10 @@ class TestNodeManager(unittest.TestCase):
         mock_inop.can_operate = mock.Mock(return_value=False)
         aci = {'n':1, 'o':2, 'p':3, 'u': None}
         afr = {'l':4, 'm':5, 'v': None}
-        mgr = NodeManager(None, 10, ['a', 'b', 'c', 'x'], ['a', 'x'],
-                          {'x': mock_inop, # note: derived node is not operational, but is already available in LFL - so this should return true!
-                           'y': mock_node, 'z': mock_inop},
-                          aci, afr)
+        mgr = NodeManager(
+            None, 10, ['a', 'b', 'c', 'x'], ['a', 'x'], ['a', 'b'],
+            {'x': mock_inop, # note: derived node is not operational, but is already available in LFL - so this should return true!
+             'y': mock_node, 'z': mock_inop}, aci, afr)
         self.assertTrue(mgr.operational('a', []))
         self.assertTrue(mgr.operational('b', []))
         self.assertTrue(mgr.operational('c', []))
@@ -390,7 +390,8 @@ class TestNodeManager(unittest.TestCase):
         afr = {'x': 'x_value', 'y': None}
         start_datetime = datetime.now()
         hdf_duration = 100
-        mgr = NodeManager(start_datetime, hdf_duration, [], [], {}, aci, afr)
+        mgr = NodeManager(start_datetime, hdf_duration, [], [], [], {}, aci,
+                          afr)
         # test aircraft info
         a = mgr.get_attribute('a')
         self.assertEqual(a.__repr__(), Attribute('a', 'a_value').__repr__())
@@ -414,7 +415,7 @@ class TestNodeManager(unittest.TestCase):
 
     def test_get_start_datetime(self):
         dt = datetime(2020,12,25)
-        mgr = NodeManager(dt, 10, [],[],{},{},{})
+        mgr = NodeManager(dt, 10, [], [], [], {}, {}, {})
         self.assertTrue('Start Datetime' in mgr.keys())
         start_dt = mgr.get_attribute('Start Datetime')
         self.assertEqual(start_dt.name, 'Start Datetime')

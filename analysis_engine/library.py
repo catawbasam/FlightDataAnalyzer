@@ -13,6 +13,8 @@ from hdfaccess.parameter import MappedArray
 from flightdatautilities.velocity_speed import get_vspeed_map
 
 from settings import (CURRENT_YEAR,
+                      DESCENT_LOW_CLIMB_THRESHOLD,
+                      INITIAL_APPROACH_THRESHOLD,
                       KTS_TO_MPS,
                       METRES_TO_FEET,
                       REPAIR_DURATION,
@@ -977,9 +979,7 @@ def cycle_match(idx, cycle_idxs, dist=None):
         dist = np.min(np.diff(cycle_idxs)) / 4.0
     
     min_idx = np.argmin(np.abs(np.array(cycle_idxs) - idx))
-    min_dist = np.min(np.abs(np.array(cycle_idxs) - idx))
-    if min_dist < dist:
-        # index is close to this position
+    if min_idx < dist:
         prev = cycle_idxs[min_idx-1] if min_idx > 0 else None
         post = cycle_idxs[min_idx+1] if min_idx < len(cycle_idxs)-1 else None
         return prev, post
@@ -1452,6 +1452,30 @@ def index_of_last_stop(bool_array, _slice=slice(0, None), min_dur=1,
         return None
 
 
+def find_dlcs(array):
+    '''
+    This function allows us to find the minima below 3000ft AAL with at least
+    500ft descent and climb, hence corresponding to go-arounds.
+    
+    :param alt: Altitude AAL data array
+    :type alt: numpy masked array
+    :param pk_idx_list: list of indices in array where descent minima occur
+    :type pk_idx_list: list of integers
+    :param pk_val_list: list of altitude values at minima
+    :type pk_val_list: list of floats
+    '''
+    pk_idx_list = []
+    pk_val_list = []
+    dlc = np.ma.masked_greater(repair_mask(array, repair_duration=None),
+                               INITIAL_APPROACH_THRESHOLD)
+    for this_dlc in np.ma.clump_unmasked(dlc):
+        pk_idxs, pk_vals = cycle_finder(
+            dlc[this_dlc], min_step=DESCENT_LOW_CLIMB_THRESHOLD)
+        pk_idx_list.extend(pk_idxs + this_dlc.start)
+        pk_val_list.extend(pk_vals + this_dlc.start)
+    return pk_idx_list, pk_val_list
+
+
 def find_toc_tod(alt_data, ccd_slice, mode='Climb'):
     '''
     Find the Top Of Climb or Top Of Descent from an altitude trace.
@@ -1496,7 +1520,14 @@ def find_toc_tod(alt_data, ccd_slice, mode='Climb'):
     # here is that all climb and descent phases will have been generated with
     # at least 500ft changes in altitude.
     alt_min = np.ma.min(alt_data[section])
-    return np.ma.argmax(np.ma.masked_less(alt_data[section], alt_min+500) - ramp) + section.start
+    test_slope = np.ma.masked_less(alt_data[section], alt_min+500) - ramp
+    if np.ma.count(test_slope):
+        return np.ma.argmax(test_slope) + section.start
+    else:
+        if mode == 'Climb':
+            return 0
+        else:
+            return ccd_slice.stop-1
 
 
 def find_edges(array, _slice=slice(None), direction='rising_edges'):
@@ -3636,8 +3667,11 @@ def blend_two_parameters(param_one, param_two):
     if param_two == None:
         return param_one.array, param_one.frequency, param_one.offset
 
-    assert param_one.frequency == param_two.frequency
-    
+    assert param_one.frequency == param_two.frequency, \
+        'The frequency of blended parameters must be the same: ' \
+        '%s %sHz, %s %sHz' % (param_one.name, param_one.frequency,
+                              param_two.name, param_two.frequency)
+
     # Parameters for blending should not be aligned.
     #assert param_one.offset != param_two.offset 
         

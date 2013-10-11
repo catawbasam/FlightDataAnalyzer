@@ -1494,8 +1494,7 @@ class AirspeedWithFlapMin(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
         data = self.flap_or_conf_max_or_min(flap, airspeed, min_value,
                                             scope=scope)
         for index, value, detent in data:
-            self.create_kpv(index, value, parameter=flap.name,
-                            flap=detent)
+            self.create_kpv(index, value, flap=detent)
 
 
 class AirspeedWithFlapDuringClimbMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
@@ -2355,11 +2354,15 @@ class AutobrakeRejectedTakeoffNotSetDuringTakeoff(KeyPointValueNode):
     units = 's'
 
     def derive(self,
-               ab_rto=P('Autobrake Selected RTO'),
+               ab_rto=M('Autobrake Selected RTO'),
                takeoff=S('Takeoff Roll')):
 
-        self.create_kpvs_where(ab_rto.array != 'Selected',
-                               ab_rto.hz, phase=takeoff)
+        # In order to avoid false positives, so we assume masked values are
+        # Selected.
+        not_selected = (ab_rto.array != 'Selected').filled(False)
+        self.create_kpvs_where(
+            not_selected,
+            ab_rto.hz, phase=takeoff)
 
 
 ##############################################################################
@@ -4805,8 +4808,7 @@ class MachWithFlapMax(KeyPointValueNode, FlapOrConfigurationMaxOrMin):
         # flaps before 80kn on the landing run.
         data = self.flap_or_conf_max_or_min(flap, mach, max_value, scope=scope)
         for index, value, detent in data:
-            self.create_kpv(index, value, parameter=flap.name,
-                            flap=detent)
+            self.create_kpv(index, value, flap=detent)
 
 
 ########################################
@@ -9624,10 +9626,12 @@ class AirspeedMinusVMOMax(KeyPointValueNode):
     '''
 
     name = 'Airspeed Minus VMO Max'
+    units = 'kts'
 
     @classmethod
     def can_operate(cls, available):
         return any_of(('VMO', 'VMO Lookup'), available) \
+            and 'Airspeed' in available\
             and 'Airborne' in available
 
     def derive(self, airspeed=P('Airspeed'), vmo=P('VMO'),
@@ -9636,7 +9640,6 @@ class AirspeedMinusVMOMax(KeyPointValueNode):
             vmo = vmol
 
         exceedings = airspeed.array - vmo.array
-        exceedings = np.ma.masked_where(exceedings <= 0, exceedings)
         self.create_kpvs_within_slices(
             exceedings,
             airborne,
@@ -9650,11 +9653,13 @@ class MachMinusMMOMax(KeyPointValueNode):
     '''
 
     name = 'Mach Minus MMO Max'
+    units = 'M'
 
     @classmethod
     def can_operate(cls, available):
         return any_of(('MMO', 'MMO Lookup'), available) \
-            and 'Airborne' in available
+               and 'Mach' in available\
+               and 'Airborne' in available
 
     def derive(self, mach=P('Mach'), mmo=P('MMO'), mmol=P('MMO Lookup'),
                airborne=S('Airborne')):
@@ -9662,7 +9667,6 @@ class MachMinusMMOMax(KeyPointValueNode):
             mmo = mmol
 
         exceedings = mach.array - mmo.array
-        exceedings = np.ma.masked_where(exceedings <= 0, exceedings)
         self.create_kpvs_within_slices(
             exceedings,
             airborne,
