@@ -4864,7 +4864,9 @@ class TestThrottleReductionToTouchdownDuration(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = ThrottleReductionToTouchdownDuration
-        self.operational_combinations = [('Throttle Levers', 'Landing', 'Touchdown')]
+        self.operational_combinations = [
+            ('Throttle Levers', 'Eng (*) N1 Avg', 'Landing', 'Touchdown',
+             'Frame')]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
