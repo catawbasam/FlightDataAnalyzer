@@ -2899,6 +2899,14 @@ class TestBlendTwoParameters(unittest.TestCase):
         self.assertEqual(freq, 4)
         self.assertEqual(off, 0.05)
 
+    def test_blend_two_parameters_large_offset(self):
+        p1 = P(array=[5,10,7,8.0], frequency=1, offset=0.7)
+        p2 = P(array=[1,2,3,4.0], frequency=1, offset=0.9)
+        arr, freq, off = blend_two_parameters(p1, p2)
+        self.assertEqual(arr[2], 5.5)
+        self.assertEqual(freq, 2)
+        self.assertAlmostEqual(off, 0.3)
+
     def test_blend_two_parameters_offset_order_back_low_freq(self):
         p1 = P(array=[5,10,7,8.0], frequency=0.25, offset=0.1)
         p2 = P(array=[1,2,3,4.0], frequency=0.25, offset=0.0)
