@@ -5271,19 +5271,39 @@ class Speedbrake(DerivedParameterNode):
 
 class Spoiler(DerivedParameterNode):
     align = False
-    
+
     @classmethod
     def can_operate(cls, available, family=A('Family')):
-        return family and family.value == 'B787' and (
-            'Spoiler (1)' in available or 'Spoiler (14)' in available) or \
-               family and family.value in ['G-V', 'Learjet'] and (
-                   'Spoiler (L)' in available or 'Spoiler (R)' in available)
-    
+        if not family or not family.value:
+            return False
+
+        return (
+            family.value == 'B787' and (
+                'Spoiler (1)' in available or
+                'Spoiler (14)' in available
+            ) or
+            family.value in ['G-V', 'Learjet'] and (
+                'Spoiler (L)' in available or
+                'Spoiler (R)' in available
+            ) or
+            family.value in ['CRJ 900'] and any_of((
+                'Spoiler (L) Inboard',
+                'Spoiler (L) Outboard',
+                'Spoiler (R) Inboard',
+                'Spoiler (R) Outboard'),
+                available
+            )
+        )
+
     def derive(self,
                spoiler_1=P('Spoiler (1)'),
                spoiler_14=P('Spoiler (14)'),
                spoiler_L=P('Spoiler (L)'),
                spoiler_R=P('Spoiler (R)'),
+               spoiler_LI=P('Spoiler (L) Inboard'),
+               spoiler_LO=P('Spoiler (L) Outboard'),
+               spoiler_RI=P('Spoiler (R) Inboard'),
+               spoiler_RO=P('Spoiler (R) Outboard'),
                family=A('Family'),
                ):
         if family.value == 'B787':
@@ -5293,7 +5313,12 @@ class Spoiler(DerivedParameterNode):
         elif family.value in ['G-V', 'Learjet']:
             self.array, self.frequency, self.offset = \
                 blend_two_parameters(spoiler_L, spoiler_R)
-        
+
+        elif family.value in ['CRJ 900']:
+            self.array, self.frequency, self.offset = \
+                blend_parameters(spoiler_LI, spoiler_LO, spoiler_RI,
+                                 spoiler_RO)
+
         else:
             raise DataFrameError(self.name, family.value)
 
