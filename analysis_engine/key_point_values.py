@@ -7034,13 +7034,12 @@ class GroundspeedStabilizerOutOfTrimDuringTakeoffMax(KeyPointValueNode):
     def derive(self,
                gnd_spd=P('Groundspeed'),
                stab=P('Stabilizer'),
-               tr=S('Takeoff Roll'),
+               takeoff_roll=S('Takeoff Roll'),
                family=A('Family'),
                ):
         from flightdatautilities.trim_limits import get_stabilizer_limits
 
-        stab_fwd, stab_aft = get_stabilizer_limits(
-            aircraft_family=family.value)
+        stab_fwd, stab_aft = get_stabilizer_limits(family.value)
 
         if stab_fwd is None or stab_aft is None:
             self.warning('No stabilizer trim limits for aircraft family `%s`',
@@ -7051,7 +7050,7 @@ class GroundspeedStabilizerOutOfTrimDuringTakeoffMax(KeyPointValueNode):
         # WARNING: in this particular case we don't want the KPV to be created
         # when the condition (stabilizer out of trim) is not met.
         gspd_masked = np.ma.array(gnd_spd.array, mask=masked_in_trim.mask)
-        self.create_kpvs_within_slices(gspd_masked, tr, max_value)
+        self.create_kpvs_within_slices(gspd_masked, takeoff_roll, max_value)
 
 
 ##############################################################################
