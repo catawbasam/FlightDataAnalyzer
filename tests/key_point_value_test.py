@@ -244,6 +244,7 @@ from analysis_engine.key_point_values import (
     GroundspeedAtTouchdown,
     GroundspeedDuringRejectedTakeoffMax,
     GroundspeedMax,
+    GroundspeedStabilizerOutOfTrimDuringTakeoffMax,
     GroundspeedVacatingRunway,
     GroundspeedWhileTaxiingStraightMax,
     GroundspeedWhileTaxiingTurnMax,
@@ -6310,6 +6311,36 @@ class TestGroundspeedWithThrustReversersDeployedMin(unittest.TestCase, NodeTest)
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
         self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestGroundspeedStabilizerOutOfTrimDuringTakeoffMax(unittest.TestCase,
+                                                         NodeTest):
+    def setUp(self):
+        self.node_class = GroundspeedStabilizerOutOfTrimDuringTakeoffMax
+        self.operational_combinations = [
+            ('Groundspeed', 'Stabilizer', 'Takeoff Roll', 'Family')]
+
+    def test_derive(self):
+        array = np.arange(10) + 100
+        array = np.ma.concatenate((array[::-1], array))
+        gspd = P('Groundspeed', array)
+
+        array = np.arange(20, 100, 4) * 0.1
+        stab = P('Stabilizer', array)
+
+        phase = S(frequency=1)
+        phase.create_section(slice(0, 20))
+
+        family = A(name='Family', value='B737-600')
+
+        node = self.node_class()
+        node.derive(gspd, stab, phase, family)
+        self.assertEqual(
+            node,
+            KPV(self.node_class.get_name(),
+                items=[KeyPointValue(name=self.node_class.get_name(),
+                                     index=0.0, value=109.0)])
+        )
 
 
 ##############################################################################
