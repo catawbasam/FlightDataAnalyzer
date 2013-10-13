@@ -7,7 +7,7 @@ from datetime import datetime
 from inspect import ArgSpec
 from random import shuffle
 
-from analysis_engine.library import min_value
+from analysis_engine.library import min_value, max_value
 from analysis_engine.node import (
     ApproachItem,
     ApproachNode,
@@ -1125,8 +1125,11 @@ class TestKeyPointValueNode(unittest.TestCase):
                          [KeyPointValue(index=5, value=20, name='Kpv')])
         self.assertRaises(ValueError, knode.create_kpv_from_slices,
                           array, [slice(5, 10, 3)], min_value)
-
-
+        # test for max on this rising sample to check upper index limit.
+        knode.create_kpv_from_slices(array, slices, max_value)
+        self.assertEqual(list(knode)[1],
+                         KeyPointValue(index=29, value=44, name='Kpv'))
+        
     def test_create_kpvs_from_slice_durations_basic(self):
         # Basic
         knode = self.knode

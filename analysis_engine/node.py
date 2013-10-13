@@ -1750,7 +1750,7 @@ class KeyPointValueNode(FormattedNameNode):
             start = _slice.start or 0
             stop = _slice.stop or len(array)
             duration = (stop - start)
-            if index < duration:
+            if index <= duration:
                 index += start or 0
                 break
             index -= duration
