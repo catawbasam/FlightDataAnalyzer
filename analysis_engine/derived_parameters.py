@@ -762,45 +762,47 @@ class AltitudeAAL(DerivedParameterNode):
             else:
                 return shift_alt_std()
 
-
         if mode=='over_gnd' and (low_hb-high_gnd)>100.0:
             return alt_std - high_gnd
-
         
+
         # We pretend the aircraft can't go below ground level for altitude AAL:
         alt_rad_aal = np.ma.maximum(alt_rad, 0.0)
-        x = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
-        if len(x)==0:
+        ralt_sections = np.ma.clump_unmasked(np.ma.masked_outside(alt_rad_aal, 0.1, 100.0))
+        if len(ralt_sections)==0:
             # Either Altitude Radio did not drop below 100, or did not get
             # above 100. Either way, we are better off working with just the
             # pressure altitude signal.
             return shift_alt_std()
 
-        ralt_sections = [y for y in x if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
-        if len(ralt_sections)>1:
-            print '### BOUNCING ###'
-            
-        bounce_end = ralt_sections[0].start
-        hundred_feet = ralt_sections[-1].stop
-
-        if np.ma.mean(alt_std[bounce_end:hundred_feet] - alt_rad_aal[bounce_end:hundred_feet]) > 10000:
-            # Difference between Altitude STD and Altitude Radio should not
-            # be greater than 10000 ft when Altitude Radio is recording below
-            # 100 ft. This will not fix cases when Altitude Radio records
-            # spurious data at lower altitudes.
-            raise ValueError('Problem with radio altimeter readings in Altitude AAL')
+        if mode=='land':
+            # We refine our definition of the radio altimeter sections to
+            # take account of bounced landings and altimeters which read
+            # small positive values on the ground.
+            bounce_sections = [y for y in ralt_sections if np.ma.max(alt_rad[y]>BOUNCED_LANDING_THRESHOLD)]
+            bounce_end = bounce_sections [0].start
+            hundred_feet = bounce_sections [-1].stop
         
-        alt_result[bounce_end:hundred_feet] = alt_rad_aal[bounce_end:hundred_feet]
-        alt_result[:bounce_end] = 0.0
-        ralt_section = slice(0,hundred_feet)
+            alt_result[bounce_end:hundred_feet] = alt_rad_aal[bounce_end:hundred_feet]
+            alt_result[:bounce_end] = 0.0
+            ralt_sections = [slice(0,hundred_feet)]
 
-        baro_sections = slices_not([slice(0,hundred_feet)], begin_at=0,
+        baro_sections = slices_not(ralt_sections, begin_at=0, 
                                    end_at=len(alt_std))
 
-        for baro_section in baro_sections:
-            # I know there must be a better way to code these symmetrical processes, but this works :o)
-            link_baro_rad_fwd(baro_section, ralt_section, alt_rad_aal, alt_std, alt_result)
-            link_baro_rad_rev(baro_section, ralt_section, alt_rad_aal, alt_std, alt_result)
+        for ralt_section in ralt_sections:
+            if np.ma.mean(alt_std[ralt_section] - alt_rad_aal[ralt_section]) > 10000:
+                # Difference between Altitude STD and Altitude Radio should not
+                # be greater than 10000 ft when Altitude Radio is recording below
+                # 100 ft. This will not fix cases when Altitude Radio records
+                # spurious data at lower altitudes.
+                continue
+            alt_result[ralt_section] = alt_rad_aal[ralt_section]
+
+            for baro_section in baro_sections:
+                # I know there must be a better way to code these symmetrical processes, but this works :o)
+                link_baro_rad_fwd(baro_section, ralt_section, alt_rad_aal, alt_std, alt_result)
+                link_baro_rad_rev(baro_section, ralt_section, alt_rad_aal, alt_std, alt_result)
 
         return alt_result
 
