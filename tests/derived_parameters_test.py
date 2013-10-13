@@ -131,6 +131,7 @@ from analysis_engine.derived_parameters import (
     MagneticVariationFromRunway,
     Pitch,
     RollRate,
+    RudderPedal,
     SlatSurface,
     Speedbrake,
     Spoiler,
@@ -3848,7 +3849,7 @@ class TestSpoiler(unittest.TestCase):
         spoiler = P('Spoiler (L)', array=np.ma.array([1,2,1,2,3,2,1,2,35,40,2,1.0]))
         family = A('Family', value='G-V')
         spoil = Spoiler()
-        spoil.derive(None, None, spoiler, None, family)
+        spoil.derive(None, None, spoiler, None, None, None, None, None, family)
         expected = np.array([1,2,1,2,3,2,1,2,35,40,2,1.0])
         np.testing.assert_array_equal(spoil.array.data, expected)
         
@@ -4033,7 +4034,9 @@ class TestWindDirection(unittest.TestCase):
 class TestWindDirectionTrue(unittest.TestCase):
     def test_can_operate(self):
         self.assertEqual(WindDirectionTrue.get_operational_combinations(),
-                         [('Wind Direction True', 'Magnetic Variation')])
+                         [('Wind Direction', 'Magnetic Variation From Runway'), 
+                          ('Wind Direction', 'Magnetic Variation'),
+                          ('Wind Direction', 'Magnetic Variation From Runway', 'Magnetic Variation')])
     
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
