@@ -44,6 +44,8 @@ from analysis_engine.key_time_instances import (
     LocalizerEstablishedStart,
     LowestAltitudeDuringApproach,
     MinsToTouchdown,
+    OffBlocks,
+    OnBlocks,
     SecsToTouchdown,
     SlatAlternateArmedSet,
     SlatSet,
@@ -1538,3 +1540,34 @@ class TestVNAVModeAndEngThrustModeRequired(unittest.TestCase, NodeTest):
             KeyTimeInstance(index=4, name='VNAV Mode And Eng Thrust Mode Required'),
         ])
 
+class TestOffBlocks(unittest.TestCase):
+    def test_can_operate(self):
+        combinations = OffBlocks.get_operational_combinations()
+        self.assertTrue(('Mobile',) in combinations)
+        
+    def test_basic(self):
+        mobile = buildsections('Mobile', [5,10], [15,None])
+        off = OffBlocks()
+        off.get_derived((mobile,))
+        self.assertEqual(len(off),1)
+        self.assertEqual(off[0].index, 5)
+        
+    def test_none_start(self):
+        mobile = buildsections('Mobile', [None,10])
+        off = OffBlocks()
+        off.get_derived((mobile,))
+        self.assertEqual(off[0].index, 0)
+        
+class TestOnBlocks(unittest.TestCase):
+    def test_can_operate(self):
+        combinations = OnBlocks.get_operational_combinations()
+        self.assertTrue(('Mobile', 'Heading') in combinations)
+        
+    def test_basic(self):
+        mobile = buildsections('Mobile', [5, None])
+        hdg = P('Heading', array=np.ma.arange(0,360,10))
+        on = OnBlocks()
+        on.get_derived((mobile, hdg))
+        self.assertEqual(len(on),1)
+        self.assertEqual(on[0].index, 36)
+        

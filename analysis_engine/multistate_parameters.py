@@ -176,6 +176,22 @@ class APChannelsEngaged(MultistateDerivedParameterNode):
         self.offset = offset_select('mean', [ap1, ap2, ap3])
 
 
+class APURunning(MultistateDerivedParameterNode):
+    '''
+    Simple measure of APU status, suitable for plotting if you want an on/off
+    measure. Used for fuel usage measurements.
+    '''
+
+    values_mapping = {0 : '-',  1 : 'Running'}
+
+    @classmethod
+    def can_operate(cls, available):
+        return 'APU N1' in available
+    
+    def derive(self, apu_n1=P('APU N1')):
+        self.array = np.ma.where(apu_n1.array > 50.0, 'Running', '-')
+    
+    
 class Configuration(MultistateDerivedParameterNode):
     '''
     Parameter for aircraft that use configuration.
@@ -1419,6 +1435,10 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
             self.array = np.ma.where(spoiler.array<30.0,
                                      'Stowed',
                                      'Deployed/Cmd Up')
+            
+        elif family_name in['Global', 'CRJ 100/200', 'ERJ-135/145']:
+            # No valid data seen for this type to date....
+            self.array = np_ma_masked_zeros_like(handle.array)
             
         else:
             raise NotImplementedError

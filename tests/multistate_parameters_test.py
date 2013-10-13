@@ -29,6 +29,7 @@ from analysis_engine.node import (
 from analysis_engine.multistate_parameters import (
     APEngaged,
     APChannelsEngaged,
+    APURunning,
     Configuration,
     Daylight,
     EngThrustModeRequired,
@@ -155,6 +156,19 @@ class TestAPEngaged(unittest.TestCase, NodeTest):
                    offset=0.25)        
         
         ma_test.assert_array_equal(expected.array, eng.array)
+
+
+class TestAPURunning(unittest.TestCase):
+    def test_can_operate(self):
+        opts = APURunning.get_operational_combinations()
+        self.assertTrue(('APU N1',) in opts)
+    
+    def test_apu_basic(self):
+        n1=P('APU N1', array=np.ma.array([0, 40, 80, 100, 70, 30, 0.0]))
+        run=APURunning()
+        run.derive(n1)
+        expected=['-']*2+['Running']*3+['-']*2
+        np.testing.assert_array_equal(run.array, expected)
 
 
 class TestAPChannelsEngaged(unittest.TestCase, NodeTest):

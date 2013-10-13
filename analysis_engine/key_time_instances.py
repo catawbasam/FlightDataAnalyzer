@@ -1439,3 +1439,22 @@ class VNAVModeAndEngThrustModeRequired(KeyTimeInstanceNode):
                                                          combined))
         for slice_ in slices:
             self.create_kti(slice_.start)
+
+
+class OffBlocks(KeyTimeInstanceNode):
+    '''
+    Simple KTI derived from the first point of heading change, so probably
+    pushback or start of data.
+    '''
+    
+    def derive(self, mobile=S('Mobile')):
+        self.create_kti(mobile[0].slice.start or 0)
+        
+        
+class OnBlocks(KeyTimeInstanceNode):
+    '''
+    Simple KTI derived from the last point of heading change.
+    '''
+    
+    def derive(self, mobile=S('Mobile'), hdg=P('Heading')):
+        self.create_kti(mobile[0].slice.stop or len(hdg.array))
