@@ -1732,7 +1732,7 @@ class KeyPointValueNode(FormattedNameNode):
         :returns: None
         :rtype: None
         '''
-        slices = self._get_slices(slices)
+        slices = sorted(self._get_slices(slices))
         if not all(s.step in (1, None) for s in slices):
             raise ValueError('Slices must have a step of 1 in '
                              'create_kpv_from_slices.')
