@@ -1986,6 +1986,25 @@ def runway_distances(runway):
     #r = (1.0+(a**2 - b**2)/d**2)/2.0
     #g = r*d
 
+    # =========================================================================
+    # We have a problem that some runway coordinates were imported into the
+    # database with the latitude and longitude reversed. This only applies to
+    # localizer and glideslope coordinates. The traps that follow identify
+    # the error and correct it locally, allowing for manual confirmation of
+    # the error and correction of the database at a later stage.
+    if (start_lat-lzr_lat)**2 > (start_lat-lzr_lon)**2 and \
+       (end_lat-lzr_lat)**2 > (end_lat-lzr_lon)**2:
+        lzr_lat = runway['localizer']['longitude']
+        lzr_lon = runway['localizer']['latitude']
+        logger.warning('Reversing lat and long for localizer on runway %d' %runway['id'])
+
+    if (start_lat-gs_lat)**2 > (start_lat-gs_lon)**2 and \
+       (end_lat-gs_lat)**2 > (end_lat-gs_lon)**2:
+        gs_lat = runway['glideslope']['longitude']
+        gs_lon = runway['glideslope']['latitude']
+        logger.warning('Reversing lat and long for glideslope on runway %d' %runway['id'])
+    # =========================================================================
+            
     start_2_loc = _dist(start_lat, start_lon, lzr_lat, lzr_lon)
     # The projected glideslope antenna position is given by this formula
     pgs_lat, pgs_lon = runway_snap(runway, gs_lat, gs_lon)

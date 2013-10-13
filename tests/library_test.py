@@ -3711,26 +3711,28 @@ class TestRunwayDistances(unittest.TestCase):
     # This single test case used data for Bergen and had reasonable accuracy.
     # However, since setting up this test the runway has been extended so
     # DON'T use this for navigation !!!
+    def setUp(self):
+        self.result = []
+        self.runway =  {'end': {'latitude': 60.280151,
+                                'longitude': 5.222579},
+                        'localizer': {'latitude': 60.2789,
+                                      'frequency': u'109900M',
+                                      'longitude': 5.223,
+                                      'heading': 173,
+                                      'beam_width': 4.5},
+                        'glideslope': {'latitude': 60.300981,
+                                       'frequency': u'333800M',
+                                       'angle': 3.1,
+                                       'longitude': 5.214092,
+                                       'threshold_distance': 1161},
+                        'start': {'latitude': 60.30662494,
+                                  'longitude': 5.21370074},
+                        'strip': {'width': 147, 'length': 9810,
+                                  'id': 4097, 'surface': u'ASP'},
+                        'identifier': u'17', 'id': 8193}
+
     def test_runway_distances(self):
-        result = []
-        runway =  {'end': {'latitude': 60.280151,
-                              'longitude': 5.222579},
-                      'localizer': {'latitude': 60.2789,
-                                    'frequency': u'109900M',
-                                    'longitude': 5.223,
-                                    'heading': 173,
-                                    'beam_width': 4.5},
-                      'glideslope': {'latitude': 60.300981,
-                                     'frequency': u'333800M',
-                                     'angle': 3.1,
-                                     'longitude': 5.214092,
-                                     'threshold_distance': 1161},
-                      'start': {'latitude': 60.30662494,
-                                'longitude': 5.21370074},
-                      'strip': {'width': 147, 'length': 9810,
-                                'id': 4097, 'surface': u'ASP'},
-                      'identifier': u'17', 'id': 8193}
-        result = runway_distances(runway)
+        result = runway_distances(self.runway)
 
         self.assertAlmostEqual(result[0],3125, places=0)
         # correct:self.assertAlmostEqual(result[0],3125, places=0)
@@ -3739,6 +3741,22 @@ class TestRunwayDistances(unittest.TestCase):
         # Optional glideslope antenna projected position...
         self.assertAlmostEqual(result[3],60.3, places=1)
         self.assertAlmostEqual(result[4],5.22, places=2)
+
+    def test_runway_distances_with_localizer_database_error(self):
+        self.runway['localizer']['latitude'] = 5.223
+        self.runway['localizer']['longitude'] = 60.2789
+        result = runway_distances(self.runway)
+
+        # Check the localizer position is unchanged.
+        self.assertAlmostEqual(result[0],3125, places=0)
+
+    def test_runway_distances_with_glildeslope_database_error(self):
+        self.runway['glideslope']['latitude'] = 5.214092
+        self.runway['glideslope']['longitude'] = 60.300981
+        result = runway_distances(self.runway)
+
+        # Check the glildeslope position is unchanged.
+        self.assertAlmostEqual(result[1],2503, places=0)
 
 
 class TestRunwayDeviation(unittest.TestCase):
