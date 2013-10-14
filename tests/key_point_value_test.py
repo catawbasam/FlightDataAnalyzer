@@ -6390,8 +6390,9 @@ class TestGroundspeedStabilizerOutOfTrimDuringTakeoffMax(unittest.TestCase,
                                                          NodeTest):
     def setUp(self):
         self.node_class = GroundspeedStabilizerOutOfTrimDuringTakeoffMax
-        self.operational_combinations = [
-            ('Groundspeed', 'Stabilizer', 'Takeoff Roll', 'Family')]
+        self.operational_combinations = []
+        # FIXME: can_operate uses the Family and Series
+        #    ('Groundspeed', 'Stabilizer', 'Takeoff Roll', 'Family', 'Series')]
 
     def test_derive(self):
         array = np.arange(10) + 100
@@ -6404,10 +6405,11 @@ class TestGroundspeedStabilizerOutOfTrimDuringTakeoffMax(unittest.TestCase,
         phase = S(frequency=1)
         phase.create_section(slice(0, 20))
 
-        family = A(name='Family', value='B737-600')
+        family = A(name='Family', value='B737-NG')
+        series = A(name='Series', value='B737-600')
 
         node = self.node_class()
-        node.derive(gspd, stab, phase, family)
+        node.derive(gspd, stab, phase, family, series)
         self.assertEqual(
             node,
             KPV(self.node_class.get_name(),
