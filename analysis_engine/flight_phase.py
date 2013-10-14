@@ -1285,7 +1285,7 @@ class GoAround5MinRating(FlightPhaseNode):
         for ga in gas:
             startpoint = ga.slice.start
             endpoint = ga.slice.start + 300
-            if tdwn[-1]:
+            if tdwn:
                 endpoint = min(endpoint, tdwn[-1].index)
             if startpoint < endpoint:
                 self.create_phase(slice(startpoint, endpoint))
