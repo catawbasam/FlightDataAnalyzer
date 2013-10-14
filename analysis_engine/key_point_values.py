@@ -7422,6 +7422,40 @@ class Pitch500To20FtMin(KeyPointValueNode):
         )
 
 
+class Pitch500To7FtMax(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        self.create_kpvs_within_slices(
+            pitch.array,
+            alt_aal.slices_from_to(500, 7),
+            max_value,
+        )
+
+
+class Pitch500To7FtMin(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
+               alt_aal=P('Altitude AAL For Flight Phases')):
+
+        self.create_kpvs_within_slices(
+            pitch.array,
+            alt_aal.slices_from_to(500, 7),
+            min_value,
+        )
+
+
 class Pitch50FtToTouchdownMax(KeyPointValueNode):
     '''
     '''
@@ -7473,6 +7507,24 @@ class Pitch7FtToTouchdownMin(KeyPointValueNode):
             pitch.array,
             alt_aal.slices_to_kti(7, touchdowns),
             min_value,
+        )
+
+
+class Pitch7FtToTouchdownMax(KeyPointValueNode):
+    '''
+    '''
+
+    units = 'deg'
+
+    def derive(self,
+               pitch=P('Pitch'),
+               alt_aal=P('Altitude AAL For Flight Phases'),
+               touchdowns=KTI('Touchdown')):
+
+        self.create_kpvs_within_slices(
+            pitch.array,
+            alt_aal.slices_to_kti(7, touchdowns),
+            max_value,
         )
 
 

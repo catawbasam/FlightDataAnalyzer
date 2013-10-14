@@ -321,9 +321,12 @@ from analysis_engine.key_point_values import (
     Pitch400To1000FtMax,
     Pitch400To1000FtMin,
     Pitch500To20FtMin,
+    Pitch500To7FtMax,
+    Pitch500To7FtMin,
     Pitch500To50FtMax,
     Pitch50FtToTouchdownMax,
     Pitch7FtToTouchdownMin,
+    Pitch7FtToTouchdownMax,
     PitchAfterFlapRetractionMax,
     PitchAlternateLawDuration,
     PitchAt35FtDuringClimb,
@@ -6623,6 +6626,59 @@ class TestPitch500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
         self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
         self.function = min_value
         self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch500To7FtMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = Pitch500To7FtMax
+        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_from_to', (500, 7), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch500To7FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = Pitch500To7FtMin
+        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (500, 7), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch500To20FtMin(unittest.TestCase, CreateKPVsWithinSlicesTest):
+
+    def setUp(self):
+        self.node_class = Pitch500To20FtMin
+        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases')]
+        self.function = min_value
+        self.second_param_method_calls = [('slices_from_to', (500, 20), {})]
+
+    @unittest.skip('Test Not Implemented')
+    def test_derive(self):
+        self.assertTrue(False, msg='Test not implemented.')
+
+
+class TestPitch7FtToTouchdownMax(unittest.TestCase, CreateKPVsWithinSlicesTest):
+    
+    def setUp(self):
+        # XXX: This test does not explicitly test how the Touchdown dependency is used.
+        self.node_class = Pitch7FtToTouchdownMax
+        self.operational_combinations = [('Pitch', 'Altitude AAL For Flight Phases', 'Touchdown')]
+        self.function = max_value
+        self.second_param_method_calls = [('slices_to_kti', (7, []), {})]
 
     @unittest.skip('Test Not Implemented')
     def test_derive(self):
