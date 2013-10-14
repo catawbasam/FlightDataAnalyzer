@@ -1757,7 +1757,7 @@ class KeyPointValueNode(FormattedNameNode):
         self.create_kpv(index, value, **kwargs)
 
 
-    def create_kpv_from_ktis(self, array, frequency, kti_1, kti_2, function):
+    def create_kpv_between_ktis(self, array, frequency, kti_1, kti_2, function):
         '''
         Convenient function to link a parameter and function to periods
         between two KTIs. Especially useful for fuel usage.
