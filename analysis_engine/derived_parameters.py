@@ -5310,9 +5310,13 @@ class Speedbrake(DerivedParameterNode):
 
         elif family_name in ['CRJ 900']:
             # First blend inboard and outboard, then merge
-            spoiler_L = blend_two_parameters(spoiler_LI, spoiler_LO)
-            spoiler_R = blend_two_parameters(spoiler_RI, spoiler_RO)
+            spoiler_L = DerivedParameterNode(
+                'Spoiler (L)', *blend_two_parameters(spoiler_LI, spoiler_LO))
+            spoiler_R = DerivedParameterNode(
+                'Spoiler (R)', *blend_two_parameters(spoiler_RI, spoiler_RO))
             self.array, self.offset = self.merge_spoiler(spoiler_L, spoiler_R)
+            # FIXME: the parameter is not aligned
+            self.frequency = spoiler_L.frequency
 
         else:
             raise DataFrameError(self.name, family_name)
