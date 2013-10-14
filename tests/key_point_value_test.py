@@ -109,7 +109,7 @@ from analysis_engine.key_point_values import (
     AirspeedWithFlapMax,
     AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
-    AirspeedWithSpoilerDeployedMax,
+    AirspeedWithSpeedbrakeDeployedMax,
     AirspeedWithThrustReversersDeployedMin,
     AltitudeAtAPDisengagedSelection,
     AltitudeAtAPEngagedSelection,
@@ -2246,11 +2246,10 @@ class TestAirspeedDuringLevelFlightMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeedWithSpoilerDeployedMax(unittest.TestCase, NodeTest):
-
+class TestAirspeedWithSpeedbrakeDeployedMax(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = AirspeedWithSpoilerDeployedMax
-        self.operational_combinations = [('Airspeed', 'Spoiler')]
+        self.node_class = AirspeedWithSpeedbrakeDeployedMax
+        self.operational_combinations = [('Airspeed', 'Speedbrake')]
 
     def test_derive_basic(self):
         air_spd = P(
@@ -2258,15 +2257,15 @@ class TestAirspeedWithSpoilerDeployedMax(unittest.TestCase, NodeTest):
             array=np.ma.arange(10),
         )
         spoiler = M(
-            name='Spoiler',
-            array=np.ma.array([0, 0, 0, 0, 1, 1, 0, 0, 1, 0]),
-            values_mapping={0: '-', 1: 'Deployed'},
+            name='Speedbrake',
+            array=np.ma.array([0, 0, 0, 0, 5, 5, 0, 0, 5, 0]),
         )
         node = self.node_class()
         node.derive(air_spd, spoiler)
+        print node
         self.assertItemsEqual(node, [
-            KeyPointValue(index=5, value=5.0, name='Airspeed With Spoiler Deployed Max'),
-            KeyPointValue(index=8, value=8.0, name='Airspeed With Spoiler Deployed Max'),
+            KeyPointValue(index=9, value=9.0,
+                          name='Airspeed With Speedbrake Deployed Max'),
         ])
 
 
