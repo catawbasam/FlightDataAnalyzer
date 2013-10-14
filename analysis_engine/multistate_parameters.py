@@ -1397,7 +1397,6 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
                handle=P('Speedbrake Handle'),
                spdbrk=P('Speedbrake'),
                spdsw=M('Spoiler Switch'),
-               spoiler=P('Spoiler'),
                family=A('Family')):
 
         family_name = family.value if family else ''
@@ -1423,23 +1422,23 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
 
         elif family_name == 'A320':
             self.array = self.a320_speedbrake(armed, spdbrk)
-            
+
         elif family_name == 'Learjet':
             self.array = self.learjet_speedbrake(spdsw)
-            
+
         elif family_name == 'G-V':
             # On the test aircraft SE-RDY the Speedbrake stored 0 at all
             # times and Speedbrake Handle was unresponsive with small numeric
-            # variation. The Spoilers (L) & (R) responded normally so we
+            # variation. The Speedbrake (L) & (R) responded normally so we
             # simply accept over 30deg as deployed.
-            self.array = np.ma.where(spoiler.array<30.0,
+            self.array = np.ma.where(spdbrk.array < 30.0,
                                      'Stowed',
                                      'Deployed/Cmd Up')
-            
+
         elif family_name in['Global', 'CRJ 100/200', 'ERJ-135/145']:
             # No valid data seen for this type to date....
             self.array = np_ma_masked_zeros_like(handle.array)
-            
+
         else:
             raise NotImplementedError
 

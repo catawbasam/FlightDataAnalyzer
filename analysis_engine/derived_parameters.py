@@ -5211,11 +5211,9 @@ class ElevatorRight(DerivedParameterNode):
             pot_samples = np.ma.count(pot.array)
             if pot_samples>synchro_samples:
                 self.array = pot.array
-        
-    
 
-    
-################################################################################
+
+###############################################################################
 # Speedbrake
 
 
