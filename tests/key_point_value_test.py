@@ -245,7 +245,7 @@ from analysis_engine.key_point_values import (
     GroundspeedDuringRejectedTakeoffMax,
     GroundspeedMax,
     GroundspeedSpeedbrakeHandleDuringTakeoffMax,
-    GroundspeedSpoilerDuringTakeoffMax,
+    GroundspeedSpeedbrakeDuringTakeoffMax,
     GroundspeedStabilizerOutOfTrimDuringTakeoffMax,
     GroundspeedVacatingRunway,
     GroundspeedWhileTaxiingStraightMax,
@@ -6375,11 +6375,11 @@ class TestGroundspeedSpeedbrakeHandleDuringTakeoffMax(unittest.TestCase,
         )
 
 
-class TestGroundspeedSpoilerDuringTakeoffMax(unittest.TestCase, NodeTest):
+class TestGroundspeedSpeedbrakeDuringTakeoffMax(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = GroundspeedSpoilerDuringTakeoffMax
+        self.node_class = GroundspeedSpeedbrakeDuringTakeoffMax
         self.operational_combinations = [
-            ('Groundspeed', 'Spoiler', 'Takeoff Roll')]
+            ('Groundspeed', 'Speedbrake', 'Takeoff Roll')]
 
     def test_derive(self):
         array = np.arange(10) + 100
@@ -6388,7 +6388,7 @@ class TestGroundspeedSpoilerDuringTakeoffMax(unittest.TestCase, NodeTest):
 
         array = 20 + np.arange(5, 25, 2)
         array = np.ma.concatenate((array[::-1], array))
-        stab = P('Spoiler', array)
+        stab = P('Speedbrake', array)
 
         phase = S(frequency=1)
         phase.create_section(slice(0, 20))
