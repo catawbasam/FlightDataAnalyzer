@@ -1426,12 +1426,12 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
         elif family_name == 'Learjet':
             self.array = self.learjet_speedbrake(spdsw)
 
-        elif family_name == 'G-V':
+        elif family_name in ['G-V','CRJ 900']:
             # On the test aircraft SE-RDY the Speedbrake stored 0 at all
             # times and Speedbrake Handle was unresponsive with small numeric
             # variation. The Speedbrake (L) & (R) responded normally so we
             # simply accept over 30deg as deployed.
-            self.array = np.ma.where(spdbrk.array < 30.0,
+            self.array = np.ma.where(spdbrk.array < 2.0,
                                      'Stowed',
                                      'Deployed/Cmd Up')
 
