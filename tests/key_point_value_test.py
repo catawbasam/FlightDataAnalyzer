@@ -6360,13 +6360,13 @@ class TestGroundspeedSpeedbrakeHandleDuringTakeoffMax(unittest.TestCase,
 
         array = 1 + np.arange(0, 20, 2) * 0.1
         array = np.ma.concatenate((array[::-1], array))
-        stab = P('Stabilizer', array)
+        spdbrk = P('Speedbrake Handle', array)
 
         phase = S(frequency=1)
         phase.create_section(slice(0, 20))
 
         node = self.node_class()
-        node.derive(gspd, stab, phase)
+        node.derive(gspd, spdbrk, phase)
         self.assertEqual(
             node,
             KPV(self.node_class.get_name(),
