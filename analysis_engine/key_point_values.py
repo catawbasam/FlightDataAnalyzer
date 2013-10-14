@@ -7040,7 +7040,6 @@ class GroundspeedAtTOGA(KeyPointValueNode):
 class GroundspeedWithThrustReversersDeployedMin(KeyPointValueNode):
     '''
     '''
-
     units = 'kt'
 
     def derive(self,
@@ -7060,15 +7059,31 @@ class GroundspeedStabilizerOutOfTrimDuringTakeoffMax(KeyPointValueNode):
     '''
     units = 'kt'
 
+    @classmethod
+    def can_operate(cls, available, family=A('Family'), series=A('Series')):
+        from flightdatautilities import trim_limits
+
+        family_ok = family \
+            and family.value in trim_limits.STABILIZER_LIMITS_FAMILIES
+        series_ok = series \
+            and series.value in trim_limits.STABILIZER_LIMITS_SERIES
+
+        return (family_ok or series_ok) and \
+            all_of(('Groundspeed', 'Stabilizer', 'Takeoff Roll'), available)
+
     def derive(self,
                gnd_spd=P('Groundspeed'),
                stab=P('Stabilizer'),
                takeoff_roll=S('Takeoff Roll'),
                family=A('Family'),
+               series=A('Series'),
                ):
         from flightdatautilities.trim_limits import get_stabilizer_limits
 
-        stab_fwd, stab_aft = get_stabilizer_limits(family.value)
+        family_name = family.value if family else None
+        series_name = series.value if series else None
+
+        stab_fwd, stab_aft = get_stabilizer_limits(family_name, series_name)
 
         if stab_fwd is None or stab_aft is None:
             self.warning('No stabilizer trim limits for aircraft family `%s`',
