@@ -1435,7 +1435,7 @@ class SpeedbrakeSelected(MultistateDerivedParameterNode):
                                      'Stowed',
                                      'Deployed/Cmd Up')
 
-        elif family_name in['Global', 'CRJ 100/200', 'ERJ-135/145']:
+        elif family_name in['Global', 'CRJ 100/200', 'CRJ 900', 'ERJ-135/145']:
             # No valid data seen for this type to date....
             self.array = np_ma_masked_zeros_like(handle.array)
 
