@@ -5231,16 +5231,40 @@ class Speedbrake(DerivedParameterNode):
     align = False
 
     @classmethod
-    def can_operate(cls, available):
+    def can_operate(cls, available, family=A('Family')):
         '''
         Note: The frame name cannot be accessed within this method to determine
               which parameters are required.
         '''
-        return 'Frame' in available and (
-            all_of(('Spoiler (1)', 'Spoiler (14)'), available) or
-            all_of(('Spoiler (2)', 'Spoiler (7)'), available) or
-            all_of(('Spoiler (4)', 'Spoiler (9)'), available))
-    
+        family_name = family.value if family else None
+        return family_name and (
+            family_name == 'B737-Classic' and (
+                'Spoiler (4)' in available or
+                'Spoiler (9)' in available
+            ) or
+            # FIXME: this is currently used with frame A320_SFIM_ED45_CFM
+            family_name in ['B737-NG', 'A320'] and (
+                'Spoiler (2)' in available or
+                'Spoiler (7)' in available
+            ) or
+            family_name == 'B787' and (
+                'Spoiler (1)' in available or
+                'Spoiler (14)' in available
+            ) or
+            family_name in ['G-V', 'Learjet'] and any_of((
+                'Spoiler (L)',
+                'Spoiler (R)'),
+                available
+            ) or
+            family_name in ['CRJ 900'] and any_of((
+                'Spoiler (L) Inboard',
+                'Spoiler (L) Outboard',
+                'Spoiler (R) Inboard',
+                'Spoiler (R) Outboard'),
+                available
+            )
+        )
+
     def merge_spoiler(self, spoiler_a, spoiler_b):
         '''
         We indicate the angle of the lower of the two raised spoilers, as
@@ -5256,57 +5280,11 @@ class Speedbrake(DerivedParameterNode):
         return array, offset
 
     def derive(self,
-            spoiler_1=P('Spoiler (1)'), spoiler_2=P('Spoiler (2)'),
-            spoiler_7=P('Spoiler (7)'), spoiler_4=P('Spoiler (4)'),
-            spoiler_9=P('Spoiler (9)'), spoiler_14=P('Spoiler (14)'),
-            frame=A('Frame')):
-        '''
-        '''
-        frame_name = frame.value if frame else ''
-
-        if frame_name in ['737-3', '737-3A', '737-3B', '737-3C', '737-7']:
-            self.array, self.offset = self.merge_spoiler(spoiler_4, spoiler_9)
-
-        elif frame_name in ['737-4', '737-4_NON-EIS', '737-5', '737-5_NON-EIS',
-                            '737-6', '737-6_NON-EIS', '737-2227000-335A',
-                            'A320_SFIM_ED45_CFM']:
-            self.array, self.offset = self.merge_spoiler(spoiler_2, spoiler_7)
-        
-        elif frame_name == '787-RR-BCG49-ACMF-RR17':
-            self.array, self.offset = self.merge_spoiler(spoiler_1, spoiler_14)
-
-        else:
-            raise DataFrameError(self.name, frame_name)
-
-
-class Spoiler(DerivedParameterNode):
-    align = False
-
-    @classmethod
-    def can_operate(cls, available, family=A('Family')):
-        if not family or not family.value:
-            return False
-
-        return (
-            family.value == 'B787' and (
-                'Spoiler (1)' in available or
-                'Spoiler (14)' in available
-            ) or
-            family.value in ['G-V', 'Learjet'] and (
-                'Spoiler (L)' in available or
-                'Spoiler (R)' in available
-            ) or
-            family.value in ['CRJ 900'] and any_of((
-                'Spoiler (L) Inboard',
-                'Spoiler (L) Outboard',
-                'Spoiler (R) Inboard',
-                'Spoiler (R) Outboard'),
-                available
-            )
-        )
-
-    def derive(self,
                spoiler_1=P('Spoiler (1)'),
+               spoiler_2=P('Spoiler (2)'),
+               spoiler_4=P('Spoiler (4)'),
+               spoiler_7=P('Spoiler (7)'),
+               spoiler_9=P('Spoiler (9)'),
                spoiler_14=P('Spoiler (14)'),
                spoiler_L=P('Spoiler (L)'),
                spoiler_R=P('Spoiler (R)'),
@@ -5316,21 +5294,30 @@ class Spoiler(DerivedParameterNode):
                spoiler_RO=P('Spoiler (R) Outboard'),
                family=A('Family'),
                ):
-        if family.value == 'B787':
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(spoiler_1, spoiler_14)
+        '''
+        '''
+        family_name = family.value
 
-        elif family.value in ['G-V', 'Learjet']:
-            self.array, self.frequency, self.offset = \
-                blend_two_parameters(spoiler_L, spoiler_R)
+        if family_name == 'B737-Classic':
+            self.array, self.offset = self.merge_spoiler(spoiler_4, spoiler_9)
 
-        elif family.value in ['CRJ 900']:
-            self.array, self.frequency, self.offset = \
-                blend_parameters(spoiler_LI, spoiler_LO, spoiler_RI,
-                                 spoiler_RO)
+        elif family_name in ['B737-NG', 'A320']:
+            self.array, self.offset = self.merge_spoiler(spoiler_2, spoiler_7)
+
+        elif family_name == '787':
+            self.array, self.offset = self.merge_spoiler(spoiler_1, spoiler_14)
+
+        elif family_name in ['G-V', 'Learjet']:
+            self.array, self.offset = self.merge_spoiler(spoiler_L, spoiler_R)
+
+        elif family_name in ['CRJ 900']:
+            # First blend inboard and outboard, then merge
+            spoiler_L = blend_two_parameters(spoiler_LI, spoiler_LO)
+            spoiler_R = blend_two_parameters(spoiler_RI, spoiler_RO)
+            self.array, self.offset = self.merge_spoiler(spoiler_L, spoiler_R)
 
         else:
-            raise DataFrameError(self.name, family.value)
+            raise DataFrameError(self.name, family_name)
 
 
 class SpeedbrakeHandle(DerivedParameterNode):
