@@ -146,6 +146,7 @@ from analysis_engine.key_point_values import (
     AltitudeSTDAtLiftoff,
     AltitudeSTDAtTouchdown,
     AltitudeWithFlapMax,
+    AltitudeSTDWithGearDownMax,
     AltitudeWithGearDownMax,
     AutobrakeRejectedTakeoffNotSetDuringTakeoff,
     BrakePressureInTakeoffRollMax,
@@ -3223,11 +3224,12 @@ class TestAltitudeWithGearDownMax(unittest.TestCase, NodeTest):
 
     def setUp(self):
         self.node_class = AltitudeWithGearDownMax
-        self.operational_combinations = [('Altitude AAL', 'Gear Down', 'Airborne')]
+        self.operational_combinations = [
+            ('Altitude AAL', 'Gear Down', 'Airborne')]
 
     def test_derive_basic(self):
         alt_aal = P(
-            name='Altitude',
+            name='Altitude AAL',
             array=np.ma.arange(10),
         )
         gear = M(
@@ -3239,9 +3241,42 @@ class TestAltitudeWithGearDownMax(unittest.TestCase, NodeTest):
         node = self.node_class()
         node.derive(alt_aal, gear, airs)
         self.assertItemsEqual(node, [
-            KeyPointValue(index=1, value=1.0, name='Altitude With Gear Down Max'),
-            KeyPointValue(index=3, value=3.0, name='Altitude With Gear Down Max'),
-            KeyPointValue(index=5, value=5.0, name='Altitude With Gear Down Max'),
+            KeyPointValue(index=1, value=1.0,
+                          name='Altitude With Gear Down Max'),
+            KeyPointValue(index=3, value=3.0,
+                          name='Altitude With Gear Down Max'),
+            KeyPointValue(index=5, value=5.0,
+                          name='Altitude With Gear Down Max'),
+        ])
+
+
+class TestAltitudeSTDWithGearDownMax(unittest.TestCase, NodeTest):
+
+    def setUp(self):
+        self.node_class = AltitudeSTDWithGearDownMax
+        self.operational_combinations = [
+            ('Altitude STD', 'Gear Down', 'Airborne')]
+
+    def test_derive_basic(self):
+        alt_aal = P(
+            name='Altitude STD',
+            array=np.ma.arange(10),
+        )
+        gear = M(
+            name='Gear Down',
+            array=np.ma.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1]),
+            values_mapping={0: 'Up', 1: 'Down'},
+        )
+        airs = buildsection('Airborne', 0, 7)
+        node = self.node_class()
+        node.derive(alt_aal, gear, airs)
+        self.assertItemsEqual(node, [
+            KeyPointValue(index=1, value=1.0,
+                          name='Altitude STD With Gear Down Max'),
+            KeyPointValue(index=3, value=3.0,
+                          name='Altitude STD With Gear Down Max'),
+            KeyPointValue(index=5, value=5.0,
+                          name='Altitude STD With Gear Down Max'),
         ])
 
 
