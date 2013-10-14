@@ -130,7 +130,7 @@ def derive_parameters(hdf, node_mgr, process_order):
             #Q: track node instead of result here??
             params[param_name] = result
             for one_hz in result.get_aligned(P(frequency=1, offset=0)):
-                if not (0 <= one_hz.index <= duration):
+                if not (0 <= one_hz.index <= duration+4):
                     raise IndexError(
                         "KPV '%s' index %.2f is not between 0 and %d" %
                         (one_hz.name, one_hz.index, duration))
@@ -138,7 +138,7 @@ def derive_parameters(hdf, node_mgr, process_order):
         elif node.node_type is KeyTimeInstanceNode:
             params[param_name] = result
             for one_hz in result.get_aligned(P(frequency=1, offset=0)):
-                if not (0 <= one_hz.index <= duration):
+                if not (0 <= one_hz.index <= duration+4):
                     raise IndexError(
                         "KTI '%s' index %.2f is not between 0 and %d" %
                         (one_hz.name, one_hz.index, duration))
