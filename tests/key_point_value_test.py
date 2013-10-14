@@ -142,6 +142,7 @@ from analysis_engine.key_point_values import (
     AltitudeOvershootAtSuspectedLevelBust,
     AltitudeQNHAtLiftoff,
     AltitudeQNHAtTouchdown,
+    AltitudeRadioCleanConfigurationMin,
     AltitudeSTDAtLiftoff,
     AltitudeSTDAtTouchdown,
     AltitudeWithFlapMax,
@@ -2931,6 +2932,36 @@ class TestAirspeedAtFlapExtensionWithGearDown(unittest.TestCase, NodeTest):
         self.assertEqual(first.value, 280)
         self.assertEqual(first.name, 'Airspeed At Flap 10 Extension With Gear Down')
 
+
+class TestAltitudeRadioCleanConfigurationMin(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = AltitudeRadioCleanConfigurationMin
+        self.operational_combinations = [
+            ('Altitude Radio', 'Flap', 'Gear Retracted')
+        ]
+
+    def test_derive(self):
+        flap_array = np.ma.array([15] * 8 + [0] * 9 + [15] * 8)
+        flap = M('Flap', flap_array)
+
+        alt_array = np.ma.concatenate(
+            [
+                np.ma.arange(0, 1000, 100),
+                [1000] * 5,
+                np.ma.arange(1000, 0, -100),
+            ]
+        )
+        alt_rad = P('Altitude Radio',
+                    array=alt_array)
+
+        gear_retr = S(items=[Section('Gear Retracted', slice(5, 10), 5, 10)])
+
+        node = self.node_class()
+        node.derive(alt_rad, flap, gear_retr)
+        self.assertEqual(
+            node,
+            [KeyPointValue(index=8.0, value=800.0,
+                           name=self.node_class.get_name())])
 
 
 class TestAltitudeAtLastFlapChangeBeforeTouchdown(unittest.TestCase, NodeTest):

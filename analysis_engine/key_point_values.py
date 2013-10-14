@@ -2721,6 +2721,17 @@ class AirspeedAtFlapExtensionWithGearDown(KeyPointValueNode):
                 self.create_kpv(index, value, flap=int(selected_flap))
 
 
+class AltitudeRadioCleanConfigurationMin(KeyPointValueNode):
+    def derive(self,
+               alt_rad=P('Altitude Radio'),
+               flap=M('Flap'),
+               gear_retr=S('Gear Retracted')):
+
+        alt_rad_noflap = np.ma.masked_where(flap.array != 0.0, alt_rad.array)
+        self.create_kpvs_within_slices(alt_rad_noflap, gear_retr, min_value)
+
+
+
 ##########################################################################
 # Speeds relative to Vref Flap 30 + 80 kts (Boeing procedures for 757/767).
 ##########################################################################
