@@ -243,9 +243,10 @@ from analysis_engine.key_point_values import (
     GroundspeedAtTOGA,
     GroundspeedAtTouchdown,
     GroundspeedDuringRejectedTakeoffMax,
+    GroundspeedFlapChangeDuringTakeoffMax,
     GroundspeedMax,
-    GroundspeedSpeedbrakeHandleDuringTakeoffMax,
     GroundspeedSpeedbrakeDuringTakeoffMax,
+    GroundspeedSpeedbrakeHandleDuringTakeoffMax,
     GroundspeedStabilizerOutOfTrimDuringTakeoffMax,
     GroundspeedVacatingRunway,
     GroundspeedWhileTaxiingStraightMax,
@@ -6400,6 +6401,33 @@ class TestGroundspeedSpeedbrakeDuringTakeoffMax(unittest.TestCase, NodeTest):
             KPV(self.node_class.get_name(),
                 items=[KeyPointValue(name=self.node_class.get_name(),
                                      index=0.0, value=109.0)])
+        )
+
+
+class TestGroundspeedFlapChangeDuringTakeoffMax(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = GroundspeedFlapChangeDuringTakeoffMax
+        self.operational_combinations = [
+            ('Groundspeed', 'Flap', 'Takeoff Roll')]
+
+    def test_derive(self):
+        array = np.arange(10) + 100
+        array = np.ma.concatenate((array[::-1], array))
+        gspd = P('Groundspeed', array)
+
+        array = np.array([0] * 5 + [10] * 10 + [0] * 5)
+        flap = P('Flap', array)
+
+        phase = S(frequency=1)
+        phase.create_section(slice(0, 20))
+
+        node = self.node_class()
+        node.derive(gspd, flap, phase)
+        self.assertEqual(
+            node,
+            KPV(self.node_class.get_name(),
+                items=[KeyPointValue(name=self.node_class.get_name(),
+                                     index=15.0, value=105.0)])
         )
 
 
