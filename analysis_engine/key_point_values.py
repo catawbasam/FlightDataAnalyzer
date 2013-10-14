@@ -1826,10 +1826,10 @@ class AirspeedRelativeWithConfigurationDuringDescentMin(KeyPointValueNode, FlapO
 
 
 ########################################
-# Airspeed: Spoilers
+# Airspeed: Speedbrakes
 
 
-class AirspeedWithSpoilerDeployedMax(KeyPointValueNode):
+class AirspeedWithSpeedbrakeDeployedMax(KeyPointValueNode):
     '''
     '''
 
@@ -1837,10 +1837,10 @@ class AirspeedWithSpoilerDeployedMax(KeyPointValueNode):
 
     def derive(self,
                air_spd=P('Airspeed'),
-               spoiler=P('Spoiler')):
+               spdbrk=P('Speedbrake')):
 
-        spoiler.array[spoiler.array>SPOILER_DEPLOYED] = np.ma.masked
-        spoiler_deployeds = np.ma.clump_unmasked(spoiler.array)
+        spdbrk.array[spdbrk.array > SPOILER_DEPLOYED] = np.ma.masked
+        spoiler_deployeds = np.ma.clump_unmasked(spdbrk.array)
         self.create_kpvs_within_slices(
             air_spd.array, spoiler_deployeds, max_value)
 
@@ -7107,7 +7107,7 @@ class GroundspeedSpeedbrakeHandleDuringTakeoffMax(KeyPointValueNode):
         self.create_kpvs_within_slices(gspd_masked, takeoff_roll, max_value)
 
 
-class GroundspeedSpoilerDuringTakeoffMax(KeyPointValueNode):
+class GroundspeedSpeedbrakeDuringTakeoffMax(KeyPointValueNode):
     '''
     Maximum Groundspeed turing takeoff roll when the speedbrake handle is over
     limit.
@@ -7116,13 +7116,37 @@ class GroundspeedSpoilerDuringTakeoffMax(KeyPointValueNode):
 
     def derive(self,
                gnd_spd=P('Groundspeed'),
-               spoil=P('Spoiler'),
+               spdbrk=P('Speedbrake'),
                takeoff_roll=S('Takeoff Roll'),
                ):
 
-        SPOILER_LIMIT = 39
+        SPEEDBRAKE_LIMIT = 39
 
-        masked_in_range = np.ma.masked_less_equal(spoil.array, SPOILER_LIMIT)
+        masked_in_range = np.ma.masked_less_equal(spdbrk.array,
+                                                  SPEEDBRAKE_LIMIT)
+
+        # Masking groundspeed where speedbrake is within limit.
+        # WARNING: in this particular case we don't want the KPV to be created
+        # when the condition (stabilizer out of trim) is not met.
+        gspd_masked = np.ma.array(gnd_spd.array, mask=masked_in_range.mask)
+        self.create_kpvs_within_slices(gspd_masked, takeoff_roll, max_value)
+
+
+class GroundspeedFlapChangeDuringTakeoffMax(KeyPointValueNode):
+    '''
+    Maximum Groundspeed turing takeoff roll when the speedbrake handle is over
+    limit.
+    '''
+    units = 'kt'
+
+    def derive(self,
+               gnd_spd=P('Groundspeed'),
+               flap=P('Flap'),
+               takeoff_roll=S('Takeoff Roll'),
+               ):
+
+        flap_changes = np.ma.ediff1d(flap.array, to_begin=0)
+        masked_in_range = np.ma.masked_equal(flap_changes, 0)
 
         # Masking groundspeed where speedbrake is within limit.
         # WARNING: in this particular case we don't want the KPV to be created

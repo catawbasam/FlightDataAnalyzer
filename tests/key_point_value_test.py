@@ -109,7 +109,7 @@ from analysis_engine.key_point_values import (
     AirspeedWithFlapMax,
     AirspeedWithFlapMin,
     AirspeedWithGearDownMax,
-    AirspeedWithSpoilerDeployedMax,
+    AirspeedWithSpeedbrakeDeployedMax,
     AirspeedWithThrustReversersDeployedMin,
     AltitudeAtAPDisengagedSelection,
     AltitudeAtAPEngagedSelection,
@@ -243,9 +243,10 @@ from analysis_engine.key_point_values import (
     GroundspeedAtTOGA,
     GroundspeedAtTouchdown,
     GroundspeedDuringRejectedTakeoffMax,
+    GroundspeedFlapChangeDuringTakeoffMax,
     GroundspeedMax,
+    GroundspeedSpeedbrakeDuringTakeoffMax,
     GroundspeedSpeedbrakeHandleDuringTakeoffMax,
-    GroundspeedSpoilerDuringTakeoffMax,
     GroundspeedStabilizerOutOfTrimDuringTakeoffMax,
     GroundspeedVacatingRunway,
     GroundspeedWhileTaxiingStraightMax,
@@ -2246,11 +2247,10 @@ class TestAirspeedDuringLevelFlightMax(unittest.TestCase, NodeTest):
         self.assertTrue(False, msg='Test not implemented.')
 
 
-class TestAirspeedWithSpoilerDeployedMax(unittest.TestCase, NodeTest):
-
+class TestAirspeedWithSpeedbrakeDeployedMax(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = AirspeedWithSpoilerDeployedMax
-        self.operational_combinations = [('Airspeed', 'Spoiler')]
+        self.node_class = AirspeedWithSpeedbrakeDeployedMax
+        self.operational_combinations = [('Airspeed', 'Speedbrake')]
 
     def test_derive_basic(self):
         air_spd = P(
@@ -2258,15 +2258,15 @@ class TestAirspeedWithSpoilerDeployedMax(unittest.TestCase, NodeTest):
             array=np.ma.arange(10),
         )
         spoiler = M(
-            name='Spoiler',
-            array=np.ma.array([0, 0, 0, 0, 1, 1, 0, 0, 1, 0]),
-            values_mapping={0: '-', 1: 'Deployed'},
+            name='Speedbrake',
+            array=np.ma.array([0, 0, 0, 0, 5, 5, 0, 0, 5, 0]),
         )
         node = self.node_class()
         node.derive(air_spd, spoiler)
+        print node
         self.assertItemsEqual(node, [
-            KeyPointValue(index=5, value=5.0, name='Airspeed With Spoiler Deployed Max'),
-            KeyPointValue(index=8, value=8.0, name='Airspeed With Spoiler Deployed Max'),
+            KeyPointValue(index=9, value=9.0,
+                          name='Airspeed With Speedbrake Deployed Max'),
         ])
 
 
@@ -6361,7 +6361,35 @@ class TestGroundspeedSpeedbrakeHandleDuringTakeoffMax(unittest.TestCase,
 
         array = 1 + np.arange(0, 20, 2) * 0.1
         array = np.ma.concatenate((array[::-1], array))
-        stab = P('Stabilizer', array)
+        spdbrk = P('Speedbrake Handle', array)
+
+        phase = S(frequency=1)
+        phase.create_section(slice(0, 20))
+
+        node = self.node_class()
+        node.derive(gspd, spdbrk, phase)
+        self.assertEqual(
+            node,
+            KPV(self.node_class.get_name(),
+                items=[KeyPointValue(name=self.node_class.get_name(),
+                                     index=0.0, value=109.0)])
+        )
+
+
+class TestGroundspeedSpeedbrakeDuringTakeoffMax(unittest.TestCase, NodeTest):
+    def setUp(self):
+        self.node_class = GroundspeedSpeedbrakeDuringTakeoffMax
+        self.operational_combinations = [
+            ('Groundspeed', 'Speedbrake', 'Takeoff Roll')]
+
+    def test_derive(self):
+        array = np.arange(10) + 100
+        array = np.ma.concatenate((array[::-1], array))
+        gspd = P('Groundspeed', array)
+
+        array = 20 + np.arange(5, 25, 2)
+        array = np.ma.concatenate((array[::-1], array))
+        stab = P('Speedbrake', array)
 
         phase = S(frequency=1)
         phase.create_section(slice(0, 20))
@@ -6376,31 +6404,30 @@ class TestGroundspeedSpeedbrakeHandleDuringTakeoffMax(unittest.TestCase,
         )
 
 
-class TestGroundspeedSpoilerDuringTakeoffMax(unittest.TestCase, NodeTest):
+class TestGroundspeedFlapChangeDuringTakeoffMax(unittest.TestCase, NodeTest):
     def setUp(self):
-        self.node_class = GroundspeedSpoilerDuringTakeoffMax
+        self.node_class = GroundspeedFlapChangeDuringTakeoffMax
         self.operational_combinations = [
-            ('Groundspeed', 'Spoiler', 'Takeoff Roll')]
+            ('Groundspeed', 'Flap', 'Takeoff Roll')]
 
     def test_derive(self):
         array = np.arange(10) + 100
         array = np.ma.concatenate((array[::-1], array))
         gspd = P('Groundspeed', array)
 
-        array = 20 + np.arange(5, 25, 2)
-        array = np.ma.concatenate((array[::-1], array))
-        stab = P('Spoiler', array)
+        array = np.array([0] * 5 + [10] * 10 + [0] * 5)
+        flap = P('Flap', array)
 
         phase = S(frequency=1)
         phase.create_section(slice(0, 20))
 
         node = self.node_class()
-        node.derive(gspd, stab, phase)
+        node.derive(gspd, flap, phase)
         self.assertEqual(
             node,
             KPV(self.node_class.get_name(),
                 items=[KeyPointValue(name=self.node_class.get_name(),
-                                     index=0.0, value=109.0)])
+                                     index=15.0, value=105.0)])
         )
 
 
